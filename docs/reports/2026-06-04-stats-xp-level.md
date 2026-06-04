@@ -115,3 +115,57 @@ A wave de Marcas deve chamar `isValidKill` no listener de `kill` antes de increm
 - **Respec:** intencionalmente não implementado (DESIGN: modelo pendente). Atributos são reconstruíveis a partir da classe + histórico no futuro; nada irreversível.
 - **Placeholders calibráveis:** curva de XP (`xpForLevel`), XP do rato (20), pontos/nível (3), crescimento por classe, coeficientes de dano/regen/esquiva, faixa anti-farm — todos `// ✏️ placeholder — calibrar no M2`.
 - `npx tsc --noEmit` e `npm run build` passam.
+
+## Verificação independente (verificador)
+
+Verificação feita por agente independente (sem contexto do implementador). Diff
+lido linha a linha contra a tarefa; harness esbuild+node dirigindo a `Simulation`
+real e as funções de `progression`/`formulas` (arquivos temporários apagados, nada
+commitado além desta seção).
+
+**Build/tipos:** `npx tsc --noEmit` → 0 erros. `npm run build` (tsc + vite) → OK
+(743 módulos, sem erros).
+
+**Conformidade arquitetural (regra de ouro):**
+- `formulas.ts` importa SÓ tipos (`PlayerClass`, `Attributes`) — funções puras, sem estado.
+- Grep em `src/sim/` (formulas, progression, Simulation, balance, bestiary):
+  zero `Math.random` / `Date.now` / `performance` / `window` / `document` /
+  `requestAnimationFrame` / imports de pixi ou `../client`. As únicas ocorrências de
+  "browser" são comentários. `dodgeChance` retorna probabilidade pura (não rola RNG).
+- `src/shared/` (protocol/types) importa só tipos; `progress?` é opcional e serializável.
+- Zero mudanças em `src/client/` — snapshot novo é retrocompatível.
+- Placeholders marcados `// ✏️ placeholder — calibrar no M2` em todos os números derivados.
+
+**Harness comportamental — todos os asserts PASS:**
+- Curva de XP: `xpForLevel` 1=0, 2=100, monotônica crescente até lvl 30; `levelForXp`
+  consistente (0→1, 99→1, 100→2, `xpForLevel(5)`→5). Totais: 0/100/200/400/800/1500.
+- Kills concedem XP e disparam `level_up`: 40 kills de rato (800 XP) → nível 5,
+  4 eventos `level_up` com `from/to` sequenciais (1→2 … 4→5), HP enche ao máximo derivado.
+- Pontos livres acumulam `STAT_POINTS_PER_LEVEL` (3) por nível.
+- `allocateStatPoint`: incrementa o atributo, decrementa pontos, sobe `maxHp` (Vitalidade);
+  rejeitado (retorna false) com 0 pontos.
+- Anti-farm: lvl100 vs criatura lvl1 = 0 XP e `isValidKill=false`; lvl3 vs lvl1 = 20 XP
+  e `isValidKill=true`. `grantKillXp` com anti-farm não altera o XP acumulado.
+  `creatureLevelForTier(T1)=1`.
+- Regen por tick: mana e HP sobem ao longo de 200 ticks; não regenera entidade morta;
+  não ultrapassa o máximo. `hpRegenPerTick`/`manaRegenPerTick` > 0.
+- **Determinismo:** duas execuções idênticas (mesmos inputs) → mesma trajetória
+  (xp/level/pontos/maxHp/sequência de `level_up`).
+
+**End-to-end na `Simulation` real (combate de verdade, não só o bus):**
+- Snapshot do jogador carrega `progress` (level 1, classe knight); `maxHp` derivado =
+  `maxHp(attrs,knight,1)` = 114; HP preenchido no spawn.
+- Player anda até os ratos e auto-ataca: 55 kills, 111 hits, 1100 XP, nível 5 — pipeline
+  completo `applyDamage`→evento `kill`→`onKill`→`grantKillXp` funciona.
+- Comando `allocateStatPoint` via `handleCommand` reflete no snapshot (pontos e `maxHp`).
+- Morte + respawn: rato derruba o player a 1 HP; respawn usa `e.hp = e.maxHp` com `maxHp`
+  derivado (114), sem overflow. **Sem regressão de combate** — confirmado comparando com
+  `main` (59 kills lá, 55 aqui; mesma lógica). Monstros seguem usando números do bestiário.
+
+**Discrepâncias / observações:**
+- Nenhuma discrepância funcional vs a tarefa. Todos os 8 itens entregues.
+- Curva de XP é rasa no início (lvl1→2 e lvl2→3 = 100 cada); é placeholder e monotônica,
+  então OK — apenas anotar para calibração no M2 (design pede curva íngreme).
+- Relatório do worker confere com o comportamento observado (números batem).
+
+**Resultado:** VERIFIED.
