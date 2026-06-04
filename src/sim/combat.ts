@@ -20,6 +20,8 @@ export interface CombatCtx {
   pending: SnapshotEvent[];
   /** É noite no mundo? (placeholder M1: sempre false). */
   night: boolean;
+  /** Lookup de entidade por ID (DoT precisa achar a fonte que aplicou o status). */
+  lookup: (id: number) => SimEntity | undefined;
 }
 
 /** Identidade de combate de uma entidade (para os payloads de evento). */
@@ -88,4 +90,32 @@ export function applyDamage(
     pos: { x: target.pos.x, y: target.pos.y },
   });
   return true;
+}
+
+/**
+ * Cura `target` em até `amount` (clampado a maxHp). Emite o snapshot-event
+ * `heal` (floating text verde futuro). Não cura entidade morta. Retorna o HP
+ * efetivamente restaurado. (Cura não tem evento próprio no bus M1 — o perfil
+ * relevante vai no `skill_use`; quando houver Marca de cura, plugamos aqui.)
+ */
+export function applyHeal(
+  ctx: CombatCtx,
+  source: SimEntity,
+  target: SimEntity,
+  amount: number,
+  skillId: string | null,
+): number {
+  if (target.dead) return 0;
+  const before = target.hp;
+  target.hp = Math.min(target.maxHp, target.hp + amount);
+  const healed = target.hp - before;
+  ctx.pending.push({
+    kind: "heal",
+    skillId,
+    casterId: source.id,
+    targetId: target.id,
+    amount: healed,
+    pos: { x: target.pos.x, y: target.pos.y },
+  });
+  return healed;
 }
