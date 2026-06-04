@@ -66,7 +66,7 @@ Acampamentos, estradas, ruínas. Sem resist/fraqueza; dropam gear T1–T2. Culti
 | **Goblin Fundeiro** | T1–T2 | Atirador, Covarde | básico (funda) | primeiro ranged do jogo |
 | **Orc Soldado** | T2 | Perseguidor | básico + Autobuff (fúria) | defesa alta (escudo) |
 | **Bandido da Estrada** | T2–T3 | Perseguidor | básico + Autocura | se cura ao recuar — mate antes |
-| **Cultista do Abismo** | T3 | Atirador | básico + Projétil sombrio + *Marca Sombria* (signature: alvo toma +dano ✏️) | |
+| **Cultista do Abismo** | T3 | Atirador | básico + Projétil abissal + *Marca Sombria* (signature: alvo toma +dano ✏️) | |
 
 ## 3. Vermes (T1–T4) — o que rasteja no escuro
 
@@ -174,7 +174,7 @@ Fendas do Abismo, profundezas dos cultos. **Imunes a fogo; fracos a sagrado** �
 |---|---|---|---|---|
 | **Diabrete** | T4 | Atirador, Covarde | básico + Projétil de fogo | irritante |
 | **Cão das Brasas** | T4 | Perseguidor, Matilha | básico + queimadura no hit | caça em pares |
-| **Tormentador** | T4–T5 | Atirador | básico + Projétil sombrio + *Maldição* (signature: reduz cura recebida ✏️) | anti-sustain |
+| **Tormentador** | T4–T5 | Atirador | básico + Projétil abissal + *Maldição* (signature: reduz cura recebida ✏️) | anti-sustain |
 | **Carrasco do Abismo** | T5 | Perseguidor | básico + Área ao redor | **bruto com alcance**: o teto das criaturas padrão |
 
 ---
@@ -189,7 +189,7 @@ Fendas do Abismo, profundezas dos cultos. **Imunes a fogo; fracos a sagrado** �
 | Plantas | sangramento | veneno | **fogo** (muito) |
 | Aquáticos | — | fogo | **gelo** |
 | Voadores | — | — | — |
-| Mortos-Vivos | veneno, sangramento, **sombrio** | gelo; físico (só Espectro) | **sagrado**, fogo |
+| Mortos-Vivos | veneno, sangramento, **abissal** | gelo; físico (só Espectro) | **sagrado**, fogo |
 | Dracônicos | — | fogo | **gelo** |
 | Gigantes | — | — | — |
 | Elementais | próprio elemento, veneno, sangramento | físico (Terra) | **elemento oposto** |
@@ -207,12 +207,13 @@ Fraqueza/resistência é **multiplicador sobre o dano** (baseline 100%), nunca i
 | **Subtipo físico** (corte/impacto/perfuração) | sussurro: **±10%**, exceções raríssimas | esqueleto: maça 110%, flecha 90% |
 | **Elemental — a norma (regra 10–20)** | fraqueza **110–120%** · resistência **80–90%** | undead: fogo 110% · gelo ~85% |
 | **Quebradores autorais** (poucos, identitários) | fraqueza **~125%** · resistência **~70%** | elemental × elemento oposto ~125% · undead × sagrado ~125% ✏️ · dracônico cuspidor de fogo × fogo ~70% |
-| **Imunidade** | **0%**, raríssima e tematicamente óbvia | elemental × próprio elemento (golem de pedra × terra, elemental de fogo × fogo) · undead × sombrio · demônio × fogo |
+| **Imunidade** | **0%**, raríssima e tematicamente óbvia | elemental × próprio elemento (golem de pedra × terra, elemental de fogo × fogo) · undead × abissal · demônio × fogo |
 
-- **Exemplo canônico — Mortos-Vivos:** sombrio **0%** · sagrado **~120–125%** (candidato a quebrador ✏️) · fogo **110%** · gelo **~85%** · demais **100%**.
-- **Números exatos de toda a matriz ✏️ Balancista** — as faixas acima são a régua de design, não valores finais.
+- **Exemplo canônico — Mortos-Vivos:** abissal **0%** · sagrado **~120–125%** (candidato a quebrador ✏️) · fogo **110%** · gelo **~85%** · demais **100%**.
+- **Números exatos de toda a matriz ✏️ Balancista** — as faixas acima são a régua de design, não valores finais. **Mapeamento provisório palavra→número** (paper, jun/2026): fraco **110** · muito fraco **120** · quebrador **125** · resistente **85** · resistência identitária **70** · imune **0** · subtipo físico **90/110** — validar na sim no M2 (`docs/reports/2026-06-04-balance-consolidacao-kit-itens.md`).
 - "Devastador" no vocabulário deste doc = ~125% (quebrador) — fraqueza **nunca dobra dano**.
-- **Sombrio** é o elemento dos profanos (Projétil sombrio de Cultistas/Tormentadores) — formalizado como classe de dano; nome final ✏️ Loremaster (sombrio? trevas?). Se/quando jogadores acessam dano sombrio ✏️ aberto.
+- **Abissal / Abyssal (batizado jun/2026)** é o elemento dos profanos — a energia do Abismo (cânone: Guerra do Submundo, Fendas, Cultistas). Projétil abissal de Cultistas/Tormentadores; undead imunes (*o profano não fere o profano*). Se/quando jogadores acessam dano abissal ✏️ aberto.
+- **Multiplicadores de SKILL vs família são camada separada (decidido jun/2026):** a Regra 10-20 governa a **matriz do mob**; bônus de skill (Luz Sagrada vs profanos) e futuros "dano vs X" de Marca têm valores próprios, calibrados individualmente — regra deles: base viável contra qualquer mob, bônus forte sem trivializar (✏️ valores Balancista).
 - **Anti-datamine:** nenhum multiplicador aparece em tooltip ou viaja no snapshot — descobre-se sentindo o dano e por NPCs. Regras da camada física em `DESIGN-ITENS.md`.
 
 ## Ganchos com o sistema de Marcas

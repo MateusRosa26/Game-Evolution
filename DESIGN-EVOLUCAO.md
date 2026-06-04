@@ -289,7 +289,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Knight
 - **Fantasia:** a muralha — aguenta o que ninguém aguenta e devolve em aço.
-- **Kit do rito de classe:** espada curta + escudo de madeira. (*Golpe Forte* é a primeira compra natural no treinador — nenhuma skill vem de graça.)
+- **Kit do rito de classe:** escolha de arma — **espada × machado × maça** — **+ escudo de madeira**. A escolha semeia a lente de Marca (kills por tipo de arma) no primeiro minuto. (*Golpe Forte* = primeira compra — nenhuma skill vem de graça.)
 - **Atributos-chave:** Força, Vitalidade
 - **Lentes de rastreamento:** kills **por tipo de arma** (espada/machado/maça), kills por família de criatura **com a arma equipada**, golpes **bloqueados com escudo**, dano **absorvido**, kills em HP baixo.
 - **Caminhos típicos:**
@@ -300,7 +300,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Mage
 - **Fantasia:** o canal bruto dos elementos — frágil, devastador, obcecado.
-- **Kit do rito de classe:** cajado simples (✏️ elemento e 1H×2H — `DESIGN-ITENS.md`). (*Bola de Fogo*/*Lança de Gelo* = primeiras compras.)
+- **Kit do rito de classe:** cajado 2H, escolha **fogo × gelo** — a primeira declaração elemental (alimenta *Senhor dos Extremos*/*Coração de Cinzas*). (*Bola de Fogo*/*Lança de Gelo* = primeiras compras.)
 - **Atributos-chave:** Inteligência (dano/mana), Vitalidade (sobreviver)
 - **Lentes de rastreamento:** dano **por elemento**, perfil de **distância** dos casts, **combos** elementais (alvo congelado recebendo fogo etc.), % do dano total vindo de magia.
 - **Caminhos típicos:**
@@ -311,7 +311,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Rogue
 - **Fantasia:** a lâmina que você não viu — posição, timing e veneno.
-- **Kit do rito de classe:** adaga (✏️ uma ou duas — `DESIGN-ITENS.md`). (*Apunhalar* = primeira compra.)
+- **Kit do rito de classe:** escolha **adaga × arco** (uma arma — a segunda adaga do dual wield é a primeira meta de compra). (*Apunhalar* = primeira compra.)
 - **Atributos-chave:** Destreza (dano/esquiva/vel. ataque), Vitalidade
 - **Lentes de rastreamento:** kills **pelas costas**, kills **à noite**, combates vencidos **sem tomar dano**, kills com alvo **envenenado**, kills com golpe final em alvo com HP cheio (one-shot de abertura).
 - **Caminhos típicos:**
@@ -322,7 +322,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Priest
 - **Fantasia:** o canal do sagrado — sustenta os vivos, apaga os profanos.
-- **Kit do rito de classe:** cetro. (*Luz Sagrada* + *Curar Ferimentos* = primeiras compras.)
+- **Kit do rito de classe:** escolha **cetro × luva** — a luva é oferecida **sem comentário algum do NPC**: o hint silencioso do Monge (quem a escolhe começa *Mão Vazia* limpa desde a ordenação). (*Luz Sagrada* + *Curar Ferimentos* = primeiras compras.)
 - **Atributos-chave:** Espírito (cura/regen de mana), Inteligência (dano sagrado)
 - **Lentes de rastreamento:** **cura total realizada**, kills vs mortos-vivos/demônios **com dano sagrado**, dano tomado **no lugar de aliados** (online), conduta de **nunca equipar arma**, conduta de pacifismo.
 - **Caminhos típicos:**
@@ -509,6 +509,7 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
 - [ ] Lista de eventos canônicos que evoluem Marcas (world bosses no M3+, PvP no M6+)
 - [ ] Curva de XP / força dos mobs — números no M2
 - [ ] Classless: números do crescimento genérico; recalcula retroativo ao adquirir classe?; custo em gold do rito (Balancista) e conteúdo das 4 quests de rito (world-designer/Loremaster)
+- [ ] Calibrar `LUZ_SAGRADA.unholyMultiplier` na sim (placeholder ×2.5) — **decidido (jun/2026)**: multiplicador de skill vs família é **camada separada da matriz 10-20** (identidade de skill, estilo card do RO), mas calibrado: dano-base viável contra QUALQUER mob (é o nuke geral do Priest) + bônus vs profanos forte **sem trivializar** a família-coração (report `2026-06-04-balance-consolidacao-kit-itens.md`)
 
 ### Decididos recentemente (histórico)
 

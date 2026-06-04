@@ -123,7 +123,7 @@ Joia (colar/anel): SEM base — o slot é só bônus (joia NUNCA tem Def física
 | Anel ×2 | — | +regen · facilitação · resists · atributo (só lendário/único + tradeoff) |
 | Mãos | dano / Def | já especificado no roster de tipos |
 
-**Famílias temáticas — SEM set bonus (decidido):** linhas de gear com tema onde **cada peça carrega o tema sozinha** (capuz, robe e calça do erudito dão mana/regen cada um — usar várias soma naturalmente; misturar linhas é livre e eficiente). Sem bônus por completar conjunto: a camada "conjunto com história" é das **Marcas**, e o mix-and-match é onde mora a expressão de build num jogo sem subclasses. Famílias-exemplo (nomes ✏️ Loremaster): sustain arcano (mana/regen) · potência mágica · dano elemental · caçador (distância) · bastião (Def/HP) · templário (holy/cura).
+**Famílias temáticas — SEM set bonus (decidido):** linhas de gear com tema onde **cada peça carrega o tema sozinha** (capuz, robe e calça do Erudito dão mana/regen cada um — usar várias soma naturalmente; misturar linhas é livre e eficiente). Sem bônus por completar conjunto: a camada "conjunto com história" é das **Marcas**, e o mix-and-match é onde mora a expressão de build num jogo sem subclasses. **As 6 famílias (batizadas jun/2026, registro "do/da \<arquétipo\>"):** **do Erudito** / *Scholar's* (mana/regen) · **do Arcanista** / *Arcanist's* (potência mágica) · **do Elementalista** / *Elementalist's* (dano elemental) · **do Caçador** / *Hunter's* (distância) · **da Muralha** / *Bulwark* (Def/HP — eco da fantasia do Knight) · **da Vigília** / *Vigil's* (holy/cura).
 
 **Cadência de conteúdo** (régua de releases): itens básicos → diversificados → com tradeoffs → lendários/únicos de quests difíceis e **eventos icônicos do mundo**, em quantidades **limitadíssimas** — nunca quebram a balança; abrem espaço de upgrade e build.
 
@@ -170,13 +170,13 @@ Dano físico tem 3 subtipos: **corte** (espada/machado), **impacto** (maça), **
 - **Modificadores sutis: teto ±10%** (✏️ valores exatos com Balancista). Perceptível — o dano do jogo é estável (sem crit passivo, sem accuracy, mob não esquiva), então ±10% é legível nos números — mas **nunca decisivo**: ±25% já seria "caçar 25% mais rápido", otimização real, pressão de loadout.
 - **Imunidade NUNCA por subtipo de arma.** Imunidade/resistência forte só existe na **classe de dano inteira** (ex: Espectro resiste a *físico* — já no bestiário) e segue raríssima.
 - **Anti-datamine:** resists do mob não viajam no snapshot nem aparecem em tooltip — descobre-se sentindo o dano e por NPCs ("flecha em osso é reza pro vento", diz o caçador).
-- **Divisão de papéis:** a matriz **elemental** do bestiário é quem carrega a demanda situacional de loadout — e mesmo ela segue a **"Regra 10–20"**: norma ±10–20%, poucos quebradores autorais identitários (~125% / ~70%) e imunidade (0%) raríssima e temática (golem de pedra × terra, undead × sombrio). Escala completa em `DESIGN-BESTIARIO.md` ("Escala de multiplicadores"). O subtipo físico (±10%) é a camada-sussurro abaixo dela.
+- **Divisão de papéis:** a matriz **elemental** do bestiário é quem carrega a demanda situacional de loadout — e mesmo ela segue a **"Regra 10–20"**: norma ±10–20%, poucos quebradores autorais identitários (~125% / ~70%) e imunidade (0%) raríssima e temática (golem de pedra × terra, undead × abissal). Escala completa em `DESIGN-BESTIARIO.md` ("Escala de multiplicadores"). O subtipo físico (±10%) é a camada-sussurro abaixo dela.
 
 ### Regras transversais do roster (decidido)
 
 - **1H × 2H (espada/machado/maça):** o 2H compra **dano por golpe** e paga com a **off-hand** (escudo/livro/luva). Velocidade é perfil da **família**, não das mãos — machado é lento sendo 1H ou 2H, espada é equilibrada nas duas. Quanto dano a mais ✏️ Balancista.
 - **Arco × besta:** arco = cadência rápida, dano menor · besta = lenta, golpe pesado — o perfil espada×machado do ranged. Munições distintas (**flechas × virotes**), ambas no utilitário, consomem.
-- **Adaga é tipo único** — sem subtipos; a variedade vem de itens autorais (adaga com veneno, +sombrio, lendárias…). Mantém a lente de Marca do Rogue coesa.
+- **Adaga é tipo único** — sem subtipos; a variedade vem de itens autorais (adaga com veneno, +abissal, lendárias…). Mantém a lente de Marca do Rogue coesa.
 - **Off-hand fechada:** a segunda mão recebe **arma 1H** (dual wield só Rogue), **escudo**, **livro** ou **luva**. Tocha mora no utilitário. Categoria nova de off-hand só como item raro dentro de tipo existente (ex: "foco arcano" = livro).
 - **Nenhum tipo tem trava de classe** — confirmado inclusive pro cetro. A única trava do jogo segue sendo dual wield (Rogue).
 
@@ -197,7 +197,7 @@ Dano físico tem 3 subtipos: **corte** (espada/machado), **impacto** (maça), **
 Duas camadas:
 
 1. **Def passiva** — stat constante, entra na fórmula de mitigação física normal (como peça de armadura). Sempre ativa, visível no tooltip.
-2. **Bloqueio** — chance % de bloquear; ao bloquear, absorve **% grande do golpe (✏️ ~60–80%, Balancista), nunca 100%** — sempre vaza dano. Cada bloqueio emite o evento `block` (contador do *Inabalável*).
+2. **Bloqueio** — chance % de bloquear; ao bloquear, absorve **% grande do golpe (✏️ ~60–80%, Balancista), nunca 100%** — sempre vaza dano. Cada bloqueio emite o evento `block` (contador do *Inabalável*). **Provisórios de paper (jun/2026):** chance ~20% no T1, chunk **70%**; ordem das camadas: bloqueio % → Def flat → piso 1 (resists % só na parcela elemental) — report em `docs/reports/2026-06-04-balance-consolidacao-kit-itens.md`.
 
 **Bloqueio total é exclusivo do Caminho *Inabalável*** (50k bloqueios): a recompensa lendária é fazer o que nenhum escudo do jogo faz. Por isso o bloqueio comum *nunca* chega a 100% — é regra de identidade, não só de balance.
 
@@ -205,18 +205,23 @@ Duas camadas:
 
 **1 slot de mão cada.** Combinações: 1 luva + arma 1H · 1 luva + escudo/livro · **2 luvas = commit na mecânica do item** (dois pacotes de stats, mãos vazias de arma). Luva não impede segurar machado/espada na outra mão. Continua não-arma: nenhuma combinação com luva quebra *Mão Vazia* — só a arma quebra.
 
-## Itens de nascimento & kit de classe (em desenho — jun/2026)
+## Itens de nascimento & kit de classe (decidido — jun/2026)
 
-Com o início **sem classe** (decidido — `DESIGN-EVOLUCAO.md`), o "kit inicial" se divide em dois momentos:
+Com o início **sem classe** (`DESIGN-EVOLUCAO.md`), o equipamento inicial é uma trilha de quatro degraus:
 
-| Momento | Conteúdo | Status |
-|---|---|---|
-| **Nascimento (classless)** | **coletado na casa inicial** (tutorial diegético — `DESIGN-MUNDO.md`): 1–2 armaduras simples + **arma genérica** (✏️ qual — porrete/faca?) + **sacola**, tirados de containers domésticos; a 1ª chave abre a porta de saída. Sem skills, sem capacete | estrutura decidida; itens ✏️ |
-| **Rito de classe** | o NPC entrega a **arma do kit**: espada curta + escudo (Knight) · cajado simples (Mage ✏️ elemento/mãos) · adaga (Rogue ✏️ 1 ou 2) · cetro (Priest) | estrutura decidida; detalhes ✏️ |
+| Degrau | Conteúdo |
+|---|---|
+| **Nascimento (casa inicial)** | **Espada Cega** (*Blunt Sword*) + **Gibão Roto** (*Tattered Jerkin*) + **Botas Surradas** (*Worn Boots*) + **Sacola de Pano** (*Cloth Bag*) — coletados nos containers domésticos (batizados jun/2026). Sem skills, sem capacete |
+| **Rito de classe** | o NPC oferece uma **ESCOLHA**: **Knight** = espada × machado × maça, **+ escudo de madeira** · **Mage** = cajado 2H, **fogo × gelo** · **Rogue** = **adaga × arco** (uma arma) · **Priest** = **cetro (holy) × luva** |
+| **Primeira mochila** | recompensa de **quest básica** em NPC inicial (cada cidade de spawn tem a sua) — upgrade da sacola por quest, não compra |
+| **Armaduras T1** | nos **baús iniciais** das primeiras áreas, **peças diferentes por região** (a armor perto de Alvorada, o robe perto de Charneca) — mercador vende só o básico genérico; o gear inicial bom é prêmio de exploração |
 
-Princípios (propostos nesta sessão, a confirmar com os detalhes ✏️):
+Leituras de design:
 
-- **Itens de kit têm base do slot e ZERO bônus de identidade** — são a régua do zero; o primeiro item com bônus (comprado/dropado) é o momento "entendi o que itens fazem".
+- **A escolha do rito é a primeira declaração de identidade**: o Knight escolhe o tipo que a lente de Marca dele contará (espada/machado/maça); o Mage declara o primeiro elemento (alimenta *Senhor dos Extremos*/*Coração de Cinzas*); o Rogue escolhe arquétipo (lâmina × distância).
+- **A luva do Priest é o hint silencioso do Monge (decidido)**: o NPC oferece cetro ou luva **sem nenhum comentário** — a pulga atrás da orelha é a existência da opção. Quem escolhe a luva começa a conduta *Mão Vazia* limpa desde a ordenação (condutas contam da aquisição da classe). Viabilidade do early com luva + *Luz Sagrada* ✏️ Balancista.
+- **Rogue ganha UMA arma** — a segunda adaga (dual wield) é a primeira meta de compra: a didática da mecânica exclusiva da classe. Quem escolhe o **arco** recebe junto um **lote inicial de flechas** (provisório: **50** ✏️ — alvo: cobrir ~15–20 min de caça T1 até a primeira volta ao vendor; repor flechas vira a primeira rotina de compra dele).
+- **Itens de kit têm base do slot e ZERO bônus de identidade** — a régua do zero; o primeiro item com bônus (comprado/achado) é o momento "entendi o que itens fazem".
 - **Valor de venda ≈ 0** (anti-loop de gold) e sem requisitos.
 - **Instâncias com ledger desde o nascimento** — a arma do rito tem 1 slot de Marca: quem nunca trocar pode transformá-la em relíquia (pilar 6 desde o minuto 1).
 - Skills nunca vêm em kit nenhum — todas compradas (básicas quase grátis).
@@ -271,8 +276,8 @@ Estado da discussão:
 - [ ] Durabilidade? (proposta: não — itens nunca se perdem, ver filosofia de morte)
 - [ ] Limites de aninhamento/capacidade da mochila (profundidade máx? peso via Força?)
 - [ ] Visibilidade de raridade na UI (cor/label × invisível) — decidir junto com a conversa de **forja** (⚠️ forja renegocia o Modelo A: "sem upgrade de raridade, sem forja destrutiva")
-- [ ] Nomes das famílias de equipamento (Loremaster) + refinamento da matriz slot × bônus
-- [ ] Kit de nascimento/rito: arma genérica do classless; elemento e mãos do cajado do Mage; 1×2 adagas do Rogue; vestes variam por visual?; extras (tocha?)
+- [ ] Refinamento da matriz slot × bônus (famílias batizadas ✅ jun/2026)
+- [ ] Kit: números (Balancista — incl. viabilidade do Priest-luva no early)
 
 ### Decididos recentemente (histórico)
 
