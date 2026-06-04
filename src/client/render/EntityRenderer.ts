@@ -1,8 +1,9 @@
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { TILE_SIZE } from "../../shared/constants";
-import type { EntityState, Snapshot } from "../../shared/protocol";
+import type { EntityState, Snapshot, StatusEffectState } from "../../shared/protocol";
 import type { Facing } from "../../shared/types";
 import type { SpriteLibrary } from "../assets/sprites";
+import { skillMeta } from "../ui/skillMeta";
 
 /** Ciclo de caminhada: passo-esq, neutro, passo-dir, neutro. */
 const WALK_CYCLE = [1, 0, 2, 0];
@@ -11,8 +12,27 @@ const WALK_CYCLE = [1, 0, 2, 0];
 const FLOAT_DUR_MS = 900;
 const FLOAT_RISE_PX = 22;
 
+/** Projétil de cast (runa viajando from→to). */
+const CAST_DUR_MS = 150;
+
+/** Cor por tipo de status effect (apresentação dos ícones sobre a HP bar). */
+const STATUS_COLOR: Record<StatusEffectState["kind"], number> = {
+  burn: 0xff7a32,
+  slow: 0x6fc8e8,
+  poison: 0x7ad15a,
+};
+
 interface FloatingText {
   text: Text;
+  elapsed: number;
+}
+
+interface CastProjectile {
+  gfx: Graphics;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
   elapsed: number;
 }
 
@@ -23,6 +43,10 @@ interface EntityVisual {
   textures: Record<Facing, Texture[]>;
   nameText: Text;
   hpBar: Graphics;
+  /** Ícones de status effect (burn/slow/poison) sobre a HP bar. */
+  statusIcons: Graphics;
+  /** Chave dos status desenhados (evita redesenhar todo tick). */
+  statusKey: string;
   // tween de posição (em tiles, com fração)
   fromX: number;
   fromY: number;
@@ -46,6 +70,8 @@ export class EntityRenderer {
   private targetMarker: Sprite;
   /** Floating damage texts ativos. */
   private floats: FloatingText[] = [];
+  /** Projéteis de cast ativos (runas viajando). */
+  private casts: CastProjectile[] = [];
 
   constructor(
     private sprites: SpriteLibrary,
@@ -99,6 +125,12 @@ export class EntityRenderer {
         v.lastHpRatio = ratio;
         this.drawHpBar(v.hpBar, ratio);
       }
+      // ── Indicadores de status effect sobre a HP bar ──
+      const statusKey = e.status.map((s) => s.kind).join(",");
+      if (statusKey !== v.statusKey) {
+        v.statusKey = statusKey;
+        this.drawStatusIcons(v.statusIcons, e.status);
+      }
     }
     // remove quem saiu
     for (const [id, v] of this.visuals) {
@@ -114,9 +146,15 @@ export class EntityRenderer {
       }
     }
 
-    // ── Eventos one-shot do tick: floating damage text ──
+    // ── Eventos one-shot do tick: floats, cast e cura ──
     for (const ev of snap.events) {
-      if (ev.kind === "damage") this.spawnDamageText(ev.amount, ev.pos.x, ev.pos.y);
+      if (ev.kind === "damage") {
+        this.spawnDamageText(ev.amount, ev.pos.x, ev.pos.y);
+      } else if (ev.kind === "cast") {
+        this.spawnCast(ev.skillId, ev.from, ev.to);
+      } else if (ev.kind === "heal") {
+        this.spawnHealText(ev.amount, ev.pos.x, ev.pos.y);
+      }
       // death: a remoção visual já acontece pelo diff de entidades acima.
     }
 
@@ -186,6 +224,47 @@ export class EntityRenderer {
     this.floats.push({ text, elapsed: 0 });
   }
 
+  /** Floating text VERDE de cura sobre o alvo (segue o padrão do dano). */
+  private spawnHealText(amount: number, tileX: number, tileY: number): void {
+    const text = new Text({
+      text: `+${amount}`,
+      style: {
+        fontFamily: "monospace",
+        fontSize: 11,
+        fontWeight: "bold",
+        fill: 0x5fe06a,
+        stroke: { color: 0x10141c, width: 3 },
+      },
+    });
+    text.resolution = 4;
+    text.anchor.set(0.5, 1);
+    text.position.set((tileX + 0.5) * TILE_SIZE, (tileY + 0.6) * TILE_SIZE);
+    text.zIndex = 1e9;
+    this.layer.addChild(text);
+    this.floats.push({ text, elapsed: 0 });
+  }
+
+  /**
+   * Projétil de cast (runa de Tibia): círculo colorido pela skill viajando de
+   * `from`→`to` em ~150ms. APRESENTAÇÃO pura — a sim já resolveu o efeito.
+   */
+  private spawnCast(skillId: string, from: { x: number; y: number }, to: { x: number; y: number }): void {
+    const color = skillMeta(skillId).color;
+    const gfx = new Graphics();
+    gfx.circle(0, 0, 4).fill({ color, alpha: 0.95 });
+    gfx.circle(0, 0, 6).stroke({ color, alpha: 0.4, width: 2 });
+    gfx.zIndex = 1e9;
+    this.layer.addChild(gfx);
+    this.casts.push({
+      gfx,
+      fromX: (from.x + 0.5) * TILE_SIZE,
+      fromY: (from.y + 0.5) * TILE_SIZE,
+      toX: (to.x + 0.5) * TILE_SIZE,
+      toY: (to.y + 0.5) * TILE_SIZE,
+      elapsed: 0,
+    });
+  }
+
   tick(deltaMS: number): void {
     for (const v of this.visuals.values()) {
       const moving = v.tweenElapsed < v.tweenDur;
@@ -212,6 +291,20 @@ export class EntityRenderer {
     this.floats = this.floats.filter((f) => {
       if (f.elapsed >= FLOAT_DUR_MS) {
         f.text.destroy();
+        return false;
+      }
+      return true;
+    });
+
+    // projéteis de cast: viajam from→to e somem ao chegar
+    for (const c of this.casts) {
+      c.elapsed += deltaMS;
+      const t = Math.min(c.elapsed / CAST_DUR_MS, 1);
+      c.gfx.position.set(c.fromX + (c.toX - c.fromX) * t, c.fromY + (c.toY - c.fromY) * t);
+    }
+    this.casts = this.casts.filter((c) => {
+      if (c.elapsed >= CAST_DUR_MS) {
+        c.gfx.destroy();
         return false;
       }
       return true;
@@ -269,12 +362,19 @@ export class EntityRenderer {
     hpBar.position.set(-14, -37);
     container.addChild(hpBar);
 
+    // ícones de status: à direita da HP bar (HP bar vai de x=-14 a x=14)
+    const statusIcons = new Graphics();
+    statusIcons.position.set(16, -37);
+    container.addChild(statusIcons);
+
     const v: EntityVisual = {
       container,
       sprite,
       textures,
       nameText,
       hpBar,
+      statusIcons,
+      statusKey: "",
       fromX: e.pos.x,
       fromY: e.pos.y,
       toX: e.pos.x,
@@ -297,5 +397,34 @@ export class EntityRenderer {
     const w = Math.max(0, Math.round(26 * ratio));
     const color = ratio > 0.5 ? 0x58a85a : ratio > 0.25 ? 0xc8a84b : 0xb8333f;
     if (w > 0) g.rect(1, 1, w, 1).fill(color);
+  }
+
+  /**
+   * Ícones minúsculos de status (chama=burn, floco=slow, gota=poison) sobre a
+   * HP bar de quem tem status ativo. Glifos procedurais simples via Graphics —
+   * só apresentação (a duração/efeito vive na sim).
+   */
+  private drawStatusIcons(g: Graphics, status: StatusEffectState[]): void {
+    g.clear();
+    const size = 6;
+    const gap = 2;
+    for (let i = 0; i < status.length; i++) {
+      const s = status[i];
+      const color = STATUS_COLOR[s.kind];
+      const cx = i * (size + gap) + size / 2;
+      const cy = 1 + size / 2;
+      // fundo escuro p/ contraste
+      g.circle(cx, cy, size / 2 + 1).fill({ color: 0x10141c, alpha: 0.9 });
+      if (s.kind === "burn") {
+        // chama: triângulo apontando p/ cima
+        g.poly([cx, cy - size / 2, cx + size / 2, cy + size / 2, cx - size / 2, cy + size / 2]).fill(color);
+      } else if (s.kind === "slow") {
+        // floco: losango
+        g.poly([cx, cy - size / 2, cx + size / 2, cy, cx, cy + size / 2, cx - size / 2, cy]).fill(color);
+      } else {
+        // poison: gota (círculo)
+        g.circle(cx, cy, size / 2).fill(color);
+      }
+    }
   }
 }

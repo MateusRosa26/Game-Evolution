@@ -11,6 +11,18 @@ import { Keyboard } from "./input/Keyboard";
 import { Mouse } from "./input/Mouse";
 import { Hud } from "./ui/Hud";
 import { CharacterPanel } from "./ui/CharacterPanel";
+import { SkillBar } from "./ui/SkillBar";
+import { ALL_SKILL_IDS, skillMeta } from "./ui/skillMeta";
+
+/** Hotkeys 1–6 → índice de slot da barra de skills. */
+const SKILL_HOTKEYS: Record<string, number> = {
+  Digit1: 0,
+  Digit2: 1,
+  Digit3: 2,
+  Digit4: 3,
+  Digit5: 4,
+  Digit6: 5,
+};
 
 /**
  * Orquestra o lado do cliente: recebe mensagens do "servidor",
@@ -23,6 +35,7 @@ export class Game {
   private charPanel = new CharacterPanel((attr) =>
     this.transport.send({ type: "allocateStatPoint", attr }),
   );
+  private skillBar = new SkillBar();
 
   private worldContainer = new Container();
   private worldRenderer: WorldRenderer | null = null;
@@ -34,6 +47,8 @@ export class Game {
   private playerId = -1;
   private playerState: EntityState | null = null;
   private lastEntities: EntityState[] = [];
+  /** Alvo selecionado atual (do snapshot) — usado pelas hotkeys de skill. */
+  private targetId: number | null = null;
   private started = false;
   /** Último level visto no snapshot — para detectar subida (só apresentação). */
   private lastLevel = 0;
@@ -49,11 +64,28 @@ export class Game {
 
     // input
     new Keyboard((dir) => this.transport.send({ type: "setDir", dir }));
-    // Tecla C: abre/fecha o painel de personagem (apresentação pura).
+    // Teclas de UI/skills (apresentação pura — só envia comandos).
     window.addEventListener("keydown", (ev) => {
-      if (ev.code === "KeyC" && !ev.repeat) {
+      if (ev.repeat) return;
+      // C: abre/fecha o painel de personagem.
+      if (ev.code === "KeyC") {
         ev.preventDefault();
         this.charPanel.toggle();
+        return;
+      }
+      // 1–6: usa a skill do slot correspondente.
+      const slot = SKILL_HOTKEYS[ev.code];
+      if (slot !== undefined) {
+        ev.preventDefault();
+        this.useSkillSlot(slot);
+        return;
+      }
+      // F9 (DEV): concede as 6 skills ao player p/ testar a barra cheia.
+      if (ev.code === "F9") {
+        ev.preventDefault();
+        for (const id of ALL_SKILL_IDS) {
+          this.transport.send({ type: "debugGrantSkill", skillId: id });
+        }
       }
     });
     this.mouse = new Mouse(this.app.canvas, (sx, sy) => {
@@ -82,6 +114,21 @@ export class Game {
     window.addEventListener("resize", () => this.onResize());
   }
 
+  /**
+   * Usa a skill do slot (hotkey). Decide o `targetId` pela semântica de
+   * apresentação: ofensivas mandam o alvo selecionado atual; cura sem alvo =
+   * self (omite). A sim valida conhecida/mana/cooldown/alcance — aqui ZERO regra.
+   */
+  private useSkillSlot(slot: number): void {
+    const skillId = this.skillBar.skillIdForSlot(slot);
+    if (!skillId) return;
+    if (skillMeta(skillId).target === "self") {
+      this.transport.send({ type: "useSkill", skillId });
+    } else {
+      this.transport.send({ type: "useSkill", skillId, targetId: this.targetId });
+    }
+  }
+
   private buildWorld(map: MapData): void {
     this.worldRenderer = new WorldRenderer(this.sprites, map, this.app.renderer);
     this.worldContainer.addChild(this.worldRenderer.ground);
@@ -97,6 +144,10 @@ export class Game {
 
     this.app.stage.addChild(this.hud.container);
     this.hud.resize(this.app.screen.width, this.app.screen.height);
+
+    // Barra de skills (embaixo-centro).
+    this.app.stage.addChild(this.skillBar.container);
+    this.skillBar.resize(this.app.screen.width, this.app.screen.height);
 
     // Painel de personagem por cima da HUD (oculto até apertar C).
     this.app.stage.addChild(this.charPanel.container);
@@ -114,9 +165,11 @@ export class Game {
   private onSnapshot(snap: Snapshot): void {
     this.entityRenderer?.apply(snap);
     this.lastEntities = snap.entities;
+    this.targetId = snap.targetId;
     this.playerState = snap.entities.find((e) => e.id === this.playerId) ?? null;
     if (this.playerState) {
       this.hud.setStats(this.playerState.hp, this.playerState.maxHp, this.playerState.mp, this.playerState.maxMp);
+      this.skillBar.setSkills(this.playerState.skills);
       const progress = this.playerState.progress;
       if (progress) {
         this.hud.setProgress(progress);
@@ -173,6 +226,7 @@ export class Game {
     const h = this.app.screen.height;
     this.lighting?.resize(w, h);
     this.hud.resize(w, h);
+    this.skillBar.resize(w, h);
     this.charPanel.resize(h);
   }
 }
