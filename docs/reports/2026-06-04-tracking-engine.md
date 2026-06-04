@@ -169,3 +169,96 @@ Harness temporário (esbuild + node, deletado após uso) provou:
 - **Roteamento por jogador**: o sink recebe `playerId` mas, no M1 single-player,
   os eventos vão ao snapshot compartilhado. Pronto para rotear por conexão no
   online.
+
+---
+
+## Verificação independente (verificador)
+
+**Status: VERIFIED** — `ROUND: 1`. Implementação fiel ao DESIGN-EVOLUCAO.md, sem
+discrepâncias bloqueantes. Build e harness comportamental independentes passaram.
+
+### Fidelidade ao design (claim a claim)
+
+1. **Condições como DADOS** ✓ — `TrackingDef` é puramente declarativo (id,
+   categoria, evento, `filter` de cláusulas `{field,op,value}` com AND implícito,
+   threshold, flavor hint/unlock pt-BR, `effect` descritivo). A engine não tem
+   nada hard-coded por conteúdo; adicionar Marca/Mutação/Caminho = adicionar
+   entrada no array. Efeito NÃO é aplicado mecanicamente (engine nunca lê
+   `effect.payload` para alterar combate) — confere.
+2. **Onde vive cada progresso** ✓ — Marca em `ItemLedger.markProgress[defId]` na
+   instância (viaja no trade); Mutação por (personagem, skillId) com perfil de uso
+   (`totalValidUses` + `profileCounts`, vencedor por `minShare`); Caminho por
+   personagem (estilo = acúmulo; conduta = `intact` desde a criação, quebra
+   permanente).
+3. **Regras universais** ✓ — hint UMA vez a ~50% (`HINT_FRACTION 0.5`,
+   `Math.ceil`); unlock one-shot (guard `unlocked`/`resolved`); o protocolo
+   (`trackingHint`/`trackingUnlock`) **nunca** carrega progresso/contador/
+   threshold/id. Verifiquei o builder de snapshot (`Simulation.ts` 562-640) e
+   `EntityState`: o ledger é explicitamente omitido; `weapon` só leva identidade.
+4. **Anti-degeneração** ✓ — kills passam pelo MESMO `isValidKill` do ledger
+   (`xpFromKill > 0`) e só avançam Marca via `weaponInstanceId` do golpe final
+   (magia/DoT com `weaponInstanceId == null` não conta); `skill_use` guarda
+   `validHit && targetsHit > 0`.
+5. **Protocol/client** ✓ — dois `SnapshotEvent` novos com o shape pedido; o
+   client (`Game.ts`) só faz `console.log`. Nenhuma regra de jogo no client.
+6. **Definições dummy** ✓ — 1 mark (Roedor de Ferro), 2 mutations de perfis
+   OPOSTOS da Bola de Fogo (Eclosão Ígnea queima-roupa / Meteoro Distante à
+   distância), 1 path estilo (Chama Viva), 1 path conduta (Punho Bruto). Todas
+   marcadas `// DUMMY ✏️` com thresholds baixos.
+7. **Sim pura/determinística** ✓ — grep em `src/sim/tracking/` por
+   pixi/Math.random/Date.now/window/document/performance: só aparece em
+   COMENTÁRIOS. Estado 100% Records (JSON-safe). Determinismo confirmado no
+   harness.
+
+### Harness comportamental (esbuild+node temporário, deletado — não commitado)
+
+Instanciei a `TrackingEngine` direto com registry/deps fakes e dirigi o bus com
+eventos sintéticos. **24/24 checks PASS:**
+
+- **(a) Mark:** 10 kills bestiais com a espada → hint EXATAMENTE no 5º kill (1x),
+  unlock no 10º; `count` para em 10; progresso vive no `ledger.markProgress` da
+  instância. Anti-farm: player lvl 50 vs rato T1 → `isValidKill` falso → 20 kills
+  sem qualquer progresso (ledger fica sem a chave). Kill por magia
+  (`weaponInstanceId=null`) → nenhum unlock de mark.
+- **(b) Mutação por perfil:** run A (10× queima-roupa) → **Eclosão Ígnea**; run B
+  (10× distância) → **Meteoro Distante** (o perfil decide!); run D 60/40 → maioria
+  (Eclosão); run E mid-range (não casa nenhum perfil) → não muta e segue
+  acumulando.
+- **(c) Conduta:** usar 1 skill antes do lvl 3 → quebrada PARA SEMPRE (não
+  desbloqueia nem voltando a não usar); intacta até lvl 3 → unlock, com hint aos
+  ~50% (lvl 2 = ceil(3×0.5)).
+- **(e) Determinismo:** 2 runs da mesma sequência → `JSON.stringify` idêntico.
+- **(f) Idempotência:** 30 kills / 25 casts / 4 level-ups pós-unlock → cada unlock
+  dispara EXATAMENTE 1x; hint não re-dispara (estado `hinted/unlocked/resolved`
+  persiste e guarda — portanto re-load de estado NÃO re-emite hint).
+
+### Edge cases avaliados
+
+- **Empate exato 50/50 entre dois perfis** (ambos com share 0.5 = `minShare`):
+  `pickMutationWinner` usa `share > bestShare` ESTRITO, então o empate resolve
+  para o PRIMEIRO def na ordem do array (determinístico, mas dependente de ordem).
+  Comportamento sensato e determinístico; vale documentar nas definições reais que
+  perfis de mutação devem ter limiares que evitem empate exato, ou aceitar o
+  desempate por ordem. **Não bloqueante** (dummy; thresholds reais ~10k tornam
+  empate exato improvável).
+- **Avaliador de filtros:** ops `== != < <= > >= in exists` corretos; campos
+  ausentes falham (exceto `exists:false`); comparações numéricas checam tipo;
+  campos aninhados (`victim.family`) projetados achatados pelos adaptadores. OK.
+- **Conduta monitorada desde a criação:** `intact:true` default no
+  `conductOf`/criação sob demanda; quebra antes de qualquer level-up já marca
+  `intact:false`. OK.
+
+### Build
+
+- `npx tsc --noEmit` ✓
+- `npm run build` ✓ (vite build ok)
+- Mudanças são **puramente aditivas** (sem deleções em ledger/Simulation/events;
+  a única "remoção" no protocol é o `;`→`|` da união). A engine é consumidora
+  read-only do bus → Waves 1-4 (combate/XP/skills/ledger) não regridem.
+
+### Discrepâncias
+
+Nenhuma bloqueante. Observações menores (não-fix): (1) desempate de mutação por
+ordem de array em empate exato — documentar nas defs reais; (2) `block`/
+`level_up`/`night` já consumidos pela engine mas ainda não emitidos no M1
+(esperado, declarado no report).
