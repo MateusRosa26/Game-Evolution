@@ -37,10 +37,16 @@ export type ClientCommand =
 export interface PlayerProgressState {
   cls: PlayerClass;
   level: number;
-  /** XP TOTAL acumulado. */
+  /** XP TOTAL acumulado (desde o nível 1, cumulativo — NÃO o do nível atual). */
   xp: number;
-  /** XP TOTAL necessário para atingir o próximo nível. */
+  /** XP TOTAL acumulado necessário para ATINGIR o próximo nível (cumulativo). */
   xpForNextLevel: number;
+  /**
+   * XP TOTAL acumulado necessário para ATINGIR o nível atual (o "piso" do nível,
+   * cumulativo). Vem da sim (`xpForLevel(level)`); o client não pode computá-lo.
+   * Progresso dentro do nível = `(xp - xpLevelFloor) / (xpForNextLevel - xpLevelFloor)`.
+   */
+  xpLevelFloor: number;
   attributes: Attributes;
   /** Pontos de atributo livres não distribuídos. */
   freeStatPoints: number;

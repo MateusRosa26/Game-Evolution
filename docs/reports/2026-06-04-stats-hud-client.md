@@ -139,3 +139,35 @@ observado em tela. Recomenda-se reverificar visualmente após o fix da barra de 
   cumulativos por contrato) como se fossem relativos ao nível → barra/leitura de XP
    erradas a partir do nível 2. Escopo/regra-de-ouro OK; build/tsc OK; verificação
   visual bloqueada por contenção do browser compartilhado.
+
+## Correções (round 1)
+
+Corrigido o único bug real apontado pelo verificador: a barra/leitura de XP tratava
+`xp` e `xpForNextLevel` (TOTAIS cumulativos por contrato) como se fossem relativos
+ao nível, ficando correta só no nível 1.
+
+**Causa raiz:** o snapshot não carregava o "piso" de XP do nível atual
+(`xpForLevel(level)`, que vive na sim e é proibido no client).
+
+**Mudanças:**
+- `src/shared/protocol.ts` — novo campo `xpLevelFloor` em `PlayerProgressState`:
+  XP TOTAL acumulado necessário para ATINGIR o nível atual. Comentários pt-BR
+  documentam a semântica (cumulativo vs piso); os campos cumulativos existentes
+  foram mantidos.
+- `src/sim/Simulation.ts` (`projectProgress`) — popula `xpLevelFloor` com
+  `xpForLevel(prog.level)`.
+- `src/client/ui/Hud.ts` — barra e `%` agora usam
+  `(xp - xpLevelFloor) / (xpForNextLevel - xpLevelFloor)` com guard contra
+  divisão por zero (span ≤ 0 → 0).
+- `src/client/ui/CharacterPanel.ts` — leitura "XP x / y" agora mostra
+  XP-dentro-do-nível / XP-necessário-do-nível.
+
+A aritmética é matemática de apresentação (ok no client); o VALOR do piso vem da
+sim. Nenhuma regra de jogo nova.
+
+**Verificação:** `npx tsc --noEmit` e `npm run build` passam. Script temporário
+(esbuild+node) construiu snapshots via a `Simulation` real, emitiu kills de
+`rato_lanhoso` até o nível 2 e confirmou: o snapshot carrega `xpLevelFloor`
+(== `xpForLevel(level)`), e `(xp - floor)/(next - floor)` = 0.0000 logo após o
+level up (em [0,1), barra esvazia). A fórmula antiga `xp/next` daria 0.5000 ali —
+exatamente o bug reportado. Script removido após a checagem.

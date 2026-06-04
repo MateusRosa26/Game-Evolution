@@ -485,6 +485,7 @@ export class Simulation {
       level: prog.level,
       xp: prog.xp,
       xpForNextLevel: xpForLevel(prog.level + 1),
+      xpLevelFloor: xpForLevel(prog.level),
       attributes: { ...prog.attributes },
       freeStatPoints: prog.freeStatPoints,
     };

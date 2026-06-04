@@ -148,9 +148,13 @@ export class CharacterPanel {
     for (const key of ATTRIBUTE_KEYS) {
       this.rows[key].value.text = `${p.attributes[key]}`;
     }
+    // `xp`/`xpForNextLevel` são TOTAIS cumulativos; mostramos o progresso DENTRO
+    // do nível atual (relativo a `xpLevelFloor`, que vem da sim).
+    const xpInto = Math.max(0, p.xp - p.xpLevelFloor);
+    const xpNeeded = Math.max(0, p.xpForNextLevel - p.xpLevelFloor);
     this.summaryText.text =
       `Nível ${p.level}\n` +
-      `XP ${p.xp} / ${p.xpForNextLevel}\n` +
+      `XP ${xpInto} / ${xpNeeded}\n` +
       `Pontos livres: ${p.freeStatPoints}`;
     if (this.container.visible) this.layout();
   }

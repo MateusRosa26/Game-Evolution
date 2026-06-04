@@ -30,6 +30,7 @@ export class Hud {
   private level = 0;
   private xp = 0;
   private xpForNextLevel = 1;
+  private xpLevelFloor = 0;
   private freePoints = 0;
   private hasProgress = false;
   private screenH = 0;
@@ -132,6 +133,7 @@ export class Hud {
     this.level = p.level;
     this.xp = p.xp;
     this.xpForNextLevel = p.xpForNextLevel;
+    this.xpLevelFloor = p.xpLevelFloor;
     this.freePoints = p.freeStatPoints;
     this.redraw();
   }
@@ -193,9 +195,12 @@ export class Hud {
     const xpY = y + 60;
     const xpBarX = x + 36; // espaço para o "Lv" à esquerda
     const xpBarW = barW - 22;
+    // `xp`/`xpForNextLevel` são TOTAIS cumulativos; o progresso DENTRO do nível
+    // é relativo ao piso do nível atual (`xpLevelFloor`). Guard contra div-por-0.
+    const xpSpan = this.xpForNextLevel - this.xpLevelFloor;
     const xpRatio =
-      this.hasProgress && this.xpForNextLevel > 0
-        ? Math.max(0, Math.min(1, this.xp / this.xpForNextLevel))
+      this.hasProgress && xpSpan > 0
+        ? Math.max(0, Math.min(1, (this.xp - this.xpLevelFloor) / xpSpan))
         : 0;
 
     this.bars.roundRect(xpBarX, xpY, xpBarW, 8, 2).fill(hex(PAL.xpBack));
