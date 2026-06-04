@@ -164,6 +164,16 @@ export class Game {
 
   private onSnapshot(snap: Snapshot): void {
     this.entityRenderer?.apply(snap);
+    // Camada emergente (DESIGN-EVOLUCAO.md §"Visibilidade"): hint/unlock chegam
+    // como eventos one-shot SEM progresso numérico. A UI de toast é da próxima
+    // wave — por ora o client só loga discretamente (regra: client não tem UI).
+    for (const ev of snap.events) {
+      if (ev.kind === "trackingHint") {
+        console.log(`[tracking] ${ev.text}`);
+      } else if (ev.kind === "trackingUnlock") {
+        console.log(`[tracking] DESBLOQUEIO (${ev.category}): ${ev.name} — ${ev.flavorText}`);
+      }
+    }
     this.lastEntities = snap.entities;
     this.targetId = snap.targetId;
     this.playerState = snap.entities.find((e) => e.id === this.playerId) ?? null;

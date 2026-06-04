@@ -52,6 +52,7 @@ import {
   type Progression,
 } from "./progression";
 import { findPath, nearestWalkable } from "./pathfinding";
+import { TrackingEngine, DUMMY_TRACKING_DEFS } from "./tracking";
 import { World } from "./World";
 
 /** Respawn pendente de um monstro morto (template + posição). */
@@ -76,6 +77,13 @@ export class Simulation {
    * instâncias é alimentado pelos eventos do bus (ver construtor).
    */
   readonly items = new ItemRegistry();
+  /**
+   * Engine da camada EMERGENTE (Marcas/Mutações/Caminhos — DESIGN-EVOLUCAO.md).
+   * Observa o bus e cristaliza padrões em recompensas nomeadas. Carregada com as
+   * definições DUMMY por ora (conteúdo real ✏️ é wave futura). Construída no
+   * constructor (precisa dos lookups de progressão/arma).
+   */
+  readonly tracking: TrackingEngine;
   private entities = new Map<number, SimEntity>();
   private nextId = 1;
   private tickCount = 0;
@@ -102,6 +110,17 @@ export class Simulation {
       registry: this.items,
       attackerLevelOf: (id) => this.progressions.get(id)?.level ?? null,
     });
+    // Engine de tracking: mesmos lookups (anti-degeneração reusa `isValidKill`).
+    // O progresso de Marca vive no ledger da instância; mutações/caminhos no
+    // estado próprio da engine (serializável). O SINK (hint/unlock → snapshot) é
+    // apontado a cada tick para o `pending` corrente (ver `tick`).
+    this.tracking = new TrackingEngine(DUMMY_TRACKING_DEFS, {
+      registry: this.items,
+      attackerLevelOf: (id) => this.progressions.get(id)?.level ?? null,
+      equippedWeaponInstanceId: (id) => this.entities.get(id)?.equippedWeaponId ?? null,
+      isPlayer: (id) => this.playerIds.has(id),
+    });
+    this.tracking.attach(this.bus);
   }
 
   /** Monta o `WeaponSource` (p/ payloads/ledger) da arma equipada de `e`. */
@@ -355,6 +374,17 @@ export class Simulation {
       night: false,
       lookup: (id) => this.entities.get(id),
     };
+
+    // Aponta o SINK da engine de tracking para o `pending` DESTE tick: hints/
+    // unlocks viram SnapshotEvents one-shot, sem JAMAIS carregar progresso
+    // (DESIGN-EVOLUCAO.md §"Visibilidade" — cheat-proof). No M1 single-player o
+    // evento vai ao snapshot compartilhado; o `playerId` fica pronto p/ rotear
+    // por conexão no online.
+    this.tracking.setSink({
+      hint: (_playerId, text) => pending.push({ kind: "trackingHint", text }),
+      unlock: (_playerId, category, name, flavorText) =>
+        pending.push({ kind: "trackingUnlock", category, name, flavorText }),
+    });
 
     const players = [...this.playerIds]
       .map((id) => this.entities.get(id))

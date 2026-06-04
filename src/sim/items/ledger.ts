@@ -70,6 +70,24 @@ export interface ItemLedger {
    * trade no M1 → sempre vazia; pronta para `recordPreviousOwner` no trade futuro.
    */
   previousOwners: ItemOwnerRef[];
+  /**
+   * Progresso das MARCAS desta instância (camada emergente — DESIGN-EVOLUCAO.md
+   * §1). A engine de tracking (`src/sim/tracking`) mantém AQUI o contador por
+   * definição de Marca, porque "a história pertence ao objeto": ao tradear/dropar,
+   * o progresso (e o hint já mostrado / a Marca já desbloqueada) VIAJA com o item.
+   * Chave = id da definição de Marca. Oculto por design → nunca vai ao snapshot.
+   */
+  markProgress: Record<string, MarkProgress>;
+}
+
+/** Progresso de UMA Marca numa instância de item (JSON-safe). */
+export interface MarkProgress {
+  /** Ocorrências válidas acumuladas (golpe final qualificado da arma). */
+  count: number;
+  /** Hint dos ~50% já mostrado? (one-shot — DESIGN-EVOLUCAO.md §"Visibilidade"). */
+  hinted: boolean;
+  /** Marca já desbloqueada nesta instância? (permanente — nunca se perde). */
+  unlocked: boolean;
 }
 
 /** Referência a um dono passado da instância (proveniência, JSON-safe). */
@@ -90,6 +108,7 @@ export function createLedger(): ItemLedger {
     totalDamageDealt: 0,
     blockedHits: 0,
     previousOwners: [],
+    markProgress: {},
   };
 }
 
