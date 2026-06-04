@@ -28,6 +28,11 @@ export type ClientCommand =
    * harness para exercitar as 6 skills sem trocar de classe. ✏️ remover/gat em M2.
    */
   | { type: "debugGrantSkill"; skillId: string }
+  /**
+   * Cicla a skin do personagem (hotkey 0). A sim valida contra o catálogo
+   * (`shared/skins.ts`) — ✏️ futuro: validar POSSE (quest/conteúdo pago) aqui.
+   */
+  | { type: "cycleSkin" }
   | { type: "stop" };
 
 /**
@@ -120,6 +125,11 @@ export interface EntityState {
    * identidade (instanceId/templateId/nome); o ledger é oculto e não trafega.
    */
   weapon?: EquippedWeaponState;
+  /**
+   * Skin do personagem (catálogo em `shared/skins.ts`) — SOMENTE jogadores.
+   * Estado da sim: no online, todos veem a skin de todos.
+   */
+  skin?: string;
 }
 
 /**

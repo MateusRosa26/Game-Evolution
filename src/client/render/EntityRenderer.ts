@@ -74,6 +74,8 @@ interface EntityVisual {
   /** Tempo acumulado parado (p/ resetar a animação só após IDLE_RESET_MS). */
   idleMs: number;
   lastHpRatio: number;
+  /** Espécie/skin do conjunto de texturas atual (troca de skin em runtime). */
+  skinKey: string;
 }
 
 /**
@@ -101,10 +103,15 @@ export class EntityRenderer {
     this.targetMarker.visible = false;
   }
 
-  /** Texturas certas para a espécie (player = knight, rato = rat). */
+  /** Texturas certas para a espécie (player = knight na skin atual, rato = rat). */
   private texturesFor(e: EntityState): Record<Facing, Texture[]> {
     if (e.species === "rato_lanhoso") return this.sprites.rat;
-    return this.sprites.knight;
+    return this.sprites.knight[e.skin ?? "padrao"] ?? this.sprites.knight.padrao;
+  }
+
+  /** Chave de skin usada no visual (para detectar troca em runtime). */
+  private skinKeyOf(e: EntityState): string {
+    return e.species ?? e.skin ?? "padrao";
   }
 
   /** Posição visual atual do jogador local, em pixels de mundo (centro). */
@@ -147,6 +154,13 @@ export class EntityRenderer {
       }
       if (e.facing !== v.facing) {
         v.facing = e.facing;
+        this.applyFrame(v, this.currentFrame(v));
+      }
+      // troca de skin em runtime (hotkey 0): troca o conjunto de texturas
+      const skinKey = this.skinKeyOf(e);
+      if (skinKey !== v.skinKey) {
+        v.skinKey = skinKey;
+        v.textures = this.texturesFor(e);
         this.applyFrame(v, this.currentFrame(v));
       }
       const ratio = e.maxHp > 0 ? e.hp / e.maxHp : 0;
@@ -443,6 +457,7 @@ export class EntityRenderer {
       walkClock: 0,
       idleMs: 0,
       lastHpRatio: -1,
+      skinKey: this.skinKeyOf(e),
     };
     container.position.set((e.pos.x + 0.5) * TILE_SIZE, (e.pos.y + 1) * TILE_SIZE);
     container.zIndex = container.position.y;

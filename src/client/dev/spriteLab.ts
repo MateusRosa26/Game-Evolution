@@ -15,7 +15,7 @@ const CELL = 34 * SCALE; // 32px + respiro
 
 async function main() {
   const app = new Application();
-  await app.init({ width: 1280, height: 900, background: 0x0a0c10 });
+  await app.init({ width: 1280, height: 1320, background: 0x0a0c10 });
   document.body.appendChild(app.canvas);
 
   const sprites = createSprites();
@@ -77,30 +77,31 @@ async function main() {
     root.addChild(title);
   }
 
-  row("KNIGHT", sprites.knight, 0);
-  row("RATO LANHOSO (referência boa)", sprites.rat, 1);
+  row("KNIGHT — Aço de Alvorada (padrão)", sprites.knight.padrao, 0);
+  row("KNIGHT — Ouro Cerimonial", sprites.knight.dourado, 1);
+  row("KNIGHT — Vigília Negra", sprites.knight.sombrio, 2);
+  row("RATO LANHOSO (referência boa)", sprites.rat, 3);
 
-  // Fileira extra: knight S parado AMPLIADO 16× nos 2 fundos
-  const big = new Container();
-  for (let i = 0; i < 2; i++) {
+  // Fileira extra: as 3 skins S paradas AMPLIADAS 12× alternando os fundos
+  const skins = ["padrao", "dourado", "sombrio"] as const;
+  for (let i = 0; i < skins.length; i++) {
     const tile = new Container();
-    const bgSprite = new Sprite(i === 0 ? sprites.grass[0] : sprites.stoneFloor[0]);
-    bgSprite.width = 32 * 16;
-    bgSprite.height = 32 * 16;
+    const bgSprite = new Sprite(i % 2 === 0 ? sprites.grass[0] : sprites.stoneFloor[0]);
+    bgSprite.width = 32 * 12;
+    bgSprite.height = 32 * 12;
     tile.addChild(bgSprite);
-    const spr = new Sprite(sprites.knight.s[0]);
-    spr.scale.set(16);
+    const spr = new Sprite(sprites.knight[skins[i]].s[0]);
+    spr.scale.set(12);
     tile.addChild(spr);
-    tile.position.set(8 + i * (32 * 16 + 16), 480);
-    big.addChild(tile);
+    tile.position.set(8 + i * (32 * 12 + 16), 920);
+    root.addChild(tile);
   }
   const bigLabel = new Text({
-    text: "KNIGHT s0 @16x — grama / pedra",
+    text: "SKINS s0 @12x — padrão / dourado / sombrio",
     style: { fontFamily: "monospace", fontSize: 14, fill: 0xe8e4d8 },
   });
-  bigLabel.position.set(8, 460);
+  bigLabel.position.set(8, 900);
   root.addChild(bigLabel);
-  root.addChild(big);
 }
 
 main();

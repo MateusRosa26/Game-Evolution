@@ -82,6 +82,30 @@ export const PAL = {
   swordDark: "#7e8894",
   // Interior do visor (buraco do elmo — quase-preto justificado)
   visorSlit: "#0c0f14",
+
+  // ── Skin "Ouro Cerimonial" — armadura gilded, capa azul-real ──
+  // Ramp de ouro: sombra fria/dessaturada → topo claro (sat pico no meio)
+  goldShadow: "#4a3c20",
+  goldDark: "#6b5526",
+  goldBase: "#8d7330",
+  goldLight: "#b3953f",
+  goldEdge: "#d4b654",
+  goldShine: "#ecd47e",
+  capeRoyalDark: "#1f2c4a",
+  capeRoyalBase: "#2a3c64",
+  capeRoyalLight: "#3a5080",
+
+  // ── Skin "Vigília Negra" — aço enegrecido, visor em brasa ──
+  onyxShadow: "#15181e",
+  onyxDark: "#1f242c",
+  onyxBase: "#2a313b",
+  onyxLight: "#3a434f",
+  onyxEdge: "#4c5663",
+  onyxShine: "#5e6a77",
+  capeNightDark: "#2e1118",
+  capeNightBase: "#421a23",
+  capeNightLight: "#56222d",
+  visorEmber: "#c2502e",
   capeBase: "#5c2531",
   capeDark: "#471c26",
   capeLight: "#6d2c3a",

@@ -62,6 +62,13 @@ export interface SimEntity {
    */
   equippedWeaponId: number | null;
 
+  /**
+   * Skin do personagem (catálogo em `shared/skins.ts`). Cosmético, mas é
+   * ESTADO da sim (no online todos veem). ✏️ posse por quest/pago: validar
+   * no `cycleSkin` quando existir o sistema de desbloqueio.
+   */
+  skinId: string;
+
   // ── Skills + status (Wave Skills M1) ──
   /** Skills conhecidas (IDs). Jogador nasce com o kit da classe; mobs vazio. */
   knownSkills: string[];

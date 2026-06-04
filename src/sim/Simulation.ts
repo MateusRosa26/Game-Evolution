@@ -1,4 +1,5 @@
 import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS } from "../shared/constants";
+import { DEFAULT_SKIN, KNIGHT_SKINS } from "../shared/skins";
 import type {
   EntityState,
   EquippedWeaponState,
@@ -213,6 +214,7 @@ export class Simulation {
       dead: false,
       // Arma inicial da classe como INSTÂNCIA equipada (preenchido abaixo).
       equippedWeaponId: null,
+      skinId: DEFAULT_SKIN,
       // Kit inicial da classe (compra em NPC é M2+).
       knownSkills: [...STARTER_KITS[cls]],
       skillCooldowns: {},
@@ -326,6 +328,7 @@ export class Simulation {
       dead: false,
       // Mobs usam números do bestiário, sem arma-instância (ledger só p/ players).
       equippedWeaponId: null,
+      skinId: DEFAULT_SKIN, // mobs não usam skin (sprite vem da espécie)
       knownSkills: [],
       skillCooldowns: {},
       status: [],
@@ -402,6 +405,14 @@ export class Simulation {
         if (isKnownSkillId(cmd.skillId) && !e.knownSkills.includes(cmd.skillId)) {
           e.knownSkills.push(cmd.skillId);
         }
+        break;
+      }
+      case "cycleSkin": {
+        // Cicla pelo catálogo. ✏️ Quando existir desbloqueio (quest/conteúdo
+        // pago), filtrar aqui pelas skins POSSUÍDAS — validação é da sim.
+        if (e.kind !== "player") break;
+        const idx = KNIGHT_SKINS.indexOf(e.skinId as (typeof KNIGHT_SKINS)[number]);
+        e.skinId = KNIGHT_SKINS[(idx + 1) % KNIGHT_SKINS.length];
         break;
       }
       case "stop":
@@ -739,6 +750,7 @@ export class Simulation {
         state.skills = this.projectSkills(e);
         const weapon = this.projectWeapon(e);
         if (weapon) state.weapon = weapon;
+        state.skin = e.skinId;
       }
       entities.push(state);
     }

@@ -97,6 +97,12 @@ export class Game {
           this.transport.send({ type: "debugGrantSkill", skillId: id });
         }
       }
+      // 0: cicla a skin do personagem (✏️ futuro: desbloqueio por quest/pago —
+      // a sim valida; o client só pede).
+      if (ev.code === "Digit0") {
+        ev.preventDefault();
+        this.transport.send({ type: "cycleSkin" });
+      }
     });
     this.mouse = new Mouse(this.app.canvas, (sx, sy) => {
       const tile = this.camera.screenToTile(sx, sy, this.app.screen.width, this.app.screen.height);

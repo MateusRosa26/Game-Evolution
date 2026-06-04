@@ -319,49 +319,115 @@ function makeTorchFrames(): Texture[] {
 // ──────────────────────────────────────────────────────────────────────
 
 /**
+ * Cores de uma skin do cavaleiro: ramp da armadura + capa + visor.
+ * Espada e escudo NÃO mudam com a skin — são os ITENS equipados (skin de
+ * item, se existir um dia, é outro sistema). Catálogo de ids em shared/skins.ts.
+ */
+interface KnightSkin {
+  shadow: string;
+  dark: string;
+  base: string;
+  light: string;
+  edge: string;
+  shine: string;
+  capeDark: string;
+  capeBase: string;
+  capeLight: string;
+  visor: string;
+  /** Brasa dentro da fresta (olhos brilhando — assinatura da Vigília Negra). */
+  ember?: string;
+}
+
+/** Visual de cada skin do catálogo (`shared/skins.ts`) — skins são DADOS. */
+const KNIGHT_SKIN_COLORS: Record<string, KnightSkin> = {
+  padrao: {
+    shadow: PAL.armorShadow,
+    dark: PAL.armorDark,
+    base: PAL.armorBase,
+    light: PAL.armorLight,
+    edge: PAL.armorEdge,
+    shine: PAL.armorShine,
+    capeDark: PAL.capeDark,
+    capeBase: PAL.capeBase,
+    capeLight: PAL.capeLight,
+    visor: PAL.visorSlit,
+  },
+  dourado: {
+    shadow: PAL.goldShadow,
+    dark: PAL.goldDark,
+    base: PAL.goldBase,
+    light: PAL.goldLight,
+    edge: PAL.goldEdge,
+    shine: PAL.goldShine,
+    capeDark: PAL.capeRoyalDark,
+    capeBase: PAL.capeRoyalBase,
+    capeLight: PAL.capeRoyalLight,
+    visor: PAL.visorSlit,
+  },
+  sombrio: {
+    shadow: PAL.onyxShadow,
+    dark: PAL.onyxDark,
+    base: PAL.onyxBase,
+    light: PAL.onyxLight,
+    edge: PAL.onyxEdge,
+    shine: PAL.onyxShine,
+    capeDark: PAL.capeNightDark,
+    capeBase: PAL.capeNightBase,
+    capeLight: PAL.capeNightLight,
+    visor: PAL.visorSlit,
+    ember: PAL.visorEmber,
+  },
+};
+
+/**
  * frame 0 = parado, frames 1/2 = passos (pernas alternadas, corpo com bob).
  * Desenhado de frente (s), costas (n) e perfil (e); oeste = flip de leste.
  *
  * Direção de arte: elmo fechado com fresta em T (a silhueta É o cavaleiro),
  * escudo de madeira no braço esquerdo + espada no direito (o kit inicial),
  * zero pele exposta. Luz global do topo-esquerda: colunas esquerdas claras,
- * direitas escuras; selout interno (segmentação em armorShadow, não preto).
+ * direitas escuras; selout interno (segmentação em sk.shadow, não preto).
  */
-function drawKnight(p: Px, facing: Exclude<Facing, "w">, frame: number): void {
+function drawKnight(p: Px, facing: Exclude<Facing, "w">, frame: number, sk: KnightSkin): void {
   const bob = frame === 0 ? 0 : -1;
 
   /** Elmo visto de frente/costas (x12–20, y5–12 + bob). */
   const helmFrontBack = (withVisor: boolean): void => {
-    p.rect(14, 5 + bob, 5, 1, PAL.armorEdge); // topo arredondado (passos 5-7-9)
-    p.rect(13, 6 + bob, 7, 1, PAL.armorLight);
-    p.px(16, 5 + bob, PAL.armorShine); // specular no topo
+    p.rect(14, 5 + bob, 5, 1, sk.edge); // topo arredondado (passos 5-7-9)
+    p.rect(13, 6 + bob, 7, 1, sk.light);
+    p.px(16, 5 + bob, sk.shine); // specular no topo
     for (let y = 7 + bob; y <= 10 + bob; y++) {
-      p.rect(12, y, 2, 1, PAL.armorLight); // lado esquerdo lit
-      p.rect(14, y, 5, 1, PAL.armorBase);
-      p.rect(19, y, 2, 1, PAL.armorDark); // lado direito sombra
+      p.rect(12, y, 2, 1, sk.light); // lado esquerdo lit
+      p.rect(14, y, 5, 1, sk.base);
+      p.rect(19, y, 2, 1, sk.dark); // lado direito sombra
     }
     if (withVisor) {
       // fresta em T: rasgo horizontal + canal vertical (buraco, quase-preto)
-      p.rect(13, 8 + bob, 7, 1, PAL.visorSlit);
-      p.rect(16, 9 + bob, 1, 2, PAL.visorSlit);
+      p.rect(13, 8 + bob, 7, 1, sk.visor);
+      p.rect(16, 9 + bob, 1, 2, sk.visor);
+      if (sk.ember) {
+        // olhos em brasa dentro da fresta (assinatura da Vigília Negra)
+        p.px(14, 8 + bob, sk.ember);
+        p.px(18, 8 + bob, sk.ember);
+      }
     } else {
       // costas: crista central pegando luz
-      p.rect(16, 6 + bob, 1, 5, PAL.armorEdge);
+      p.rect(16, 6 + bob, 1, 5, sk.edge);
     }
-    p.rect(12, 11 + bob, 2, 1, PAL.armorBase);
-    p.rect(14, 11 + bob, 5, 1, PAL.armorDark); // queixo na sombra
-    p.rect(19, 11 + bob, 2, 1, PAL.armorShadow);
-    p.rect(13, 12 + bob, 7, 1, PAL.armorShadow); // gola
+    p.rect(12, 11 + bob, 2, 1, sk.base);
+    p.rect(14, 11 + bob, 5, 1, sk.dark); // queixo na sombra
+    p.rect(19, 11 + bob, 2, 1, sk.shadow);
+    p.rect(13, 12 + bob, 7, 1, sk.shadow); // gola
   };
 
   /** Pauldrons largos (a base do triângulo). vy = deslocamento vertical. */
   const pauldrons = (): void => {
-    p.rect(9, 13 + bob, 3, 1, PAL.armorEdge);
-    p.rect(9, 14 + bob, 3, 1, PAL.armorLight);
-    p.rect(9, 15 + bob, 2, 1, PAL.armorBase);
-    p.rect(20, 13 + bob, 3, 1, PAL.armorLight);
-    p.rect(20, 14 + bob, 3, 1, PAL.armorBase);
-    p.rect(21, 15 + bob, 2, 1, PAL.armorDark);
+    p.rect(9, 13 + bob, 3, 1, sk.edge);
+    p.rect(9, 14 + bob, 3, 1, sk.light);
+    p.rect(9, 15 + bob, 2, 1, sk.base);
+    p.rect(20, 13 + bob, 3, 1, sk.light);
+    p.rect(20, 14 + bob, 3, 1, sk.base);
+    p.rect(21, 15 + bob, 2, 1, sk.dark);
   };
 
   /** Pernas frente/costas com passo alternado. */
@@ -379,24 +445,24 @@ function drawKnight(p: Px, facing: Exclude<Facing, "w">, frame: number): void {
   if (facing === "s") {
     legsFrontBack();
     // ── capa: borda direita atrás do braço da espada ──
-    p.rect(22, 14 + bob, 1, 8, PAL.capeDark);
+    p.rect(22, 14 + bob, 1, 8, sk.capeDark);
     // ── torso (x11–21): esquerda lit → direita sombra ──
-    p.rect(13, 14 + bob, 6, 1, PAL.armorEdge); // peitoral superior
+    p.rect(13, 14 + bob, 6, 1, sk.edge); // peitoral superior
     for (let y = 15 + bob; y <= 20 + bob; y++) {
-      p.rect(11, y, 2, 1, PAL.armorLight);
-      p.rect(13, y, 6, 1, PAL.armorBase);
-      p.rect(19, y, 3, 1, PAL.armorDark);
+      p.rect(11, y, 2, 1, sk.light);
+      p.rect(13, y, 6, 1, sk.base);
+      p.rect(19, y, 3, 1, sk.dark);
     }
-    p.rect(13, 15 + bob, 2, 2, PAL.armorLight); // volume do peito (conectado ao lado lit)
+    p.rect(13, 15 + bob, 2, 2, sk.light); // volume do peito (conectado ao lado lit)
     p.rect(11, 21 + bob, 11, 1, PAL.belt);
     p.rect(15, 21 + bob, 2, 1, PAL.buckle);
-    p.rect(11, 22 + bob, 11, 1, PAL.armorShadow); // tassets
+    p.rect(11, 22 + bob, 11, 1, sk.shadow); // tassets
     helmFrontBack(true);
     pauldrons();
     // ── braço direito + espada apontando para baixo ──
     const armSwing = frame === 1 ? 1 : frame === 2 ? -1 : 0;
-    p.rect(21, 15 + bob + armSwing, 2, 4, PAL.armorDark);
-    p.rect(21, 19 + bob + armSwing, 2, 1, PAL.armorShadow); // manopla
+    p.rect(21, 15 + bob + armSwing, 2, 4, sk.dark);
+    p.rect(21, 19 + bob + armSwing, 2, 1, sk.shadow); // manopla
     p.rect(21, 20 + bob + armSwing, 3, 1, PAL.buckle); // guarda
     p.rect(22, 21 + bob + armSwing, 1, 6, PAL.swordBlade);
     p.px(22, 27 + bob + armSwing, PAL.swordDark); // ponta
@@ -410,22 +476,22 @@ function drawKnight(p: Px, facing: Exclude<Facing, "w">, frame: number): void {
     p.rect(7, 20 + bob, 3, 1, PAL.shieldWood);
     p.rect(7, 21 + bob, 3, 1, PAL.shieldWoodDark);
     p.rect(8, 22 + bob, 1, 1, PAL.shieldWoodDark); // ponta do escudo
-    p.rect(8, 17 + bob, 1, 1, PAL.armorShine); // umbo de metal
-    p.px(8, 18 + bob, PAL.armorDark);
+    p.rect(8, 17 + bob, 1, 1, sk.shine); // umbo de metal
+    p.px(8, 18 + bob, sk.dark);
     return;
   }
 
   if (facing === "n") {
     legsFrontBack();
     // ── capa cobre o corpo (o acento de cor do jogo) ──
-    p.rect(10, 13 + bob, 12, 2, PAL.capeLight);
-    p.rect(10, 15 + bob, 12, 6, PAL.capeBase);
-    p.rect(10, 21 + bob, 12, 3, PAL.capeDark);
+    p.rect(10, 13 + bob, 12, 2, sk.capeLight);
+    p.rect(10, 15 + bob, 12, 6, sk.capeBase);
+    p.rect(10, 21 + bob, 12, 3, sk.capeDark);
     // dobras verticais (clusters intencionais)
-    p.rect(13, 15 + bob, 1, 6, PAL.capeDark);
-    p.rect(18, 15 + bob, 1, 6, PAL.capeDark);
-    p.px(10, 23 + bob, PAL.capeDark);
-    p.px(21, 23 + bob, PAL.capeDark);
+    p.rect(13, 15 + bob, 1, 6, sk.capeDark);
+    p.rect(18, 15 + bob, 1, 6, sk.capeDark);
+    p.px(10, 23 + bob, sk.capeDark);
+    p.px(21, 23 + bob, sk.capeDark);
     helmFrontBack(false);
     pauldrons();
     // ── escudo pendurado: borda aparece no lado direito (braço esq. do char) ──
@@ -448,36 +514,37 @@ function drawKnight(p: Px, facing: Exclude<Facing, "w">, frame: number): void {
   p.rect(16 + stride, 27, 3, 2, PAL.boots);
   p.rect(16 + stride, 29, 3, 1, PAL.bootsDark);
   // ── capa esvoaçando atrás ──
-  p.rect(10, 13 + bob, 2, 2, PAL.capeLight);
-  p.rect(10, 15 + bob, 2, 6, PAL.capeBase);
-  p.rect(9, 18 + bob, 1, 4, PAL.capeDark);
-  p.rect(10, 21 + bob, 2, 2, PAL.capeDark);
+  p.rect(10, 13 + bob, 2, 2, sk.capeLight);
+  p.rect(10, 15 + bob, 2, 6, sk.capeBase);
+  p.rect(9, 18 + bob, 1, 4, sk.capeDark);
+  p.rect(10, 21 + bob, 2, 2, sk.capeDark);
   // ── torso (x12–19): costas lit (luz vem de trás-esquerda) ──
-  p.rect(13, 14 + bob, 5, 1, PAL.armorEdge);
+  p.rect(13, 14 + bob, 5, 1, sk.edge);
   for (let y = 15 + bob; y <= 20 + bob; y++) {
-    p.rect(12, y, 2, 1, PAL.armorLight);
-    p.rect(14, y, 4, 1, PAL.armorBase);
-    p.rect(18, y, 2, 1, PAL.armorDark);
+    p.rect(12, y, 2, 1, sk.light);
+    p.rect(14, y, 4, 1, sk.base);
+    p.rect(18, y, 2, 1, sk.dark);
   }
   p.rect(12, 21 + bob, 8, 1, PAL.belt);
   p.px(15, 21 + bob, PAL.buckle);
-  p.rect(12, 22 + bob, 8, 1, PAL.armorShadow);
+  p.rect(12, 22 + bob, 8, 1, sk.shadow);
   // ── elmo perfil (x13–20): fresta na frente ──
-  p.rect(15, 5 + bob, 4, 1, PAL.armorEdge);
-  p.rect(14, 6 + bob, 6, 1, PAL.armorLight);
-  p.px(16, 5 + bob, PAL.armorShine);
+  p.rect(15, 5 + bob, 4, 1, sk.edge);
+  p.rect(14, 6 + bob, 6, 1, sk.light);
+  p.px(16, 5 + bob, sk.shine);
   for (let y = 7 + bob; y <= 10 + bob; y++) {
-    p.rect(13, y, 2, 1, PAL.armorLight);
-    p.rect(15, y, 4, 1, PAL.armorBase);
-    p.px(19, y, PAL.armorDark);
+    p.rect(13, y, 2, 1, sk.light);
+    p.rect(15, y, 4, 1, sk.base);
+    p.px(19, y, sk.dark);
   }
-  p.rect(17, 8 + bob, 3, 1, PAL.visorSlit); // rasgo do visor na frente
-  p.px(19, 9 + bob, PAL.visorSlit);
-  p.rect(14, 11 + bob, 6, 1, PAL.armorDark);
-  p.rect(14, 12 + bob, 5, 1, PAL.armorShadow);
+  p.rect(17, 8 + bob, 3, 1, sk.visor); // rasgo do visor na frente
+  p.px(19, 9 + bob, sk.visor);
+  if (sk.ember) p.px(18, 8 + bob, sk.ember); // brasa no perfil
+  p.rect(14, 11 + bob, 6, 1, sk.dark);
+  p.rect(14, 12 + bob, 5, 1, sk.shadow);
   // ── pauldron próximo ──
-  p.rect(13, 13 + bob, 5, 1, PAL.armorEdge);
-  p.rect(13, 14 + bob, 5, 1, PAL.armorLight);
+  p.rect(13, 13 + bob, 5, 1, sk.edge);
+  p.rect(13, 14 + bob, 5, 1, sk.light);
   // ── escudo na frente (braço avançado — o knight avança atrás do escudo) ──
   p.rect(19, 14 + bob, 3, 1, PAL.shieldWoodLight);
   for (let y = 15 + bob; y <= 20 + bob; y++) {
@@ -487,17 +554,17 @@ function drawKnight(p: Px, facing: Exclude<Facing, "w">, frame: number): void {
   }
   p.rect(20, 21 + bob, 2, 1, PAL.shieldWoodDark);
   p.px(21, 22 + bob, PAL.shieldWoodDark);
-  p.px(20, 17 + bob, PAL.armorShine); // umbo
+  p.px(20, 17 + bob, sk.shine); // umbo
 }
 
-function makeKnightTextures(): Record<Facing, Texture[]> {
+function makeKnightTextures(sk: KnightSkin): Record<Facing, Texture[]> {
   const result: Partial<Record<Facing, Texture[]>> = {};
   const eastCanvases: HTMLCanvasElement[] = [];
   for (const facing of ["s", "n", "e"] as const) {
     const frames: Texture[] = [];
     for (let f = 0; f < 3; f++) {
       const p = new Px(32, 32);
-      drawKnight(p, facing, f);
+      drawKnight(p, facing, f, sk);
       p.outline(PAL.outline);
       if (facing === "e") eastCanvases.push(p.canvas);
       frames.push(p.texture());
@@ -513,6 +580,15 @@ function makeKnightTextures(): Record<Facing, Texture[]> {
     return p.texture();
   });
   return result as Record<Facing, Texture[]>;
+}
+
+/** Texturas do cavaleiro para TODAS as skins do catálogo (skin → facing → frames). */
+function makeKnightSkinTextures(): Record<string, Record<Facing, Texture[]>> {
+  const result: Record<string, Record<Facing, Texture[]>> = {};
+  for (const [skinId, colors] of Object.entries(KNIGHT_SKIN_COLORS)) {
+    result[skinId] = makeKnightTextures(colors);
+  }
+  return result;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -706,7 +782,8 @@ export interface SpriteLibrary {
   rocks: Texture[];
   wall: Texture;
   torchFrames: Texture[];
-  knight: Record<Facing, Texture[]>;
+  /** Cavaleiro por SKIN (catálogo em shared/skins.ts): skin → facing → frames. */
+  knight: Record<string, Record<Facing, Texture[]>>;
   rat: Record<Facing, Texture[]>;
   light: Texture;
   tileCursor: Texture;
@@ -725,7 +802,7 @@ export function createSprites(): SpriteLibrary {
     rocks: [makeRock(401), makeRock(402)],
     wall: makeWall(500),
     torchFrames: makeTorchFrames(),
-    knight: makeKnightTextures(),
+    knight: makeKnightSkinTextures(),
     rat: makeRatTextures(),
     light: makeLightTexture(),
     tileCursor: makeTileCursor(),
