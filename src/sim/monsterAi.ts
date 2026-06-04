@@ -14,12 +14,16 @@ import type { World } from "./World";
  * entidade.
  */
 
-/** Escolhe o jogador vivo mais próximo dentro do raio de aggro, ou null. */
-function nearestPlayerInAggro(monster: SimEntity, players: SimEntity[]): SimEntity | null {
+/**
+ * Escolhe o jogador vivo mais próximo dentro do raio de aggro, ou null.
+ * Jogador em ZONA SEGURA é invisível para a IA (depot: mobs não entram nem
+ * ficam batendo da borda — a zona é cega para eles).
+ */
+function nearestPlayerInAggro(world: World, monster: SimEntity, players: SimEntity[]): SimEntity | null {
   let best: SimEntity | null = null;
   let bestDist = Infinity;
   for (const p of players) {
-    if (p.dead) continue;
+    if (p.dead || world.isSafeZone(p.pos.x, p.pos.y)) continue;
     const d = chebyshev(monster.pos, p.pos);
     if (d <= monster.aggroRadius && d < bestDist) {
       bestDist = d;
@@ -39,13 +43,20 @@ export function updateChaser(
   monster: SimEntity,
   players: SimEntity[],
   now: number,
+  /** Bloqueio dinâmico de tile (ocupação por entidades — bloqueio de corpo). */
+  isBlocked: (x: number, y: number) => boolean,
 ): void {
   if (monster.dead) return;
 
   // ── Aquisição/perda de alvo ──
   let target = monster.targetId != null ? players.find((p) => p.id === monster.targetId) : undefined;
-  if (!target || target.dead || chebyshev(monster.pos, target.pos) > monster.aggroRadius + 1) {
-    target = nearestPlayerInAggro(monster, players) ?? undefined;
+  if (
+    !target ||
+    target.dead ||
+    chebyshev(monster.pos, target.pos) > monster.aggroRadius + 1 ||
+    world.isSafeZone(target.pos.x, target.pos.y) // alvo entrou em zona segura → solta
+  ) {
+    target = nearestPlayerInAggro(world, monster, players) ?? undefined;
     monster.targetId = target ? target.id : null;
   }
 
@@ -70,7 +81,22 @@ export function updateChaser(
   }
 
   // ── Persegue via A* até um tile adjacente ao alvo ──
-  const path = findPath(world, monster.pos, target.pos);
+  // Repath só quando o ALVO MUDOU de tile: o `goal` do intent guarda a posição
+  // do alvo no momento do cálculo (tryStep cria objetos novos de pos, então o
+  // goal é um snapshot). Alvo parado + path em curso = segue o path — evita um
+  // A* completo por mob por tick (bomba de CPU nos mapas maiores do M3).
+  if (
+    monster.intent?.kind === "path" &&
+    monster.intent.path.length > 0 &&
+    monster.intent.goal.x === target.pos.x &&
+    monster.intent.goal.y === target.pos.y
+  ) {
+    return;
+  }
+  // O tile do alvo nunca é filtrado pelo isBlocked (regra do findPath) — o
+  // path chega até ele e o último passo é descartado: mobs CERCAM o alvo em
+  // tiles livres em vez de empilhar atrás do primeiro que chegou.
+  const path = findPath(world, monster.pos, target.pos, { isBlocked });
   if (path && path.length > 0) {
     // Não pisa em cima do alvo: descarta o último passo (o tile do jogador).
     const goal = path[path.length - 1];

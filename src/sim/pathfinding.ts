@@ -25,8 +25,19 @@ function octile(ax: number, ay: number, bx: number, by: number): number {
   return ORTHO_COST * Math.max(dx, dy) + (DIAG_COST - ORTHO_COST) * Math.min(dx, dy);
 }
 
+/** Opções de pathfinding. */
+export interface PathOpts {
+  /**
+   * Bloqueio DINÂMICO de tile (ex.: ocupado por entidade viva — bloqueio de
+   * corpo estilo Tibia). O tile-DESTINO nunca é filtrado: perseguir um alvo
+   * significa pathear até o tile dele e parar adjacente.
+   */
+  isBlocked?: (x: number, y: number) => boolean;
+}
+
 /** Retorna o caminho (sem incluir a origem) ou null se inalcançável. */
-export function findPath(world: World, from: Vec2, to: Vec2): Vec2[] | null {
+export function findPath(world: World, from: Vec2, to: Vec2, opts?: PathOpts): Vec2[] | null {
+  const isBlocked = opts?.isBlocked;
   if (!world.isWalkable(to.x, to.y)) return null;
   if (from.x === to.x && from.y === to.y) return [];
 
@@ -59,6 +70,8 @@ export function findPath(world: World, from: Vec2, to: Vec2): Vec2[] | null {
         const nx = current.x + dx;
         const ny = current.y + dy;
         if (!world.isWalkable(nx, ny)) continue;
+        // Bloqueio dinâmico (entidades), exceto no tile-destino.
+        if (isBlocked && !(nx === to.x && ny === to.y) && isBlocked(nx, ny)) continue;
         const diagonal = dx !== 0 && dy !== 0;
         if (diagonal && (!world.isWalkable(current.x + dx, current.y) || !world.isWalkable(current.x, current.y + dy))) {
           continue; // não cortar quinas

@@ -99,6 +99,53 @@ export class Simulation {
    * resolução seja determinística (mesma ordem do tick).
    */
   private pendingSkillCasts: { casterId: number; skillId: string; targetId: number | null }[] = [];
+  /**
+   * Ocupação de tiles por entidades VIVAS — bloqueio de corpo estilo Tibia:
+   * players e mobs não se atravessam nem se empilham (cercar/segurar corredor
+   * é gameplay; atravessável quebraria o PvP). EXCEÇÃO: zonas seguras do mapa
+   * (depot/escadas), onde atravessar players é necessidade real e mobs não
+   * entram. Reconstruída a cada tick e atualizada incrementalmente nos passos.
+   */
+  private occupancy = new Map<number, number>();
+
+  private tileKey(x: number, y: number): number {
+    return y * this.world.width + x;
+  }
+
+  private rebuildOccupancy(): void {
+    this.occupancy.clear();
+    for (const e of this.entities.values()) {
+      if (!e.dead) this.occupancy.set(this.tileKey(e.pos.x, e.pos.y), e.id);
+    }
+  }
+
+  /**
+   * `mover` pode ENTRAR no tile? Regras: tile andável; zona segura = sempre
+   * livre para players (e proibida para monstros); zona de passagem (chegada
+   * de escada/alavanca/portal) = sem bloqueio de corpo para TODOS (ninguém é
+   * ejetado nem trava o mecanismo); fora delas, tile ocupado por entidade
+   * viva bloqueia.
+   */
+  private canEnter(mover: SimEntity, x: number, y: number): boolean {
+    if (!this.world.isWalkable(x, y)) return false;
+    if (this.world.isSafeZone(x, y)) return mover.kind !== "monster";
+    if (this.world.isPassZone(x, y)) return true;
+    const occ = this.occupancy.get(this.tileKey(x, y));
+    return occ == null || occ === mover.id;
+  }
+
+  /** Predicado de bloqueio dinâmico para o pathfinding deste `mover`. */
+  private blockedFor(mover: SimEntity): (x: number, y: number) => boolean {
+    return (x, y) => !this.canEnter(mover, x, y);
+  }
+
+  /** Move `e` para (x,y) mantendo o índice de ocupação coerente. */
+  private moveTo(e: SimEntity, x: number, y: number): void {
+    const fromKey = this.tileKey(e.pos.x, e.pos.y);
+    if (this.occupancy.get(fromKey) === e.id) this.occupancy.delete(fromKey);
+    e.pos = { x, y };
+    this.occupancy.set(this.tileKey(x, y), e.id);
+  }
 
   constructor(map: MapData) {
     this.world = new World(map);
@@ -180,6 +227,11 @@ export class Simulation {
     const weapon = this.items.create(STARTER_WEAPON_BY_CLASS[cls]);
     entity.equippedWeaponId = weapon.id;
     this.entities.set(id, entity);
+    // Bloqueio de corpo: nasce no tile livre mais próximo do spawn e ocupa-o.
+    const sp = this.nearestFree(entity, entity.pos);
+    entity.pos = { x: sp.x, y: sp.y };
+    entity.spawnPos = { x: sp.x, y: sp.y };
+    this.occupancy.set(this.tileKey(sp.x, sp.y), id);
     this.progressions.set(id, prog);
     syncMaxResources(entity, prog, true); // preenche HP/Mana ao máximo derivado
     this.recomputePlayerDerived(entity, prog); // dano/cooldown de auto-attack
@@ -208,10 +260,15 @@ export class Simulation {
   private recomputePlayerDerived(entity: SimEntity, prog: Progression): void {
     const w = this.weaponStatsOf(entity);
     entity.attackDamage = physicalDamage(prog.attributes, w.baseDamage, w.usesDexterity);
-    entity.attackCooldownMs = attackCooldownMs(prog.attributes, w.baseCooldownMs);
+    // Quantizado à grade de ticks: o cooldown informado é o comportamento real.
+    entity.attackCooldownMs = this.quantizeToTickMs(attackCooldownMs(prog.attributes, w.baseCooldownMs));
   }
 
   removeEntity(id: number): void {
+    const e = this.entities.get(id);
+    if (e && this.occupancy.get(this.tileKey(e.pos.x, e.pos.y)) === id) {
+      this.occupancy.delete(this.tileKey(e.pos.x, e.pos.y));
+    }
     this.entities.delete(id);
     this.playerIds.delete(id);
     this.progressions.delete(id);
@@ -264,7 +321,8 @@ export class Simulation {
       targetId: null,
       nextAttackAt: 0,
       attackDamage: template.attackDamage,
-      attackCooldownMs: template.attackCooldownMs,
+      // Quantizado à grade de ticks (mesma razão do stepMs/cooldown do player).
+      attackCooldownMs: this.quantizeToTickMs(template.attackCooldownMs),
       dead: false,
       // Mobs usam números do bestiário, sem arma-instância (ledger só p/ players).
       equippedWeaponId: null,
@@ -275,7 +333,24 @@ export class Simulation {
       aggroRadius: template.aggroRadius,
       spawnPos: { x: pos.x, y: pos.y },
     });
+    this.occupancy.set(this.tileKey(pos.x, pos.y), id);
     return id;
+  }
+
+  /** Tile livre mais próximo de `target` para `mover` (anéis até 3; fallback: o próprio). */
+  private nearestFree(mover: SimEntity, target: Vec2): Vec2 {
+    if (this.canEnter(mover, target.x, target.y)) return target;
+    for (let r = 1; r <= 3; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = target.x + dx;
+          const y = target.y + dy;
+          if (this.canEnter(mover, x, y)) return { x, y };
+        }
+      }
+    }
+    return target;
   }
 
   handleCommand(entityId: number, cmd: ClientCommand): void {
@@ -288,7 +363,7 @@ export class Simulation {
       case "walkTo": {
         const goal = nearestWalkable(this.world, { x: Math.round(cmd.x), y: Math.round(cmd.y) });
         if (!goal) break;
-        const path = findPath(this.world, e.pos, goal);
+        const path = findPath(this.world, e.pos, goal, { isBlocked: this.blockedFor(e) });
         if (path && path.length > 0) e.intent = { kind: "path", path, goal };
         break;
       }
@@ -365,6 +440,9 @@ export class Simulation {
 
   tick(): void {
     this.tickCount++;
+    // Índice de ocupação do tick (bloqueio de corpo): IA, pathfinding e passos
+    // deste tick enxergam as posições atuais; os passos atualizam incremental.
+    this.rebuildOccupancy();
     const now = this.now();
     const pending: SnapshotEvent[] = [];
     const ctx: CombatCtx = {
@@ -402,7 +480,7 @@ export class Simulation {
     for (const e of this.entities.values()) {
       e.justMoved = false;
       if (e.kind === "monster" && e.ai !== null && !e.dead) {
-        updateChaser(ctx, this.world, e, players, now);
+        updateChaser(ctx, this.world, e, players, now, this.blockedFor(e));
       }
     }
 
@@ -458,8 +536,10 @@ export class Simulation {
     for (const e of [...this.entities.values()]) {
       if (!e.dead) continue;
       if (e.kind === "player") {
-        // Respawn simples: volta ao spawn com HP cheio.
-        e.pos = { x: e.spawnPos.x, y: e.spawnPos.y };
+        // Respawn simples: volta ao spawn com HP cheio (tile livre mais próximo,
+        // mantendo o índice de ocupação coerente).
+        const sp = this.nearestFree(e, e.spawnPos);
+        this.moveTo(e, sp.x, sp.y);
         e.hp = e.maxHp;
         e.mp = e.maxMp;
         e.dead = false;
@@ -496,8 +576,18 @@ export class Simulation {
     if (this.respawns.length > 0) {
       const remaining: PendingRespawn[] = [];
       for (const r of this.respawns) {
-        if (this.tickCount >= r.atTick) this.spawnMonster(r.template, r.pos);
-        else remaining.push(r);
+        if (this.tickCount >= r.atTick) {
+          // Ponto de spawn ocupado (alguém parado nele) → adia 1s em vez de
+          // spawnar empilhado. Zona segura também adia: mob não nasce nela.
+          const free =
+            this.world.isWalkable(r.pos.x, r.pos.y) &&
+            !this.world.isSafeZone(r.pos.x, r.pos.y) &&
+            !this.occupancy.has(this.tileKey(r.pos.x, r.pos.y));
+          if (free) this.spawnMonster(r.template, r.pos);
+          else remaining.push({ ...r, atTick: this.tickCount + 20 });
+        } else {
+          remaining.push(r);
+        }
       }
       this.respawns = remaining;
     }
@@ -525,18 +615,35 @@ export class Simulation {
     const dir = dirFromDelta(next.x - e.pos.x, next.y - e.pos.y);
     if (!dir) {
       // Path dessincronizado (não deveria acontecer) — recalcula.
-      const path = findPath(this.world, e.pos, e.intent.goal);
+      const path = findPath(this.world, e.pos, e.intent.goal, { isBlocked: this.blockedFor(e) });
       e.intent = path && path.length > 0 ? { kind: "path", path, goal: e.intent.goal } : null;
       return;
     }
     if (this.tryStep(e, dir, now)) {
       e.intent.path.shift();
       if (e.intent.path.length === 0) e.intent = null;
+    } else if (e.intent.path.length === 1) {
+      // O único passo restante é o tile-objetivo, ocupado por alguém parado
+      // nele: chegou "o mais perto possível" — para, em vez de re-pathear
+      // para sempre contra um bloqueio que não vai sumir.
+      e.intent = null;
     } else {
-      // Bloqueio dinâmico (futuro: outra criatura no tile) — recalcula.
-      const path = findPath(this.world, e.pos, e.intent.goal);
+      // Bloqueio dinâmico (outra criatura entrou no tile) — recalcula por volta.
+      const path = findPath(this.world, e.pos, e.intent.goal, { isBlocked: this.blockedFor(e) });
       e.intent = path && path.length > 0 ? { kind: "path", path, goal: e.intent.goal } : null;
     }
+  }
+
+  /**
+   * Alinha uma duração à grade de ticks. A sim só age em fronteiras de tick —
+   * durações desalinhadas mentem: um stepMs de 220 viraria cadência real de
+   * 250 (tween do client termina antes → frame morto, movimento truncado), e
+   * um attackCooldownMs de 1875 viraria 1900 efetivos (DPS real ≠ fórmula, o
+   * balance calibraria em cima de número falso). Quantizado, o número que a
+   * sim/snapshot informam É o comportamento exato.
+   */
+  private quantizeToTickMs(raw: number): number {
+    return Math.max(TICK_MS, Math.round(raw / TICK_MS) * TICK_MS);
   }
 
   /** Tenta executar um passo. Retorna true se moveu. */
@@ -544,16 +651,18 @@ export class Simulation {
     const v = DIR_VECTORS[dir];
     const nx = e.pos.x + v.x;
     const ny = e.pos.y + v.y;
-    if (!this.world.isWalkable(nx, ny)) return false;
+    // Bloqueio de corpo: tile precisa estar andável E livre (canEnter).
+    if (!this.canEnter(e, nx, ny)) return false;
     if (isDiagonal(dir)) {
-      // Mesma regra do pathfinding: não atravessar quinas.
+      // Mesma regra do pathfinding: não atravessar quinas (regra ESTÁTICA —
+      // entidades só bloqueiam o próprio tile, não a passagem diagonal).
       if (!this.world.isWalkable(e.pos.x + v.x, e.pos.y) || !this.world.isWalkable(e.pos.x, e.pos.y + v.y)) {
         return false;
       }
     }
-    e.pos = { x: nx, y: ny };
+    this.moveTo(e, nx, ny);
     e.facing = facingFromDir(dir);
-    e.stepMs = Math.round(e.baseStepMs * (isDiagonal(dir) ? DIAGONAL_FACTOR : 1));
+    e.stepMs = this.quantizeToTickMs(e.baseStepMs * (isDiagonal(dir) ? DIAGONAL_FACTOR : 1));
     e.nextMoveAt = now + e.stepMs;
     e.justMoved = true;
     return true;

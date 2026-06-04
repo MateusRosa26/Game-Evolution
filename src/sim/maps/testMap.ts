@@ -174,5 +174,7 @@ export function generateTestMap(): MapData {
     monsters.push({ x: mx, y: my, species: "rato_lanhoso" });
   }
 
-  return { width: W, height: H, tiles, lights, decor, monsters, spawn };
+  // Zonas seguras (depot) e de passagem (escadas/portais): nenhuma no mapa de
+  // teste — os mecanismos são exercitados nas cidades/dungeons do M3.
+  return { width: W, height: H, tiles, lights, decor, monsters, safeZones: [], passZones: [], spawn };
 }

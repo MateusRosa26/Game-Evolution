@@ -18,6 +18,7 @@ RPG top-down em grid, inspirado em **Tibia / Ragnarok / Apogea**. Pixel art mode
 | Controles | WASD/setas (8 direções) + click-to-move com pathfinding A* |
 | Simulação | Tick-based 20/s, autoritativa, determinística (RNG seedado) |
 | Combate | Híbrido: alvo selecionado + auto-attack contínuo + skills de área/direção manuais (estilo runas/waves de Tibia) |
+| Colisão | **Bloqueio de corpo** (estilo Tibia): entidades vivas ocupam o tile — sem atravessar/empilhar players ou mobs (cercar/segurar corredor é gameplay; crítico p/ PvP). Duas exceções: **zonas seguras** (depot: atravessar permitido, mobs não entram, IA cega) e **zonas de passagem** (chegada de escada/alavanca/portal: sem bloqueio de corpo — ninguém é ejetado nem trava o mecanismo — mas tile normal no resto: mobs passam, combate vale) |
 | Câmera | Top-down, zoom 2x, seguimento suave |
 
 ## Visual & UI (decidido)

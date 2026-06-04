@@ -169,6 +169,14 @@ export interface MapMonster {
   species: string;
 }
 
+/** Retângulo em tiles (zonas de regra: segura / passagem). */
+export interface MapRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface MapData {
   width: number;
   height: number;
@@ -178,5 +186,18 @@ export interface MapData {
   decor: MapDecor[];
   /** Pontos de spawn de monstros (vazio = mapa sem mobs). */
   monsters: MapMonster[];
+  /**
+   * ZONAS SEGURAS (estilo depot/protection zone de Tibia): entidades não
+   * bloqueiam o tile (atravessar/empilhar permitido), monstros NUNCA entram e
+   * a IA ignora quem está dentro.
+   */
+  safeZones: MapRect[];
+  /**
+   * ZONAS DE PASSAGEM (escadas/alavancas/portais — pontos de chegada de
+   * mecanismos): SEM bloqueio de corpo — quem chega não é ejetado e ninguém
+   * trava o mecanismo parando no destino. Fora isso, tile NORMAL: mobs passam,
+   * IA enxerga, combate vale (≠ zona segura).
+   */
+  passZones: MapRect[];
   spawn: Vec2;
 }

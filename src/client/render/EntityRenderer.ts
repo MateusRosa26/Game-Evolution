@@ -8,12 +8,25 @@ import { skillMeta } from "../ui/skillMeta";
 /** Ciclo de caminhada: passo-esq, neutro, passo-dir, neutro. */
 const WALK_CYCLE = [1, 0, 2, 0];
 
+/**
+ * Tempo parado (ms) antes de voltar ao frame neutro. Entre um passo e o
+ * próximo snapshot há jitter de timer de alguns ms — sem essa folga, o sprite
+ * "piscava" pro idle a cada passo e a caminhada nunca emendava o ciclo.
+ */
+const IDLE_RESET_MS = 90;
+
 /** Floating damage text — sobe e some. */
 const FLOAT_DUR_MS = 900;
 const FLOAT_RISE_PX = 22;
 
-/** Projétil de cast (runa viajando from→to). */
-const CAST_DUR_MS = 150;
+/**
+ * Projétil de cast (runa viajando from→to): velocidade CONSTANTE em px/ms —
+ * a duração escala com a distância (1 tile não parece lento nem 7 tiles
+ * parecem teleporte). Piso/teto para legibilidade.
+ */
+const CAST_SPEED_PX_PER_MS = 0.45; // ~14 tiles/s
+const CAST_MIN_DUR_MS = 80;
+const CAST_MAX_DUR_MS = 320;
 
 /** Cor por tipo de status effect (apresentação dos ícones sobre a HP bar). */
 const STATUS_COLOR: Record<StatusEffectState["kind"], number> = {
@@ -34,6 +47,8 @@ interface CastProjectile {
   toX: number;
   toY: number;
   elapsed: number;
+  /** Duração do voo (derivada da distância — velocidade constante). */
+  durMs: number;
 }
 
 interface EntityVisual {
@@ -56,6 +71,8 @@ interface EntityVisual {
   tweenDur: number;
   facing: Facing;
   walkClock: number;
+  /** Tempo acumulado parado (p/ resetar a animação só após IDLE_RESET_MS). */
+  idleMs: number;
   lastHpRatio: number;
 }
 
@@ -108,13 +125,25 @@ export class EntityRenderer {
       }
       // novo passo? inicia tween a partir da posição visual atual
       if (e.pos.x !== v.toX || e.pos.y !== v.toY) {
-        const cur = this.currentTilePos(v);
-        v.fromX = cur.x;
-        v.fromY = cur.y;
-        v.toX = e.pos.x;
-        v.toY = e.pos.y;
-        v.tweenElapsed = 0;
-        v.tweenDur = e.stepMs;
+        const jump = Math.max(Math.abs(e.pos.x - v.toX), Math.abs(e.pos.y - v.toY)) > 1;
+        if (jump) {
+          // Teleporte (respawn de morte, blinks futuros): CORTA, não desliza —
+          // tween aqui faria o sprite escorregar pelo mapa atravessando tudo.
+          v.fromX = e.pos.x;
+          v.fromY = e.pos.y;
+          v.toX = e.pos.x;
+          v.toY = e.pos.y;
+          v.tweenElapsed = 0;
+          v.tweenDur = 0;
+        } else {
+          const cur = this.currentTilePos(v);
+          v.fromX = cur.x;
+          v.fromY = cur.y;
+          v.toX = e.pos.x;
+          v.toY = e.pos.y;
+          v.tweenElapsed = 0;
+          v.tweenDur = e.stepMs;
+        }
       }
       if (e.facing !== v.facing) {
         v.facing = e.facing;
@@ -149,11 +178,13 @@ export class EntityRenderer {
     // ── Eventos one-shot do tick: floats, cast e cura ──
     for (const ev of snap.events) {
       if (ev.kind === "damage") {
-        this.spawnDamageText(ev.amount, ev.pos.x, ev.pos.y);
+        const at = this.visualPosOf(ev.targetId, ev.pos);
+        this.spawnDamageText(ev.amount, at.x, at.y);
       } else if (ev.kind === "cast") {
-        this.spawnCast(ev.skillId, ev.from, ev.to);
+        this.spawnCast(ev.skillId, ev.casterId, ev.from, ev.to);
       } else if (ev.kind === "heal") {
-        this.spawnHealText(ev.amount, ev.pos.x, ev.pos.y);
+        const at = this.visualPosOf(ev.targetId, ev.pos);
+        this.spawnHealText(ev.amount, at.x, at.y);
       }
       // death: a remoção visual já acontece pelo diff de entidades acima.
     }
@@ -205,7 +236,18 @@ export class EntityRenderer {
     this.floats.push({ text, elapsed: 0 });
   }
 
-  private spawnDamageText(amount: number, tileX: number, tileY: number): void {
+  /**
+   * Posição visual (interpolada) de uma entidade em px de mundo — onde o
+   * jogador VÊ o alvo, não o tile da sim (mob no meio do passo). Fallback:
+   * centro do tile do evento (entidade já removida, ex.: golpe fatal).
+   */
+  private visualPosOf(entityId: number, fallbackTile: { x: number; y: number }): { x: number; y: number } {
+    const v = this.visuals.get(entityId);
+    if (v) return { x: v.container.position.x, y: v.container.position.y - TILE_SIZE * 0.4 };
+    return { x: (fallbackTile.x + 0.5) * TILE_SIZE, y: (fallbackTile.y + 0.6) * TILE_SIZE };
+  }
+
+  private spawnDamageText(amount: number, worldX: number, worldY: number): void {
     const text = new Text({
       text: `${amount}`,
       style: {
@@ -218,14 +260,14 @@ export class EntityRenderer {
     });
     text.resolution = 4;
     text.anchor.set(0.5, 1);
-    text.position.set((tileX + 0.5) * TILE_SIZE, (tileY + 0.6) * TILE_SIZE);
+    text.position.set(worldX, worldY);
     text.zIndex = 1e9; // sempre por cima
     this.layer.addChild(text);
     this.floats.push({ text, elapsed: 0 });
   }
 
   /** Floating text VERDE de cura sobre o alvo (segue o padrão do dano). */
-  private spawnHealText(amount: number, tileX: number, tileY: number): void {
+  private spawnHealText(amount: number, worldX: number, worldY: number): void {
     const text = new Text({
       text: `+${amount}`,
       style: {
@@ -238,7 +280,7 @@ export class EntityRenderer {
     });
     text.resolution = 4;
     text.anchor.set(0.5, 1);
-    text.position.set((tileX + 0.5) * TILE_SIZE, (tileY + 0.6) * TILE_SIZE);
+    text.position.set(worldX, worldY);
     text.zIndex = 1e9;
     this.layer.addChild(text);
     this.floats.push({ text, elapsed: 0 });
@@ -246,23 +288,28 @@ export class EntityRenderer {
 
   /**
    * Projétil de cast (runa de Tibia): círculo colorido pela skill viajando de
-   * `from`→`to` em ~150ms. APRESENTAÇÃO pura — a sim já resolveu o efeito.
+   * `from`→`to` a velocidade constante. Origem = posição VISUAL do caster
+   * (mid-step), destino = tile do evento. APRESENTAÇÃO pura — a sim já
+   * resolveu o efeito.
    */
-  private spawnCast(skillId: string, from: { x: number; y: number }, to: { x: number; y: number }): void {
+  private spawnCast(
+    skillId: string,
+    casterId: number,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ): void {
     const color = skillMeta(skillId).color;
     const gfx = new Graphics();
     gfx.circle(0, 0, 4).fill({ color, alpha: 0.95 });
     gfx.circle(0, 0, 6).stroke({ color, alpha: 0.4, width: 2 });
     gfx.zIndex = 1e9;
     this.layer.addChild(gfx);
-    this.casts.push({
-      gfx,
-      fromX: (from.x + 0.5) * TILE_SIZE,
-      fromY: (from.y + 0.5) * TILE_SIZE,
-      toX: (to.x + 0.5) * TILE_SIZE,
-      toY: (to.y + 0.5) * TILE_SIZE,
-      elapsed: 0,
-    });
+    const origin = this.visualPosOf(casterId, from);
+    const toX = (to.x + 0.5) * TILE_SIZE;
+    const toY = (to.y + 0.5) * TILE_SIZE;
+    const dist = Math.hypot(toX - origin.x, toY - origin.y);
+    const durMs = Math.min(CAST_MAX_DUR_MS, Math.max(CAST_MIN_DUR_MS, dist / CAST_SPEED_PX_PER_MS));
+    this.casts.push({ gfx, fromX: origin.x, fromY: origin.y, toX, toY, elapsed: 0, durMs });
   }
 
   tick(deltaMS: number): void {
@@ -271,12 +318,23 @@ export class EntityRenderer {
       if (moving) {
         v.tweenElapsed = Math.min(v.tweenElapsed + deltaMS, v.tweenDur);
         v.walkClock += deltaMS;
+        v.idleMs = 0;
       } else if (v.walkClock !== 0) {
-        v.walkClock = 0;
-        this.applyFrame(v, 0);
+        // Só volta ao frame neutro após uma folga — um passo emenda no outro
+        // sem o sprite piscar pro idle entre snapshots.
+        v.idleMs += deltaMS;
+        if (v.idleMs >= IDLE_RESET_MS) {
+          v.walkClock = 0;
+          this.applyFrame(v, 0);
+        }
       }
       const cur = this.currentTilePos(v);
-      v.container.position.set((cur.x + 0.5) * TILE_SIZE, (cur.y + 1) * TILE_SIZE);
+      // Snap a meio-pixel de mundo (= 1px de tela no zoom 2×): mata o shimmer
+      // de subpixel do pixel art (nearest) em movimento, sem serrilhar o tween.
+      v.container.position.set(
+        Math.round((cur.x + 0.5) * TILE_SIZE * 2) / 2,
+        Math.round((cur.y + 1) * TILE_SIZE * 2) / 2,
+      );
       v.container.zIndex = v.container.position.y;
       if (moving) this.applyFrame(v, this.currentFrame(v));
     }
@@ -296,14 +354,14 @@ export class EntityRenderer {
       return true;
     });
 
-    // projéteis de cast: viajam from→to e somem ao chegar
+    // projéteis de cast: viajam from→to a velocidade constante e somem ao chegar
     for (const c of this.casts) {
       c.elapsed += deltaMS;
-      const t = Math.min(c.elapsed / CAST_DUR_MS, 1);
+      const t = Math.min(c.elapsed / c.durMs, 1);
       c.gfx.position.set(c.fromX + (c.toX - c.fromX) * t, c.fromY + (c.toY - c.fromY) * t);
     }
     this.casts = this.casts.filter((c) => {
-      if (c.elapsed >= CAST_DUR_MS) {
+      if (c.elapsed >= c.durMs) {
         c.gfx.destroy();
         return false;
       }
@@ -383,6 +441,7 @@ export class EntityRenderer {
       tweenDur: 0,
       facing: e.facing,
       walkClock: 0,
+      idleMs: 0,
       lastHpRatio: -1,
     };
     container.position.set((e.pos.x + 0.5) * TILE_SIZE, (e.pos.y + 1) * TILE_SIZE);

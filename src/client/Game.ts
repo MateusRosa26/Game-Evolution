@@ -48,6 +48,8 @@ export class Game {
 
   private playerId = -1;
   private playerState: EntityState | null = null;
+  /** Tile do jogador no snapshot anterior (detecta teleporte → corta a câmera). */
+  private lastPlayerTile: { x: number; y: number } | null = null;
   private lastEntities: EntityState[] = [];
   /** Alvo selecionado atual (do snapshot) — usado pelas hotkeys de skill. */
   private targetId: number | null = null;
@@ -75,6 +77,12 @@ export class Game {
         this.charPanel.toggle();
         return;
       }
+      // Esc: cancela o alvo do auto-attack (estilo Tibia).
+      if (ev.code === "Escape") {
+        ev.preventDefault();
+        this.transport.send({ type: "selectTarget", entityId: null });
+        return;
+      }
       // 1–6: usa a skill do slot correspondente.
       const slot = SKILL_HOTKEYS[ev.code];
       if (slot !== undefined) {
@@ -92,14 +100,18 @@ export class Game {
     });
     this.mouse = new Mouse(this.app.canvas, (sx, sy) => {
       const tile = this.camera.screenToTile(sx, sy, this.app.screen.width, this.app.screen.height);
-      // Click num monstro = seleciona alvo (auto-attack); senão, anda até lá.
+      // Click num monstro = seleciona alvo (re-click no alvo atual = cancela,
+      // toggle estilo Tibia); click no chão = só anda — andar NÃO cancela o
+      // ataque (kitar/reposicionar mantendo o auto-attack, como em Tibia).
       const monster = this.lastEntities.find(
         (e) => e.kind === "monster" && e.pos.x === tile.x && e.pos.y === tile.y,
       );
       if (monster) {
-        this.transport.send({ type: "selectTarget", entityId: monster.id });
+        this.transport.send({
+          type: "selectTarget",
+          entityId: monster.id === this.targetId ? null : monster.id,
+        });
       } else {
-        this.transport.send({ type: "selectTarget", entityId: null });
         this.transport.send({ type: "walkTo", x: tile.x, y: tile.y });
       }
     });
@@ -183,6 +195,19 @@ export class Game {
     this.lastEntities = snap.entities;
     this.targetId = snap.targetId;
     this.playerState = snap.entities.find((e) => e.id === this.playerId) ?? null;
+    if (this.playerState) {
+      // Teleporte (respawn de morte): corta a câmera junto com o sprite —
+      // sem isso ela atravessaria o mapa "voando" até o spawn.
+      const t = this.playerState.pos;
+      if (
+        this.lastPlayerTile &&
+        Math.max(Math.abs(t.x - this.lastPlayerTile.x), Math.abs(t.y - this.lastPlayerTile.y)) > 1
+      ) {
+        const p = this.entityRenderer?.playerWorldPos();
+        if (p) this.camera.snapTo(p.x, p.y);
+      }
+      this.lastPlayerTile = { x: t.x, y: t.y };
+    }
     if (this.playerState) {
       this.hud.setStats(this.playerState.hp, this.playerState.maxHp, this.playerState.mp, this.playerState.maxMp);
       this.skillBar.setSkills(this.playerState.skills);
