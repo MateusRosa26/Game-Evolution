@@ -166,59 +166,86 @@ function elmoVigilia(p: Px, facing: PartFacing, frame: number): void {
   }
 }
 
-/** Capuz da Sombra: queda em CURVA com ponta longa morta + rosto na penumbra. */
+/** Capuz da Sombra: bico drapeado, abertura OVAL sombria, manto nos ombros. */
 function capuzSombra(p: Px, facing: PartFacing, frame: number): void {
   const bob = bobOf(frame);
   if (facing === "e") {
-    // ponta caindo em curva atrás da cabeça até o ombro
-    p.px(16, 1 + bob, SENT.base);
+    // bico do capuz: sobe em curva e MORRE atrás (ponta dupla pendendo)
+    p.px(15, 1 + bob, SENT.light);
     run(p, 13, 2 + bob, 4, SENT.light, SENT.base, SENT.base);
     run(p, 11, 3 + bob, 4, SENT.base, SENT.base, SENT.dark);
-    p.rect(10, 4 + bob, 2, 1, SENT.dark);
-    p.px(9, 5 + bob, SENT.shadow);
-    p.px(9, 6 + bob, SENT.dark); // pingo da ponta
-    // capuz envolvendo a cabeça
-    run(p, 14, 3 + bob, 5, SENT.light, SENT.light, SENT.base);
-    for (let y = 4 + bob; y <= 11 + bob; y++) {
-      run(p, 12, y, 7, SENT.light, SENT.base, SENT.dark);
+    p.rect(9, 4 + bob, 3, 1, SENT.dark);
+    p.px(8, 5 + bob, SENT.shadow);
+    p.px(8, 6 + bob, SENT.dark); // pingo
+    p.px(9, 7 + bob, SENT.shadow); // segunda ponta
+    // dome do capuz com profundidade (testa avança sobre o rosto)
+    run(p, 13, 3 + bob, 6, SENT.light, SENT.light, SENT.base);
+    run(p, 12, 4 + bob, 8, SENT.light, SENT.base, SENT.base);
+    for (let y = 5 + bob; y <= 11 + bob; y++) {
+      run(p, 12, y, 8, SENT.light, SENT.base, SENT.dark);
     }
-    p.px(13, 6 + bob, SENT.dark); // vinco do tecido
-    p.px(14, 9 + bob, SENT.dark);
-    // abertura sombria
+    p.px(13, 7 + bob, SENT.dark); // vincos radiando do rosto
+    p.px(14, 10 + bob, SENT.dark);
+    p.px(13, 5 + bob, SENT.shadow);
+    // abertura funda (beiral avançado: rosto recuado na sombra)
+    p.rect(17, 6 + bob, 3, 1, SENT.dark); // beiral
     p.rect(16, 7 + bob, 3, 4, PAL.visorSlit);
-    p.px(16, 8 + bob, PAL.skinShade);
-    run(p, 13, 12 + bob, 6, SENT.base, SENT.dark, SENT.shadow);
-    p.rect(13, 13 + bob, 7, 1, SENT.shadow);
+    p.px(20, 8 + bob, PAL.visorSlit);
+    p.px(17, 9 + bob, PAL.skinShade); // lasca de queixo
+    // manto curto caindo no ombro
+    run(p, 12, 12 + bob, 8, SENT.base, SENT.dark, SENT.shadow);
+    run(p, 11, 13 + bob, 9, SENT.dark, SENT.shadow, SENT.shadow);
+    p.px(12, 14 + bob, SENT.shadow); // pontas do manto
+    p.px(17, 14 + bob, SENT.shadow);
     return;
   }
-  // ponta morta caindo em CURVA para a esquerda (assimetria total)
-  p.px(16, 0 + bob, SENT.base);
-  run(p, 14, 1 + bob, 3, SENT.light, SENT.base, SENT.base);
-  run(p, 12, 2 + bob, 3, SENT.base, SENT.base, SENT.dark);
-  p.rect(10, 3 + bob, 2, 1, SENT.dark);
+  // ── frente/costas ──
+  // bico drapeado: nasce alto e cai em curva morta p/ a esquerda
+  p.px(16, 0 + bob, SENT.light);
+  run(p, 14, 1 + bob, 4, SENT.light, SENT.base, SENT.base);
+  run(p, 12, 2 + bob, 4, SENT.base, SENT.base, SENT.dark);
+  run(p, 10, 3 + bob, 3, SENT.dark, SENT.dark, SENT.shadow);
   p.px(9, 4 + bob, SENT.shadow);
-  p.px(8, 5 + bob, SENT.dark); // pingo
-  // capuz: tecido envolvendo com vincos
-  run(p, 13, 2 + bob, 6, SENT.light, SENT.light, SENT.base);
-  run(p, 12, 3 + bob, 9, SENT.light, SENT.base, SENT.dark);
-  for (let y = 4 + bob; y <= 11 + bob; y++) {
-    run(p, 11, y, 10, SENT.light, SENT.base, SENT.dark);
-  }
-  p.px(12, 5 + bob, SENT.dark); // vincos do pano
-  p.px(18, 8 + bob, SENT.shadow);
+  p.px(8, 5 + bob, SENT.dark); // pingo da ponta
+  p.px(9, 6 + bob, SENT.shadow); // ponta dupla
+  // dome: curva real fechando nas têmporas
+  run(p, 14, 2 + bob, 6, SENT.light, SENT.light, SENT.base);
+  run(p, 12, 3 + bob, 9, SENT.light, SENT.base, SENT.base);
+  run(p, 11, 4 + bob, 10, SENT.light, SENT.base, SENT.dark);
+  run(p, 11, 5 + bob, 10, SENT.light, SENT.base, SENT.dark);
+  run(p, 11, 6 + bob, 10, SENT.base, SENT.base, SENT.dark);
+  // vincos radiando do rosto (tecido puxado)
+  p.px(13, 4 + bob, SENT.dark);
+  p.px(18, 5 + bob, SENT.shadow);
+  p.px(12, 6 + bob, SENT.dark);
   if (facing === "s") {
-    p.rect(13, 7 + bob, 6, 5, PAL.visorSlit);
-    p.px(14, 9 + bob, "#6a7488"); // olhos frios
+    // beiral avançado + abertura OVAL funda (não retângulo)
+    run(p, 12, 6 + bob, 8, SENT.base, SENT.dark, SENT.dark);
+    p.rect(14, 7 + bob, 4, 1, PAL.visorSlit);
+    p.rect(13, 8 + bob, 6, 3, PAL.visorSlit);
+    p.rect(14, 11 + bob, 4, 1, PAL.visorSlit);
+    p.px(12, 8 + bob, SENT.base); // tecido fechando a oval
+    p.px(19, 8 + bob, SENT.dark);
+    p.px(12, 10 + bob, SENT.base);
+    p.px(19, 10 + bob, SENT.dark);
+    p.px(14, 9 + bob, "#6a7488"); // olhos frios na escuridão
     p.px(17, 9 + bob, "#6a7488");
   } else {
-    p.rect(13, 7 + bob, 6, 5, SENT.dark);
-    p.px(15, 8 + bob, SENT.shadow);
+    // costas: pano contínuo com vincos verticais orgânicos
+    run(p, 11, 7 + bob, 10, SENT.base, SENT.base, SENT.dark);
+    for (let y = 8 + bob; y <= 11 + bob; y++) {
+      run(p, 12, y, 8, SENT.base, SENT.dark, SENT.dark);
+    }
+    p.px(14, 8 + bob, SENT.shadow);
     p.px(16, 10 + bob, SENT.shadow);
+    p.px(13, 11 + bob, SENT.shadow);
   }
-  // echarpe enrolada (cai mais de um lado)
-  p.rect(12, 12 + bob, 8, 1, SENT.shadow);
-  p.rect(13, 13 + bob, 5, 1, SENT.dark);
-  p.px(18, 13 + bob, SENT.shadow);
+  // MANTO curto (capelet) caindo sobre os ombros com pontas irregulares
+  run(p, 11, 12 + bob, 10, SENT.base, SENT.dark, SENT.shadow);
+  run(p, 10, 13 + bob, 12, SENT.dark, SENT.shadow, SENT.shadow);
+  p.px(11, 14 + bob, SENT.shadow); // pontas do manto
+  p.px(15, 14 + bob, SENT.shadow);
+  p.px(19, 14 + bob, SENT.shadow);
 }
 
 /** Chapéu Arcano: aba ONDULADA caída de um lado + cone torto alto. */
@@ -743,7 +770,7 @@ function camisaCidadao(p: Px, facing: PartFacing, frame: number): void {
 // PERNAS (pés na linha y30)
 // ──────────────────────────────────────────────────────────────────────
 
-/** Grevas de Alvorada: pernas blindadas, joelheiras, botas com presença. */
+/** Grevas de Alvorada: COXA-PLACA → joelheira saliente → canela → sabatão. */
 function grevasAlvorada(p: Px, facing: PartFacing, frame: number): void {
   if (facing === "e") {
     const stride = frame === 1 ? 2 : frame === 2 ? -2 : 0;
@@ -751,23 +778,46 @@ function grevasAlvorada(p: Px, facing: PartFacing, frame: number): void {
       [13 - stride, -1],
       [16 + stride, 1],
     ] as const) {
-      p.rect(x, 24, 3, 4, s < 0 ? SENT.dark : SENT.base);
-      p.px(x, 25, SENT.edge); // joelheira
-      p.rect(x, 28, 3, 2, SENT.shadow);
-      p.rect(x - (s > 0 ? 0 : 1), 30, 4, 1, "#15151a"); // bota comprida
+      const lit = s > 0;
+      // coxa-placa
+      run(p, x, 24, 3, lit ? SENT.light : SENT.base, lit ? SENT.base : SENT.dark, SENT.dark);
+      run(p, x, 25, 3, lit ? SENT.light : SENT.base, lit ? SENT.base : SENT.dark, SENT.dark);
+      // joelheira saliente
+      p.px(x, 26, SENT.edge);
+      p.px(x + 1, 26, lit ? SENT.base : SENT.dark);
+      // canela
+      run(p, x, 27, 3, lit ? SENT.base : SENT.dark, lit ? SENT.base : SENT.dark, SENT.shadow);
+      // sabatão com cano
+      p.px(x, 28, SENT.edge);
+      p.rect(x, 28, 3, 1, lit ? SENT.dark : SENT.shadow);
+      run(p, x - (lit ? 0 : 1), 29, 4, SENT.dark, SENT.shadow, SENT.shadow);
+      p.rect(x - (lit ? 0 : 1), 30, 4, 1, "#15151a");
     }
     return;
   }
   const leftUp = frame === 1 ? 1 : 0;
   const rightUp = frame === 2 ? 1 : 0;
-  p.rect(12, 24 - leftUp, 3, 4, SENT.base);
-  p.px(12, 24 - leftUp, SENT.light);
-  p.px(13, 25 - leftUp, SENT.edge); // joelheira
-  p.rect(11, 28 - leftUp, 4, 2, SENT.shadow); // bota LARGA
+  // perna esquerda (lit)
+  run(p, 12, 24 - leftUp, 3, SENT.light, SENT.base, SENT.dark); // coxa-placa
+  run(p, 12, 25 - leftUp, 3, SENT.light, SENT.base, SENT.dark);
+  p.px(12, 26 - leftUp, SENT.edge); // joelheira saliente
+  p.px(13, 26 - leftUp, SENT.base);
+  p.px(14, 26 - leftUp, SENT.dark);
+  run(p, 12, 27 - leftUp, 3, SENT.base, SENT.base, SENT.dark); // canela
+  p.rect(12, 28 - leftUp, 3, 1, SENT.dark); // cano do sabatão
+  p.px(12, 28 - leftUp, SENT.edge);
+  run(p, 11, 29 - leftUp, 4, SENT.dark, SENT.shadow, SENT.shadow); // pé largo
   p.rect(11, 30 - leftUp, 4, 1, "#15151a");
-  p.rect(17, 24 - rightUp, 3, 4, SENT.dark);
-  p.px(18, 25 - rightUp, SENT.light);
-  p.rect(17, 28 - rightUp, 4, 2, SENT.shadow);
+  // perna direita (sombra)
+  run(p, 17, 24 - rightUp, 3, SENT.base, SENT.dark, SENT.dark);
+  run(p, 17, 25 - rightUp, 3, SENT.base, SENT.dark, SENT.dark);
+  p.px(17, 26 - rightUp, SENT.light); // joelheira pega luz
+  p.px(18, 26 - rightUp, SENT.dark);
+  p.px(19, 26 - rightUp, SENT.shadow);
+  run(p, 17, 27 - rightUp, 3, SENT.dark, SENT.dark, SENT.shadow);
+  p.rect(17, 28 - rightUp, 3, 1, SENT.shadow);
+  p.px(17, 28 - rightUp, SENT.base);
+  run(p, 17, 29 - rightUp, 4, SENT.dark, SENT.shadow, SENT.shadow);
   p.rect(17, 30 - rightUp, 4, 1, "#15151a");
 }
 
@@ -790,7 +840,7 @@ const grevasVigilia: PartDrawFn = (p, f, fr) => {
   }
 };
 
-/** Calça da Sombra: fina, com FAIXAS diagonais enroladas nas canelas. */
+/** Calça da Sombra: coxa→canela AFINANDO + faixas diagonais + bota macia. */
 function calcaSombra(p: Px, facing: PartFacing, frame: number): void {
   if (facing === "e") {
     const stride = frame === 1 ? 2 : frame === 2 ? -2 : 0;
@@ -798,31 +848,41 @@ function calcaSombra(p: Px, facing: PartFacing, frame: number): void {
       [14 - stride, -1],
       [16 + stride, 1],
     ] as const) {
-      p.rect(x, 24, 2, 4, s < 0 ? SENT.dark : SENT.base);
-      p.px(x, 26, SENT.shadow); // faixa
-      p.px(x + 1, 27, SENT.shadow); // faixa diagonal
-      p.rect(x, 28, 2, 2, SENT.shadow);
+      const lit = s > 0;
+      run(p, x, 24, 3, lit ? SENT.light : SENT.base, lit ? SENT.base : SENT.dark, SENT.dark); // coxa
+      run(p, x, 25, 3, lit ? SENT.base : SENT.dark, lit ? SENT.base : SENT.dark, SENT.dark);
+      p.rect(x, 26, 2, 2, lit ? SENT.base : SENT.dark); // canela fina
+      p.px(x + 1, 26, SENT.shadow); // faixa
+      p.px(x, 27, SENT.shadow); // faixa diagonal
+      p.rect(x, 28, 2, 1, SENT.dark); // dobra da bota macia
+      p.rect(x, 29, 2, 1, SENT.shadow);
       p.rect(x, 30, 2, 1, "#15151a");
     }
     return;
   }
   const leftUp = frame === 1 ? 1 : 0;
   const rightUp = frame === 2 ? 1 : 0;
-  p.rect(13, 24 - leftUp, 2, 4, SENT.base);
-  p.px(13, 24 - leftUp, SENT.light);
-  p.rect(13, 28 - leftUp, 2, 2, SENT.shadow);
+  // esquerda: coxa 3px afinando para canela 2px
+  run(p, 12, 24 - leftUp, 3, SENT.light, SENT.base, SENT.dark);
+  run(p, 13, 25 - leftUp, 2, SENT.light, SENT.base, SENT.base);
+  p.rect(13, 26 - leftUp, 2, 2, SENT.base);
+  p.px(13, 26 - leftUp, SENT.shadow); // faixa
+  p.px(14, 27 - leftUp, SENT.shadow); // faixa diagonal
+  p.rect(13, 28 - leftUp, 2, 1, SENT.dark); // dobra do cano macio
+  p.rect(13, 29 - leftUp, 2, 1, SENT.shadow);
   p.rect(13, 30 - leftUp, 2, 1, "#15151a");
-  p.rect(17, 24 - rightUp, 2, 4, SENT.dark);
-  p.rect(17, 28 - rightUp, 2, 2, SENT.shadow);
-  p.rect(17, 30 - rightUp, 2, 1, "#15151a");
-  // faixas enroladas em diagonal
-  p.px(13, 26 - leftUp, SENT.shadow);
-  p.px(14, 27 - leftUp, SENT.shadow);
+  // direita (sombra)
+  run(p, 17, 24 - rightUp, 3, SENT.base, SENT.dark, SENT.dark);
+  run(p, 17, 25 - rightUp, 2, SENT.base, SENT.dark, SENT.dark);
+  p.rect(17, 26 - rightUp, 2, 2, SENT.dark);
   p.px(18, 25 - rightUp, SENT.shadow);
-  p.px(17, 26 - rightUp, SENT.shadow);
+  p.px(17, 27 - rightUp, SENT.shadow);
+  p.rect(17, 28 - rightUp, 2, 1, SENT.shadow);
+  p.rect(17, 29 - rightUp, 2, 1, SENT.shadow);
+  p.rect(17, 30 - rightUp, 2, 1, "#15151a");
 }
 
-/** Calça de Cidadão: simples, dobra no joelho, remendo. */
+/** Calça de Cidadão: pano FOLGADO (boca larga) sobre sapato baixo. */
 function calcaCidadao(p: Px, facing: PartFacing, frame: number): void {
   if (facing === "e") {
     const stride = frame === 1 ? 2 : frame === 2 ? -2 : 0;
@@ -830,23 +890,40 @@ function calcaCidadao(p: Px, facing: PartFacing, frame: number): void {
       [13 - stride, -1],
       [16 + stride, 1],
     ] as const) {
-      p.rect(x, 24, 3, 4, s < 0 ? SENT.dark : SENT.base);
-      p.px(x + 1, 26, SENT.dark); // dobra
-      p.rect(x, 28, 3, 2, SENT.shadow);
+      const lit = s > 0;
+      run(p, x, 24, 3, lit ? SENT.light : SENT.base, lit ? SENT.base : SENT.dark, SENT.dark);
+      run(p, x, 25, 3, lit ? SENT.light : SENT.base, lit ? SENT.base : SENT.dark, SENT.dark);
+      p.px(x + 1, 26, SENT.shadow); // dobra do joelho
+      run(p, x, 26, 3, lit ? SENT.base : SENT.dark, lit ? SENT.base : SENT.dark, SENT.dark);
+      run(p, x, 27, 3, lit ? SENT.base : SENT.dark, lit ? SENT.base : SENT.dark, SENT.shadow);
+      p.rect(x, 28, 3, 1, SENT.dark); // boca folgada da calça
+      p.px(x + 2, 28, SENT.shadow);
+      p.rect(x, 29, 3, 1, PAL.bootsDark); // sapato baixo
       p.rect(x, 30, 3, 1, "#15151a");
     }
     return;
   }
   const leftUp = frame === 1 ? 1 : 0;
   const rightUp = frame === 2 ? 1 : 0;
-  p.rect(12, 24 - leftUp, 3, 4, SENT.base);
-  p.px(12, 24 - leftUp, SENT.light);
-  p.px(13, 26 - leftUp, SENT.dark); // dobra do joelho
-  p.rect(12, 28 - leftUp, 3, 2, SENT.shadow);
+  // esquerda (lit), pano com dobras
+  run(p, 12, 24 - leftUp, 3, SENT.light, SENT.base, SENT.dark);
+  run(p, 12, 25 - leftUp, 3, SENT.light, SENT.base, SENT.dark);
+  p.px(13, 26 - leftUp, SENT.shadow); // dobra do joelho
+  run(p, 12, 26 - leftUp, 3, SENT.base, SENT.base, SENT.dark);
+  run(p, 12, 27 - leftUp, 3, SENT.base, SENT.base, SENT.dark);
+  p.rect(12, 28 - leftUp, 3, 1, SENT.dark); // boca folgada
+  p.px(11, 28 - leftUp, SENT.dark);
+  p.rect(12, 29 - leftUp, 3, 1, PAL.bootsDark); // sapato
   p.rect(12, 30 - leftUp, 3, 1, "#15151a");
-  p.rect(17, 24 - rightUp, 3, 4, SENT.dark);
-  p.px(18, 26 - rightUp, SENT.light); // remendo
-  p.rect(17, 28 - rightUp, 3, 2, SENT.shadow);
+  // direita (sombra) com remendo
+  run(p, 17, 24 - rightUp, 3, SENT.base, SENT.dark, SENT.dark);
+  run(p, 17, 25 - rightUp, 3, SENT.base, SENT.dark, SENT.dark);
+  p.px(18, 25 - rightUp, SENT.light); // remendo
+  run(p, 17, 26 - rightUp, 3, SENT.dark, SENT.dark, SENT.shadow);
+  run(p, 17, 27 - rightUp, 3, SENT.dark, SENT.dark, SENT.shadow);
+  p.rect(17, 28 - rightUp, 3, 1, SENT.shadow);
+  p.px(20, 28 - rightUp, SENT.shadow);
+  p.rect(17, 29 - rightUp, 3, 1, PAL.bootsDark);
   p.rect(17, 30 - rightUp, 3, 1, "#15151a");
 }
 
