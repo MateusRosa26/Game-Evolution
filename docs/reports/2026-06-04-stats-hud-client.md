@@ -72,3 +72,70 @@ renderiza o que vem no snapshot e envia o comando `allocateStatPoint`.
   SwiftShader).
 - `npx tsc --noEmit` e `npm run build` passam.
 - Nenhum arquivo de `src/sim/**` ou `src/shared/**` foi tocado.
+
+## Verificação independente (verificador)
+
+**Status: NEEDS_FIX (ROUND 1).**
+
+### Build / type-check
+- `npx tsc --noEmit` → OK (exit 0).
+- `npm run build` → OK (744 módulos, build em ~25s).
+
+### Conformidade de escopo (OK)
+- `git diff main...HEAD --name-only`: só toca `docs/`, `src/client/Game.ts`,
+  `src/client/assets/palette.ts`, `src/client/render/EntityRenderer.ts`,
+  `src/client/ui/CharacterPanel.ts`, `src/client/ui/Hud.ts`. **Nenhum arquivo de
+  `src/sim/**` nem `src/shared/**` foi tocado** — regra respeitada.
+- Contrato do protocolo usado corretamente: `progress.freeStatPoints`, comando
+  `allocateStatPoint { attr }`, `mp`/`maxMp` em `EntityState`. A sim de fato emite
+  `progress` no snapshot (`Simulation.ts:403-411`) e trata `allocateStatPoint`
+  (`Simulation.ts:215-218` → `progression.ts:143-149`). Caminho de dados íntegro.
+- Tudo é apresentação + envio de comando. Level-up é comparação de snapshot
+  (`Game.ts:124`), badge/float são puramente visuais. Sem regra de jogo no client.
+- Strings user-facing em pt-BR (Força/Destreza/Inteligência/Vitalidade/Espírito,
+  "Personagem", "Nível", "Pontos livres", "SUBIU DE NÍVEL!"). Estilo coerente com
+  a Hud existente (mesmas Graphics/Text, paleta central, outline 0x10141c).
+
+### Verificação visual (BLOQUEADA por infraestrutura)
+- `npm run dev -- --port 5177` subiu OK. Porém o **profile compartilhado do
+  Chrome do Playwright MCP ficou continuamente reivindicado por um agente paralelo**
+  (`Browser is already in use ... use --isolated`) durante ~13 min de polling do
+  lock; não foi possível passar `--isolated` pelo MCP daqui. Nenhuma captura ao
+  vivo foi possível (mesmo bloqueio que o worker relatou). Sem screenshots no repo.
+
+### Discrepância encontrada — BUG real na barra/leitura de XP (nível ≥ 2)
+O contrato (`protocol.ts:29-32`) documenta **explicitamente** que tanto `xp` quanto
+`xpForNextLevel` são **TOTAIS ACUMULADOS** ("XP TOTAL acumulado" / "XP TOTAL
+necessário para atingir o próximo nível"). `Simulation.ts:407-408` confirma:
+`xp = prog.xp` (total) e `xpForNextLevel = xpForLevel(level+1)` (limiar cumulativo).
+
+O client calcula o preenchimento da barra como `xp / xpForNextLevel`
+(`Hud.ts:196-199, 213`) e mostra `XP {xp} / {xpForNextLevel}` cru no painel
+(`CharacterPanel.ts:153`). Isso só está correto no **nível 1**, porque o piso
+cumulativo do nível 1 é 0 (`xpForLevel(1)=0`). A partir do **nível 2 quebra**:
+
+- `xpForLevel(2)=100`, `xpForLevel(3)=200`. Jogador que acabou de chegar ao nível 2
+  tem `xp=100` (total) e `xpForNextLevel=200` → barra exibe **50%** quando deveria
+  exibir **0%** (ele tem 0 de 100 XP dentro do nível 2). A barra "salta" para metade
+  ao subir de nível e nunca esvazia.
+- O `%` (`Math.floor(xpRatio*100)`) e a leitura `XP 100 / 200` ficam ambos errados.
+
+Cálculo correto seria relativo ao nível: `(xp - xpForLevel(level)) /
+(xpForLevel(level+1) - xpForLevel(level))`. Mas o client **não tem** o piso
+`xpForLevel(level)` e está proibido de importar fórmulas da sim — ou seja, com o
+contrato atual o client **não consegue** desenhar a barra por-nível corretamente.
+A correção apropriada é a sim/protocolo expor valores **relativos ao nível**
+(XP-dentro-do-nível e XP-necessário-do-nível), o que está fora do escopo deste
+agente. O worker deveria ter sinalizado esse bloqueio em vez de entregar uma barra
+correta só no nível 1 — justamente o único caso que ele conseguiu testar (28/100).
+
+### Itens não verificados ao vivo (por causa do bloqueio do browser)
+Botões `+` distribuindo ponto (valor sobe / pontos descem), badge pulsante, e o
+float "SUBIU DE NÍVEL!" — o código é condicional simples e type-checa, mas não foi
+observado em tela. Recomenda-se reverificar visualmente após o fix da barra de XP.
+
+### Resumo
+- [Hud.ts:196-199,213] e [CharacterPanel.ts:153] usam `xp/xpForNextLevel` (totais
+  cumulativos por contrato) como se fossem relativos ao nível → barra/leitura de XP
+   erradas a partir do nível 2. Escopo/regra-de-ouro OK; build/tsc OK; verificação
+  visual bloqueada por contenção do browser compartilhado.
