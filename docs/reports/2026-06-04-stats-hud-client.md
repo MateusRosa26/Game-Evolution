@@ -171,3 +171,64 @@ sim. Nenhuma regra de jogo nova.
 (== `xpForLevel(level)`), e `(xp - floor)/(next - floor)` = 0.0000 logo após o
 level up (em [0,1), barra esvazia). A fórmula antiga `xp/next` daria 0.5000 ali —
 exatamente o bug reportado. Script removido após a checagem.
+
+## Verificação independente (round 2)
+
+**Status: VERIFIED (ROUND 2).** Verificador independente; sem contexto do
+implementador. Conferido contra o diff real e contra o comportamento ao vivo.
+
+### Revisão do diff do fix (397537d)
+- A correção é correta e mínima. `protocol.ts` ganha `xpLevelFloor` em
+  `PlayerProgressState` com semântica documentada (cumulativo vs piso);
+  `Simulation.projectProgress` popula com `xpForLevel(prog.level)` (confere com
+  `formulas.ts:196`: `xpForLevel(1)=0`, `(2)=100`, `(3)=350`). O client usa
+  `(xp - xpLevelFloor) / (xpForNextLevel - xpLevelFloor)` com guard `xpSpan > 0`
+  (div-por-0 protegida; `Hud.ts`) e a leitura do painel passou a `xpInto`/`xpNeeded`
+  relativos ao nível (`CharacterPanel.ts`). O VALOR do piso vem da sim; o client só
+  faz aritmética de apresentação — regra-de-ouro respeitada. Sem scope creep
+  (o branch também traz um merge de `main`/skills, ignorado conforme instruído).
+
+### Verificação visual end-to-end (executada nesta rodada)
+O profile compartilhado do Chrome do MCP seguia travado por outro agente (mesmo
+bloqueio do round 1). Contornei subindo um Chrome **isolado** próprio (binário do
+Playwright, `--user-data-dir` separado + `--remote-debugging-port`) e dirigindo por
+CDP. `npm run dev -- --port 5179`. Visto em tela:
+- **HUD**: HP (vermelho), MP (azul) e barra de XP fina dourada com **nível** à
+  esquerda e **%** no centro. No nível 1 recém-criado: `Lv 1`, **0%**, barra vazia.
+- **C** abre/fecha o painel "Personagem": **Nível**, **XP x / y** (relativo ao
+  nível), **Pontos livres**, e os **5 atributos em pt-BR** (Força/Destreza/
+  Inteligência/Vitalidade/Espírito).
+- Matando Ratos Lanhosos (clique → auto-attack; XP subia proporcional: 0% → 29%
+  por morte, **sem** saltar para 50%), o herói chegou ao **nível 4**. **Prova do
+  fix:** logo após cada subida a barra de XP fica **~vazia** (no painel, `XP 0 /
+  400` no nível 4), e não presa em ~50% como antes do fix.
+- **Badge de pontos** dourado pulsante na HUD apareceu com `freeStatPoints > 0`
+  (mostrou `9`); **botões `+` verdes** visíveis ao lado de cada atributo no painel.
+- Clicar `+` em **Força**: subiu **8 → 9**, **Pontos livres 9 → 8** e o badge da HUD
+  atualizou **9 → 8** (comando `allocateStatPoint` round-trip pela sim → snapshot).
+- Console limpo (só warnings benignos de ReadPixels do SwiftShader).
+
+### Bug PRÉ-EXISTENTE encontrado (NÃO deste branch — não bloqueia)
+Ao matar um rato que está **selecionado como alvo**, o cliente quebra: o
+`targetMarker` é adicionado como filho do container do alvo e, na morte,
+`EntityRenderer.apply` faz `container.destroy({ children: true })`, destruindo
+também o marcador compartilhado. No próximo `setTarget(idVálido)`,
+`this.targetMarker.position.set(...)` lança `TypeError: Cannot read properties of
+null (reading 'set')`, que derruba o loop de render do PixiJS a cada frame (tela
+preta). **Confirmado idêntico em `main`** (`git show main:.../EntityRenderer.ts`) —
+é regressão do código de marcador de alvo já existente, fora do escopo desta task.
+Contornei na verificação deselecionando o alvo entre golpes (clicando no próprio
+tile do herói) para manter o marcador vivo; assim consegui levar o herói até o
+nível 4 e observar tudo. Recomendo abrir item separado para corrigir
+`EntityRenderer.setTarget` (ex.: não destruir o marcador junto do alvo, ou
+re-criar/guardar contra sprite destruído).
+
+### Build
+- `npx tsc --noEmit` → OK (exit 0).
+- `npm run build` → OK (exit 0, `built in 1m 29s`).
+
+### Resumo
+Fix da barra de XP correto e comprovado em tela (barra esvazia ao subir de nível;
+painel e badge corretos; `+` distribui ponto). Escopo e regra-de-ouro OK; build/tsc
+OK. Achado colateral: crash pré-existente de `EntityRenderer.setTarget` ao matar o
+alvo selecionado (presente em `main`, não introduzido aqui) — registrar à parte.
