@@ -55,9 +55,9 @@ Quarteto base: **Knight / Mage / Rogue / Priest** — base fixa + especializaç�
 
 Skills compradas em NPCs (classe + nível + gold). Kit do M1: *Golpe Forte* (Knight), *Bola de Fogo* + *Lança de Gelo* (Mage), *Apunhalar* (Rogue), *Luz Sagrada* + *Curar Ferimentos* (Priest) — cada uma já desenhada com tags, perfis de uso rastreados e 2–3 mutações. Fichas em `DESIGN-EVOLUCAO.md`. ✏️ Tiers intermediário/avançado: M3.
 
-## ✏️ Inimigos e Bestiário
+## Inimigos e Bestiário (criaturas padrão decididas)
 
-_(a definir pelo criador)_
+**7 famílias, 25 criaturas padrão** em tiers T1–T5: Bestas, Peles-Verdes, Renegados, Mortos-Vivos (família-coração), Rastejantes, Elementais, Demônios. Família é a unidade do sistema de Marcas; cada família ensina uma mecânica (matilha, fuga, fraqueza elemental, anti-sustain…). Ver **`DESIGN-BESTIARIO.md`**. ✏️ Mini-bosses/bosses de área e números: docs futuros.
 
 ## ✏️ História e Mundo
 
