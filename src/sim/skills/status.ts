@@ -1,0 +1,155 @@
+import type { DamageType } from "../../shared/types";
+import type { StatusEffectState } from "../../shared/protocol";
+import type { SimEntity } from "../entity";
+import type { CombatCtx } from "../combat";
+import { applyDamage } from "../combat";
+
+/**
+ * Sistema de status effects da sim (DESIGN-EVOLUCAO.md §"Magias e Skills"):
+ * queimadura (DoT fogo), lentidão (slow), veneno (tipado para o futuro — Rogue
+ * T2). Tudo TICK-BASED, com duração, aplicado/expirado na sim e VISÍVEL no
+ * snapshot (lista de status por entidade) para o client futuro animar.
+ *
+ * Determinístico: nada de RNG/timers aqui — só contadores de tick.
+ */
+
+/** Categorias de status. `poison` já existe tipado p/ Rogue T2 (Lâmina Envenenada). */
+export type StatusKind = "burn" | "slow" | "poison";
+
+/** Instância de um status ativo numa entidade (estado interno da sim). */
+export interface StatusEffect {
+  kind: StatusKind;
+  /** Tick lógico em que o status expira (>= este tick → remove). */
+  expiresAtTick: number;
+  /** ── DoT (burn/poison) ── */
+  /** Dano por tique do DoT. */
+  damagePerTick: number;
+  /** A cada quantos ticks o DoT aplica dano. */
+  tickEveryTicks: number;
+  /** Próximo tick em que o DoT causa dano. */
+  nextDamageTick: number;
+  /** Tipo de dano do DoT (fire/poison/...). */
+  damageType: DamageType;
+  /** ── slow ── multiplicador aplicado ao stepMs base (>1 = mais lento). */
+  stepMsMultiplier: number;
+  /** ID da entidade que aplicou (atribuição do dano do DoT/kill). */
+  sourceId: number;
+  /** Skill que originou o status (para o evento kill/damage do DoT). */
+  skillId: string | null;
+}
+
+/** Parâmetros para aplicar um DoT (burn/poison). */
+export interface DotParams {
+  kind: "burn" | "poison";
+  damagePerTick: number;
+  durationTicks: number;
+  tickEveryTicks: number;
+  damageType: DamageType;
+}
+
+/** Parâmetros para aplicar slow. */
+export interface SlowParams {
+  durationTicks: number;
+  stepMsMultiplier: number;
+}
+
+/** True se a entidade está sob um status do tipo dado (perfil de skill_use). */
+export function hasStatus(e: SimEntity, kind: StatusKind): boolean {
+  return e.status.some((s) => s.kind === kind);
+}
+
+/**
+ * Aplica/refresca um DoT. Regra de stacking (documentada): não empilha — refaz
+ * a duração e fica com o MAIOR dano por tique (reaplicar fogo forte não é
+ * punido). Mantém o cadenciamento do tique já em curso.
+ */
+export function applyDot(e: SimEntity, currentTick: number, source: SimEntity, skillId: string | null, p: DotParams): void {
+  const existing = e.status.find((s) => s.kind === p.kind);
+  if (existing) {
+    existing.expiresAtTick = currentTick + p.durationTicks;
+    existing.damagePerTick = Math.max(existing.damagePerTick, p.damagePerTick);
+    existing.tickEveryTicks = p.tickEveryTicks;
+    existing.damageType = p.damageType;
+    existing.sourceId = source.id;
+    existing.skillId = skillId;
+    return;
+  }
+  e.status.push({
+    kind: p.kind,
+    expiresAtTick: currentTick + p.durationTicks,
+    damagePerTick: p.damagePerTick,
+    tickEveryTicks: p.tickEveryTicks,
+    nextDamageTick: currentTick + p.tickEveryTicks,
+    damageType: p.damageType,
+    stepMsMultiplier: 1,
+    sourceId: source.id,
+    skillId,
+  });
+}
+
+/**
+ * Aplica/refresca slow. Documentado: não empilha — refaz duração e fica com o
+ * MAIOR multiplicador (slow mais forte vence). Recalcula o stepMs efetivo.
+ */
+export function applySlow(e: SimEntity, currentTick: number, p: SlowParams): void {
+  const existing = e.status.find((s) => s.kind === "slow");
+  if (existing) {
+    existing.expiresAtTick = currentTick + p.durationTicks;
+    existing.stepMsMultiplier = Math.max(existing.stepMsMultiplier, p.stepMsMultiplier);
+  } else {
+    e.status.push({
+      kind: "slow",
+      expiresAtTick: currentTick + p.durationTicks,
+      damagePerTick: 0,
+      tickEveryTicks: 0,
+      nextDamageTick: Number.MAX_SAFE_INTEGER,
+      damageType: "ice",
+      stepMsMultiplier: p.stepMsMultiplier,
+      sourceId: 0,
+      skillId: null,
+    });
+  }
+  recomputeStepMs(e);
+}
+
+/** Recalcula `stepMs` efetivo a partir do baseStepMs e do slow ativo. */
+export function recomputeStepMs(e: SimEntity): void {
+  const slow = e.status.find((s) => s.kind === "slow");
+  const mult = slow ? slow.stepMsMultiplier : 1;
+  e.baseStepMs = Math.round(e.naturalStepMs * mult);
+}
+
+/**
+ * Tick de status de UMA entidade: aplica DoTs vencidos e remove status
+ * expirados. Chamado pela Simulation a cada tick, ANTES do movimento (para o
+ * stepMs já refletir o slow). DoT flui pelo `applyDamage` normal → events
+ * `damage`/`kill` saem corretos com skillId.
+ */
+export function tickStatus(ctx: CombatCtx, e: SimEntity): void {
+  if (e.dead || e.status.length === 0) return;
+  const tick = ctx.tick;
+
+  // 1. DoTs que devem aplicar dano neste tick.
+  for (const s of e.status) {
+    if (s.damagePerTick <= 0) continue;
+    while (tick >= s.nextDamageTick && tick < s.expiresAtTick) {
+      const source = ctx.lookup(s.sourceId) ?? e;
+      const fatal = applyDamage(ctx, source, e, s.damagePerTick, s.damageType, null, s.skillId);
+      s.nextDamageTick += s.tickEveryTicks;
+      if (fatal) return; // morreu pelo DoT — resolveDeaths cuida do resto
+    }
+  }
+
+  // 2. Expira status vencidos.
+  const before = e.status.length;
+  e.status = e.status.filter((s) => tick < s.expiresAtTick);
+  if (e.status.length !== before) recomputeStepMs(e);
+}
+
+/** Projeção serializável dos status para o snapshot (client futuro). */
+export function projectStatus(e: SimEntity, currentTick: number): StatusEffectState[] {
+  return e.status.map((s) => ({
+    kind: s.kind,
+    remainingTicks: Math.max(0, s.expiresAtTick - currentTick),
+  }));
+}
