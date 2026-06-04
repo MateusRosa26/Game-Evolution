@@ -330,6 +330,88 @@ export function parseClasses(md) {
   return { lead, classes, attributes };
 }
 
+// --- DESIGN-ITENS.md → { items, roster } ---
+// Depende de: "## Tabela de itens — T<N>" com subseções ### contendo tabelas
+// (colunas Item/Tipo/Par EN/Fonte/Aquisição/Bônus…/Nota/Slot/Papel), e do
+// "### Roster" sob "## Tipos de item de mão".
+
+function itemCat(group) {
+  if (/elementais/i.test(group)) return "Armas elementais";
+  if (/^mundo/i.test(group)) return "Mundo";
+  if (/baús/i.test(group)) return "Baús (bônus)";
+  if (/vendor-ponte/i.test(group)) return "Vendor-ponte";
+  if (/utilitário|container/i.test(group)) return "Utilitário";
+  if (/vestir/i.test(group)) return "Vestir (vendor)";
+  if (/armas/i.test(group)) return "Armas";
+  return group;
+}
+
+export function parseItems(md) {
+  const lines = md.split(/\r?\n/);
+  const items = [];
+  const roster = [];
+  let tier = null; // dentro de "## Tabela de itens — T<N>"
+  let inRosterSection = false; // dentro de "## Tipos de item de mão"
+  let group = "";
+  let headers = null;
+  let inFence = false;
+
+  // primeira coluna cujo header começa com um dos prefixos
+  const col = (row, ...prefixes) => {
+    for (const k of Object.keys(row))
+      for (const p of prefixes)
+        if (k.toLowerCase().startsWith(p)) return row[k];
+    return "";
+  };
+
+  for (const l of lines) {
+    if (/^```/.test(l)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+
+    if (/^## /.test(l)) {
+      const t = l.slice(3);
+      const tm = t.match(/^Tabela de itens — (T\d)/);
+      tier = tm ? tm[1] : null;
+      inRosterSection = /^Tipos de item de mão/.test(t);
+      group = ""; headers = null;
+      continue;
+    }
+    if (/^### /.test(l)) { group = l.slice(4).trim(); headers = null; continue; }
+    if (!/^\s*\|/.test(l)) { headers = null; continue; }
+    if (isSep(l)) continue;
+
+    const cells = splitRow(l);
+    if (!headers) { headers = cells.map((c) => c.replace(/\*/g, "").trim()); continue; }
+    const row = {};
+    headers.forEach((h, i) => (row[h] = cells[i] ?? ""));
+
+    if (inRosterSection && /^Roster/.test(group)) {
+      roster.push({
+        tipo: row["Tipo"] ?? "", maos: row["Mãos"] ?? "", escala: row["Escala"] ?? "",
+        subtipo: col(row, "subtipo"), essencia: col(row, "essência", "essencia"),
+      });
+      continue;
+    }
+    if (!tier) continue;
+
+    const cat = itemCat(group);
+    const fonteImplicita = { "Vestir (vendor)": "vendor", "Utilitário": "vendor", "Vendor-ponte": "vendor (ponte)", "Baús (bônus)": "baú" }[cat] ?? "";
+    items.push({
+      tier, cat,
+      name: (row["Item"] ?? "").replace(/\*\*/g, "").trim(),
+      en: col(row, "par en").replace(/\*/g, "").trim(),
+      tipo: (row["Tipo"] ?? row["Slot"] ?? "").replace(/\*\*/g, ""),
+      fonte: row["Fonte"] ?? col(row, "aquisição") ?? fonteImplicita,
+      bonus: col(row, "bônus", "bonus"),
+      nota: row["Nota"] ?? col(row, "leitura") ?? col(row, "constela") ?? row["Papel"] ?? "",
+    });
+    const it = items[items.length - 1];
+    if (!it.fonte) it.fonte = fonteImplicita;
+    if (!it.name) items.pop(); // linha sem item (defensivo)
+  }
+  return { items, roster };
+}
+
 // ================================================================
 // VIEWS
 // ================================================================
@@ -337,6 +419,7 @@ export function parseClasses(md) {
 // estado dos filtros persiste enquanto a página estiver aberta
 const bState = { q: "", fams: new Set(), tiers: new Set(), behs: new Set(), flags: new Set(), sort: "family", view: "cards" };
 const sState = { q: "", classes: new Set(), groups: new Set() };
+const iState = { q: "", tiers: new Set(), cats: new Set(), sort: "doc" };
 
 const chip = (k, v, label, on, color) =>
   `<button class="chip${on ? " on" : ""}" data-k="${k}" data-v="${esc(v)}"${color ? ` style="--c:${color}"` : ""}>${label}</button>`;
@@ -365,6 +448,7 @@ export function renderDbPage($doc, page, data) {
   if (page === "bestiario" && data.bestiario) return renderBestiary($doc, data.bestiario);
   if (page === "skills" && data.skills) return renderSkills($doc, data.skills);
   if (page === "classes" && data.classes) return renderClasses($doc, data.classes);
+  if (page === "itens" && data.itens) return renderItems($doc, data.itens);
   $doc.innerHTML = `<p>⚠ Página não encontrada ou documento-fonte não carregou.</p>`;
 }
 
@@ -692,6 +776,92 @@ function renderClasses($doc, data) {
       <h2 class="db-h2">As 4 classes <span class="dim-note">— base fixa + especialização emergente via Caminhos</span></h2>
       <div class="class-grid">${data.classes.map(classCard).join("")}</div>
     </section>`;
+}
+
+// ---------------- Itens & Equipamento ----------------
+
+function renderItems($doc, data) {
+  const tiers = [...new Set(data.items.map((i) => i.tier))];
+  const cats = [...new Set(data.items.map((i) => i.cat))];
+  $doc.innerHTML = `
+    <header class="db-header">
+      <h1>🎒 Itens & Equipamento</h1>
+      <p class="db-sub"><strong>${data.items.length} itens</strong> nos catálogos por tier + <strong>${data.roster.length} tipos de item de mão</strong>.
+        Matriz esparsa (modelo Tibia): cada tier estreia poucas combinações; bônus só em peças do mundo. Números ✏️ Balancista.
+        Fonte: <a href="#/itens">DESIGN-ITENS.md</a></p>
+    </header>
+    <div class="db-toolbar">
+      <input class="db-search" type="search" placeholder="Filtrar por nome, bônus, fonte…" value="${esc(iState.q)}" />
+      <div class="filter-row"><span class="filter-label">Tier</span><div class="chips">
+        ${tiers.map((t) => chip("tiers", t, t, iState.tiers.has(t), TIER_COLORS[t])).join("")}
+      </div></div>
+      <div class="filter-row"><span class="filter-label">Categoria</span><div class="chips">
+        ${cats.map((c) => chip("cats", c, c, iState.cats.has(c))).join("")}
+      </div></div>
+      <div class="filter-row db-controls">
+        <label>Ordenar
+          <select class="db-sort">
+            <option value="doc">Ordem do doc</option>
+            <option value="name">Nome (A–Z)</option>
+            <option value="cat">Categoria</option>
+          </select>
+        </label>
+        <button class="db-clear">✕ Limpar filtros</button>
+        <span class="db-count"></span>
+      </div>
+    </div>
+    <div id="db-body"></div>
+    <section class="db-group">
+      <h2 class="db-h2">Tipos de item de mão <span class="dim-note">— o roster decidido (12 tipos)</span></h2>
+      <table class="db-table"><thead><tr>
+        <th>Tipo</th><th>Mãos</th><th>Escala</th><th>Subtipo físico</th><th>Essência</th>
+      </tr></thead><tbody>
+      ${data.roster.map((r) => `<tr>
+        <td><strong>${fmt(r.tipo)}</strong></td><td>${fmt(r.maos)}</td><td>${fmt(r.escala)}</td>
+        <td>${fmt(r.subtipo)}</td><td class="dim">${fmt(r.essencia)}</td>
+      </tr>`).join("")}</tbody></table>
+    </section>`;
+
+  const $sort = $doc.querySelector(".db-sort");
+  $sort.value = iState.sort;
+  $sort.addEventListener("change", () => { iState.sort = $sort.value; iRenderBody($doc, data); });
+  wireToolbar($doc, iState, () => iRenderBody($doc, data), () => renderItems($doc, data));
+  iRenderBody($doc, data);
+}
+
+function iRenderBody($doc, data) {
+  const q = iState.q.toLowerCase();
+  let list = data.items.filter((i) => {
+    if (iState.tiers.size && !iState.tiers.has(i.tier)) return false;
+    if (iState.cats.size && !iState.cats.has(i.cat)) return false;
+    if (q) {
+      const hay = `${i.name} ${i.en} ${i.tipo} ${i.fonte} ${i.bonus} ${i.nota}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if (iState.sort === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+  if (iState.sort === "cat") list = [...list].sort((a, b) => a.cat.localeCompare(b.cat) || a.tier.localeCompare(b.tier) || a.name.localeCompare(b.name));
+
+  const $count = $doc.querySelector(".db-count");
+  if ($count) $count.textContent = `${list.length} de ${data.items.length} itens`;
+
+  $doc.querySelector("#db-body").innerHTML = !list.length ? emptyMsg() : `
+    <table class="db-table"><thead><tr>
+      <th>Item</th><th>EN</th><th>Tier</th><th>Categoria</th><th>Tipo/Slot</th><th>Fonte</th><th>Bônus / Nota</th>
+    </tr></thead><tbody>
+    ${list.map((i) => {
+      const ec = elementColor(i.name + " " + i.bonus);
+      return `<tr>
+      <td><strong${ec ? ` style="color:${ec}"` : ""}>${fmt(i.name)}</strong></td>
+      <td class="dim"><em>${fmt(i.en)}</em></td>
+      <td><span class="tier-badge" style="--tc:${TIER_COLORS[i.tier] ?? "#8890a0"}">${esc(i.tier)}</span></td>
+      <td>${esc(i.cat)}</td>
+      <td>${fmt(i.tipo)}</td>
+      <td>${fmt(i.fonte)}</td>
+      <td class="dim">${fmt([i.bonus, i.nota].filter(Boolean).join(" — "))}</td>
+    </tr>`; }).join("")}
+  </tbody></table>`;
 }
 
 function classCard(c) {

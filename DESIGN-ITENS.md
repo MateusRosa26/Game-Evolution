@@ -24,7 +24,8 @@
 | Tipos de item de mão | **Decidido (jun/2026)** — roster completo na seção. Trio For diferenciado por **subtipos físicos sutis** (corte/impacto/perfuração, teto **±10%**, camada-sussurro) + perfil numérico; **arco × besta** (rápido × pesado, flechas × virotes); **2H compra dano, paga a off-hand** (velocidade é da família); adaga tipo único; casters wand 1H × cajado 2H; cetro **sem trava**; livro de magia com stats autorais; escudo = Def passiva + bloqueio em chunks (nunca 100%); luva = 1 slot cada |
 | Stats de item | **Decidido (jun/2026)**: Def física **flat**; atributos em item **raríssimos** (só lendário/único, sempre com tradeoff; **requisito de equip checa atributo base**, nunca bônus de item); recursos (+HP/mana, +regen) ok; tradeoffs autorais; +poder de cura ok; **+poder mágico raro e pequeno**, muitas vezes com tradeoff. **Modelo de peça**: base do slot + **1 bônus de identidade** (2º só quando o design pede, ex. tradeoff — nunca função da raridade); **joias sem Def física** |
 | Famílias de equipamento | **Famílias temáticas SEM set bonus (decidido)**: cada peça carrega o tema sozinha, mix-and-match livre; a camada "conjunto com história" é das Marcas. Cadência de conteúdo: básicos → diversificados → tradeoffs → lendários/únicos de evento, **limitadíssimos** |
-| Loot tables | ✏️ a decidir (modelo por família/tier) |
+| Tabelas T1/T2 | **Decididas (jun/2026)** — catálogos completos nas seções. **Matriz esparsa** (modelo Tibia): nunca preencher tipo×elemento×tier; armas T1 sem bônus; T2 = tier das estreias (besta, wand 1H, livro, +poder mágico, colar, tradeoff) com vendor só de ponte; 1ªs armas elementais (Espada de Fogo = drop raro, Maça Consagrada = quest difícil) **nunca compráveis** |
+| Loot tables | ✏️ a decidir (modelo por família/tier — os catálogos T1/T2 são o conteúdo a distribuir) |
 | Economia / gold | ✏️ a decidir (drop, preços, sinks) |
 
 ---
@@ -226,6 +227,114 @@ Leituras de design:
 - **Instâncias com ledger desde o nascimento** — a arma do rito tem 1 slot de Marca: quem nunca trocar pode transformá-la em relíquia (pilar 6 desde o minuto 1).
 - Skills nunca vêm em kit nenhum — todas compradas (básicas quase grátis).
 
+## Tabela de itens — T1 (decidido — jun/2026)
+
+### Princípio da matriz esparsa (decidido — modelo Tibia)
+
+**NUNCA preencher a grade tipo × elemento × tier.** Cada tier estreia **poucas combinações autorais**; um elemento pode pular tiers — a arma de fogo do T2 pode só ter sucessora no T5, e no caminho aparecem gelo, raio, terra… Efeitos: cada item é **evento**; nasce a cultura "qual a melhor X pro meu nível" (conhecimento = loot); o catálogo cresce por release sem inflar. Aplicações já decididas:
+
+- **Armas T1 não têm bônus** — a diferença entre elas é tipo/perfil. O primeiro "+X elemental" numa arma estreia no **T2** (e é evento).
+- **T2 terá no máximo 1–2 elementos em armas**; as demais combinações vêm escalonadas pelos tiers.
+- **Estreias guardadas pro T2**: besta, wand 1H, livro de magia — descobertas de loadout na faixa onde a população vive.
+- ✏️ roster formal de elementos (fogo, gelo, terra, **raio?**, sagrado, abissal) — fechar quando o 3º elemento de jogador entrar.
+
+### Escada de fontes do T1
+
+```
+1. CASA (kit)      → zero bônus, venda ≈ 0      a régua do zero
+2. RITO (classe)   → arma escolhida, sem bônus   a identidade
+3. VENDOR (cidade) → catálogo genérico completo  o chão confiável
+4. BAÚS (mundo)    → as variantes COM bônus      o prêmio de explorar
+5. DROPS (mobs T1) → itens do catálogo comum     o pingado da caça
+```
+
+- **Vendor: catálogo T1 idêntico nas cidades de spawn** (spawn aleatório não pode gerar desvantagem). NPCs de **quest e variáveis são únicos por cidade** (decidido).
+- Bônus de identidade em T1 **só existe em baú** — o vendor te deixa funcional, o mundo te deixa especial.
+
+### Armas T1 (sem bônus)
+
+| Tipo | Item | Par EN | Fonte |
+|---|---|---|---|
+| Espada | Espada Cega → **Espada Curta** | Blunt Sword → Short Sword | casa → rito/vendor |
+| Machado | **Machado de Mão** | Hand Axe | rito/vendor |
+| Maça | **Clava** | Club | rito/vendor |
+| Adaga | **Adaga** | Dagger | rito/vendor (a 2ª no vendor = dual wield) |
+| Arco | **Arco Curto** | Short Bow | rito/vendor |
+| Cajado | **Cajado de Fogo** / **Cajado de Gelo** | Fire Staff / Ice Staff | rito (escolha); o outro no vendor |
+| Cetro | **Cetro** | Scepter | rito/vendor |
+| Luva | **Luvas de Couro** | Leather Gloves | rito (a opção-hint) / vendor |
+| Escudo | **Escudo de Madeira** | Wooden Shield | rito Knight / vendor (sem trava) |
+
+### Vestir T1 — vendor genérico (sem bônus)
+
+| Item | Par EN | Slot |
+|---|---|---|
+| **Coifa de Couro** | Leather Coif | capacete |
+| **Túnica de Couro** | Leather Tunic | armadura |
+| **Calças de Couro** | Leather Trousers | calça |
+| **Botas de Couro** | Leather Boots | botas |
+
+### Vestir/joias T1 — baús (COM bônus de identidade; posições ✏️ world-designer M3)
+
+| Item | Par EN | Bônus (família) | Constelação sugerida |
+|---|---|---|---|
+| **Capuz do Caçador** | Hunter's Hood | +dano de distância (pequeno) | trilha dos lobos / borda da floresta |
+| **Robe do Erudito** | Scholar's Robe | +mana | Esgotos de Alvorada |
+| **Peitoral da Muralha** | Bulwark Breastplate | +HP | acampamento goblin |
+| **Botas do Viajante** | Traveler's Boots | +velocidade leve (canon facilitação) | estrada dos bandidos |
+| **Anel de Regeneração Menor** | Lesser Ring of Regeneration | +regen HP (canon facilitação) | pântano raso / Charneca |
+
+### Utilitário e containers T1 (vendor)
+
+| Item | Par EN | Papel |
+|---|---|---|
+| **Tocha** | Torch | ilumina — slot utilitário |
+| **Flechas** | Arrows | munição (stack) — utilitário |
+| **Mochila** | Backpack | container — **a 1ª vem de quest** (`DESIGN-MUNDO.md`) |
+
+> Números (dano/Def/bônus/preços/requisitos) ✏️ **Balancista** — bateria M2. Drops de mobs T1 referenciam este catálogo (loot tables ✏️).
+
+## Tabela de itens — T2 (decidido — jun/2026)
+
+O **centro de gravidade** (lvl 8–15, a faixa onde a população vive) — maior variedade e as **estreias**. A escada muda: **vendor vende só a ponte** (o chão do tier); o T2 bom vem do **mundo** (drops, baús guardados, quests). Loja te deixa funcional; conquista te deixa forte.
+
+### Vendor-ponte (catálogo idêntico nas cidades de spawn)
+
+| Item | Par EN | Nota |
+|---|---|---|
+| **Espada Longa** | Long Sword | "nível 12" — o exemplo canônico de requisito |
+| **Punhal** | Stiletto | a dupla do Rogue evolui |
+| **Wand de Fogo** / **Wand de Gelo** | Fire Wand / Ice Wand | ⭐ estreia da wand 1H — o tradeoff de loadout do caster nasce |
+| **Escudo de Ferro** | Iron Shield | |
+| **Cota de Malha** | Chain Mail | peito |
+| **Elmo de Ferro** | Iron Helmet | capacete |
+| **Virotes** | Bolts | munição da besta |
+
+### Mundo (drops, baús guardados, quests)
+
+| Item | Par EN | Fonte | Nota |
+|---|---|---|---|
+| **Machado de Batalha** | Battle Axe | drop (orcs) | |
+| **Martelo de Ferro** | Iron Hammer | drop/baú | |
+| **Arco Longo** | Longbow | baú/quest | |
+| **Besta de Caça** | Hunting Crossbow | quest/baú | ⭐ estreia da besta — o ranged pesado se revela |
+| **Tomo do Erudito** | Scholar's Tome | baú | ⭐ estreia do livro: +mana e regen de mana |
+| **Breviário da Vigília** | Vigil's Breviary | quest | livro: +poder de cura |
+| **Cetro de Prata** | Silver Scepter | quest | prata vs profanos — folclore como flavor |
+| **Robe do Arcanista** | Arcanist's Robe | baú guardado | ⭐ estreia do **+poder mágico** (o stat raro ⚡) |
+| **Grevas da Muralha** | Bulwark Greaves | drop/baú | calça: +HP |
+| **Amuleto de Gelo** | Ice Amulet | baú | ⭐ estreia do colar: +resist gelo (fronteira de Brumal) |
+| **Peça-tradeoff** ✏️ | — | baú guardado, fim do T2 | ⭐ estreia do tradeoff autoral (modelo Glacier: bônus com preço embutido) — desenhar com Loremaster |
+
+### As primeiras armas elementais (decidido — nenhuma comprável)
+
+| Item | Par EN | Aquisição | Leitura |
+|---|---|---|---|
+| **Espada de Fogo** | Fire Sword | **drop raro de mob** (✏️ Salamandra Ardente? — loot tables) | a sorte da caça; o ícone do gênero |
+| **Maça Consagrada** | Consecrated Mace | **recompensa de quest difícil** (arco da Contaminação/Charneca ✏️) | o mérito da quest; impacto 110 + sagrado vs esqueletos = a arma do arco, conhecimento de matriz virando loot |
+
+> **Aquisição É a raridade**: as duas estreias elementais nunca aparecem em NPC. Próxima arma de fogo: só tiers depois (matriz esparsa). Números ✏️ Balancista; posições/quests ✏️ world-designer M3.
+
 ## Raridades e slots de Marca (já decidido — referência)
 
 | Raridade | Slots de Marca | Fonte principal |
@@ -312,7 +421,8 @@ Estado da discussão:
 
 - [ ] Lentes de Marca por slot: quais dimensões cada slot rastreia (arma=kills, escudo=bloqueios, armadura=dano absorvido, anel/colar=?)
 - [ ] Fórmula de defesa em `formulas.ts` (modelo flat decidido; números e ordem das camadas ✏️ Balancista)
-- [ ] Tabela inicial de itens T1–T2 (tipos fechados ✅; nomes c/ Loremaster, números c/ Balancista)
+- [ ] Desenhar a peça-tradeoff do fim do T2 (modelo Glacier — Loremaster + Designer)
+- [ ] Tabela T3 (T1 ✅ e T2 ✅ jun/2026; T3 = 15–25, o tier dos lacres e do covil do culto)
 - [ ] Modelo de loot table por família/tier
 - [ ] Economia: drop de gold, preços, sinks
 - [ ] Durabilidade? (proposta: não — itens nunca se perdem, ver filosofia de morte)

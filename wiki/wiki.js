@@ -3,7 +3,7 @@
 // Views interativas (Bestiário/Skills/Classes) em db.js — parseiam os mesmos .md.
 // Para extrair para outro projeto: copiar a pasta wiki/ + os .md e ajustar DOCS.
 
-import { parseBestiary, parseSkills, parseClasses, renderDbPage } from "./db.js";
+import { parseBestiary, parseSkills, parseClasses, parseItems, renderDbPage } from "./db.js";
 
 // ---------- Registry de documentos (adicionar novos docs aqui) ----------
 
@@ -34,6 +34,8 @@ const DB_PAGES = [
     desc: "Kit inicial, skills comuns e roster planejado — com mutações e filtros por classe." },
   { id: "classes", title: "Classes", icon: "🛡️",
     desc: "Knight, Mage, Rogue e Priest: kits, atributos-chave e Caminhos típicos." },
+  { id: "itens", title: "Itens & Equipamento", icon: "🎒",
+    desc: "Catálogos T1–T2 e o roster de tipos de mão — filtros por tier, categoria e busca." },
 ];
 
 // ---------- Markdown → HTML (subset: headings, tabelas, listas, código, quote, hr, inline) ----------
@@ -268,6 +270,8 @@ function buildDb() {
     dbData.skills = parseSkills(evo.md);
     dbData.classes = parseClasses(evo.md);
   }
+  const it = state.docs.get("itens");
+  if (it?.md) dbData.itens = parseItems(it.md);
 }
 
 // ---------- Navegação ----------
