@@ -23,6 +23,7 @@ export {
   type ItemLedger,
   type LedgerContextKills,
   type ItemOwnerRef,
+  type MarkProgress,
   type LedgerDeps,
   createLedger,
   recordPreviousOwner,

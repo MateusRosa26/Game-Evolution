@@ -140,7 +140,21 @@ export type SnapshotEvent =
    */
   | { kind: "cast"; skillId: string; casterId: number; from: Vec2; to: Vec2 }
   /** Cura aplicada — para floating text verde futuro. `amount` = HP restaurado. */
-  | { kind: "heal"; skillId: string | null; casterId: number; targetId: number; amount: number; pos: Vec2 };
+  | { kind: "heal"; skillId: string | null; casterId: number; targetId: number; amount: number; pos: Vec2 }
+  /**
+   * Camada EMERGENTE (DESIGN-EVOLUCAO.md §"Visibilidade") — dica vaga e
+   * atmosférica disparada UMA vez aos ~50% do progresso de uma Marca/Mutação/
+   * Caminho. CHEAT-PROOF E DESIGN DE MISTÉRIO: NUNCA carrega contador, threshold,
+   * categoria ou id — só o texto do hint. O client não pode inferir progresso.
+   */
+  | { kind: "trackingHint"; text: string }
+  /**
+   * Desbloqueio de uma Marca/Mutação/Caminho — o "momento screenshotável". Carrega
+   * só o que o client precisa para celebrar: categoria (item/skill/personagem),
+   * NOME próprio e flavor. JAMAIS contadores/progresso (DESIGN-EVOLUCAO.md
+   * §"Visibilidade"). A UI de toast é wave futura; por ora o client só loga.
+   */
+  | { kind: "trackingUnlock"; category: "mark" | "mutation" | "path"; name: string; flavorText: string };
 
 export interface Snapshot {
   tick: number;
