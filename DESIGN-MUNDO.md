@@ -343,10 +343,22 @@ Portas trancadas que só abrem com a chave certa — e **a chave não diz qual p
 | Chave | **descoberta** | flag permanente, mistério dos dois lados |
 | **Ferramenta** | **preparo** | ter o item certo na hora certa |
 
-- **Corda**: sobe por buracos/aberturas verticais (rope spots). A regra de ouro: **descer é fácil, voltar exige corda** — o custo de fuga das dungeons ganha mecânica. E **alguns buracos prendem DE VERDADE** (decidido): desceu sem corda e não há outra saída — a válvula é morrer (respawn, perdendo XP). A lição mais cara do early game, e a que ninguém esquece: *leve corda*. Não é regra geral — é pontual e autoral, mas existe.
-- **Pá**: cava pontos de **terra solta** (telegrafia honesta: o tile é visivelmente diferente) — abre buracos tapados, desenterra. E **alguns caminhos/áreas SÓ existem para quem carrega pá** (decidido) — conteúdo exclusivo de quem anda preparado, não apenas entrada secundária.
-- **Tocha**: luz em áreas de **breu** (interage com o sistema de iluminação que já existe) — sem luz, não se enxerga o perigo nem o caminho.
-- **Aquisição barata e abundante**: mercador vende, baús iniciais contêm — ferramenta é chave de acesso básica, **nunca tesouro**. O "kit do aventureiro" (corda+pá+tocha antes de descer) é ritual de preparo, não grind.
+**O cenário completo (decidido — corda/pá são só as básicas):** cada ferramenta é um **verbo de interação com o mundo**:
+
+| Ferramenta | Verbo | O que destrava | Notas |
+|---|---|---|---|
+| **Corda** | subir | buracos/aberturas verticais (rope spots) | a básica nº 1 |
+| **Pá** | cavar | terra solta → buracos tapados, desenterrar | a básica nº 2 |
+| **Tocha** | iluminar | áreas de breu (usa o sistema de iluminação) | consumível |
+| **Faca de esfolar** | esfolar | carcaças → peles/carnes EXTRA (alimenta o comércio de loot e a cozinha) | aprofunda a caçada ✏️ |
+| **Vara de pesca** | pescar | peixes em água → ingredientes de comida | ✏️ **em avaliação** — só entra se a mecânica for interessante de verdade |
+| **Facão** | abrir caminho | mato fechado → trilhas/atalhos vegetais | telegrafia: vegetação visivelmente diferente |
+
+**Efeitos de ferramenta são TEMPORÁRIOS e compartilhados (decidido):** mato cortado **rebrota** e buraco cavado **se fecha** depois de X tempo (✏️ timers) — modelo Tibia. É o que faz ferramenta conviver com o Princípio MMO e a Permanência do mapa: o mundo reage à ferramenta, mas **se cura sozinho** — nenhuma ferramenta muda o mapa para sempre. (Picareta: cortada do cenário — decisão do criador.)
+
+- **Corda**: a regra de ouro: **descer é fácil, voltar exige corda** — o custo de fuga das dungeons ganha mecânica. E **alguns buracos prendem DE VERDADE** (decidido): desceu sem corda e não há outra saída — a válvula é morrer (respawn, perdendo XP). A lição mais cara do early game, e a que ninguém esquece: *leve corda*. Não é regra geral — é pontual e autoral, mas existe.
+- **Pá**: telegrafia honesta (terra solta é tile visivelmente diferente). E **alguns caminhos/áreas SÓ existem para quem carrega pá** (decidido) — conteúdo exclusivo de quem anda preparado.
+- **Aquisição barata e abundante** (as básicas): mercador vende, baús iniciais contêm — ferramenta é chave de acesso, **nunca tesouro**. As especializadas (faca, vara, picareta, facão) podem ter fontes próprias ✏️ (quest, NPC específico). O "kit do aventureiro" é decisão de mochila: ninguém carrega as 7 — escolher o kit da expedição É gameplay.
 - **Punição calibrada por lugar**: na maioria dos pontos, esquecer ferramenta custa tempo (volta longa); nos pontos-armadilha, custa a morte. "Preso permanente" não existe — respawn existe — mas o preço é real e a culpa é sua (anti-padrão respeitado: a punição ensina). O medo de descer despreparado é exatamente o clima que o jogo quer.
 - ✏️ Especificação: comando `useItemOnTile` na sim + tiles especiais (buraco, terra solta, breu) — designer-de-sistemas; templates dos itens — `DESIGN-ITENS.md`; visual dos tiles — diretor-de-arte. Entra com as dungeons do M3.
 

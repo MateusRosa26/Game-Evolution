@@ -242,9 +242,51 @@ Cores de raridade em `DESIGN-VISUAL.md` (⚠️ ✏️ em revisão — raridade 
 
 _(o que a instância guarda além do ledger: durabilidade? dono original? — e o modelo de stack para consumíveis/munição)_
 
-## Loot tables ✏️
+## Loot & gold (decidido — jun/2026, direção do criador)
 
-_(modelo por família/tier — não as 48 tabelas à mão)_
+- **Mobs dropam gold direto** (estilo Tibia/Apogea) — mas **bem pouco**. Gold é difícil de conseguir por design.
+- **Loot de caça é a segunda camada da renda** — e a venda é **pouco óbvia**: compradores **específicos** espalhados pela cidade (não vendor universal — ver `DESIGN-MUNDO.md` §Comércio especializado), e **muitos loots só se tornam vendáveis após a quest do NPC comprador** (o trade destravado é recompensa de quest). Saber quem compra o quê é conhecimento-loot.
+- Consequência de design: o caçador novato vive do gold miúdo dos mobs; quem fez as quests e conhece a cidade **monetiza a caçada inteira**. A diferença de renda é conhecimento, não grind.
+- ✏️ Modelo de loot table por família/tier (estrutura genérica); as tabelas CONCRETAS da fatia ① vivem em `design/fatia-1-alvorada/`.
+
+## Consumíveis — Comida & Cozinha (decidido — jun/2026, BASE Apogea, sistema PRÓPRIO)
+
+O sistema de comida é a **fundação do sustain**. Referência explícita do criador: o modelo do Apogea é melhor e mais completo que o do Tibia — **usamos como base de pensamento, mas o sistema é NOSSO** (✏️ Designer de Sistemas desenha a identidade própria em cima dos fundamentos abaixo; não copiar receitas/números):
+
+- **Fome como portão do regen**: o regen natural de HP/mana **só funciona saciado**. Comida comum e barata (pão, carne assada) mantém o regen ligado — é o arroz-com-feijão do caçador, sempre na mochila.
+- **Comida cozida = buff food**: receitas preparadas dão **regen melhor + stats temporários por duração** (ex. Apogea: dano+1 + vel. ataque + regen por ~5min; regen forte + habilidade por ~8min). É o "luxo acessível" do dia-a-dia — e cria a decisão de custo-por-minuto antes da caçada.
+- **Cozinhar NÃO é skill com level** (modelo Apogea): é atividade de utilidade — fogueira/cozinha como estação, **receitas como conhecimento descobrível** (livros, NPCs, experimentação ✏️) — encaixa direto no pilar "informação é loot".
+- **Ingredientes vêm do mundo**: carnes da caça (loot tables), **pesca** (vara = ferramenta), forrageio/hortas, compra e intermediários (massa, queijo ✏️).
+- **Divisão de papéis do sustain** (a hierarquia que evita degenerar): regen base (saciado) → kit de classe (*Primeiros Socorros*/*Curar Ferimentos*) → buff food (planejamento) → **poção (emergência cara)**.
+- ✏️ Fome: decai com tempo? com ação? penalidade de faminto (sem regen apenas, ou debuff?) — Designer de Sistemas + Balancista.
+- ✏️ Quest do cozinheiro (modelo *Licensed Chef* do Apogea) — destrava estação/receitas; fatia ①.
+
+### Esqueleto do sistema próprio (direção do criador — peças do Apogea a TRADUZIR, não copiar)
+
+| Peça | O que é | Nota de tradução ✏️ |
+|---|---|---|
+| **Cru × cozido** | todo ingrediente animal existe em 2 estados; cozinhar transforma | cru sacia pouco (ou risco de efeito ruim? ✏️) — cozinhar sempre vale o gesto |
+| **Fogueiras** | estação de cozinha do MUNDO: pontos fixos (acampamentos, clareiras) + cozinha urbana (estalagem) | ✏️ fogueira montável pelo jogador? (lenha como recurso?) — decidir; se sim, efeito temporário como as ferramentas |
+| **Utensílios** | itens que destravam CATEGORIAS de receita: **pote** (caldos/sopas), espeto/grelha ✏️ | utensílio é como ferramenta: compra única, decisão de mochila |
+| **Pote + água** | encher o pote em poço/rio/fonte → base de **caldos e sopas** | água como recurso de mundo (mais uma função pro rio/poço da praça!) |
+| **Sanduíches/montados** | comida FRIA montada (pão + recheios), sem fogo | a comida de viagem: prepara na cidade, come na dungeon — categoria própria |
+| **NPC que compra comida** | cozinheiro/estalajadeiro compram ingredientes E pratos prontos | **renda não-combate**: caçar→cozinhar→vender vira loop legítimo (entra no mapa de comércio) |
+
+- A régua das categorias: **assado** (fogueira, simples) < **sopa/caldo** (pote+água, melhor regen) < **prato completo** (receita descoberta, buff food) — esforço/conhecimento crescente, recompensa crescente.
+- ✏️ Identidade própria a desenhar (Designer de Sistemas + Loremaster): pratos regionais por cidade? qualidade por ingrediente? — o que nos torna NÓS e não um clone do Apogea.
+
+## Consumíveis — Poções (decidido — jun/2026)
+
+- **Poção de vida em 3 tamanhos: pequena / média / grande.**
+- **Poção é LUXO até certo nível** (✏️ Balancista calibra o "certo"): cara em relação ao gold/hora do early. Anti-degeneração dupla: poção não pode (a) **cobrir falha de gameplay com dinheiro**, nem (b) permitir **caçar acima do tier expamando poção** porque o gold sobrou. Papel: **emergência** — o sustain de rotina é comida + kit (ver Comida & Cozinha).
+- **Acesso escalonado com barreira ALTA (revisado)**: a *pequena* no vendor padrão da cidade (cara pro novato); a **média atrás de quest T2+** — **não vinculada às quests iniciais**, é conquista do mid-game; a **grande atrás de barreira T3+/NPCs específicos remotos**. Nunca nos vendors padrão.
+- ⚠️ Interação com o sustain de classe e comida: poção complementa, **nunca substitui** — se virar o sustain principal, os números estão errados (Balancista).
+- ✏️ Poção de mana: mesma lógica de tamanhos/barreiras? — a decidir.
+- ✏️ Stack/peso de poções: limite natural de inventário é parte do anti-spam.
+
+## Ferramentas (corda/pá/tocha) — economia
+
+Mecânica decidida em `DESIGN-MUNDO.md` §Ferramentas de exploração. Lado item (✏️ detalhar na fatia ①): proposta — **corda e pá permanentes** (ferramenta de verdade, compra única não-trivial), **tocha consumível** (queima); "bem pensadas" é requisito do criador — cada uma com peso/slot/preço que torne o kit do aventureiro uma DECISÃO de mochila, não um checkbox.
 
 ## Economia ✏️ (em discussão — acoplada ao PvP/perda de loot)
 
