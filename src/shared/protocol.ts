@@ -13,12 +13,16 @@ export type ClientCommand =
   | { type: "setDir"; dir: Dir8 | null }
   /** Click-to-move: a simulação faz o pathfinding (como Tibia/RO). */
   | { type: "walkTo"; x: number; y: number }
+  /** Seleciona alvo para auto-attack (null = limpa o alvo). */
+  | { type: "selectTarget"; entityId: number | null }
   | { type: "stop" };
 
 export interface EntityState {
   id: number;
   kind: EntityKind;
   name: string;
+  /** Espécie da criatura (escolhe o sprite no client); null para player/npc. */
+  species: string | null;
   /** Tile lógico atual. */
   pos: Vec2;
   facing: Facing;
@@ -32,9 +36,24 @@ export interface EntityState {
   maxMp: number;
 }
 
+/**
+ * Eventos one-shot encaminhados ao client num snapshot (feedback visual).
+ * Não são estado — acontecem uma vez no tick e o client reage (floating text,
+ * morte). São a projeção dos eventos da sim relevantes ao jogador.
+ */
+export type SnapshotEvent =
+  /** Dano aplicado — para floating damage text. */
+  | { kind: "damage"; targetId: number; amount: number; pos: Vec2 }
+  /** Entidade morreu — para efeito/limpeza visual. */
+  | { kind: "death"; entityId: number; pos: Vec2 };
+
 export interface Snapshot {
   tick: number;
   entities: EntityState[];
+  /** Alvo selecionado do jogador local (marcador visual). null = nenhum. */
+  targetId: number | null;
+  /** Eventos one-shot deste tick (não persistem). */
+  events: SnapshotEvent[];
 }
 
 export type ServerMessage =

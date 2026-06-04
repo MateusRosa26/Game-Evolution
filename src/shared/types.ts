@@ -53,6 +53,36 @@ export function dirFromDelta(dx: number, dy: number): Dir8 | null {
 
 export type EntityKind = "player" | "monster" | "npc";
 
+/**
+ * As 12 famílias canônicas do bestiário (DESIGN-BESTIARIO.md).
+ * Família é a unidade do sistema de Marcas: contadores de kill rastreiam
+ * espécie E família. Toda criatura pertence a exatamente uma família.
+ * Identificadores em inglês, estáveis (não traduzir — são chaves de dados).
+ */
+export type CreatureFamily =
+  | "bestial" // Bestas — feras naturais
+  | "humanoid" // Peles-Verdes, bandidos, cultistas
+  | "worm" // Vermes / insetos
+  | "plant" // Plantas
+  | "aquatic" // Aquáticos
+  | "flying" // Voadores
+  | "undead" // Mortos-Vivos
+  | "draconic" // Dracônicos
+  | "giant" // Gigantes
+  | "elemental" // Elementais
+  | "mythic" // Míticos
+  | "demon"; // Demônios
+
+/** Tipos de dano — fundamenta resist/fraqueza por família (DESIGN-BESTIARIO.md). */
+export type DamageType =
+  | "physical"
+  | "fire"
+  | "ice"
+  | "poison"
+  | "bleed"
+  | "holy"
+  | "arcane";
+
 /** Tiles lógicos do mundo. */
 export enum TileId {
   Grass = 0,
@@ -94,6 +124,14 @@ export interface MapDecor {
   kind: "torch";
 }
 
+/** Ponto de spawn de um monstro no mapa (espécie do bestiário). */
+export interface MapMonster {
+  x: number;
+  y: number;
+  /** ID de espécie do bestiário (ex: "rato_lanhoso"). */
+  species: string;
+}
+
 export interface MapData {
   width: number;
   height: number;
@@ -101,5 +139,7 @@ export interface MapData {
   tiles: TileId[];
   lights: MapLight[];
   decor: MapDecor[];
+  /** Pontos de spawn de monstros (vazio = mapa sem mobs). */
+  monsters: MapMonster[];
   spawn: Vec2;
 }

@@ -446,8 +446,136 @@ function makeKnightTextures(): Record<Facing, Texture[]> {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Rato Lanhoso — família Bestial, T1 ("o primeiro sangue do jogador")
+// 4 direções × 3 frames, mesmo contrato visual do cavaleiro.
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Bicho pequeno e baixo no chão. frame 0 = parado; 1/2 = patas alternadas
+ * (correria). Desenhado de frente (s), costas (n) e perfil (e); oeste = flip.
+ */
+function drawRat(p: Px, facing: Exclude<Facing, "w">, frame: number, rng: Rng): void {
+  // corre baixinho: leve bob vertical
+  const bob = frame === 0 ? 0 : frame === 1 ? -1 : 0;
+  const cy = 22 + bob; // centro do corpo, perto do chão
+
+  if (facing === "e") {
+    // ── perfil ──
+    // cauda fina atrás
+    p.rect(7, cy, 4, 1, PAL.ratTail);
+    p.px(6, cy - 1, PAL.ratTail);
+    p.px(5, cy - 2, PAL.ratTail);
+    // corpo (elipse achatada)
+    p.ellipse(16, cy, 7, 4, PAL.ratBase);
+    p.ellipse(16, cy - 1, 6, 3, PAL.ratMid);
+    p.rect(13, cy - 2, 5, 1, PAL.ratLight);
+    p.rect(13, cy + 2, 8, 1, PAL.ratBelly);
+    // patas (alternadas)
+    const f1 = frame === 1 ? 1 : 0;
+    const f2 = frame === 2 ? 1 : 0;
+    p.rect(12, cy + 3 + f1, 2, 2, PAL.ratBase);
+    p.rect(19, cy + 3 + f2, 2, 2, PAL.ratBase);
+    // cabeça à frente, focinho
+    p.ellipse(23, cy, 4, 3, PAL.ratMid);
+    p.px(26, cy, PAL.ratBelly); // focinho
+    p.px(27, cy, PAL.outline); // narina
+    p.rect(21, cy - 4, 2, 2, PAL.ratEar); // orelha
+    p.px(24, cy - 1, PAL.ratEye); // olho
+    return;
+  }
+
+  if (facing === "s") {
+    // ── de frente: cabeça grande, orelhas, corpo atrás ──
+    p.ellipse(16, cy + 1, 6, 4, PAL.ratBase);
+    p.rect(11, cy + 3, 10, 1, PAL.ratBelly);
+    // cabeça
+    p.ellipse(16, cy - 3, 5, 4, PAL.ratMid);
+    p.ellipse(16, cy - 4, 4, 3, PAL.ratLight);
+    // orelhas
+    p.rect(11, cy - 7, 3, 3, PAL.ratEar);
+    p.rect(18, cy - 7, 3, 3, PAL.ratEar);
+    p.px(12, cy - 6, PAL.ratBelly);
+    p.px(19, cy - 6, PAL.ratBelly);
+    // olhos + focinho
+    p.px(14, cy - 3, PAL.ratEye);
+    p.px(18, cy - 3, PAL.ratEye);
+    p.px(16, cy - 1, PAL.outline);
+    // patinhas alternadas
+    const f1 = frame === 1 ? 1 : 0;
+    const f2 = frame === 2 ? 1 : 0;
+    p.rect(12, cy + 4 - f1, 2, 2, PAL.ratBase);
+    p.rect(18, cy + 4 - f2, 2, 2, PAL.ratBase);
+    return;
+  }
+
+  // ── NORTH (costas): corpo + cauda subindo, orelhas por trás ──
+  p.ellipse(16, cy, 6, 4, PAL.ratBase);
+  p.ellipse(16, cy - 1, 6, 3, PAL.ratMid);
+  p.rect(11, cy - 3, 10, 1, PAL.ratLight);
+  // orelhas
+  p.rect(11, cy - 6, 3, 3, PAL.ratEar);
+  p.rect(18, cy - 6, 3, 3, PAL.ratEar);
+  // cauda subindo
+  p.px(16, cy + 4, PAL.ratTail);
+  p.px(17, cy + 5, PAL.ratTail);
+  p.px(18, cy + 6, PAL.ratTail);
+  const f1 = frame === 1 ? 1 : 0;
+  const f2 = frame === 2 ? 1 : 0;
+  p.rect(12, cy + 3 - f1, 2, 2, PAL.ratBase);
+  p.rect(18, cy + 3 - f2, 2, 2, PAL.ratBase);
+  // pelos eriçados ("lanhoso")
+  for (let i = 0; i < 4; i++) p.px(12 + Math.floor(rng() * 9), cy - 4 - Math.floor(rng() * 2), PAL.ratLight);
+}
+
+function makeRatTextures(): Record<Facing, Texture[]> {
+  const result: Partial<Record<Facing, Texture[]>> = {};
+  const eastCanvases: HTMLCanvasElement[] = [];
+  for (const facing of ["s", "n", "e"] as const) {
+    const frames: Texture[] = [];
+    for (let f = 0; f < 3; f++) {
+      const rng = mulberry32(700 + f);
+      const p = new Px(32, 32);
+      drawRat(p, facing, f, rng);
+      p.outline(PAL.outline);
+      if (facing === "e") eastCanvases.push(p.canvas);
+      frames.push(p.texture());
+    }
+    result[facing] = frames;
+  }
+  result.w = eastCanvases.map((src) => {
+    const p = new Px(32, 32);
+    p.ctx.translate(32, 0);
+    p.ctx.scale(-1, 1);
+    p.ctx.drawImage(src, 0, 0);
+    return p.texture();
+  });
+  return result as Record<Facing, Texture[]>;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Utilitários visuais
 // ──────────────────────────────────────────────────────────────────────
+
+/** Marcador de alvo estilo Tibia: quadrado vermelho de cantos (sobre o mob). */
+function makeTargetMarker(): Texture {
+  const p = new Px(32, 32);
+  const c = "#d83a3a";
+  const s = "rgba(0,0,0,0.6)";
+  for (const [ox, oy, dx, dy] of [
+    [1, 1, 1, 1],
+    [30, 1, -1, 1],
+    [1, 30, 1, -1],
+    [30, 30, -1, -1],
+  ] as const) {
+    for (let i = 0; i < 8; i++) {
+      p.px(ox + dx * i, oy, c);
+      p.px(ox, oy + dy * i, c);
+      p.px(ox + dx * i, oy + dy, s);
+      p.px(ox + dx, oy + dy * i, s);
+    }
+  }
+  return p.texture();
+}
 
 /** Gradiente radial para as luzes (branco → transparente, falloff suave). */
 function makeLightTexture(): Texture {
@@ -509,8 +637,10 @@ export interface SpriteLibrary {
   wall: Texture;
   torchFrames: Texture[];
   knight: Record<Facing, Texture[]>;
+  rat: Record<Facing, Texture[]>;
   light: Texture;
   tileCursor: Texture;
+  targetMarker: Texture;
   shadow: Texture;
 }
 
@@ -526,8 +656,10 @@ export function createSprites(): SpriteLibrary {
     wall: makeWall(500),
     torchFrames: makeTorchFrames(),
     knight: makeKnightTextures(),
+    rat: makeRatTextures(),
     light: makeLightTexture(),
     tileCursor: makeTileCursor(),
+    targetMarker: makeTargetMarker(),
     shadow: makeShadow(),
   };
 }

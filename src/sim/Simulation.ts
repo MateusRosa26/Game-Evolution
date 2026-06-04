@@ -1,5 +1,5 @@
 import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS } from "../shared/constants";
-import type { EntityState, Snapshot } from "../shared/protocol";
+import type { EntityState, Snapshot, SnapshotEvent } from "../shared/protocol";
 import type { ClientCommand } from "../shared/protocol";
 import {
   DIR_VECTORS,
@@ -7,38 +7,30 @@ import {
   facingFromDir,
   isDiagonal,
   type Dir8,
-  type EntityKind,
-  type Facing,
   type MapData,
   type Vec2,
 } from "../shared/types";
+import {
+  MELEE_RANGE,
+  PLAYER_ATTACK_COOLDOWN_MS,
+  PLAYER_ATTACK_DAMAGE,
+  PLAYER_MAX_HP,
+  PLAYER_MAX_MP,
+  STARTER_WEAPON_ID,
+} from "./balance";
+import { CREATURES, type CreatureTemplate } from "./bestiary";
+import { applyDamage, chebyshev, type CombatCtx } from "./combat";
+import type { SimEntity } from "./entity";
+import { EventBus } from "./events";
+import { updateChaser } from "./monsterAi";
 import { findPath, nearestWalkable } from "./pathfinding";
 import { World } from "./World";
 
-/** Intenção de movimento de uma entidade. */
-type MoveIntent =
-  | { kind: "dir"; dir: Dir8 }
-  | { kind: "path"; path: Vec2[]; goal: Vec2 }
-  | null;
-
-interface SimEntity {
-  id: number;
-  kind: EntityKind;
-  name: string;
+/** Respawn pendente de um monstro morto (template + posição). */
+interface PendingRespawn {
+  template: CreatureTemplate;
   pos: Vec2;
-  facing: Facing;
-  /** ms (tempo lógico) a partir do qual pode dar o próximo passo. */
-  nextMoveAt: number;
-  /** Duração do último passo (para o cliente animar). */
-  stepMs: number;
-  /** True somente no tick em que um passo começou. */
-  justMoved: boolean;
-  baseStepMs: number;
-  intent: MoveIntent;
-  hp: number;
-  maxHp: number;
-  mp: number;
-  maxMp: number;
+  atTick: number;
 }
 
 /**
@@ -48,13 +40,18 @@ interface SimEntity {
  */
 export class Simulation {
   readonly world: World;
+  /** Barramento interno de eventos (kill/damage/...) — base da progressão. */
+  readonly bus = new EventBus();
   private entities = new Map<number, SimEntity>();
   private nextId = 1;
   private tickCount = 0;
   private snapshotListeners: ((snap: Snapshot) => void)[] = [];
+  private playerIds = new Set<number>();
+  private respawns: PendingRespawn[] = [];
 
   constructor(map: MapData) {
     this.world = new World(map);
+    this.spawnInitialMonsters();
   }
 
   /** Tempo lógico atual em ms. */
@@ -69,6 +66,8 @@ export class Simulation {
       id,
       kind: "player",
       name,
+      species: null,
+      family: null,
       pos: { x: spawn.x, y: spawn.y },
       facing: "s",
       nextMoveAt: 0,
@@ -76,21 +75,72 @@ export class Simulation {
       justMoved: false,
       baseStepMs: BASE_WALK_MS,
       intent: null,
-      hp: 100,
-      maxHp: 100,
-      mp: 50,
-      maxMp: 50,
+      hp: PLAYER_MAX_HP,
+      maxHp: PLAYER_MAX_HP,
+      mp: PLAYER_MAX_MP,
+      maxMp: PLAYER_MAX_MP,
+      targetId: null,
+      nextAttackAt: 0,
+      attackDamage: PLAYER_ATTACK_DAMAGE,
+      attackCooldownMs: PLAYER_ATTACK_COOLDOWN_MS,
+      dead: false,
+      ai: null,
+      aggroRadius: 0,
+      spawnPos: { x: spawn.x, y: spawn.y },
     });
+    this.playerIds.add(id);
     return id;
   }
 
   removeEntity(id: number): void {
     this.entities.delete(id);
+    this.playerIds.delete(id);
+  }
+
+  // ── Monstros ────────────────────────────────────────────────────────
+
+  /** Spawn dos monstros iniciais a partir das marcas do mapa. */
+  private spawnInitialMonsters(): void {
+    for (const m of this.world.map.monsters) {
+      const template = CREATURES[m.species];
+      if (template) this.spawnMonster(template, { x: m.x, y: m.y });
+    }
+  }
+
+  private spawnMonster(template: CreatureTemplate, pos: Vec2): number {
+    const id = this.nextId++;
+    this.entities.set(id, {
+      id,
+      kind: "monster",
+      name: template.name,
+      species: template.species,
+      family: template.family,
+      pos: { x: pos.x, y: pos.y },
+      facing: "s",
+      nextMoveAt: 0,
+      stepMs: template.baseStepMs,
+      justMoved: false,
+      baseStepMs: template.baseStepMs,
+      intent: null,
+      hp: template.maxHp,
+      maxHp: template.maxHp,
+      mp: 0,
+      maxMp: 0,
+      targetId: null,
+      nextAttackAt: 0,
+      attackDamage: template.attackDamage,
+      attackCooldownMs: template.attackCooldownMs,
+      dead: false,
+      ai: "idle",
+      aggroRadius: template.aggroRadius,
+      spawnPos: { x: pos.x, y: pos.y },
+    });
+    return id;
   }
 
   handleCommand(entityId: number, cmd: ClientCommand): void {
     const e = this.entities.get(entityId);
-    if (!e) return;
+    if (!e || e.dead) return;
     switch (cmd.type) {
       case "setDir":
         e.intent = cmd.dir ? { kind: "dir", dir: cmd.dir } : null;
@@ -100,6 +150,16 @@ export class Simulation {
         if (!goal) break;
         const path = findPath(this.world, e.pos, goal);
         if (path && path.length > 0) e.intent = { kind: "path", path, goal };
+        break;
+      }
+      case "selectTarget": {
+        if (cmd.entityId == null) {
+          e.targetId = null;
+          break;
+        }
+        const target = this.entities.get(cmd.entityId);
+        // Só alveja monstros vivos existentes.
+        e.targetId = target && target.kind === "monster" && !target.dead ? cmd.entityId : null;
         break;
       }
       case "stop":
@@ -115,19 +175,110 @@ export class Simulation {
   tick(): void {
     this.tickCount++;
     const now = this.now();
+    const pending: SnapshotEvent[] = [];
+    const ctx: CombatCtx = { bus: this.bus, tick: this.tickCount, pending, night: false };
 
+    const players = [...this.playerIds]
+      .map((id) => this.entities.get(id))
+      .filter((e): e is SimEntity => !!e && !e.dead);
+
+    // ── 1. IA dos monstros (decide intent e ataca) ──
     for (const e of this.entities.values()) {
       e.justMoved = false;
-      if (!e.intent || now < e.nextMoveAt) continue;
-
-      if (e.intent.kind === "dir") {
-        this.stepInDirection(e, e.intent.dir, now);
-      } else {
-        this.stepAlongPath(e, now);
+      if (e.kind === "monster" && e.ai !== null && !e.dead) {
+        updateChaser(ctx, this.world, e, players, now);
       }
     }
 
-    this.emitSnapshot();
+    // ── 2. Auto-attack do jogador (estilo Tibia) ──
+    for (const id of this.playerIds) {
+      const e = this.entities.get(id);
+      if (e) this.updatePlayerAttack(ctx, e, now);
+    }
+
+    // ── 3. Movimento (player + monstros) ──
+    for (const e of this.entities.values()) {
+      if (e.dead || !e.intent || now < e.nextMoveAt) continue;
+      if (e.intent.kind === "dir") this.stepInDirection(e, e.intent.dir, now);
+      else this.stepAlongPath(e, now);
+    }
+
+    // ── 4. Mortes: remover/respawnar ──
+    this.resolveDeaths(now);
+
+    this.emitSnapshot(pending);
+  }
+
+  /** Auto-attack: com alvo vivo e adjacente, ataca a cada cooldown. */
+  private updatePlayerAttack(ctx: CombatCtx, player: SimEntity, now: number): void {
+    if (player.dead || player.targetId == null) return;
+    const target = this.entities.get(player.targetId);
+    if (!target || target.kind !== "monster" || target.dead) {
+      player.targetId = null;
+      return;
+    }
+    if (chebyshev(player.pos, target.pos) > MELEE_RANGE) return; // fora de alcance
+    if (now < player.nextAttackAt) return;
+    player.facing = this.facingToward(player.pos, target.pos);
+    applyDamage(ctx, player, target, player.attackDamage, "physical", STARTER_WEAPON_ID, null);
+    player.nextAttackAt = now + player.attackCooldownMs;
+  }
+
+  private facingToward(from: Vec2, to: Vec2): SimEntity["facing"] {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? "e" : "w";
+    return dy >= 0 ? "s" : "n";
+  }
+
+  /** Processa entidades mortas: jogador respawna, monstro vira respawn pendente. */
+  private resolveDeaths(now: number): void {
+    for (const e of [...this.entities.values()]) {
+      if (!e.dead) continue;
+      if (e.kind === "player") {
+        // Respawn simples: volta ao spawn com HP cheio.
+        e.pos = { x: e.spawnPos.x, y: e.spawnPos.y };
+        e.hp = e.maxHp;
+        e.mp = e.maxMp;
+        e.dead = false;
+        e.intent = null;
+        e.targetId = null;
+        e.nextMoveAt = now;
+        e.nextAttackAt = now;
+        // limpa o aggro dos monstros sobre este jogador
+        for (const m of this.entities.values()) {
+          if (m.targetId === e.id) {
+            m.targetId = null;
+            m.ai = "idle";
+            m.intent = null;
+          }
+        }
+      } else if (e.kind === "monster") {
+        const template = e.species ? CREATURES[e.species] : undefined;
+        if (template) {
+          this.respawns.push({
+            template,
+            pos: { x: e.spawnPos.x, y: e.spawnPos.y },
+            atTick: this.tickCount + template.respawnTicks,
+          });
+        }
+        // limpa qualquer jogador que mirava nele
+        for (const p of this.entities.values()) {
+          if (p.targetId === e.id) p.targetId = null;
+        }
+        this.entities.delete(e.id);
+      }
+    }
+
+    // respawns vencidos
+    if (this.respawns.length > 0) {
+      const remaining: PendingRespawn[] = [];
+      for (const r of this.respawns) {
+        if (this.tickCount >= r.atTick) this.spawnMonster(r.template, r.pos);
+        else remaining.push(r);
+      }
+      this.respawns = remaining;
+    }
   }
 
   /** Passo na direção (WASD). Com "slide": diagonal bloqueada tenta os eixos. */
@@ -186,13 +337,14 @@ export class Simulation {
     return true;
   }
 
-  private emitSnapshot(): void {
+  private emitSnapshot(events: SnapshotEvent[]): void {
     const entities: EntityState[] = [];
     for (const e of this.entities.values()) {
       entities.push({
         id: e.id,
         kind: e.kind,
         name: e.name,
+        species: e.species,
         pos: { x: e.pos.x, y: e.pos.y },
         facing: e.facing,
         stepMs: e.stepMs,
@@ -203,7 +355,16 @@ export class Simulation {
         maxMp: e.maxMp,
       });
     }
-    const snap: Snapshot = { tick: this.tickCount, entities };
+    // targetId é por-jogador; entregue por entidade abaixo via snapshot.
+    // O snapshot é o mesmo para todos (M1 single-player local); o targetId
+    // é do primeiro jogador. No online, cada conexão recebe seu próprio.
+    const firstPlayer = this.entities.get([...this.playerIds][0]);
+    const snap: Snapshot = {
+      tick: this.tickCount,
+      entities,
+      targetId: firstPlayer?.targetId ?? null,
+      events,
+    };
     for (const cb of this.snapshotListeners) cb(snap);
   }
 }

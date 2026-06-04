@@ -1,0 +1,58 @@
+import type { CreatureFamily, Dir8, Facing, Vec2 } from "../shared/types";
+import type { EntityKind } from "../shared/types";
+
+/** Intenção de movimento de uma entidade. */
+export type MoveIntent =
+  | { kind: "dir"; dir: Dir8 }
+  | { kind: "path"; path: Vec2[]; goal: Vec2 }
+  | null;
+
+/** Estado de IA do monstro (M1: só o necessário para o Perseguidor). */
+export type AiState = "idle" | "chasing";
+
+/**
+ * Entidade da simulação. Estrutura interna da sim (não trafega na rede —
+ * o que vai ao client é a projeção em EntityState).
+ */
+export interface SimEntity {
+  id: number;
+  kind: EntityKind;
+  name: string;
+  /** Espécie (criaturas) — null para player/npc. Chave do bestiário/Marcas. */
+  species: string | null;
+  /** Família canônica (criaturas) — null para player/npc. */
+  family: CreatureFamily | null;
+  pos: Vec2;
+  facing: Facing;
+  /** ms (tempo lógico) a partir do qual pode dar o próximo passo. */
+  nextMoveAt: number;
+  /** Duração do último passo (para o cliente animar). */
+  stepMs: number;
+  /** True somente no tick em que um passo começou. */
+  justMoved: boolean;
+  baseStepMs: number;
+  intent: MoveIntent;
+  hp: number;
+  maxHp: number;
+  mp: number;
+  maxMp: number;
+
+  // ── Combate ──
+  /** Alvo atual de auto-attack (null = nenhum). */
+  targetId: number | null;
+  /** ms (tempo lógico) a partir do qual pode atacar de novo. */
+  nextAttackAt: number;
+  /** Dano do ataque básico. */
+  attackDamage: number;
+  /** Cooldown de ataque, em ms. */
+  attackCooldownMs: number;
+  /** True se está morta (aguardando remoção/respawn neste tick). */
+  dead: boolean;
+
+  // ── IA de monstro (null para player) ──
+  ai: AiState | null;
+  /** Raio de aggro em tiles (Chebyshev). */
+  aggroRadius: number;
+  /** Spawn de origem — usado para respawn determinístico. */
+  spawnPos: Vec2;
+}

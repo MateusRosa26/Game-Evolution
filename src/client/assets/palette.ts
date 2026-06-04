@@ -77,6 +77,15 @@ export const PAL = {
   belt: "#2a231c",
   buckle: "#c8a84b",
 
+  // Rato Lanhoso (família Bestial, T1) — pelagem suja e fria
+  ratBase: "#5a4a3a",
+  ratMid: "#6b5947",
+  ratLight: "#7d6a54",
+  ratBelly: "#83766a",
+  ratEar: "#7a5552",
+  ratTail: "#9a8472",
+  ratEye: "#b83a3a",
+
   // Outline universal da pixel art
   outline: "#10141c",
 } as const;
