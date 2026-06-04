@@ -148,3 +148,76 @@ Dicionários por família/espécie crescem sob demanda (chave criada no 1º kill
 - `src/sim/balance.ts` (remove `STARTER_WEAPON_DAMAGE`/`STARTER_WEAPON_ID`)
 - `src/shared/protocol.ts` (`EquippedWeaponState`, `EntityState.weapon?`)
 - `docs/reports/2026-06-04-item-instances-ledger.md` (novo)
+
+---
+
+## Verificação independente (verificador)
+
+**Status: VERIFIED** · ROUND: 1
+
+Agente fresco, sem contexto do implementador. Verificado contra o diff real
+(`git diff main...HEAD`) e por harness comportamental (esbuild+node temporário,
+apagado — não commitado). Sem browser/Playwright.
+
+### Escopo e regras estáticas
+- **`src/client/**` INTOCADO** — `git diff main...HEAD --name-only | grep src/client`
+  retorna vazio. ✅
+- **Proibições da sim** — grep de `pixi`/`Math.random`/`Date.now`/`performance.now`/
+  `window.`/`document.` nos arquivos sim/shared alterados: só aparições em
+  COMENTÁRIO ("nunca UUID/Math.random", "zero pixi/browser"); zero uso real. ✅
+- **IDs determinísticos** — `ItemRegistry.nextId` por contador (começa em 1), sem
+  UUID/random. Determinismo confirmado no harness (ledger JSON byte-idêntico em
+  duas runs). ✅
+- **Ledger JSON-safe** — só `Record<string,number>`, números e arrays; nenhum
+  `Map`/`Set`/ref dentro do `ItemLedger`. (O `ItemRegistry` usa `Map` no lookup,
+  mas isso é estado da sim, não o ledger serializado.) ✅
+- **Vazamento de snapshot** — grep dos campos do ledger em `protocol.ts`: só a
+  palavra "ledger" num COMENTÁRIO ("o ledger é oculto"). No harness, `JSON.stringify`
+  do snapshot inteiro NÃO contém nenhum de: `ledger`/`killsByFamily`/`killsBySpecies`/
+  `killsByContext`/`totalKills`/`totalDamageDealt`/`blockedHits`/`previousOwners`/
+  `ownerLowHp`. O snapshot traz só `weapon {instanceId,templateId,name}`. ✅
+
+### Regras de atribuição conferidas (leitura + harness)
+- **Auto-attack credita a arma** — Knight mata 5 ratos: `totalKills=5`,
+  `killsByFamily.bestial=5`, `killsBySpecies.rato_lanhoso=5`, `finalBlow=5`,
+  `atNight=0`, `totalDamageDealt>0`; 5 eventos `kill` todos com
+  `weaponInstanceId=<id da espada>` + `weaponTemplateId="espada_curta"`. ✅
+- **Magia NÃO credita** — Mage mata por Bola de Fogo (projétil): ledger do cajado
+  `totalKills=0`, `totalDamageDealt=0`. Confirmado no código: `execProjectile`/
+  `execLine` passam `weapon=null` (combat.ts l.179/205); DoT/status passa `null`
+  (status.ts l.137). ✅
+- **Caso DoT explícito** — projétil NÃO mata (rat hp alto), o golpe final vem da
+  QUEIMADURA (DoT). Ledger do cajado segue `totalKills=0` — o golpe final por DoT
+  não toca a arma. ✅
+- **Skill física de arma credita** — Golpe Forte mata 3 ratos: `totalKills=3`,
+  3 eventos `kill` com `skillId="golpe_forte"` E `weaponInstanceId != null`.
+  Código: `execMelee` usa `def.effect === "physical" ? ctx.weaponSource : null`. ✅
+- **Anti-degeneração (isValidKill)** — `attachItemLedger.onKill` filtra por
+  `isValidKill(template.xp, attackerLevel, creatureLevel)`, que é exatamente
+  `xpFromKill > 0` (mesma regra que concede XP — fonte única). Harness: player nível
+  100 mata rato T1 → rato morre, mas `totalKills=0` e `xp=0`. Kill inválido NÃO
+  conta. ✅
+- **Contexto ownerLowHp** — golpe final com HP% do dono < 10% (`OWNER_LOW_HP_PCT=0.1`,
+  lê `ev.attackerHpPct`): incrementa para 1 ao matar com dono a 5% HP; fica em 0 ao
+  matar com HP cheio. ✅
+- **atNight** — `CombatContext.night` sempre false no M1 → sempre 0, com `TODO`
+  claro. Conferido. ✅
+
+### Regressão (Waves 1-3)
+- **XP/level** — kill ainda concede XP (`prog.xp` sobe). ✅
+- **Skills** — Bola de Fogo, Golpe Forte e DoT de queimadura funcionam no harness. ✅
+- **`physicalDamage`/`attackCooldownMs`** ganharam params opcionais
+  (`usesDexterity=false`, `weaponBaseCooldown=default`) — retrocompatíveis. ✅
+- **Respawn mantém a arma E o ledger** — ao matar o player e respawnar,
+  `equippedWeaponId` é inalterado e `ledger.totalKills` preservado (o ledger NÃO
+  reseta na morte — comportamento correto: a história pertence ao objeto). ✅
+
+### Build
+- `npx tsc --noEmit` ✅ (exit 0)
+- `npm run build` ✅ (tsc + vite, 755 módulos)
+
+### Discrepâncias
+Nenhuma material. Todas as falhas iniciais do meu harness foram ARTEFATOS DO TESTE
+(ratos acumulados matando o player antes do golpe do player) — corrigidas isolando
+cada kill (limpar mobs entre kills, ratos inofensivos quando preciso). A
+implementação bateu com o relatório do worker em todos os pontos verificados.
