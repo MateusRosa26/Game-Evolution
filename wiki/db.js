@@ -1,0 +1,717 @@
+// db.js — Banco de dados do Codex: parsers dos .md + views interativas
+// (Bestiário, Skills & Magias, Classes). Zero dependências; importado por wiki.js.
+//
+// IMPORTANTE: os parsers dependem da ESTRUTURA dos documentos (headings e
+// colunas das tabelas). Os .md continuam sendo a fonte única da verdade —
+// se mudar o formato lá, ajustar os parsers aqui.
+
+// ---------- util ----------
+
+const esc = (s) =>
+  String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// mini-markdown inline (code, bold, italic) para células/campos
+function fmt(s) {
+  s = esc(s);
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+  s = s.replace(/✏️/g, '<span class="todo" title="número/detalhe a definir">✏️</span>');
+  return s;
+}
+
+const splitRow = (l) =>
+  l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+const isSep = (l) => /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(l) && l.includes("-");
+
+const emptyMsg = () =>
+  `<div class="db-empty">Nenhum resultado com os filtros atuais.</div>`;
+
+// ---------- cores (alinhadas ao DESIGN-VISUAL.md) ----------
+
+const FAMILY_COLORS = {
+  Bestial: "#b07840",
+  Humanoides: "#c0aa80",
+  Vermes: "#8aa83c",
+  Plantas: "#58c878",
+  "Aquáticos": "#4a9cc8",
+  Voadores: "#a8c4e0",
+  "Mortos-Vivos": "#a88ad8",
+  "Dracônicos": "#e06a3a",
+  Gigantes: "#c89a4b",
+  Elementais: "#6a8ad8",
+  "Míticos": "#e8c84b",
+  "Demônios": "#d84a6a",
+};
+
+const TIER_COLORS = { T1: "#58c878", T2: "#b8c84b", T3: "#ff8c3a", T4: "#e05a4a", T5: "#b04ad8" };
+
+const CLASS_COLORS = { Knight: "#9fb0c8", Mage: "#5a8ae0", Rogue: "#58c878", Priest: "#ffd86a", Comum: "#c8a84b" };
+
+// cores por tipo de dano (mesma tabela do DESIGN-VISUAL.md)
+const ELEMENT_COLORS = [
+  ["fogo", "#ff8c3a"], ["queimad", "#ff8c3a"],
+  ["gelo", "#6ec4e8"], ["lentid", "#6ec4e8"], ["slow", "#6ec4e8"],
+  ["veneno", "#7ec850"],
+  ["sagrado", "#ffd86a"], ["holy", "#ffd86a"], ["profano", "#ffd86a"],
+  ["sombrio", "#9a6ad8"],
+  ["sangra", "#d84a3a"],
+  ["cura", "#58c878"],
+  ["físico", "#e8e4d8"], ["fisico", "#e8e4d8"],
+];
+
+function elementColor(text) {
+  const t = String(text).toLowerCase();
+  for (const [k, c] of ELEMENT_COLORS) if (t.includes(k)) return c;
+  return null;
+}
+
+// ================================================================
+// PARSERS
+// ================================================================
+
+// --- DESIGN-BESTIARIO.md → { tierLevels, families, creatures } ---
+
+export function parseBestiary(md) {
+  const lines = md.split(/\r?\n/);
+  const tierLevels = {}; // "T1" → { levels: "1–8", budget: "só ataque básico" }
+  const resist = {}; // família → { imune, resistente, fraco }
+  const families = [];
+  let cur = null;
+  let section = "";
+  let inFence = false;
+
+  for (const l of lines) {
+    if (/^```/.test(l)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+
+    const h2 = l.match(/^##\s+(.*)$/);
+    if (h2) {
+      section = h2[1];
+      // família: "## 3. Vermes (T1–T4) — o que rasteja no escuro"
+      const fh = section.match(/^(\d+)\.\s+(.+?)\s+\((T\d)(?:[–-](T\d))?\)\s+—\s+(.+)$/);
+      cur = fh
+        ? {
+            idx: +fh[1],
+            name: fh[2].trim(),
+            tierRange: fh[4] ? `${fh[3]}–${fh[4]}` : fh[3],
+            tagline: fh[5].trim(),
+            desc: "",
+            creatures: [],
+          }
+        : null;
+      if (cur) families.push(cur);
+      continue;
+    }
+
+    // tabela de tiers: "| **T1** | 1–8 | só ataque básico |"
+    const tr = l.match(/^\|\s*\*\*(T\d)\*\*\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/);
+    if (tr && /^Tiers/i.test(section)) {
+      tierLevels[tr[1]] = { levels: tr[2].replace(/✏️/g, "").trim(), budget: tr[3].trim() };
+      continue;
+    }
+
+    // matriz de fraquezas: "| Vermes | veneno | — | **fogo** |"
+    if (/^Matriz/i.test(section) && /^\s*\|/.test(l)) {
+      if (isSep(l)) continue;
+      const cells = splitRow(l);
+      if (cells.length >= 4 && cells[0] !== "Família") {
+        resist[cells[0]] = { imune: cells[1], resistente: cells[2], fraco: cells[3] };
+      }
+      continue;
+    }
+
+    if (!cur) continue;
+
+    // linha de criatura
+    if (/^\s*\|/.test(l)) {
+      if (isSep(l)) continue;
+      const cells = splitRow(l);
+      if (cells.length < 4 || cells[0] === "Criatura") continue;
+      const name = cells[0].replace(/\*\*/g, "").trim();
+      const tm = cells[1].match(/T(\d)(?:\s*[–-]\s*T?(\d))?/);
+      const tierMin = tm ? +tm[1] : 1;
+      const tierMax = tm ? +(tm[2] ?? tm[1]) : tierMin;
+      const c = {
+        name,
+        family: cur.name,
+        familyIdx: cur.idx,
+        tierStr: cells[1],
+        tierMin,
+        tierMax,
+        behavior: cells[2],
+        behaviors: cells[2].split(/[,+]/).map((b) => b.trim()).filter(Boolean),
+        attacks: cells[3],
+        notes: cells[4] ?? "",
+      };
+      c.isBruto = /bruto/i.test(c.notes) || /bruto/i.test(c.attacks);
+      c.hasSignature = /signature/i.test(c.attacks);
+      cur.creatures.push(c);
+      continue;
+    }
+
+    // descrição da família (parágrafo antes da tabela)
+    if (/^\s*$/.test(l) || /^\s*>/.test(l)) continue;
+    if (!cur.creatures.length) cur.desc += (cur.desc ? " " : "") + l.trim();
+  }
+
+  for (const f of families) f.resist = resist[f.name] ?? null;
+  return { tierLevels, families, creatures: families.flatMap((f) => f.creatures) };
+}
+
+// faixa de nível aproximada de uma criatura, via tabela de tiers
+function levelLabel(c, tierLevels) {
+  const lo = tierLevels["T" + c.tierMin]?.levels;
+  const hi = tierLevels["T" + c.tierMax]?.levels;
+  if (!lo || !hi) return "";
+  const min = (lo.match(/\d+/) ?? [])[0];
+  if (/\+/.test(hi)) return `${min}+`;
+  const nums = hi.match(/\d+/g) ?? [];
+  return `${min}–${nums[nums.length - 1]}`;
+}
+
+// --- DESIGN-EVOLUCAO.md → skills { detailed, planned } ---
+
+function parseMutation(raw) {
+  // "maioria à distância máxima → **Meteoro Distante** — alcance maior, ..."
+  const parts = raw.split("→");
+  if (parts.length >= 2) {
+    const cond = parts[0].trim();
+    const rest = parts.slice(1).join("→").trim();
+    const nm = rest.match(/^\*\*(.+?)\*\*\s*(?:✏️\s*)?(?:—\s*)?(.*)$/);
+    if (nm) return { cond, name: nm[1], effect: nm[2] };
+    return { cond, name: "", effect: rest };
+  }
+  return { cond: "", name: "", effect: raw };
+}
+
+export function parseSkills(md) {
+  const lines = md.split(/\r?\n/);
+  const detailed = [];
+  const planned = [];
+  let group = null; // "comum" | "kit" | "roster" | null
+  let cur = null;
+  let inMut = false;
+  let inFence = false;
+
+  for (const l of lines) {
+    if (/^```/.test(l)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+    if (/^## /.test(l)) { group = null; cur = null; continue; }
+
+    const h3 = l.match(/^### (.*)$/);
+    if (h3) {
+      cur = null;
+      inMut = false;
+      if (/^Skills comuns/i.test(h3[1])) group = "comum";
+      else if (/^Kit inicial/i.test(h3[1])) group = "kit";
+      else if (/^Roster/i.test(h3[1])) group = "roster";
+      else group = null;
+      continue;
+    }
+
+    if (group === "roster") {
+      // "| Knight | *Investida* | charge até o alvo, breve atordoamento |"
+      if (/^\s*\|/.test(l) && !isSep(l)) {
+        const cells = splitRow(l);
+        if (cells.length >= 3 && cells[0] !== "Classe") {
+          planned.push({
+            name: cells[1].replace(/\*/g, ""),
+            class: cells[0],
+            oneLiner: cells[2],
+            group: "planejada",
+          });
+        }
+      }
+      continue;
+    }
+    if (group !== "comum" && group !== "kit") continue;
+
+    const h4 = l.match(/^#### (.+?)(?:\s+\(([^)]+)\))?\s*$/);
+    if (h4) {
+      cur = { name: h4[1].trim(), class: h4[2]?.trim() ?? "Comum", group, fields: {}, mutations: [] };
+      detailed.push(cur);
+      inMut = false;
+      continue;
+    }
+    if (!cur) continue;
+
+    const bullet = l.match(/^- \*\*([^:*]+):\*\*\s*(.*)$/);
+    if (bullet) {
+      const label = bullet[1].trim();
+      if (/muta/i.test(label)) { inMut = true; continue; }
+      inMut = false;
+      const key =
+        /^tipo/i.test(label) ? "tipo" :
+        /tags/i.test(label) ? "tags" :
+        /custo/i.test(label) ? "custo" :
+        /efeito/i.test(label) ? "efeito" :
+        /perfis/i.test(label) ? "perfis" :
+        /nota/i.test(label) ? "nota" : null;
+      if (key) cur.fields[key] = bullet[2].trim();
+      continue;
+    }
+
+    const num = l.match(/^\s+\d+\.\s+(.*)$/);
+    if (num && inMut) cur.mutations.push(parseMutation(num[1].trim()));
+  }
+
+  return { detailed, planned };
+}
+
+// --- DESIGN-EVOLUCAO.md → classes { lead, classes, attributes } ---
+
+function parseCaminho(raw) {
+  // "*Inabalável* — 50k bloqueios com escudo → chance de bloqueio total"
+  // "**Monge** (*Mão Vazia*) — lvl 25 sem nunca equipar arma... → dano..."
+  const m = raw.match(/^\*{1,2}(.+?)\*{1,2}([^—]*)—\s*(.*)$/);
+  if (!m) return { name: "", alias: "", cond: raw, effect: "" };
+  const alias = m[2].includes("(") ? m[2].replace(/[()*]/g, "").trim() : "";
+  const parts = m[3].split("→");
+  return {
+    name: m[1].trim(),
+    alias,
+    cond: parts[0].trim(),
+    effect: parts.slice(1).join("→").trim(),
+  };
+}
+
+export function parseClasses(md) {
+  const lines = md.split(/\r?\n/);
+  const classes = [];
+  const lead = [];
+  const attributes = [];
+  let inSection = false;
+  let inFence = false;
+  let cur = null;
+  let inPaths = false;
+
+  for (const l of lines) {
+    if (/^```/.test(l)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+
+    // tabela de atributos (vive na seção de Stats, fora de ## Classes)
+    const at = l.match(/^\|\s*\*\*(Força|Destreza|Inteligência|Vitalidade|Espírito)\*\*\s*\|([^|]+)\|([^|]+)\|/);
+    if (at) attributes.push({ name: at[1], governs: at[2].trim(), affinity: at[3].trim() });
+
+    if (/^## Classes/.test(l)) { inSection = true; continue; }
+    if (inSection && /^## /.test(l)) break;
+    if (!inSection) continue;
+
+    const h3 = l.match(/^### (.+)$/);
+    if (h3) { cur = { name: h3[1].trim(), caminhos: [], note: "" }; classes.push(cur); inPaths = false; continue; }
+    if (/^\*\*Template/.test(l.trim())) { cur = null; continue; }
+
+    if (!cur) {
+      const t = l.trim();
+      if (t && !/^[>|#]/.test(t)) lead.push(t);
+      continue;
+    }
+
+    const bullet = l.match(/^- \*\*([^:*]+):\*\*\s*(.*)$/);
+    if (bullet) {
+      const label = bullet[1].trim();
+      if (/caminhos/i.test(label)) { inPaths = true; continue; }
+      inPaths = false;
+      if (/fantasia/i.test(label)) cur.fantasia = bullet[2].trim();
+      else if (/kit/i.test(label)) cur.kit = bullet[2].trim();
+      else if (/atributos/i.test(label)) cur.atributos = bullet[2].trim();
+      else if (/lentes/i.test(label)) cur.lentes = bullet[2].trim();
+      continue;
+    }
+
+    const num = l.match(/^\s+\d+\.\s+(.*)$/);
+    if (num && inPaths) { cur.caminhos.push(parseCaminho(num[1].trim())); continue; }
+
+    const bq = l.match(/^>\s?(.*)$/);
+    if (bq && bq[1]) cur.note += (cur.note ? " " : "") + bq[1];
+  }
+
+  return { lead, classes, attributes };
+}
+
+// ================================================================
+// VIEWS
+// ================================================================
+
+// estado dos filtros persiste enquanto a página estiver aberta
+const bState = { q: "", fams: new Set(), tiers: new Set(), behs: new Set(), flags: new Set(), sort: "family", view: "cards" };
+const sState = { q: "", classes: new Set(), groups: new Set() };
+
+const chip = (k, v, label, on, color) =>
+  `<button class="chip${on ? " on" : ""}" data-k="${k}" data-v="${esc(v)}"${color ? ` style="--c:${color}"` : ""}>${label}</button>`;
+
+function wireToolbar($doc, st, rerenderBody, rerenderAll) {
+  $doc.querySelectorAll(".db-toolbar .chip").forEach((ch) => {
+    ch.addEventListener("click", () => {
+      const set = st[ch.dataset.k];
+      set.has(ch.dataset.v) ? set.delete(ch.dataset.v) : set.add(ch.dataset.v);
+      ch.classList.toggle("on");
+      rerenderBody();
+    });
+  });
+  const $q = $doc.querySelector(".db-search");
+  if ($q) $q.addEventListener("input", () => { st.q = $q.value; rerenderBody(); });
+  const $clear = $doc.querySelector(".db-clear");
+  if ($clear)
+    $clear.addEventListener("click", () => {
+      st.q = "";
+      for (const v of Object.values(st)) if (v instanceof Set) v.clear();
+      rerenderAll();
+    });
+}
+
+export function renderDbPage($doc, page, data) {
+  if (page === "bestiario" && data.bestiario) return renderBestiary($doc, data.bestiario);
+  if (page === "skills" && data.skills) return renderSkills($doc, data.skills);
+  if (page === "classes" && data.classes) return renderClasses($doc, data.classes);
+  $doc.innerHTML = `<p>⚠ Página não encontrada ou documento-fonte não carregou.</p>`;
+}
+
+// ---------------- Bestiário ----------------
+
+const BEHAVIORS = ["Perseguidor", "Atirador", "Covarde", "Matilha", "Territorial", "Estacionário"];
+
+function renderBestiary($doc, data) {
+  $doc.innerHTML = `
+    <header class="db-header">
+      <h1>🐲 Bestiário</h1>
+      <p class="db-sub"><strong>${data.creatures.length} criaturas padrão</strong> em <strong>${data.families.length} famílias</strong>, tiers T1–T5.
+        Família define tema, habitat e fraquezas; a diferenciação vem dos ataques.
+        Fonte: <a href="#/bestiario">DESIGN-BESTIARIO.md</a></p>
+    </header>
+    <div class="db-toolbar">
+      <input class="db-search" type="search" placeholder="Filtrar por nome, ataque, nota…" value="${esc(bState.q)}" />
+      <div class="filter-row"><span class="filter-label">Família</span><div class="chips">
+        ${data.families.map((f) => chip("fams", f.name, f.name, bState.fams.has(f.name), FAMILY_COLORS[f.name])).join("")}
+      </div></div>
+      <div class="filter-row"><span class="filter-label">Tier</span><div class="chips">
+        ${Object.keys(TIER_COLORS).map((t) =>
+          chip("tiers", t, `${t} <small>nv ${esc(data.tierLevels[t]?.levels ?? "?")}</small>`, bState.tiers.has(t), TIER_COLORS[t])
+        ).join("")}
+      </div></div>
+      <div class="filter-row"><span class="filter-label">Comportamento</span><div class="chips">
+        ${BEHAVIORS.map((b) => chip("behs", b, b, bState.behs.has(b))).join("")}
+      </div></div>
+      <div class="filter-row"><span class="filter-label">Especial</span><div class="chips">
+        ${chip("flags", "bruto", "💪 Bruto (só stats)", bState.flags.has("bruto"), "#e0a070")}
+        ${chip("flags", "signature", "✦ Tem signature", bState.flags.has("signature"), "#c9a8ff")}
+      </div></div>
+      <div class="filter-row db-controls">
+        <label>Ordenar
+          <select class="db-sort">
+            <option value="family">Família (ordem do doc)</option>
+            <option value="tier-asc">Tier ↑ (mais fraco primeiro)</option>
+            <option value="tier-desc">Tier ↓ (mais forte primeiro)</option>
+            <option value="name">Nome (A–Z)</option>
+          </select>
+        </label>
+        <div class="view-toggle">
+          <button class="vt-btn" data-view="cards">▦ Cards</button>
+          <button class="vt-btn" data-view="table">☰ Tabela</button>
+        </div>
+        <button class="db-clear">✕ Limpar filtros</button>
+        <span class="db-count"></span>
+      </div>
+    </div>
+    <div id="db-body"></div>`;
+
+  const $sort = $doc.querySelector(".db-sort");
+  $sort.value = bState.sort;
+  $sort.addEventListener("change", () => { bState.sort = $sort.value; bRenderBody($doc, data); });
+
+  $doc.querySelectorAll(".vt-btn").forEach((b) => {
+    b.classList.toggle("on", b.dataset.view === bState.view);
+    b.addEventListener("click", () => {
+      bState.view = b.dataset.view;
+      $doc.querySelectorAll(".vt-btn").forEach((x) => x.classList.toggle("on", x === b));
+      bRenderBody($doc, data);
+    });
+  });
+
+  // clicar numa tag de família filtra por ela
+  $doc.querySelector("#db-body").addEventListener("click", (e) => {
+    const ft = e.target.closest(".fam-tag");
+    if (!ft?.dataset.fam) return;
+    bState.fams = new Set([ft.dataset.fam]);
+    renderBestiary($doc, data);
+  });
+
+  wireToolbar($doc, bState, () => bRenderBody($doc, data), () => renderBestiary($doc, data));
+  bRenderBody($doc, data);
+}
+
+function bFiltered(data) {
+  const q = bState.q.toLowerCase();
+  let list = data.creatures.filter((c) => {
+    if (bState.fams.size && !bState.fams.has(c.family)) return false;
+    if (bState.tiers.size) {
+      let ok = false;
+      for (let t = c.tierMin; t <= c.tierMax; t++) if (bState.tiers.has("T" + t)) ok = true;
+      if (!ok) return false;
+    }
+    if (bState.behs.size && ![...bState.behs].some((b) => c.behavior.includes(b))) return false;
+    if (bState.flags.has("bruto") && !c.isBruto) return false;
+    if (bState.flags.has("signature") && !c.hasSignature) return false;
+    if (q) {
+      const hay = `${c.name} ${c.family} ${c.behavior} ${c.attacks} ${c.notes}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  const byName = (a, b) => a.name.localeCompare(b.name, "pt");
+  if (bState.sort === "name") list = [...list].sort(byName);
+  else if (bState.sort === "tier-asc")
+    list = [...list].sort((a, b) => a.tierMin - b.tierMin || a.tierMax - b.tierMax || byName(a, b));
+  else if (bState.sort === "tier-desc")
+    list = [...list].sort((a, b) => b.tierMax - a.tierMax || b.tierMin - a.tierMin || byName(a, b));
+  return list;
+}
+
+function bRenderBody($doc, data) {
+  const list = bFiltered(data);
+  $doc.querySelector(".db-count").textContent = `${list.length} de ${data.creatures.length} criaturas`;
+  const $b = $doc.querySelector("#db-body");
+
+  if (bState.view === "table") {
+    $b.innerHTML = creatureTable(list, data);
+    return;
+  }
+  if (bState.sort === "family") {
+    const html = data.families
+      .map((f) => {
+        const cs = list.filter((c) => c.family === f.name);
+        return cs.length ? famSection(f, cs, data) : "";
+      })
+      .join("");
+    $b.innerHTML = html || emptyMsg();
+  } else {
+    $b.innerHTML = list.length
+      ? `<div class="card-grid">${list.map((c) => creatureCard(c, data)).join("")}</div>`
+      : emptyMsg();
+  }
+}
+
+function resistChips(val) {
+  if (!val || val === "—") return `<span class="r-none">—</span>`;
+  return val
+    .split(/[;,]/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `<span class="el-chip" style="--c:${elementColor(p) ?? "#8890a0"}">${fmt(p)}</span>`)
+    .join("");
+}
+
+function famSection(f, creatures, data) {
+  const fc = FAMILY_COLORS[f.name] ?? "#8890a0";
+  const r = f.resist;
+  return `<section class="fam-section" style="--fc:${fc}">
+    <header class="fam-head">
+      <h2>${f.idx}. ${esc(f.name)} <span class="tier-range">${esc(f.tierRange)}</span>
+        <span class="fam-count">${creatures.length} criatura${creatures.length > 1 ? "s" : ""}</span></h2>
+      <p class="fam-tagline">${fmt(f.tagline)}</p>
+      ${f.desc ? `<p class="fam-desc">${fmt(f.desc)}</p>` : ""}
+      ${r ? `<div class="fam-resists">
+        <span class="r-group"><span class="r-lbl">Imune</span>${resistChips(r.imune)}</span>
+        <span class="r-group"><span class="r-lbl">Resistente</span>${resistChips(r.resistente)}</span>
+        <span class="r-group"><span class="r-lbl">Fraco</span>${resistChips(r.fraco)}</span>
+      </div>` : ""}
+    </header>
+    <div class="card-grid">${creatures.map((c) => creatureCard(c, data)).join("")}</div>
+  </section>`;
+}
+
+function creatureCard(c, data) {
+  const fc = FAMILY_COLORS[c.family] ?? "#8890a0";
+  const lv = levelLabel(c, data.tierLevels);
+  return `<article class="creature-card" style="--fc:${fc}">
+    <div class="cc-top">
+      <h3>${esc(c.name)}</h3>
+      <span class="tier-badge" style="--tc:${TIER_COLORS["T" + c.tierMax] ?? "#8890a0"}">${esc(c.tierStr)}</span>
+    </div>
+    <div class="cc-meta">
+      <span class="fam-tag" data-fam="${esc(c.family)}" title="filtrar por ${esc(c.family)}">${esc(c.family)}</span>
+      ${lv ? `<span class="cc-lvl">nível ~${lv}</span>` : ""}
+      ${c.isBruto ? `<span class="flag-badge bruto" title="só stats: muita vida/dano, zero skill">💪 bruto</span>` : ""}
+      ${c.hasSignature ? `<span class="flag-badge sig" title="ataque/efeito exclusivo da espécie">✦ signature</span>` : ""}
+    </div>
+    <div class="cc-chips">${c.behaviors.map((b) => `<span class="beh-chip">${esc(b)}</span>`).join("")}</div>
+    <div class="cc-attacks">${fmt(c.attacks)}</div>
+    ${c.notes ? `<p class="cc-notes">${fmt(c.notes)}</p>` : ""}
+  </article>`;
+}
+
+function creatureTable(list, data) {
+  if (!list.length) return emptyMsg();
+  return `<table class="db-table"><thead><tr>
+      <th>Criatura</th><th>Família</th><th>Tier</th><th>Nível ~</th><th>Comportamento</th><th>Ataques</th><th>Notas</th>
+    </tr></thead><tbody>
+    ${list.map((c) => `<tr>
+      <td><strong>${esc(c.name)}</strong>${c.isBruto ? ` <span class="flag-badge bruto" title="bruto">💪</span>` : ""}${c.hasSignature ? ` <span class="flag-badge sig" title="signature">✦</span>` : ""}</td>
+      <td><span class="fam-tag" data-fam="${esc(c.family)}" style="--fc:${FAMILY_COLORS[c.family] ?? "#8890a0"}">${esc(c.family)}</span></td>
+      <td><span class="tier-badge" style="--tc:${TIER_COLORS["T" + c.tierMax] ?? "#8890a0"}">${esc(c.tierStr)}</span></td>
+      <td>${levelLabel(c, data.tierLevels)}</td>
+      <td>${c.behaviors.map((b) => `<span class="beh-chip">${esc(b)}</span>`).join(" ")}</td>
+      <td>${fmt(c.attacks)}</td>
+      <td class="dim">${fmt(c.notes)}</td>
+    </tr>`).join("")}
+  </tbody></table>`;
+}
+
+// ---------------- Skills & Magias ----------------
+
+function renderSkills($doc, data) {
+  const CLASSES = ["Comum", "Knight", "Mage", "Rogue", "Priest"];
+  const GROUPS = [
+    ["kit", "Kit inicial (M1)"],
+    ["comum", "Comuns (todas as classes)"],
+    ["planejada", "Planejadas (M3)"],
+  ];
+  const total = data.detailed.length + data.planned.length;
+  $doc.innerHTML = `
+    <header class="db-header">
+      <h1>✨ Skills & Magias</h1>
+      <p class="db-sub"><strong>${data.detailed.length} skills</strong> com ficha completa + <strong>${data.planned.length} planejadas</strong> (M3).
+        Compradas em NPCs (classe + nível + gold); uso extremo gera <strong>Mutações</strong> — a única forma de upgrade.
+        Fonte: <a href="#/progressao">DESIGN-EVOLUCAO.md</a></p>
+    </header>
+    <div class="db-toolbar">
+      <input class="db-search" type="search" placeholder="Filtrar por nome, efeito, mutação…" value="${esc(sState.q)}" />
+      <div class="filter-row"><span class="filter-label">Classe</span><div class="chips">
+        ${CLASSES.map((c) => chip("classes", c, c === "Comum" ? "Comum (todas)" : c, sState.classes.has(c), CLASS_COLORS[c])).join("")}
+      </div></div>
+      <div class="filter-row"><span class="filter-label">Grupo</span><div class="chips">
+        ${GROUPS.map(([k, label]) => chip("groups", k, label, sState.groups.has(k))).join("")}
+      </div></div>
+      <div class="filter-row db-controls">
+        <button class="db-clear">✕ Limpar filtros</button>
+        <span class="db-count"></span>
+      </div>
+    </div>
+    <div id="db-body"></div>`;
+
+  wireToolbar($doc, sState, () => sRenderBody($doc, data, total), () => renderSkills($doc, data));
+  sRenderBody($doc, data, total);
+}
+
+function sFiltered(data) {
+  const q = sState.q.toLowerCase();
+  return [...data.detailed, ...data.planned].filter((s) => {
+    if (sState.classes.size && !sState.classes.has(s.class)) return false;
+    if (sState.groups.size && !sState.groups.has(s.group)) return false;
+    if (q) {
+      const hay = [
+        s.name, s.class, s.oneLiner ?? "",
+        ...Object.values(s.fields ?? {}),
+        ...(s.mutations ?? []).map((m) => `${m.name} ${m.effect} ${m.cond}`),
+      ].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function sRenderBody($doc, data, total) {
+  const list = sFiltered(data);
+  $doc.querySelector(".db-count").textContent = `${list.length} de ${total} skills`;
+  const SECTIONS = [
+    ["kit", "Kit inicial — as 6 skills únicas do M1", "restritas à classe; a identidade do kit"],
+    ["comum", "Skills comuns — todas as classes", "compráveis por qualquer classe em NPCs básicos; também mutam"],
+    ["planejada", "Roster planejado — tier intermediário", "fichas completas no M3"],
+  ];
+  const html = SECTIONS.map(([g, title, sub]) => {
+    const items = list.filter((s) => s.group === g);
+    if (!items.length) return "";
+    return `<section class="db-group">
+      <h2 class="db-h2">${title} <span class="dim-note">— ${sub}</span></h2>
+      <div class="${g === "planejada" ? "card-grid" : "skill-grid"}">
+        ${items.map((s) => (s.group === "planejada" ? plannedCard(s) : skillCard(s))).join("")}
+      </div>
+    </section>`;
+  }).join("");
+  $doc.querySelector("#db-body").innerHTML = html || emptyMsg();
+}
+
+function skillCard(s) {
+  const cc = CLASS_COLORS[s.class] ?? "#c8a84b";
+  const f = s.fields;
+  const tags = (f.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+  return `<article class="skill-card" style="--cc:${cc}">
+    <div class="sc-top">
+      <h3>${esc(s.name)}</h3>
+      <span class="class-badge">${esc(s.class === "Comum" ? "Comum · todas" : s.class)}</span>
+    </div>
+    <div class="cc-meta">
+      ${f.tipo ? `<span class="sc-tipo">${fmt(f.tipo)}</span>` : ""}
+      ${tags.map((t) => `<span class="el-chip" style="--c:${elementColor(t) ?? "#8890a0"}">${fmt(t)}</span>`).join("")}
+    </div>
+    ${f.efeito ? `<p class="sc-field"><span class="lbl">Efeito base</span>${fmt(f.efeito)}</p>` : ""}
+    ${f.custo ? `<p class="sc-field"><span class="lbl">Custo / cooldown</span>${fmt(f.custo)}</p>` : ""}
+    ${f.perfis ? `<p class="sc-field"><span class="lbl">Perfis de uso rastreados</span>${fmt(f.perfis)}</p>` : ""}
+    ${s.mutations.length ? `<div class="sc-muts">
+      <div class="sc-muts-title">⟡ Mutações possíveis (${s.mutations.length})</div>
+      <ul>${s.mutations.map((m) => `<li>
+        <span class="mut-name">${esc(m.name || "✏️")}</span>${m.effect ? ` — ${fmt(m.effect)}` : ""}
+        ${m.cond ? `<div class="mut-cond">perfil: ${fmt(m.cond)}</div>` : ""}
+      </li>`).join("")}</ul>
+    </div>` : ""}
+    ${f.nota ? `<p class="sc-field note"><span class="lbl">Nota de conduta</span>${fmt(f.nota)}</p>` : ""}
+  </article>`;
+}
+
+function plannedCard(s) {
+  const cc = CLASS_COLORS[s.class] ?? "#c8a84b";
+  return `<article class="skill-card planned" style="--cc:${cc}">
+    <div class="sc-top">
+      <h3>${esc(s.name)}</h3>
+      <span class="class-badge">${esc(s.class)}</span>
+    </div>
+    <p class="sc-oneliner">${fmt(s.oneLiner)}</p>
+    <span class="m3-badge">ficha completa no M3</span>
+  </article>`;
+}
+
+// ---------------- Classes ----------------
+
+function renderClasses($doc, data) {
+  $doc.innerHTML = `
+    <header class="db-header">
+      <h1>🛡 Classes</h1>
+      <p class="db-sub">${data.lead.length ? fmt(data.lead[0]) : ""}
+        Fonte: <a href="#/progressao">DESIGN-EVOLUCAO.md</a></p>
+      ${data.lead.slice(1).map((p) => `<p class="db-lead">${fmt(p)}</p>`).join("")}
+    </header>
+    ${data.attributes.length ? `<section class="db-group">
+      <h2 class="db-h2">Os 5 atributos <span class="dim-note">— pontos no level up + crescimento automático por classe</span></h2>
+      <table class="db-table attr-table"><thead><tr><th>Atributo</th><th>Governa</th><th>Classe afim</th></tr></thead>
+      <tbody>${data.attributes.map((a) => `<tr>
+        <td><strong>${esc(a.name)}</strong></td><td>${fmt(a.governs)}</td><td>${fmt(a.affinity)}</td>
+      </tr>`).join("")}</tbody></table>
+    </section>` : ""}
+    <section class="db-group">
+      <h2 class="db-h2">As 4 classes <span class="dim-note">— base fixa + especialização emergente via Caminhos</span></h2>
+      <div class="class-grid">${data.classes.map(classCard).join("")}</div>
+    </section>`;
+}
+
+function classCard(c) {
+  const cc = CLASS_COLORS[c.name] ?? "#c8a84b";
+  const field = (lbl, val) =>
+    val ? `<p class="cls-field"><span class="lbl">${lbl}</span>${fmt(val)}</p>` : "";
+  return `<article class="class-card" style="--cc:${cc}">
+    <h2>${esc(c.name)}</h2>
+    ${c.fantasia ? `<p class="cls-fantasy">“${fmt(c.fantasia)}”</p>` : ""}
+    ${field("Kit inicial", c.kit)}
+    ${field("Atributos-chave", c.atributos)}
+    ${field("Lentes de rastreamento", c.lentes)}
+    ${c.caminhos.length ? `<div class="cls-paths">
+      <span class="lbl">Caminhos típicos (especialização emergente)</span>
+      ${c.caminhos.map((p) => `<div class="path-item">
+        <span class="path-name">${esc(p.name || "✏️")}</span>${p.alias ? ` <span class="path-alias">(${esc(p.alias)})</span>` : ""}
+        ${p.cond ? `<span class="path-cond">${fmt(p.cond)}</span>` : ""}
+        ${p.effect ? `<span class="path-effect">→ ${fmt(p.effect)}</span>` : ""}
+      </div>`).join("")}
+    </div>` : ""}
+    ${c.note ? `<p class="cls-note">${fmt(c.note)}</p>` : ""}
+  </article>`;
+}

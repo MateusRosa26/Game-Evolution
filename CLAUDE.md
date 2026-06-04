@@ -11,7 +11,8 @@ RPG top-down em grid (estilo Tibia/Apogea), pixel art procedural 32px, dark medi
 
 ## Documentação de design
 
-- `DESIGN.md` (visão), `DESIGN-EVOLUCAO.md` (progressão + sistema de Marcas), `DESIGN-BESTIARIO.md` (criaturas), `DESIGN-VISUAL.md` (direção de arte + UI/layout), `DESIGN-MUNDO.md` (exploração, quests, NPCs, baús/itens), `DESIGN-LORE.md` (história do mundo, linha do tempo, raças), `DESIGN-ITENS.md` (slots de equipamento, raridades, loot, economia) — fonte da verdade do design.
+- `DESIGN-FILOSOFIA.md` (**constituição** — pilares + Teste da Mastigação; em conflito, ela vence), `DESIGN.md` (visão), `DESIGN-EVOLUCAO.md` (progressão + sistema de Marcas), `DESIGN-BESTIARIO.md` (criaturas), `DESIGN-VISUAL.md` (direção de arte + UI/layout), `DESIGN-MUNDO.md` (exploração, quests, NPCs, baús/itens), `DESIGN-LORE.md` (história do mundo, linha do tempo, raças), `DESIGN-ITENS.md` (slots de equipamento, raridades, loot, economia) — fonte da verdade do design.
+- **Skills de game design** em `.claude/skills/` (todas carregam a constituição como critério de veto): `diretor-de-arte` (pixel art/UI), `designer-de-sistemas` (mecânicas + guardião da filosofia), `loremaster` (nomes/flavor/cânone), `balancista` (números via simulação headless), `world-designer` (mapas/zonas/POIs).
 - **Wiki de leitura**: http://localhost:5173/wiki/ (com dev server rodando) renderiza esses .md. Autocontida em `wiki/` (zero deps, extraível p/ projeto separado); doc novo = entrada no array `DOCS` de `wiki/wiki.js`.
 - A wiki também tem **views interativas** (`#/db/bestiario`, `#/db/skills`, `#/db/classes`) com filtros/ordenação, parseadas dos .md por `wiki/db.js`. Os parsers dependem da estrutura dos docs (headings de família, colunas das tabelas, bullets `- **Campo:**` das skills/classes) — manter o formato ao editar os .md, ou ajustar `db.js` (detalhes em `wiki/README.md`).
 
