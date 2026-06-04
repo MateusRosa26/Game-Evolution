@@ -238,39 +238,40 @@ function capuzSombra(p: Px, facing: PartFacing, frame: number): void {
     return;
   }
   // ── frente/costas ──
-  // bico drapeado: nasce alto e cai em curva morta p/ a esquerda
-  p.px(16, 0 + bob, SENT.light);
-  run(p, 14, 1 + bob, 4, SENT.light, SENT.base, SENT.base);
-  run(p, 12, 2 + bob, 4, SENT.base, SENT.base, SENT.dark);
-  run(p, 10, 3 + bob, 3, SENT.dark, SENT.dark, SENT.shadow);
-  p.px(9, 4 + bob, SENT.shadow);
-  p.px(8, 5 + bob, SENT.dark); // pingo da ponta
-  p.px(9, 6 + bob, SENT.shadow); // ponta dupla
-  // dome: curva real fechando nas têmporas
-  run(p, 14, 2 + bob, 6, SENT.light, SENT.light, SENT.base);
-  run(p, 12, 3 + bob, 9, SENT.light, SENT.base, SENT.base);
-  run(p, 11, 4 + bob, 10, SENT.light, SENT.base, SENT.dark);
+  // bico ALTO inclinado para trás + cauda longa morrendo no ombro esquerdo
+  p.px(17, 0 + bob, SENT.light);
+  run(p, 15, 1 + bob, 4, SENT.light, SENT.base, SENT.base);
+  run(p, 13, 2 + bob, 4, SENT.base, SENT.base, SENT.dark);
+  run(p, 11, 3 + bob, 3, SENT.dark, SENT.dark, SENT.dark);
+  run(p, 9, 4 + bob, 3, SENT.dark, SENT.dark, SENT.shadow);
+  p.rect(8, 5 + bob, 2, 1, SENT.shadow);
+  p.px(7, 6 + bob, SENT.dark); // pingo 1
+  p.px(8, 7 + bob, SENT.shadow); // pingo 2 (cauda morta)
+  p.px(9, 8 + bob, SENT.shadow); // pingo 3
+  // dome alto: arcos fechando nas têmporas (cabeça funda no capuz)
+  run(p, 14, 2 + bob, 5, SENT.light, SENT.light, SENT.base),
+  run(p, 13, 3 + bob, 8, SENT.light, SENT.base, SENT.base);
+  run(p, 12, 4 + bob, 9, SENT.light, SENT.base, SENT.dark);
   run(p, 11, 5 + bob, 10, SENT.light, SENT.base, SENT.dark);
   run(p, 11, 6 + bob, 10, SENT.base, SENT.base, SENT.dark);
-  // vincos radiando do rosto (tecido puxado)
-  p.px(13, 4 + bob, SENT.dark);
-  p.px(18, 5 + bob, SENT.shadow);
-  p.px(12, 6 + bob, SENT.dark);
+  run(p, 11, 7 + bob, 10, SENT.base, SENT.base, SENT.dark);
+  // vincos do tecido puxado
+  p.px(14, 4 + bob, SENT.dark);
+  p.px(18, 6 + bob, SENT.shadow);
+  p.px(12, 7 + bob, SENT.dark);
   if (facing === "s") {
-    // beiral avançado + abertura OVAL funda (não retângulo)
-    run(p, 12, 6 + bob, 8, SENT.base, SENT.dark, SENT.dark);
-    p.rect(14, 7 + bob, 4, 1, PAL.visorSlit);
-    p.rect(13, 8 + bob, 6, 3, PAL.visorSlit);
-    p.rect(14, 11 + bob, 4, 1, PAL.visorSlit);
-    p.px(12, 8 + bob, SENT.base); // tecido fechando a oval
-    p.px(19, 8 + bob, SENT.dark);
-    p.px(12, 10 + bob, SENT.base);
-    p.px(19, 10 + bob, SENT.dark);
-    p.px(14, 9 + bob, "#6a7488"); // olhos frios na escuridão
-    p.px(17, 9 + bob, "#6a7488");
+    // BEIRAL caído 2px (testa engolida) + abertura BAIXA e MENOR
+    run(p, 11, 8 + bob, 10, SENT.base, SENT.dark, SENT.dark);
+    p.rect(13, 8 + bob, 6, 1, SENT.shadow); // sombra do beiral
+    p.rect(14, 9 + bob, 4, 1, PAL.visorSlit);
+    p.rect(13, 10 + bob, 6, 2, PAL.visorSlit);
+    p.px(12, 10 + bob, SENT.dark); // tecido fechando a oval
+    p.px(19, 10 + bob, SENT.shadow);
+    p.rect(14, 12 + bob, 4, 1, PAL.visorSlit);
+    p.px(14, 10 + bob, "#6a7488"); // olhos frios fundos
+    p.px(17, 10 + bob, "#6a7488");
   } else {
-    // costas: pano contínuo com vincos verticais orgânicos
-    run(p, 11, 7 + bob, 10, SENT.base, SENT.base, SENT.dark);
+    // costas: pano contínuo, vincos orgânicos
     for (let y = 8 + bob; y <= 11 + bob; y++) {
       run(p, 12, y, 8, SENT.base, SENT.dark, SENT.dark);
     }
@@ -278,12 +279,18 @@ function capuzSombra(p: Px, facing: PartFacing, frame: number): void {
     p.px(16, 10 + bob, SENT.shadow);
     p.px(13, 11 + bob, SENT.shadow);
   }
-  // MANTO curto (capelet) caindo sobre os ombros com pontas irregulares
-  run(p, 11, 12 + bob, 10, SENT.base, SENT.dark, SENT.shadow);
-  run(p, 10, 13 + bob, 12, SENT.dark, SENT.shadow, SENT.shadow);
-  p.px(11, 14 + bob, SENT.shadow); // pontas do manto
-  p.px(15, 14 + bob, SENT.shadow);
-  p.px(19, 14 + bob, SENT.shadow);
+  // MANTO em DUAS camadas de pontas (silhueta de lâminas de pano)
+  run(p, 11, 13 + bob, 10, SENT.base, SENT.dark, SENT.shadow);
+  run(p, 10, 14 + bob, 12, SENT.dark, SENT.shadow, SENT.shadow);
+  // 1ª camada de pontas
+  p.px(10, 15 + bob, SENT.shadow);
+  p.px(13, 15 + bob, SENT.shadow);
+  p.px(17, 15 + bob, SENT.shadow);
+  p.px(20, 15 + bob, SENT.shadow);
+  // 2ª camada (pontas mais curtas alternadas)
+  p.px(11, 16 + bob, SENT.shadow);
+  p.px(15, 16 + bob, SENT.shadow);
+  p.px(19, 16 + bob, SENT.shadow);
 }
 
 /** Chapéu Arcano: aba ONDULADA caída de um lado + cone torto alto. */
@@ -323,6 +330,11 @@ function chapeuArcano(p: Px, facing: PartFacing, frame: number): void {
   p.px(22, 4 + bob, SENT.edge); // ponta direita erguida
   p.rect(10, 6 + bob, 12, 1, SENT.dark);
   p.px(21, 5 + bob, SENT.base);
+  if (facing === "s") {
+    // sombra da aba projetada na testa (assenta o chapéu no rosto)
+    p.rect(13, 7 + bob, 6, 1, PAL.skinShade);
+    p.px(12, 7 + bob, PAL.skinDark);
+  }
   if (facing === "n") {
     p.rect(13, 7 + bob, 6, 5, PAL.hair);
     p.px(14, 11 + bob, "#241a12");
@@ -358,6 +370,20 @@ function coifaAurora(p: Px, facing: PartFacing, frame: number): void {
   p.rect(19, 5 + bob, 2, 8, SENT.dark);
   p.rect(13, 3 + bob, 6, 3, SENT.base);
   p.px(11, 12 + bob, SENT.dark);
+  if (facing === "s") {
+    // a coifa FECHA sobre as têmporas (abertura oval, não janela cheia)
+    p.px(12, 6 + bob, SENT.base);
+    p.px(12, 7 + bob, SENT.base);
+    p.px(12, 11 + bob, SENT.base);
+    p.px(19, 6 + bob, SENT.dark);
+    p.px(19, 7 + bob, SENT.dark);
+    p.px(19, 11 + bob, SENT.dark);
+    // sombra do tecido na testa
+    p.rect(13, 6 + bob, 6, 1, PAL.skinShade);
+    // alça fechando sob o queixo
+    p.px(13, 12 + bob, SENT.base);
+    p.px(18, 12 + bob, SENT.dark);
+  }
   if (facing === "n") {
     p.rect(13, 6 + bob, 6, 7, SENT.base);
     p.px(15, 7 + bob, SENT.dark); // vinco
@@ -406,11 +432,15 @@ function cabecaCidadao(p: Px, facing: PartFacing, frame: number): void {
   p.px(19, 6 + bob, SENT.dark);
   p.px(10, 6 + bob, SENT.dark); // mecha lateral escapando
   if (facing === "s") {
-    // franja irregular mergulhando na testa
-    p.px(13, 6 + bob, SENT.base);
-    p.px(14, 7 + bob, SENT.dark);
-    p.px(16, 6 + bob, SENT.base);
+    // FRANJA cheia: linha do cabelo cobre a testa com dentes irregulares
+    run(p, 12, 6 + bob, 8, SENT.light, SENT.base, SENT.dark);
+    p.px(13, 7 + bob, SENT.base); // dentes mergulhando
+    p.px(16, 7 + bob, SENT.dark);
     p.px(18, 7 + bob, SENT.base);
+    // sombra da franja na pele restante
+    p.px(14, 7 + bob, PAL.skinShade);
+    p.px(15, 7 + bob, PAL.skinShade);
+    p.px(17, 7 + bob, PAL.skinShade);
   } else {
     p.rect(12, 6 + bob, 8, 6, SENT.base);
     p.px(14, 8 + bob, SENT.dark); // mechas das costas
@@ -617,77 +647,107 @@ function gibaoSombra(p: Px, facing: PartFacing, frame: number): void {
   p.px(21, 17 + bob - armL, SENT.shadow);
 }
 
-/** Arcano: robe em SINO com barra ondulada e mangas enormes caídas. */
+/** Arcano: veste em CAMADAS — mantelete, corpo com dobras, faixa com pontas,
+ *  saia pregueada com barra recortada. Um robe, não um triângulo. */
 function robeArcano(p: Px, facing: PartFacing, frame: number): void {
   const bob = bobOf(frame);
   if (facing === "e") {
-    // robe alargando em curva real
-    run(p, 13, 14 + bob, 5, SENT.light, SENT.base, SENT.base);
-    for (let y = 15 + bob; y <= 19 + bob; y++) {
-      const s = Math.floor((y - 15 - bob) / 2);
-      run(p, 13 - s, y, 6 + s, SENT.light, SENT.base, SENT.dark);
+    // mantelete no ombro
+    run(p, 12, 14 + bob, 7, SENT.edge, SENT.light, SENT.base);
+    p.px(13, 15 + bob, SENT.light);
+    p.px(18, 15 + bob, SENT.dark); // ponta do mantelete
+    // corpo quase reto com dobras
+    for (let y = 15 + bob; y <= 18 + bob; y++) {
+      run(p, 13, y, 6, SENT.light, SENT.base, SENT.dark);
     }
+    p.px(15, 16 + bob, SENT.dark); // dobra
+    // faixa na cintura com ponta caindo
+    p.rect(13, 19 + bob, 6, 1, SENT.shadow);
+    p.px(14, 20 + bob, SENT.shadow);
+    p.px(14, 21 + bob, SENT.dark); // ponta da faixa
+    // saia: abre SÓ embaixo, com pregas
     for (let y = 20 + bob; y <= 24 + bob; y++) {
-      const s = Math.floor((y - 15 - bob) / 2);
-      run(p, 13 - s, y, 7 + s, SENT.light, SENT.base, SENT.dark);
+      const s = Math.max(0, Math.floor((y - 20 - bob) / 2));
+      run(p, 13 - s, y, 6 + s * 2, SENT.light, SENT.base, SENT.dark);
     }
-    p.px(15, 18 + bob, SENT.dark); // dobra
-    p.px(13, 22 + bob, SENT.shadow);
-    // barra ondulada
-    p.px(10, 25 + bob, SENT.shadow);
-    p.rect(11, 25 + bob, 4, 1, SENT.dark);
-    p.px(15, 26 + bob, SENT.shadow);
-    p.rect(16, 25 + bob, 4, 1, SENT.dark);
+    p.px(16, 21 + bob, SENT.dark); // pregas
+    p.px(14, 23 + bob, SENT.shadow);
+    // barra recortada funda
+    p.rect(11, 25 + bob, 3, 1, SENT.dark);
+    p.px(14, 26 + bob, SENT.shadow);
+    p.rect(15, 25 + bob, 3, 1, SENT.dark);
+    p.px(18, 26 + bob, SENT.shadow);
+    p.px(19, 25 + bob, SENT.dark);
     p.px(12, 25 + bob, SENT.shine); // runa
-    // manga enorme caída
+    // manga sino com punho
     const swing = frame === 1 ? 1 : frame === 2 ? -1 : 0;
-    p.rect(14 + swing, 16 + bob, 4, 3, SENT.dark);
-    run(p, 13 + swing, 19 + bob, 6, SENT.base, SENT.dark, SENT.shadow);
-    p.px(14 + swing, 17 + bob, SENT.shadow); // boca da manga
+    p.rect(14 + swing, 16 + bob, 3, 3, SENT.dark);
+    run(p, 13 + swing, 19 + bob, 5, SENT.base, SENT.dark, SENT.shadow);
+    p.rect(14 + swing, 20 + bob, 3, 1, SENT.shadow); // boca
     return;
   }
   const back = facing === "n";
-  // ombros caídos (curva, não linha)
-  run(p, 13, 14 + bob, 6, SENT.light, SENT.base, SENT.base);
-  // corpo em SINO: alarga progressivamente com dobras
-  for (let y = 15 + bob; y <= 24 + bob; y++) {
-    const s = Math.min(4, Math.floor((y - 14 - bob) / 2));
-    run(p, 13 - s, y, 6 + s * 2, SENT.light, back ? SENT.dark : SENT.base, SENT.dark);
+  // MANTELETE (colarinho em camada própria sobre os ombros)
+  run(p, 12, 14 + bob, 8, SENT.edge, SENT.light, SENT.base);
+  run(p, 11, 15 + bob, 10, SENT.light, SENT.base, SENT.dark);
+  p.px(12, 16 + bob, SENT.base); // pontas do mantelete caindo
+  p.px(19, 16 + bob, SENT.dark);
+  // CORPO: cai quase reto (x12-20) com dobras verticais profundas
+  for (let y = 16 + bob; y <= 18 + bob; y++) {
+    run(p, 12, y, 8, SENT.light, back ? SENT.dark : SENT.base, SENT.dark);
   }
   if (!back) {
-    p.rect(15, 15 + bob, 2, 9, SENT.dark); // abertura central
-    p.px(15, 17 + bob, SENT.shadow);
-    p.px(16, 20 + bob, SENT.shadow);
-    p.rect(11, 19 + bob, 10, 1, SENT.shadow); // faixa
-    // dobras do pano caindo
-    p.px(12, 21 + bob, SENT.dark);
-    p.px(19, 22 + bob, SENT.shadow);
-    // runas na barra
-    p.px(11, 23 + bob, SENT.shine);
-    p.px(15, 24 + bob, SENT.shine);
-    p.px(20, 23 + bob, SENT.shine);
+    p.rect(15, 16 + bob, 2, 3, SENT.dark); // abertura do peito
+    p.px(13, 17 + bob, SENT.shadow); // dobra
   } else {
-    p.rect(15, 16 + bob, 1, 8, SENT.shadow); // vinco das costas
-    p.px(13, 20 + bob, SENT.shadow);
-    p.px(18, 22 + bob, SENT.shadow);
+    p.px(15, 17 + bob, SENT.shadow);
   }
-  // barra ONDULADA (zigue de pano, não régua)
-  p.px(8, 25 + bob, SENT.shadow);
-  p.rect(9, 25 + bob, 5, 1, SENT.dark);
-  p.px(14, 26 + bob, SENT.shadow);
-  p.rect(15, 25 + bob, 5, 1, SENT.dark);
+  // FAIXA na cintura (pinça a silhueta) com nó e PONTAS caindo
+  p.rect(12, 19 + bob, 8, 1, SENT.shadow);
+  p.px(14, 19 + bob, SENT.light); // nó pega luz
+  if (!back) {
+    p.px(14, 20 + bob, SENT.shadow); // pontas da faixa caindo sobre a saia
+    p.px(14, 21 + bob, SENT.dark);
+    p.px(15, 22 + bob, SENT.shadow);
+  }
+  // SAIA: reta no quadril, abre só nos 40% finais, pregas profundas
+  for (let y = 20 + bob; y <= 24 + bob; y++) {
+    const s = Math.max(0, y - bob - 22); // abre só em y23-24
+    run(p, 12 - s, y, 8 + s * 2, SENT.light, back ? SENT.dark : SENT.base, SENT.dark);
+  }
+  if (!back) {
+    p.px(13, 21 + bob, SENT.dark); // pregas verticais
+    p.px(17, 22 + bob, SENT.shadow);
+    p.px(19, 23 + bob, SENT.shadow);
+    // runas na barra
+    p.px(12, 24 + bob, SENT.shine);
+    p.px(16, 24 + bob, SENT.shine);
+    p.px(20, 24 + bob, SENT.shine);
+  } else {
+    p.rect(15, 20 + bob, 1, 5, SENT.shadow); // prega central das costas
+    p.px(12, 22 + bob, SENT.shadow);
+    p.px(19, 23 + bob, SENT.shadow);
+  }
+  // BARRA RECORTADA funda (pontas de pano alternadas, 2px de profundidade)
+  p.rect(10, 25 + bob, 3, 1, SENT.dark);
+  p.px(13, 26 + bob, SENT.shadow);
+  p.rect(14, 25 + bob, 2, 1, SENT.dark);
+  p.px(16, 26 + bob, SENT.shadow);
+  p.rect(17, 25 + bob, 3, 1, SENT.dark);
   p.px(20, 26 + bob, SENT.shadow);
-  p.rect(21, 25 + bob, 3, 1, SENT.dark);
-  // MANGAS-SINO com boca aberta
+  p.px(21, 25 + bob, SENT.dark);
+  // MANGAS-SINO com punho aberto e sombra interna
   const armL = frame === 1 ? 1 : frame === 2 ? -1 : 0;
-  p.rect(9, 15 + bob + armL, 2, 2, SENT.base);
-  run(p, 7, 17 + bob + armL, 4, SENT.light, SENT.dark, SENT.dark);
-  run(p, 6, 18 + bob + armL, 5, SENT.base, SENT.dark, SENT.shadow);
-  p.rect(7, 19 + bob + armL, 4, 1, SENT.shadow); // boca da manga
-  p.rect(21, 15 + bob - armL, 2, 2, SENT.dark);
-  run(p, 21, 17 + bob - armL, 4, SENT.base, SENT.dark, SENT.dark);
-  run(p, 21, 18 + bob - armL, 5, SENT.base, SENT.dark, SENT.shadow);
-  p.rect(21, 19 + bob - armL, 4, 1, SENT.shadow);
+  p.rect(9, 15 + bob + armL, 3, 2, SENT.base);
+  p.px(9, 15 + bob + armL, SENT.light);
+  run(p, 8, 17 + bob + armL, 4, SENT.light, SENT.base, SENT.dark);
+  run(p, 7, 18 + bob + armL, 5, SENT.base, SENT.dark, SENT.dark);
+  p.rect(8, 19 + bob + armL, 4, 1, SENT.shadow); // boca da manga (interior)
+  p.px(7, 19 + bob + armL, SENT.dark);
+  p.rect(20, 15 + bob - armL, 3, 2, SENT.dark);
+  run(p, 20, 17 + bob - armL, 4, SENT.base, SENT.dark, SENT.dark);
+  run(p, 20, 18 + bob - armL, 5, SENT.dark, SENT.dark, SENT.shadow);
+  p.rect(20, 19 + bob - armL, 4, 1, SENT.shadow);
 }
 
 /** Aurora: hábito longo com PREGAS, estola e corda — pano que CAI. */
