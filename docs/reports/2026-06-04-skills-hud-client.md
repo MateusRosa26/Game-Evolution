@@ -114,3 +114,63 @@ Nenhum arquivo de `src/sim/**` ou `src/shared/**` foi tocado.
     temporária, vide nota).
   - Console **sem erros** durante uso das skills.
 - Hooks de debug temporários e screenshots foram removidos; nada de PNG no repo.
+
+## Verificação independente (verificador)
+
+ROUND 1 — **VERIFIED**.
+
+Verificador independente (sem contexto do implementador). Validei contra o diff e
+o comportamento ao vivo, sem confiar no relatório.
+
+**Escopo / regra de ouro**
+
+- `git diff main...HEAD --name-only`: só `docs/…`, `src/client/Game.ts`,
+  `src/client/render/EntityRenderer.ts`, `src/client/ui/SkillBar.ts`,
+  `src/client/ui/skillMeta.ts`. **NENHUM arquivo de `src/sim/**` ou
+  `src/shared/**` tocado** (grep no diff = vazio). OK.
+- **Zero regra de jogo no client**: `useSkillSlot` envia `useSkill`
+  incondicionalmente — não há comparação de mana/cooldown/alcance que bloqueie o
+  envio; o esmaecer/escurecer do slot é só apresentação (lê `cooldownMs` do
+  snapshot). `skillMeta.target` (enemy/self) só decide se inclui `targetId` no
+  comando — semântica de apresentação, não regra. O overlay de cooldown usa uma
+  janela de referência de 4s só para a ALTURA do fill (a contagem em s é exata),
+  sem inferir mecânica. Conforme.
+
+**Build:** `npx tsc --noEmit` → OK; `npm run build` → OK (também OK após reverter
+a instrumentação temporária).
+
+**Visual end-to-end (Chrome headless isolado via CDP, SwiftShader; porta 5181):**
+o profile do Playwright MCP não estava disponível, então subi um chromium próprio
+(`--user-data-dir`/`--remote-debugging-port=9333`) e dirigi por CDP cru (Node 22
+`WebSocket`). Instrumentei o `Game` temporariamente (`window.__vsnap`) só para ler
+o snapshot e localizar o alvo de forma confiável; **revertido com `git checkout`
+após o teste** (grep `__vsnap` = 0 no tree final). Confirmado:
+
+- Barra inicial com **1 slot** (Golpe Forte). `skills` do snapshot =
+  `[{golpe_forte, manaCost:6}]`.
+- **F9** → **6 slots** com glifos/hotkeys/faixa de cor e custos de mana lidos do
+  snapshot: GF 6, BF 14, LG 16, AP 5, LS 12, CF 10. (Nota: valores REAIS do
+  snapshot — divergem de alguns números citados na seção anterior, p.ex. GF tem
+  mana 6, não 0, e LG é 16, não 18; é só imprecisão do texto, a barra desenha o
+  que vem do snapshot.)
+- Selecionar Rato Lanhoso (click no tile) → `snap.targetId` muda para o id do
+  rato.
+- **Tecla 1** (Golpe Forte) → dano vermelho no rato e **slot 1 em cooldown**:
+  `cooldownMs` 5750 → 4300 em ~1,3s no snapshot; slot escurecido + glifo
+  esmaecido na tela, demais slots intactos.
+- **Tecla 2** (Bola de Fogo) → dano (`-14/-18`) no rato; slot 2 em cooldown. O
+  rato selecionado morreu no impacto, então o ícone de queimadura não persistiu
+  ao vivo (consistente com a nota do implementador; o caminho de `drawStatusIcons`
+  para burn/slow/poison está implementado e desenha à direita da HP bar).
+- **Tecla 6** (Curar Ferimentos, self) → **float VERDE `+24`** sobre o herói;
+  slot 6 em cooldown.
+- **Console limpo** (só mensagens do Vite; nenhum erro/exceção).
+
+**Limpeza:** instrumentação revertida; servidor dev e chromium encerrados;
+screenshots e scripts temporários em `/tmp` removidos; nada de PNG no repo.
+
+**Discrepâncias (não bloqueantes):** números de mana citados no relatório do
+implementador (GF mana 0, LG 18) divergem do snapshot real (GF 6, LG 16) — a
+barra está correta, é só o texto do relatório. Sem impacto funcional.
+
+Veredito: **VERIFIED**.
