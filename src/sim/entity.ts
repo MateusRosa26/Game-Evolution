@@ -1,5 +1,6 @@
 import type { CreatureFamily, Dir8, Facing, Vec2 } from "../shared/types";
 import type { EntityKind } from "../shared/types";
+import type { StatusEffect } from "./skills/status";
 
 /** Intenção de movimento de uma entidade. */
 export type MoveIntent =
@@ -30,7 +31,10 @@ export interface SimEntity {
   stepMs: number;
   /** True somente no tick em que um passo começou. */
   justMoved: boolean;
+  /** Passo base EFETIVO (já com slow aplicado) — usado para `stepMs` por passo. */
   baseStepMs: number;
+  /** Passo base NATURAL (sem slow) — fonte de verdade; `baseStepMs` deriva dele. */
+  naturalStepMs: number;
   intent: MoveIntent;
   hp: number;
   maxHp: number;
@@ -48,6 +52,14 @@ export interface SimEntity {
   attackCooldownMs: number;
   /** True se está morta (aguardando remoção/respawn neste tick). */
   dead: boolean;
+
+  // ── Skills + status (Wave Skills M1) ──
+  /** Skills conhecidas (IDs). Jogador nasce com o kit da classe; mobs vazio. */
+  knownSkills: string[];
+  /** Cooldown por skill: skillId → tick lógico a partir do qual pode usar de novo. */
+  skillCooldowns: Record<string, number>;
+  /** Status effects ativos (queimadura/slow/veneno) — tick-based, com duração. */
+  status: StatusEffect[];
 
   // ── IA de monstro (null para player) ──
   ai: AiState | null;

@@ -76,14 +76,47 @@ export interface KillEvent {
 
 /**
  * `skill_use` — uso de skill que ATINGIU alvo válido (spam no ar não conta —
- * DESIGN-EVOLUCAO.md §"Regras de contagem"). Tipo completo definido agora;
- * ainda NÃO emitido no M1 (skills chegam em waves futuras).
+ * DESIGN-EVOLUCAO.md §"Regras de contagem"). Emitido a partir da Wave Skills M1.
+ *
+ * O PAYLOAD carrega o PERFIL DE USO completo que as fichas pedem — e o que as
+ * Mutações (wave futura) precisarão para decidir QUAL mutação nasce:
+ * distância do cast, HP% do caster, alvo já queimando/lento/envenenado,
+ * ângulo (costas/frente), HP% do alvo no momento (abertura/execução),
+ * nº de alvos atingidos, família do alvo, em combate ou não.
+ *
+ * Convenção da sim (documentada): só emitimos com `validHit: true` (cast que
+ * conectou). Spam no ar NÃO emite evento (nem gasta mana/cooldown). O campo
+ * `validHit` fica no payload por contrato/clareza — sempre true por ora.
  */
 export interface SkillUseEvent {
   caster: CombatActorRef;
   skillId: string;
+  /** Sempre true por ora (só emitimos casts que conectaram — ver doc acima). */
+  validHit: boolean;
   /** Alvos efetivamente atingidos (vazio = não conta para Mutação). */
   targets: CombatActorRef[];
+  /** Nº de alvos atingidos (ficha: Bola de Fogo/Lança de Gelo rastreiam isso). */
+  targetsHit: number;
+  /** Distância Chebyshev do cast até o alvo (ficha: distância do cast). */
+  castDistance: number;
+  /** HP% do caster ao usar (0..1) — fichas Golpe Forte/Luz Sagrada/Curar. */
+  casterHpPct: number;
+  /** Caster estava em combate? (tinha alvo de auto-attack) — ficha Curar/Socorros. */
+  casterInCombat: boolean;
+  /** Alvo primário é o próprio caster? (self vs aliado) — ficha Curar Ferimentos. */
+  targetSelf: boolean;
+  /** HP% do alvo primário NO MOMENTO do cast (antes do golpe) — ficha Apunhalar. */
+  targetHpPct: number | null;
+  /** Família do alvo primário — ficha Luz Sagrada (profano ou não). */
+  targetFamily: CreatureFamily | null;
+  /** Alvo já estava queimando antes do cast — ficha Bola de Fogo. */
+  targetWasBurning: boolean;
+  /** Alvo já estava lento/congelado antes do cast — ficha Lança de Gelo. */
+  targetWasSlowed: boolean;
+  /** Alvo já estava envenenado antes do cast — ficha Apunhalar (Lâmina Suja). */
+  targetWasPoisoned: boolean;
+  /** Golpe veio pelas costas — ficha Apunhalar (ângulo). */
+  hitFromBehind: boolean;
   context: CombatContext;
 }
 

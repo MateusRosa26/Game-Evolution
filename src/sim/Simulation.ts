@@ -1,6 +1,7 @@
 import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS } from "../shared/constants";
 import type {
   EntityState,
+  KnownSkillState,
   PlayerProgressState,
   Snapshot,
   SnapshotEvent,
@@ -29,6 +30,15 @@ import type { SimEntity } from "./entity";
 import { EventBus, type KillEvent } from "./events";
 import { attackCooldownMs, physicalDamage, xpForLevel } from "./formulas";
 import { updateChaser } from "./monsterAi";
+import {
+  SKILLS,
+  STARTER_KITS,
+  castSkill,
+  isKnownSkillId,
+  projectStatus,
+  tickStatus,
+  type SkillCastCtx,
+} from "./skills";
 import {
   allocateStatPoint,
   createProgression,
@@ -65,6 +75,13 @@ export class Simulation {
   private respawns: PendingRespawn[] = [];
   /** Progressão por jogador (level/XP/atributos) — só na sim. */
   private progressions = new Map<number, Progression>();
+  /**
+   * Casts de skill pedidos entre ticks, processados NO PRÓXIMO tick (commands
+   * bufferizados → aplicados no tick, padrão de servidor). Garante que os
+   * eventos `cast`/`heal`/`skill_use` saiam no snapshot do tick correto e que a
+   * resolução seja determinística (mesma ordem do tick).
+   */
+  private pendingSkillCasts: { casterId: number; skillId: string; targetId: number | null }[] = [];
 
   constructor(map: MapData) {
     this.world = new World(map);
@@ -94,6 +111,7 @@ export class Simulation {
       stepMs: BASE_WALK_MS,
       justMoved: false,
       baseStepMs: BASE_WALK_MS,
+      naturalStepMs: BASE_WALK_MS,
       intent: null,
       // Recursos/dano/cooldown do jogador DERIVAM das fórmulas (retrofit Wave 1).
       hp: 0,
@@ -105,6 +123,10 @@ export class Simulation {
       attackDamage: 0,
       attackCooldownMs: 0,
       dead: false,
+      // Kit inicial da classe (compra em NPC é M2+).
+      knownSkills: [...STARTER_KITS[cls]],
+      skillCooldowns: {},
+      status: [],
       ai: null,
       aggroRadius: 0,
       spawnPos: { x: spawn.x, y: spawn.y },
@@ -171,6 +193,7 @@ export class Simulation {
       stepMs: template.baseStepMs,
       justMoved: false,
       baseStepMs: template.baseStepMs,
+      naturalStepMs: template.baseStepMs,
       intent: null,
       hp: template.maxHp,
       maxHp: template.maxHp,
@@ -181,6 +204,9 @@ export class Simulation {
       attackDamage: template.attackDamage,
       attackCooldownMs: template.attackCooldownMs,
       dead: false,
+      knownSkills: [],
+      skillCooldowns: {},
+      status: [],
       ai: "idle",
       aggroRadius: template.aggroRadius,
       spawnPos: { x: pos.x, y: pos.y },
@@ -221,9 +247,48 @@ export class Simulation {
         }
         break;
       }
+      case "useSkill": {
+        if (e.kind !== "player") break;
+        // Bufferiza: resolvido no próximo tick (com ctx/pending corretos).
+        this.pendingSkillCasts.push({
+          casterId: entityId,
+          skillId: cmd.skillId,
+          targetId: cmd.targetId ?? e.targetId,
+        });
+        break;
+      }
+      case "debugGrantSkill": {
+        // DEV/teste: concede skill conhecida ao jogador (compra em NPC é M2+).
+        if (e.kind !== "player") break;
+        if (isKnownSkillId(cmd.skillId) && !e.knownSkills.includes(cmd.skillId)) {
+          e.knownSkills.push(cmd.skillId);
+        }
+        break;
+      }
       case "stop":
         e.intent = null;
         break;
+    }
+  }
+
+  /** Resolve os casts bufferizados no tick atual (após status, antes da IA). */
+  private resolveSkillCasts(ctx: CombatCtx): void {
+    if (this.pendingSkillCasts.length === 0) return;
+    const queue = this.pendingSkillCasts;
+    this.pendingSkillCasts = [];
+    for (const req of queue) {
+      const caster = this.entities.get(req.casterId);
+      if (!caster || caster.dead) continue;
+      const prog = this.progressions.get(req.casterId);
+      if (!prog) continue;
+      const target = req.targetId != null ? this.entities.get(req.targetId) ?? null : null;
+      const skillCtx: SkillCastCtx = {
+        ...ctx,
+        prog,
+        weaponBase: STARTER_WEAPON_DAMAGE,
+        enemiesInWorld: [...this.entities.values()],
+      };
+      castSkill(skillCtx, caster, req.skillId, target);
     }
   }
 
@@ -235,11 +300,25 @@ export class Simulation {
     this.tickCount++;
     const now = this.now();
     const pending: SnapshotEvent[] = [];
-    const ctx: CombatCtx = { bus: this.bus, tick: this.tickCount, pending, night: false };
+    const ctx: CombatCtx = {
+      bus: this.bus,
+      tick: this.tickCount,
+      pending,
+      night: false,
+      lookup: (id) => this.entities.get(id),
+    };
 
     const players = [...this.playerIds]
       .map((id) => this.entities.get(id))
       .filter((e): e is SimEntity => !!e && !e.dead);
+
+    // ── 0. Status effects (DoT/slow): aplica ANTES do movimento (slow no stepMs) ──
+    for (const e of this.entities.values()) {
+      if (!e.dead) tickStatus(ctx, e);
+    }
+
+    // ── 0.5 Casts de skill bufferizados (resolução instantânea, estilo runa) ──
+    this.resolveSkillCasts(ctx);
 
     // ── 1. IA dos monstros (decide intent e ataca) ──
     for (const e of this.entities.values()) {
@@ -411,6 +490,19 @@ export class Simulation {
     };
   }
 
+  /** Projeta as skills conhecidas do jogador (id, cooldown restante ms, custo). */
+  private projectSkills(e: SimEntity): KnownSkillState[] {
+    const out: KnownSkillState[] = [];
+    for (const id of e.knownSkills) {
+      const def = SKILLS[id];
+      if (!def) continue;
+      const readyAt = e.skillCooldowns[id] ?? 0;
+      const remainingTicks = Math.max(0, readyAt - this.tickCount);
+      out.push({ id, cooldownMs: remainingTicks * TICK_MS, manaCost: def.manaCost });
+    }
+    return out;
+  }
+
   private emitSnapshot(events: SnapshotEvent[]): void {
     const entities: EntityState[] = [];
     for (const e of this.entities.values()) {
@@ -427,9 +519,11 @@ export class Simulation {
         maxHp: e.maxHp,
         mp: e.mp,
         maxMp: e.maxMp,
+        status: projectStatus(e, this.tickCount),
       };
       const prog = this.progressions.get(e.id);
       if (prog) state.progress = this.projectProgress(prog);
+      if (e.kind === "player") state.skills = this.projectSkills(e);
       entities.push(state);
     }
     // targetId é por-jogador; entregue por entidade abaixo via snapshot.

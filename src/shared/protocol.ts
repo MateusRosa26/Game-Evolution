@@ -17,6 +17,17 @@ export type ClientCommand =
   | { type: "selectTarget"; entityId: number | null }
   /** Distribui 1 ponto de atributo livre (a sim valida se há ponto). */
   | { type: "allocateStatPoint"; attr: AttributeKey }
+  /**
+   * Usa uma skill. `targetId` é o alvo selecionado (monstro p/ ofensivas;
+   * aliado/self p/ cura — omitido = self). A sim valida conhecida/mana/cooldown
+   * e RESOLVE instantaneamente (estilo runa de Tibia). Spam no ar não custa nada.
+   */
+  | { type: "useSkill"; skillId: string; targetId?: number | null }
+  /**
+   * DEV/teste: concede uma skill ao jogador (compra em NPC é M2+). Atalho do
+   * harness para exercitar as 6 skills sem trocar de classe. ✏️ remover/gat em M2.
+   */
+  | { type: "debugGrantSkill"; skillId: string }
   | { type: "stop" };
 
 /**
@@ -33,6 +44,31 @@ export interface PlayerProgressState {
   attributes: Attributes;
   /** Pontos de atributo livres não distribuídos. */
   freeStatPoints: number;
+}
+
+/**
+ * Status effect ativo numa entidade, projetado no snapshot (DESIGN-EVOLUCAO.md
+ * §"Magias e Skills": "Visível no snapshot para o client futuro"). Só o que o
+ * client precisa para mostrar ícone/contador — a mecânica vive na sim.
+ */
+export interface StatusEffectState {
+  /** queimadura (fogo, DoT) / lentidão / veneno (tipado p/ Rogue T2). */
+  kind: "burn" | "slow" | "poison";
+  /** Ticks restantes até expirar (×TICK_MS = ms para o client). */
+  remainingTicks: number;
+}
+
+/**
+ * Uma skill conhecida do jogador, projetada no snapshot (para a hotbar/HUD).
+ * DESIGN-EVOLUCAO.md pede "skills conhecidas do player (id, cooldown restante
+ * em ms, custo)". Mana já vem em `EntityState.mp`.
+ */
+export interface KnownSkillState {
+  id: string;
+  /** Cooldown RESTANTE em ms (0 = pronta). */
+  cooldownMs: number;
+  /** Custo de mana por cast. */
+  manaCost: number;
 }
 
 export interface EntityState {
@@ -52,8 +88,12 @@ export interface EntityState {
   maxHp: number;
   mp: number;
   maxMp: number;
+  /** Status effects ativos (queimadura/slow/veneno). Vazio = nenhum. */
+  status: StatusEffectState[];
   /** Progressão — presente SOMENTE na entidade do jogador (undefined p/ mobs). */
   progress?: PlayerProgressState;
+  /** Skills conhecidas — SOMENTE na entidade do jogador (undefined p/ mobs). */
+  skills?: KnownSkillState[];
 }
 
 /**
@@ -65,7 +105,16 @@ export type SnapshotEvent =
   /** Dano aplicado — para floating damage text. */
   | { kind: "damage"; targetId: number; amount: number; pos: Vec2 }
   /** Entidade morreu — para efeito/limpeza visual. */
-  | { kind: "death"; entityId: number; pos: Vec2 };
+  | { kind: "death"; entityId: number; pos: Vec2 }
+  /**
+   * Cast de skill resolvido — dados suficientes para o client ANIMAR o projétil/
+   * golpe DEPOIS (responsabilidade futura do client). A sim já resolveu o efeito;
+   * isto é só feedback visual. `from`→`to` é origem→destino (alvo, ou ponta da
+   * linha p/ Lança de Gelo). DESIGN-EVOLUCAO.md §"deixe dados suficientes…".
+   */
+  | { kind: "cast"; skillId: string; casterId: number; from: Vec2; to: Vec2 }
+  /** Cura aplicada — para floating text verde futuro. `amount` = HP restaurado. */
+  | { kind: "heal"; skillId: string | null; casterId: number; targetId: number; amount: number; pos: Vec2 };
 
 export interface Snapshot {
   tick: number;
