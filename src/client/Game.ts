@@ -1,6 +1,7 @@
 import { Container, Sprite, type Application } from "pixi.js";
 import { TILE_SIZE } from "../shared/constants";
 import type { ClientTransport, EntityState, Snapshot } from "../shared/protocol";
+import { OUTFIT_PART_BY_ID, OUTFIT_PARTS } from "../shared/outfits";
 import type { MapData } from "../shared/types";
 import { createSprites, type SpriteLibrary } from "./assets/sprites";
 import { Camera } from "./Camera";
@@ -11,6 +12,7 @@ import { Keyboard } from "./input/Keyboard";
 import { Mouse } from "./input/Mouse";
 import { Hud } from "./ui/Hud";
 import { CharacterPanel } from "./ui/CharacterPanel";
+import { OutfitPanel } from "./ui/OutfitPanel";
 import { SkillBar } from "./ui/SkillBar";
 import { TrackingToast } from "./ui/TrackingToast";
 import { ALL_SKILL_IDS, skillMeta } from "./ui/skillMeta";
@@ -35,6 +37,9 @@ export class Game {
   private hud = new Hud();
   private charPanel = new CharacterPanel((attr) =>
     this.transport.send({ type: "allocateStatPoint", attr }),
+  );
+  private outfitPanel = new OutfitPanel((outfit) =>
+    this.transport.send({ type: "setOutfit", outfit }),
   );
   private skillBar = new SkillBar();
   private trackingToast = new TrackingToast();
@@ -77,6 +82,12 @@ export class Game {
         this.charPanel.toggle();
         return;
       }
+      // O: janela de outfit (peças + cores — estilo Tibia).
+      if (ev.code === "KeyO") {
+        ev.preventDefault();
+        this.outfitPanel.toggle();
+        return;
+      }
       // Esc: cancela o alvo do auto-attack (estilo Tibia).
       if (ev.code === "Escape") {
         ev.preventDefault();
@@ -97,11 +108,16 @@ export class Game {
           this.transport.send({ type: "debugGrantSkill", skillId: id });
         }
       }
-      // 0: cicla a skin do personagem (✏️ futuro: desbloqueio por quest/pago —
-      // a sim valida; o client só pede).
+      // 0: cicla SETS completos possuídos (atalho rápido; mix fino é na
+      // janela de outfit). A sim valida posse — o client só pede.
       if (ev.code === "Digit0") {
         ev.preventDefault();
-        this.transport.send({ type: "cycleSkin" });
+        this.cycleOutfitSet();
+      }
+      // F8 (DEV): desbloqueia o catálogo inteiro de peças no guarda-roupa.
+      if (ev.code === "F8") {
+        ev.preventDefault();
+        this.transport.send({ type: "debugGrantOutfit" });
       }
     });
     this.mouse = new Mouse(this.app.canvas, (sx, sy) => {
@@ -149,6 +165,36 @@ export class Game {
     }
   }
 
+  /**
+   * Hotkey 0: veste o próximo SET completo possuído (mantendo as cores atuais
+   * por slot). Apresentação/atalho — a sim valida posse de cada peça.
+   */
+  private cycleOutfitSet(): void {
+    const me = this.playerState;
+    if (!me?.outfit || !me.wardrobe) return;
+    const owned = new Set(me.wardrobe);
+    // sets dos quais o jogador possui as 3 peças, na ordem do catálogo
+    const fullSets: string[] = [];
+    for (const part of OUTFIT_PARTS) {
+      if (fullSets.includes(part.set)) continue;
+      const pieces = OUTFIT_PARTS.filter((q) => q.set === part.set);
+      if (pieces.length === 3 && pieces.every((q) => owned.has(q.id))) fullSets.push(part.set);
+    }
+    if (fullSets.length === 0) return;
+    const currentSet = OUTFIT_PART_BY_ID[me.outfit.torso.part]?.set;
+    const next = fullSets[(fullSets.indexOf(currentSet ?? "") + 1) % fullSets.length];
+    const bySlot = (slot: "head" | "torso" | "legs") =>
+      OUTFIT_PARTS.find((q) => q.set === next && q.slot === slot)!.id;
+    this.transport.send({
+      type: "setOutfit",
+      outfit: {
+        head: { part: bySlot("head"), color: me.outfit.head.color },
+        torso: { part: bySlot("torso"), color: me.outfit.torso.color },
+        legs: { part: bySlot("legs"), color: me.outfit.legs.color },
+      },
+    });
+  }
+
   private buildWorld(map: MapData): void {
     this.worldRenderer = new WorldRenderer(this.sprites, map, this.app.renderer);
     this.worldContainer.addChild(this.worldRenderer.ground);
@@ -172,6 +218,10 @@ export class Game {
     // Painel de personagem por cima da HUD (oculto até apertar C).
     this.app.stage.addChild(this.charPanel.container);
     this.charPanel.resize(this.app.screen.height);
+
+    // Janela de outfit (oculta até apertar O).
+    this.app.stage.addChild(this.outfitPanel.container);
+    this.outfitPanel.resize(this.app.screen.width, this.app.screen.height);
 
     // Toast da camada emergente (hint/unlock) — por cima de tudo.
     this.app.stage.addChild(this.trackingToast.container);
@@ -227,6 +277,7 @@ export class Game {
         }
         this.lastLevel = progress.level;
       }
+      this.outfitPanel.setState(this.playerState.outfit, this.playerState.wardrobe);
     }
   }
 
@@ -276,6 +327,7 @@ export class Game {
     this.hud.resize(w, h);
     this.skillBar.resize(w, h);
     this.charPanel.resize(h);
+    this.outfitPanel.resize(w, h);
     this.trackingToast.resize(w, h);
   }
 }

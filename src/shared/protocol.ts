@@ -1,4 +1,5 @@
 import type { AttributeKey, Attributes, Dir8, EntityKind, Facing, MapData, PlayerClass, Vec2 } from "./types";
+import type { OutfitState } from "./outfits";
 
 /**
  * Protocolo cliente ⇄ simulação.
@@ -29,10 +30,14 @@ export type ClientCommand =
    */
   | { type: "debugGrantSkill"; skillId: string }
   /**
-   * Cicla a skin do personagem (hotkey 0). A sim valida contra o catálogo
-   * (`shared/skins.ts`) — ✏️ futuro: validar POSSE (quest/conteúdo pago) aqui.
+   * Define o outfit completo (3 peças + cores — `shared/outfits.ts`). A sim
+   * VALIDA: peça existe, slot certo, está no guarda-roupa do jogador e cor é
+   * índice da grade. ✏️ desbloqueio por quest/conteúdo pago alimenta o
+   * guarda-roupa no futuro — a validação de posse já mora aqui.
    */
-  | { type: "cycleSkin" }
+  | { type: "setOutfit"; outfit: OutfitState }
+  /** DEV/teste: desbloqueia TODAS as peças do catálogo no guarda-roupa. */
+  | { type: "debugGrantOutfit" }
   | { type: "stop" };
 
 /**
@@ -126,10 +131,12 @@ export interface EntityState {
    */
   weapon?: EquippedWeaponState;
   /**
-   * Skin do personagem (catálogo em `shared/skins.ts`) — SOMENTE jogadores.
-   * Estado da sim: no online, todos veem a skin de todos.
+   * Outfit do personagem (peças + cores — `shared/outfits.ts`) — SOMENTE
+   * jogadores. Estado da sim: no online, todos veem o outfit de todos.
    */
-  skin?: string;
+  outfit?: OutfitState;
+  /** Peças possuídas (ids) — SOMENTE o próprio jogador (para a UI de outfit). */
+  wardrobe?: string[];
 }
 
 /**

@@ -1,7 +1,9 @@
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { TILE_SIZE } from "../../shared/constants";
 import type { EntityState, Snapshot, StatusEffectState } from "../../shared/protocol";
+import { DEFAULT_OUTFIT_BY_CLASS } from "../../shared/outfits";
 import type { Facing } from "../../shared/types";
+import { outfitTextures } from "../assets/outfit/compose";
 import type { SpriteLibrary } from "../assets/sprites";
 import { skillMeta } from "../ui/skillMeta";
 
@@ -103,15 +105,18 @@ export class EntityRenderer {
     this.targetMarker.visible = false;
   }
 
-  /** Texturas certas para a espécie (player = knight na skin atual, rato = rat). */
+  /** Texturas certas: mob pela espécie; player pelo OUTFIT (compositor+cache). */
   private texturesFor(e: EntityState): Record<Facing, Texture[]> {
     if (e.species === "rato_lanhoso") return this.sprites.rat;
-    return this.sprites.knight[e.skin ?? "padrao"] ?? this.sprites.knight.padrao;
+    const outfit = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
+    return outfitTextures(outfit, e.weapon?.templateId ?? null);
   }
 
-  /** Chave de skin usada no visual (para detectar troca em runtime). */
+  /** Chave do visual atual (detecta troca de outfit/arma em runtime). */
   private skinKeyOf(e: EntityState): string {
-    return e.species ?? e.skin ?? "padrao";
+    if (e.species) return e.species;
+    const o = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
+    return `${o.head.part}.${o.head.color}|${o.torso.part}.${o.torso.color}|${o.legs.part}.${o.legs.color}|${e.weapon?.templateId ?? "-"}`;
   }
 
   /** Posição visual atual do jogador local, em pixels de mundo (centro). */

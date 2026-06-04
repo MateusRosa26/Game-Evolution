@@ -20,6 +20,7 @@ RPG top-down em grid, inspirado em **Tibia / Ragnarok / Apogea**. Pixel art mode
 | Combate | Híbrido: alvo selecionado + auto-attack contínuo + skills de área/direção manuais (estilo runas/waves de Tibia) |
 | Colisão | **Bloqueio de corpo** (estilo Tibia): entidades vivas ocupam o tile — sem atravessar/empilhar players ou mobs (cercar/segurar corredor é gameplay; crítico p/ PvP). Duas exceções: **zonas seguras** (depot e **áreas de respawn**: atravessar permitido — AFKs não trancam ninguém no spawn —, mobs não entram, IA cega, e **sem combate a partir de dentro**: nem auto-attack nem skill ofensiva; cura pode) e **zonas de passagem** (chegada de escada/alavanca/portal: sem bloqueio de corpo — ninguém é ejetado nem trava o mecanismo — mas tile normal no resto: mobs passam, combate vale) |
 | Câmera | Top-down, zoom 2x, seguimento suave |
+| Outfits | **Estilo Tibia, por peças**: cabeça/peito/pernas mixáveis entre sets + cor por peça da **grade curada** (~104 cores geradas por regra de ramp — protege o dark medieval). 5 sets grátis (1 por classe + cidadão); sets extras via quest/conteúdo pago ✏️ entram no mesmo guarda-roupa. Estado na sim (todos veem), posse validada na sim; espada/escudo são equipamento, não outfit. Janela na tecla `O`; `0` cicla sets |
 
 ## Visual & UI (decidido)
 

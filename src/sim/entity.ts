@@ -1,5 +1,6 @@
 import type { CreatureFamily, Dir8, Facing, Vec2 } from "../shared/types";
 import type { EntityKind } from "../shared/types";
+import type { OutfitState } from "../shared/outfits";
 import type { StatusEffect } from "./skills/status";
 
 /** Intenção de movimento de uma entidade. */
@@ -63,11 +64,15 @@ export interface SimEntity {
   equippedWeaponId: number | null;
 
   /**
-   * Skin do personagem (catálogo em `shared/skins.ts`). Cosmético, mas é
-   * ESTADO da sim (no online todos veem). ✏️ posse por quest/pago: validar
-   * no `cycleSkin` quando existir o sistema de desbloqueio.
+   * Outfit do personagem (peças + cores — `shared/outfits.ts`). ESTADO da
+   * sim (no online todos veem); null para mobs (sprite vem da espécie).
    */
-  skinId: string;
+  outfit: OutfitState | null;
+  /**
+   * Guarda-roupa: ids de peças possuídas. Peças `free` nascem aqui; quest/
+   * conteúdo pago adiciona ✏️. A validação de `setOutfit` é contra este set.
+   */
+  wardrobe: Set<string>;
 
   // ── Skills + status (Wave Skills M1) ──
   /** Skills conhecidas (IDs). Jogador nasce com o kit da classe; mobs vazio. */

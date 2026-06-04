@@ -1,5 +1,11 @@
 import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS } from "../shared/constants";
-import { DEFAULT_SKIN, KNIGHT_SKINS } from "../shared/skins";
+import {
+  DEFAULT_OUTFIT_BY_CLASS,
+  isValidOutfitColor,
+  OUTFIT_PART_BY_ID,
+  OUTFIT_PARTS,
+  structuredCloneOutfit,
+} from "../shared/outfits";
 import type {
   EntityState,
   EquippedWeaponState,
@@ -214,7 +220,9 @@ export class Simulation {
       dead: false,
       // Arma inicial da classe como INSTÂNCIA equipada (preenchido abaixo).
       equippedWeaponId: null,
-      skinId: DEFAULT_SKIN,
+      // Outfit default da classe; guarda-roupa nasce com as peças FREE.
+      outfit: structuredCloneOutfit(DEFAULT_OUTFIT_BY_CLASS[cls]),
+      wardrobe: new Set(OUTFIT_PARTS.filter((p) => p.free).map((p) => p.id)),
       // Kit inicial da classe (compra em NPC é M2+).
       knownSkills: [...STARTER_KITS[cls]],
       skillCooldowns: {},
@@ -328,7 +336,8 @@ export class Simulation {
       dead: false,
       // Mobs usam números do bestiário, sem arma-instância (ledger só p/ players).
       equippedWeaponId: null,
-      skinId: DEFAULT_SKIN, // mobs não usam skin (sprite vem da espécie)
+      outfit: null, // sprite de mob vem da espécie
+      wardrobe: new Set(),
       knownSkills: [],
       skillCooldowns: {},
       status: [],
@@ -407,12 +416,30 @@ export class Simulation {
         }
         break;
       }
-      case "cycleSkin": {
-        // Cicla pelo catálogo. ✏️ Quando existir desbloqueio (quest/conteúdo
-        // pago), filtrar aqui pelas skins POSSUÍDAS — validação é da sim.
+      case "setOutfit": {
+        // Valida CADA peça: existe, slot certo, possuída, cor da grade.
+        // Posse via quest/conteúdo pago só alimenta o guarda-roupa ✏️ —
+        // esta validação não muda.
         if (e.kind !== "player") break;
-        const idx = KNIGHT_SKINS.indexOf(e.skinId as (typeof KNIGHT_SKINS)[number]);
-        e.skinId = KNIGHT_SKINS[(idx + 1) % KNIGHT_SKINS.length];
+        const o = cmd.outfit;
+        const valid = (["head", "torso", "legs"] as const).every((slot) => {
+          const piece = o?.[slot];
+          if (!piece) return false;
+          const def = OUTFIT_PART_BY_ID[piece.part];
+          return (
+            def !== undefined &&
+            def.slot === slot &&
+            e.wardrobe.has(piece.part) &&
+            isValidOutfitColor(piece.color)
+          );
+        });
+        if (valid) e.outfit = structuredCloneOutfit(o);
+        break;
+      }
+      case "debugGrantOutfit": {
+        // DEV/teste: desbloqueia o catálogo inteiro (✏️ remover/gat em M2+).
+        if (e.kind !== "player") break;
+        for (const p of OUTFIT_PARTS) e.wardrobe.add(p.id);
         break;
       }
       case "stop":
@@ -750,7 +777,8 @@ export class Simulation {
         state.skills = this.projectSkills(e);
         const weapon = this.projectWeapon(e);
         if (weapon) state.weapon = weapon;
-        state.skin = e.skinId;
+        if (e.outfit) state.outfit = structuredCloneOutfit(e.outfit);
+        state.wardrobe = [...e.wardrobe];
       }
       entities.push(state);
     }
