@@ -104,28 +104,34 @@ async function main() {
   scLabel.position.set(8, showcaseY);
   root.addChild(scLabel);
 
-  // Mix de peças (a promessa do sistema): capuz rogue + peitoral knight + saiote mage
+  // ROSTOS @14x — a bancada do produto (skins = economia): as 3 cabeças
+  // descobertas lado a lado, foco total no rosto
   const mixY = showcaseY + 24 + 32 * 4 + 28;
-  const mix = {
-    head: { part: "capuz_sombra", color: 1 },
-    torso: { part: "peitoral_alvorada", color: 4 },
-    legs: { part: "saiote_arcano", color: 73 },
-  };
-  const mixTex = outfitTextures(mix, "espada_curta");
-  for (let i = 0; i < 2; i++) {
+  const faceHeads: { head: string; color: number }[] = [
+    { head: "cabeca_cidadao", color: 21 },
+    { head: "chapeu_arcano", color: 77 },
+    { head: "coifa_aurora", color: 7 },
+  ];
+  for (let i = 0; i < faceHeads.length; i++) {
+    const o = {
+      head: { part: faceHeads[i].head, color: faceHeads[i].color },
+      torso: { part: "camisa_cidadao", color: 41 },
+      legs: { part: "calca_cidadao", color: 17 },
+    };
+    const tex = outfitTextures(o, null);
     const tile = new Container();
-    const bgSprite = new Sprite(i === 0 ? sprites.grass[0] : sprites.stoneFloor[0]);
-    bgSprite.width = 32 * 10;
-    bgSprite.height = 32 * 10;
+    const bgSprite = new Sprite(i % 2 === 0 ? sprites.grass[0] : sprites.stoneFloor[0]);
+    bgSprite.width = 32 * 14;
+    bgSprite.height = 32 * 14;
     tile.addChild(bgSprite);
-    const spr = new Sprite(mixTex.s[0]);
-    spr.scale.set(10);
+    const spr = new Sprite(tex.s[0]);
+    spr.scale.set(14);
     tile.addChild(spr);
-    tile.position.set(8 + i * (32 * 10 + 16), mixY + 24);
+    tile.position.set(8 + i * (32 * 14 + 12), mixY + 24);
     root.addChild(tile);
   }
   const mixLabel = new Text({
-    text: "MIX: capuz sombra + peitoral alvorada + saiote arcano @10x",
+    text: "ROSTOS @14x — cidadão / arcano / aurora (a bancada das skins)",
     style: { fontFamily: "monospace", fontSize: 14, fill: 0xe8e4d8 },
   });
   mixLabel.position.set(8, mixY);

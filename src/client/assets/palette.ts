@@ -60,9 +60,11 @@ export const PAL = {
   flameBody: "#ffab4a",
   flameEdge: "#e06228",
 
-  // Personagem
+  // Personagem — ramp de pele completo (luz quente, sombra fria — regra de ofício)
+  skinLight: "#ecc398",
   skin: "#d8a87c",
   skinShade: "#b8865e",
+  skinDark: "#92664a",
   hair: "#33271f",
   // Ramp de armadura (sombra→brilho): sombra azulada dessaturada → topo
   // levemente quente (hue-shift, ver design/ESTUDO-REFERENCIAS.md §1)

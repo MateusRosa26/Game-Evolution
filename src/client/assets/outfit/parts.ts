@@ -46,23 +46,61 @@ function run(
   if (w > 1) p.px(x0 + w - 1, y, dark);
 }
 
-/** Rosto aberto GRANDE (apelo chibi): pele fixa, olhos com brilho. */
+/**
+ * Rosto aberto REDONDO (apelo chibi refinado): crânio em curva, queixo
+ * afunilado, orelhas, testa iluminada, bochecha sombreada, sobrancelha,
+ * olhos com brilho e boca. A base de TODA cabeça descoberta — se skins
+ * são economia, o rosto é o produto.
+ */
 function openFace(p: Px, bob: number, facing: PartFacing): void {
   if (facing === "s") {
-    p.rect(12, 7 + bob, 8, 6, PAL.skin);
-    p.rect(12, 12 + bob, 8, 1, PAL.skinShade);
-    p.px(12, 7 + bob, PAL.skinShade);
-    p.px(19, 7 + bob, PAL.skinShade);
-    p.px(12, 11 + bob, PAL.skinShade); // bochecha na sombra
-    p.rect(14, 9 + bob, 1, 2, "#20242e");
-    p.rect(17, 9 + bob, 1, 2, "#20242e");
-    p.px(14, 9 + bob, "#4a5468");
-    p.px(17, 9 + bob, "#4a5468");
+    // crânio arredondado (runs estreitando em cima e no queixo)
+    p.rect(13, 6 + bob, 6, 1, PAL.skin); // testa
+    p.px(13, 6 + bob, PAL.skinLight);
+    for (let y = 7 + bob; y <= 10 + bob; y++) {
+      p.rect(12, y, 8, 1, PAL.skin);
+    }
+    p.px(12, 7 + bob, PAL.skinLight); // luz na têmpora esquerda
+    p.px(13, 7 + bob, PAL.skinLight);
+    p.rect(19, 8 + bob, 1, 3, PAL.skinShade); // lado direito na sombra
+    // orelhas (1px saindo da silhueta)
+    p.px(11, 9 + bob, PAL.skinShade);
+    p.px(20, 9 + bob, PAL.skinDark);
+    // bochechas → queixo afunilado (curva, não corte)
+    p.rect(13, 11 + bob, 6, 1, PAL.skin);
+    p.px(12, 11 + bob, PAL.skinShade);
+    p.px(19, 11 + bob, PAL.skinDark);
+    p.rect(14, 12 + bob, 4, 1, PAL.skinShade); // queixo estreito
+    // sobrancelhas (1px de sombra sobre os olhos)
+    p.px(14, 8 + bob, PAL.skinShade);
+    p.px(17, 8 + bob, PAL.skinShade);
+    // olhos grandes com brilho
+    p.rect(14, 9 + bob, 1, 2, "#2a2430");
+    p.rect(17, 9 + bob, 1, 2, "#2a2430");
+    p.px(14, 9 + bob, "#5a6478");
+    p.px(17, 9 + bob, "#5a6478");
+    // boca (1px discreto, desloca o rosto do "vazio")
+    p.px(15, 11 + bob, PAL.skinDark);
+    // pescoço (liga o queixo ao torso sem corte)
+    p.rect(15, 13 + bob, 2, 1, PAL.skinDark);
   } else if (facing === "e") {
-    p.rect(13, 7 + bob, 7, 6, PAL.skin);
-    p.rect(13, 12 + bob, 7, 1, PAL.skinShade);
-    p.px(20, 9 + bob, PAL.skinShade); // nariz
-    p.rect(17, 9 + bob, 1, 2, "#20242e");
+    // perfil: crânio redondo, nariz saliente, queixo recuado
+    p.rect(14, 6 + bob, 5, 1, PAL.skin);
+    p.px(14, 6 + bob, PAL.skinLight);
+    for (let y = 7 + bob; y <= 10 + bob; y++) {
+      p.rect(13, y, 7, 1, PAL.skin);
+    }
+    p.px(13, 7 + bob, PAL.skinLight);
+    p.px(20, 9 + bob, PAL.skin); // NARIZ saliente (fora da silhueta)
+    p.px(20, 10 + bob, PAL.skinDark);
+    p.px(13, 9 + bob, PAL.skinShade); // orelha
+    p.rect(14, 11 + bob, 5, 1, PAL.skin);
+    p.px(18, 11 + bob, PAL.skinShade);
+    p.rect(15, 12 + bob, 3, 1, PAL.skinShade); // queixo
+    p.px(17, 8 + bob, PAL.skinShade); // sobrancelha
+    p.rect(17, 9 + bob, 1, 2, "#2a2430"); // olho
+    p.px(18, 11 + bob, PAL.skinDark); // boca
+    p.rect(15, 13 + bob, 2, 1, PAL.skinDark); // pescoço
   }
 }
 
@@ -361,12 +399,14 @@ function cabecaCidadao(p: Px, facing: PartFacing, frame: number): void {
   p.px(13, 3 + bob, SENT.dark);
   p.px(16, 4 + bob, SENT.dark);
   p.px(19, 3 + bob, SENT.shadow);
-  // volume nas têmporas
+  // volume nas têmporas (abraça o crânio redondo)
   p.rect(11, 6 + bob, 1, 3, SENT.base);
+  p.px(12, 6 + bob, SENT.base); // canto da linha do cabelo
   p.rect(20, 6 + bob, 1, 3, SENT.dark);
+  p.px(19, 6 + bob, SENT.dark);
   p.px(10, 6 + bob, SENT.dark); // mecha lateral escapando
   if (facing === "s") {
-    // franja irregular
+    // franja irregular mergulhando na testa
     p.px(13, 6 + bob, SENT.base);
     p.px(14, 7 + bob, SENT.dark);
     p.px(16, 6 + bob, SENT.base);
