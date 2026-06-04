@@ -1,4 +1,4 @@
-import type { Dir8, EntityKind, Facing, MapData, Vec2 } from "./types";
+import type { AttributeKey, Attributes, Dir8, EntityKind, Facing, MapData, PlayerClass, Vec2 } from "./types";
 
 /**
  * Protocolo cliente ⇄ simulação.
@@ -15,7 +15,25 @@ export type ClientCommand =
   | { type: "walkTo"; x: number; y: number }
   /** Seleciona alvo para auto-attack (null = limpa o alvo). */
   | { type: "selectTarget"; entityId: number | null }
+  /** Distribui 1 ponto de atributo livre (a sim valida se há ponto). */
+  | { type: "allocateStatPoint"; attr: AttributeKey }
   | { type: "stop" };
+
+/**
+ * Projeção da progressão do jogador no snapshot (DESIGN-EVOLUCAO.md §Camada
+ * Sólida). Só dados serializáveis. Presente apenas na entidade do jogador.
+ */
+export interface PlayerProgressState {
+  cls: PlayerClass;
+  level: number;
+  /** XP TOTAL acumulado. */
+  xp: number;
+  /** XP TOTAL necessário para atingir o próximo nível. */
+  xpForNextLevel: number;
+  attributes: Attributes;
+  /** Pontos de atributo livres não distribuídos. */
+  freeStatPoints: number;
+}
 
 export interface EntityState {
   id: number;
@@ -34,6 +52,8 @@ export interface EntityState {
   maxHp: number;
   mp: number;
   maxMp: number;
+  /** Progressão — presente SOMENTE na entidade do jogador (undefined p/ mobs). */
+  progress?: PlayerProgressState;
 }
 
 /**

@@ -38,6 +38,9 @@ export interface CreatureTemplate {
   attackType: DamageType;
   /** Cooldown entre ataques, em ms. */
   attackCooldownMs: number;
+  /** XP base concedido ao jogador por matar esta criatura (antes da redução
+   *  anti-farm por diferença de nível — ver `formulas.xpFromKill`). */
+  xp: number;
   /** Raio de aggro em tiles (Chebyshev): dentro disso, idle → persegue. */
   aggroRadius: number;
   /** Duração base do passo, em ms (define a velocidade de perseguição). */
@@ -61,6 +64,7 @@ export const RATO_LANHOSO: CreatureTemplate = {
   attackDamage: 8,
   attackType: "physical",
   attackCooldownMs: 1600,
+  xp: 20, // ✏️ placeholder — calibrar no M2 (curva de XP íngreme por design)
   aggroRadius: 6,
   baseStepMs: 220, // ligeiramente mais rápido que o jogador (260)
   respawnTicks: 200, // ~10s
