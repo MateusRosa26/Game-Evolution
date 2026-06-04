@@ -158,3 +158,71 @@ mas o perfil já cobre todas.
 - `src/sim/Simulation.ts` (wire: status tick, casts bufferizados, comandos, projeção)
 - `src/shared/protocol.ts` (comandos, `StatusEffectState`, `KnownSkillState`, events `cast`/`heal`)
 - `docs/reports/2026-06-04-skills-framework-m1.md` (novo)
+
+---
+
+## Verificação independente (verificador)
+
+**Status: VERIFIED** · ROUND: 1
+
+Revisão feita do zero (sem confiar no relatório): diff completo `main...HEAD`,
+leitura arquivo a arquivo, cross-check ficha por ficha (`DESIGN-EVOLUCAO.md`
+§"Magias e Skills") e harness comportamental temporário (esbuild+node, apagado).
+
+### Build / type-check
+- `npx tsc --noEmit` ✅ (exit 0)
+- `npm run build` (tsc + vite) ✅ (750 módulos, build ok)
+
+### Arquitetura / regra de ouro
+- **Client intocado** ✅ — `git diff main...HEAD --name-only` não lista nenhum
+  `src/client/**`. Só `src/sim/**`, `src/shared/protocol.ts` e o report.
+- **Sim pura** ✅ — grep por `Math.random`/`Date.now`/`performance.now`/`pixi`/
+  `window.`/`document.` em `src/sim` e `src/shared`: zero ocorrências (só o
+  comentário em `rng.ts`). Skills usam apenas `Math.sign/abs/floor/max/round`
+  (determinístico). Bus síncrono, casts bufferizados resolvidos no tick.
+
+### Harness comportamental — 34/34 checks PASS
+- **Golpe Forte**: dano ≈ `floor(autoAttack × 1.8)` (24 vs auto 14) ✅; gasta mana
+  ✅; recast imediato bloqueado por cooldown (sem mana/dano/evento) ✅; `damage`
+  carrega `skillId` ✅; `skill_use` com payload completo (16 campos) ✅.
+- **Bola de Fogo**: aplica `burn`; DoT tica ao longo da duração (4 eventos `fire`
+  com `skillId`) e a **morte por DoT emite `kill` com `skillId=bola_de_fogo`** ✅;
+  burn expira sozinho quando o alvo sobrevive ✅.
+- **Lança de Gelo**: atinge 2 alvos em linha (`targetsHit=2`) ✅; aplica `slow`
+  nos dois e o `baseStepMs` efetivo sobe (220→330 = ×1.5) ✅.
+- **Apunhalar**: pelas costas ≈2× pela frente (46 vs 23), `hitFromBehind`
+  true/false corretos pelo facing do alvo ✅.
+- **Luz Sagrada**: undead/demon ≈2.5× bestial (47 vs 19) via família ✅.
+- **Curar Ferimentos**: sobe HP, clampa em maxHp (overheal preciso), emite
+  snapshot-event `heal`, `targetSelf=true` sem alvo ✅.
+- **Mana 0 bloqueia** (sem dano/evento) ✅; **spam sem alvo** não gasta mana nem
+  emite `skill_use` ✅.
+- **Determinismo**: mesma sequência → log de eventos idêntico (damage/kill/
+  skill_use) ✅.
+- **Regressão Wave 1-2**: auto-attack ainda mata o rato (kill com `weaponId`,
+  sem `skillId`) e **XP sobe** (0→20) ✅.
+
+### Fidelidade às fichas (cross-check de "Perfis rastreados")
+Confirmado campo a campo — o payload de `skill_use` cobre os perfis das 6 fichas:
+- Golpe Forte → `casterHpPct` (HP<25%); golpe final = `kill.skillId` + morte.
+- Bola de Fogo → `castDistance`, `targetWasBurning`, `targetsHit`.
+- Lança de Gelo → `targetWasSlowed`, `targetsHit`, `castDistance`.
+- Apunhalar → `hitFromBehind`, `targetHpPct` (abertura), `targetWasPoisoned`.
+- Luz Sagrada → `targetFamily`, `castDistance`, `casterHpPct`.
+- Curar Ferimentos → `targetSelf`, `targetHpPct`, `casterInCombat`.
+
+### Observações (não bloqueiam)
+- **Riposte (Golpe Forte, "logo após bloqueio ≤1s")**: é o ÚNICO gatilho de
+  mutação das 6 fichas SEM campo dedicado no `skill_use`. Justificável: depende
+  da mecânica de **bloqueio**, que não existe no M1 (`BlockEvent` tipado mas
+  nunca emitido — "ainda NÃO emitido no M1"). Sem blocks acontecendo não há
+  estado a rastrear; fica para a wave que introduzir parry/escudo. Todas as
+  demais mutações das fichas têm seu gatilho coberto.
+- `poison` já tipado em status/protocol mas nenhuma skill M1 o aplica (correto —
+  é p/ Rogue T2). `targetWasPoisoned` capturado, então a hook já está pronta.
+- `damageType: "holy"` em Curar Ferimentos é inócuo (cura ignora tipo) — tipado
+  por completude, sem efeito colateral.
+
+**Conclusão:** implementação fiel às 6 fichas, determinística, sim-pura, sem
+tocar no client, com pipeline de dano/cura/DoT correto e cooldown/mana
+validados na sim. Aprovado.
