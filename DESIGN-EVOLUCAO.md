@@ -17,6 +17,9 @@
 |---|---|
 | Filosofia | Duas camadas: **sólida** (progressão completa) + **emergente** (tempero oculto, nunca requisito) |
 | Stats | 5 atributos (For/Des/Int/Vit/Esp), **pontos no level up** + crescimento automático por classe. Sem skill-by-use |
+| Custo de pontos | **Crescente por faixa** (estilo Ragnarok Online): o efeito do ponto nunca muda, o custo sobe ✏️ faixas. Extremo é possível, só caro |
+| Mitigação | **Simétrica e 100% de itens**: defesa física e resist. mágica são stats de equipamento — atributos dão potência/recursos (ver `DESIGN-ITENS.md`) |
+| Crítico | **Sem roll passivo** — crítico só existe como efeito explícito de skills/Mutações/Caminhos, multiplicador padrão ×2 ✏️ |
 | Respec | 1 reset de stats grátis por char; extras restritos (futuro: feature paga). Marcas nunca resetam |
 | Skills | **Compradas em NPCs** (classe + nível + gold), tiers de acesso. Sem árvore de pontos; único upgrade = Mutação |
 | Classes | **Knight / Mage / Rogue / Priest**, base fixa + especialização emergente. Sem subclasses escolhíveis |
@@ -25,7 +28,7 @@
 | Slots de Marca | Itens comuns→raros **1**, lendários **2**, únicos **3**; Caminhos sem cap, dificuldade escalante por Caminho obtido |
 | Permanência | **Marcas, Mutações e Caminhos nunca se perdem** — nem por morte, respec ou quebra de conduta pós-aquisição. Monge que equipa arma continua Monge |
 | Níveis de Marca | Marca tem **1–3 níveis** (depende da marca): subir nível = repetição contínua; **evoluir/alterar** = só evento canônico raro (boss mundial, PvP extremo). A Marca é o **ego** do item |
-| Ritmo / Morte | Progressão **difícil**: upar é lento, mobs são fortes. Morte pune **pesado em XP**, leve no resto — **itens nunca são perdidos** |
+| Ritmo / Morte | Progressão **difícil**: upar é lento, mobs são fortes. Morte pune **pesado em XP**, leve no resto — **itens nunca são perdidos em PvE**. Exceção única: contexto PvP escolhido (flag/zona) tem perda de loot — esqueleto em `DESIGN.md` ✏️ |
 | Mutações | Nomeadas e qualitativas (não ranks); o **perfil de uso** decide qual mutação nasce; 2–4 por skill, autorais |
 | Thresholds | Brutais: ordem de 10–20k repetições / condutas por dezenas de níveis (números ✏️ calibrar com combate real) |
 | Proveniência | Contadores de item vivem na **instância** (ledger); progresso viaja com o item em trade/drop |
@@ -39,21 +42,45 @@ Pendências em **Aberto / a decidir** no fim do documento.
 
 ## Sistema de Stats
 
-Level up concede **pontos de atributo** para distribuir (✏️ ex: 3/nível) + ganhos automáticos da classe (HP/Mana base). Melhorar o char é decisão ativa e imediata — sem grind de proficiência por uso.
+Level up concede **pontos de atributo** para distribuir (3/nível ✏️ calibrar) + ganhos automáticos da classe (HP/Mana base). Melhorar o char é decisão ativa e imediata — sem grind de proficiência por uso.
+
+**Custo crescente (decidido — estilo Ragnarok Online):** subir um atributo já alto custa mais pontos, por faixa (✏️ faixas/números). O **efeito de cada ponto nunca muda** (+X HP é sempre +X HP) — a camada sólida continua previsível e clara; build extrema é possível, só cara. (Rejeitados: linear puro — degenera como Diablo 2; retorno decrescente — ilegível como Dark Souls.)
+
+**Divisão de papéis (decidido):** atributos dão **potência e recursos**; itens dão **mitigação**:
+
+```
+ATRIBUTOS → HP, mana, dano, cura, vel. de ataque, esquiva, regen, carga
+ITENS     → defesa física, resistência mágica, resists elementais (DESIGN-ITENS.md)
+```
 
 **Atributos (5):**
 
 | Atributo | Governa | Classe afim |
 |---|---|---|
-| **Força** | dano corpo-a-corpo, capacidade de carga | Knight |
+| **Força** | dano corpo-a-corpo (armas de força), capacidade de carga | Knight |
 | **Destreza** | dano de adagas/distância, velocidade de ataque, esquiva | Rogue |
 | **Inteligência** | dano mágico, mana máxima | Mage |
 | **Vitalidade** | HP máximo, regeneração de HP | Knight (todos) |
-| **Espírito** | poder de cura, regen de mana, resistência mágica | Priest |
+| **Espírito** | poder de cura, regen de mana | Priest |
 
-- **Derivados** (calculados, nunca distribuídos): HP, Mana, dano físico/mágico, poder de cura, velocidade de ataque, esquiva, capacidade. Fórmulas ✏️ (definir no M2 com números reais de combate).
-- Classes têm **crescimento base** próprio por nível além dos pontos livres (Knight ganha mais HP automático etc.) ✏️.
-- ✏️ Soft cap / custo crescente por ponto no mesmo atributo? (evita hiper-especialização degenerada)
+**Derivados** (calculados, nunca distribuídos) — formas já implementadas em `src/sim/formulas.ts`; números ✏️ calibrar:
+
+| Derivado | Forma | Escala com |
+|---|---|---|
+| HP máx | base + Vit×k + crescimento de classe por nível | Vitalidade |
+| Mana máx | base + Int×k + crescimento de classe por nível | Inteligência |
+| Dano físico | base da arma + atributo×fator | Força (Des p/ adagas/distância) |
+| Dano mágico | base da skill + Int×fator | Inteligência |
+| Poder de cura | base da skill + Esp×fator | Espírito |
+| Vel. de ataque | cooldown da arma − Des×k (com piso) | Destreza |
+| Esquiva | Des×k % (com teto) | Destreza |
+| Regen HP / mana | base + atributo×k por tick | Vitalidade / Espírito |
+| Capacidade de carga | ✏️ a implementar | Força |
+
+- **Crítico (decidido): não existe roll passivo de atributo.** Crítico é efeito explícito concedido por skills, Mutações e Caminhos (*Riposte*, *Sombra Sem Nome*…), com multiplicador padrão do sistema (×2 ✏️). Sem variância invisível no combate core — crítico é evento desenhado, não moeda aleatória.
+- **Esquiva é assimétrica (decidido): mobs não esquivam.** Esquiva é derivado exclusivo de jogador — o dano do jogador é sempre legível (sem "errou" frustrante no grind). Sem stat de acerto no jogo (modelo Tibia).
+- Classes têm **crescimento base** próprio por nível além dos pontos livres (implementado em `CLASS_GROWTH`; números ✏️).
+- **Bloqueio de escudo** ✏️ proposta: escudo concede chance de **bloquear** (absorve X do golpe), rolada na sim — é o contador do Caminho *Inabalável*. Detalhar junto com os tipos de item de mão (`DESIGN-ITENS.md`).
 
 **Respec (reroll de stats):**
 - **1 reset gratuito por personagem**, permanentemente disponível.
@@ -285,7 +312,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 ### Priest
 - **Fantasia:** o canal do sagrado — sustenta os vivos, apaga os profanos.
 - **Kit inicial:** cetro; magia *Luz Sagrada* (dano holy, forte vs mortos-vivos) + *Curar Ferimentos*.
-- **Atributos-chave:** Espírito (cura/regen mana/resist. mágica), Inteligência (dano sagrado)
+- **Atributos-chave:** Espírito (cura/regen de mana), Inteligência (dano sagrado)
 - **Lentes de rastreamento:** **cura total realizada**, kills vs mortos-vivos/demônios **com dano sagrado**, dano tomado **no lugar de aliados** (online), conduta de **nunca equipar arma**, conduta de pacifismo.
 - **Caminhos típicos:**
   1. **Monge** (*Mão Vazia*) — lvl 25 sem nunca equipar arma, matando desarmado → dano desarmado real escala com nível + destrava skills marciais. **A "5ª classe" do jogo, que ninguém escolhe.**
@@ -473,6 +500,9 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
 
 ### Decididos recentemente (histórico)
 
+- ✅ Custo de pontos crescente por faixa (RO-style); efeito do ponto constante
+- ✅ Mitigação 100% de itens (defesa física + resist. mágica) — Espírito perdeu resist. mágica
+- ✅ Crítico sem roll passivo — só efeito explícito (skills/Mutações/Caminhos), ×2 padrão ✏️
 - ✅ Morte: pune pesado em XP, **nunca** perde itens/Marcas
 - ✅ Permanência total: Marcas/Mutações/Caminhos não se perdem por nada (conduta pós-aquisição inclusa)
 - ✅ Marcas de item: 1–3 níveis por repetição; evolução qualitativa só por evento canônico
