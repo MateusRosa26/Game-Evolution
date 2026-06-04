@@ -19,6 +19,14 @@ O jogo é desenhado como **MMORPG** — toda mecânica de mundo nasce pensada pa
 - Consequências práticas: "matar a fonte" de uma região infestada é clímax de quest **do jogador** (a fonte respawna/persiste para os demais); "purificar" uma área nunca apaga um spot de caça do servidor; NPCs respondem ao **seu** progresso, não ao de quem passou antes.
 - A exceção que confirma a regra: **eventos canônicos** raros (world bosses, momentos históricos do servidor — ver evolução de Marcas em `DESIGN-EVOLUCAO.md`) são o único mecanismo que muda o mundo para todos.
 
+## Permanência do mapa (decidido)
+
+**O mapa é (quase) eterno.** Num MMORPG, mudanças de mapa são extremamente raras — o layout vira memória espacial coletiva dos jogadores (rotas, "meus" spots, pontos de encontro), e isso é patrimônio do jogo, não dívida técnica:
+
+- **Desenhar já na direção do acabado.** Toda região nova nasce com qualidade de final — a iteração acontece nos RASCUNHOS (baratos, descartáveis), nunca no mapa vivo. É por isso que geografia (rios, colinas, forma das cidades) se decide com cuidado extra: é a camada mais permanente de todas.
+- **Expansão é aditiva, nunca revisionista**: regiões novas se conectam pelas portas preparadas (rio de Pontal, serra, penhascos); o terreno existente não se redesenha.
+- **Única exceção: eventos muito grandes do mundo** — e ainda assim alterações PEQUENAS e pontuais (uma ponte destruída, uma fissura aberta, um edifício queimado). São o mesmo mecanismo dos eventos canônicos das Marcas: raros, históricos, compartilhados — o servidor *lembra* ("isso aconteceu aqui").
+
 ## Estrutura do mundo — cidades + zonas, sem países (decidido)
 
 - **Sem conceito de países.** A geografia política do continente é deliberadamente vaga (cidades livres ✏️ lore futura). País/reino só entra se um dia houver motivo mecânico (facções, PvP territorial) — não é MVP.
@@ -76,6 +84,14 @@ A caça **não** vive em "zonas/cinturões" demarcados: o mundo é uma **paisage
 1. **Tier por distância** — o perigo cresce conforme se afasta das cidades: T1 no perímetro urbano → T3 nas áreas remotas. Gradiente contínuo com zonas sobrepostas (áreas de transição), não zonas fechadas.
 2. **Tier por profundidade** — caves/dungeons/ruínas têm múltiplos níveis: entrada T1–T2, profundezas T2–T3. Efeitos: o mundo serve várias faixas no mesmo lugar; o jogador **vê o próprio futuro** ("um dia eu desço"); e o último andar é o "muro" T4 natural.
 
+**Geografia-mestre (a espinha permanente, decidida em texto):**
+
+- **Serra gelada** atravessa a borda NORTE (porta de expansão); no trecho NE, o **Pico do Dragão** isolado e visível.
+- Do degelo nasce o **rio largo** que desce pela borda LESTE inteira — **Pontal na outra margem** (visível, balsa fechada em Atalaia).
+- Um **afluente** nasce nos contrafortes NE e corta o mapa em diagonal ao sudoeste — **Alvorada fica na colina da curva dele** (a razão da cidade: estrada encontra água). Deságua no rio principal no SE, formando o **pântano** do sul.
+- **Penhascos ao mar** na borda SUL (porta de expansão). **Floresta** que engrossa do centro ao NE rumo à serra (gradiente T1→T3 visível no terreno). **Planícies** a oeste. **Árvore Sagrada** no horizonte oeste, muito além do mapa.
+- Estradas seguem o terreno: Alvorada→Charneca cruza o afluente numa **ponte** (chokepoint); Charneca→Brumal margeia pântano e rio passando pelas **Ruínas Antigas** (node central do triângulo).
+
 **Estrutura — 3 cidades no MVP + 1 porta de expansão (decidido):**
 
 - **Alvorada** (oeste, planícies) — **capital**, hub completo. A primeira cidade fundada após a Chegada: "o amanhecer da humanidade no mundo novo". District: planície dourada, civilização, muralha; weenie: a torre da muralha (+ a **Árvore Sagrada** no horizonte distante — promessa macro da lore). Constelação T1: ratos na cidade + **Esgotos** (dungeon urbana), planícies, trilha dos lobos, acampamento goblin, estrada dos bandidos ao sul.
@@ -83,8 +99,9 @@ A caça **não** vive em "zonas/cinturões" demarcados: o mundo é uma **paisage
 - **Brumal** (nordeste) — vilarejo madeireiro, a **fronteira selvagem**. District: floresta fechada, bruma azulada; weenie: o **Pico do Dragão** ao norte (muro T4–T5 do MVP). Constelação T2→T3: Floresta Sombria, Dungeon da Floresta, Cavernas de Gelo, colinas de ogros — bioma misto na borda da serra (elementais de gelo + ursos + lobos).
 - **Pontal** (leste) — **fechada no MVP**: visível do outro lado do rio (a balsa não atravessa), guardada por **Atalaia**, o posto de vigia na estrada leste. É a porta de expansão élfica — o Santuário Élfico (T1–T2) fica acessível como POI deste lado.
 - **Esqueleto Lynch**: triângulo de estradas Alvorada↔Charneca↔Brumal com as **Ruínas Antigas no node central** (T1→T3 por profundidade, boss do arco no fundo); edges = serra ao norte, rio a leste, penhascos ao sul (3 portas de expansão); canto NE (gelo+Pico) = extremo do gradiente, o mais longe da segurança.
-- **Orçamento de conteúdo do MVP**: ~20–25 spots de caça (ponderados: T2 maior fatia) · ~25–35 quests · **5–15 baús** (raros — ver Baús) · ~12+ segredos não-baú (atalhos, áreas, keywords, NPCs escondidos) · ~16–18 andares de dungeon somados.
+- **Orçamento de conteúdo do MVP**: ~20–25 spots de caça (ponderados: T2 maior fatia) · ~25–35 quests · **20–30 baús** (piramidal: base utilitária/chaves no early, topo enxuto — ver Baús) · ~12+ segredos não-baú (atalhos, áreas, keywords, NPCs escondidos) · ~16–18 andares de dungeon somados.
 - **Construção em fatias verticais**: ① constelação de Alvorada (cidade + esgotos + spots T1) → ② Charneca + atos 1–2 do arco → ③ Brumal + fronteira T3 + boss. Cada fatia jogável de ponta a ponta.
+- **Spawn de personagens novos (decidido jun/2026):** o char nasce **sem classe** (modelo Rookgaard — `DESIGN-EVOLUCAO.md`) e spawna **aleatoriamente** entre as cidades de spawn. **Regra: cidade de spawn = constelação T1 ao redor + os 4 NPCs de classe.** No MVP: **Alvorada + Charneca**; Brumal entra ✏️ **se** ganhar bolsão T1 próprio. Os 4 **ritos de classe** (quest boba + gold simbólico, com a cara de cada classe — ver `DESIGN-EVOLUCAO.md`) entram no orçamento de quests e dobram como tutoriais de mecânica.
 - **14 pontos de interesse** em 5 categorias (Esgotos de Alvorada adicionado):
 
 | Categoria | POI (placeholder) | Tiers | Encaixe proposto (lore/bestiário) |
@@ -149,6 +166,8 @@ A caça **não** vive em "zonas/cinturões" demarcados: o mundo é uma **paisage
 | Tesouros | **Sempre únicos** — não existe tesouro repetível de nenhuma natureza. O que foi achado, foi achado |
 | Rumores | **Fixos por região** (não rotacionam), mas **evoluem com o progresso**: completar quests desbloqueia novas camadas de rumor — novos aspectos do mundo se revelam |
 | Baús lacrados | Lacre por **nível mínimo** (estilo quest door de Tibia): visível antes, abrível depois — o jogador memoriza e volta |
+| Portas & chaves | **Chaves estilo Apogea (decidido jun/2026)**: permanentes, **não-físicas, introcáveis** (flag por personagem); **nunca se sabe qual porta abrem**. Chaveiro minimalista (só nomes evocativos); aviso só no **1º uso**. **Dois tipos de porta**: comum (segura aberta pro grupo) × selada (só o portador). **Chave exigida dos dois lados** — entrar sem chave é compromisso (sai com o portador ou morrendo); venda de acesso = serviço de sessão. Chave abre **portas**; lacre de baú segue por **nível** |
+| Nascimento | **Casa inicial** (tutorial diegético, modelo Tibia/Apogea): NPC-guia + containers **domésticos** (≠ baús raros) com 1–2 armaduras, arma genérica e sacola; a **1ª chave** abre a porta de saída — o loop container→chave→porta ensinado no minuto 2 |
 | Raridades de item | Comum → Incomum → Raro → **Lendário** → **Único**, alinhadas aos slots de Marca (1 / 1 / 1 / 2 / 3) |
 | Arquitetura | Quests, diálogos e baús são **dados** (definições), avaliados na sim — mesmo modelo das Marcas |
 
@@ -161,6 +180,13 @@ A caça **não** vive em "zonas/cinturões" demarcados: o mundo é uma **paisage
 | **Direta** | NPC oferece e explica | 📍 marca o local no mapa | gold, XP, consumíveis, gear comum–incomum |
 | **Aberta** | NPC dá rumor com direção vaga | só o texto no diário | gear raro, acesso a áreas, skills intermediárias |
 | **Segredo** | nunca é anunciada — só explorando | nenhum | os melhores itens fora de boss (raro–lendário) |
+
+## Composição e ritmo (direção do criador, jun/2026)
+
+- **Quests compostas/encadeadas**: começam com algo muito pequeno e mandam cada vez mais longe; ou passam de NPC em NPC ("fale com fulano" → "agora com beltrano"). A cadeia é a forma natural de quest grande.
+- **Quests de longa maturação**: podem COMEÇAR no lvl 1 mas só terminam muito depois — a etapa final exige área difícil. O diário acumula pendências que amadurecem com o personagem (promessas em forma de quest).
+- **Early game tem volume**: quests simples e rápidas logo no começo, que dão **direção** (apontam spots/estradas/serviços) e **gold inicial** (✏️ "gold para a primeira classe" — confirmar com o criador se o modelo é compra de classe em NPC estilo Apogea ou classe-na-criação; impacta DESIGN-EVOLUCAO). Quests um pouco mais elaboradas dão XP e empurram a exploração do mundo.
+- Quests vivem em **conversa/doc próprios** — separadas do design de layout (o layout só planta os ganchos físicos: ferreiro, coveiro, moinho, baú lacrado, muralha inacabada...).
 
 ## Quests diretas (guiadas)
 
@@ -260,16 +286,54 @@ Janela de diálogo moderna com **opções clicáveis** + **campo de texto livre*
 
 | Tipo | Onde | Proteção | Conteúdo típico |
 |---|---|---|---|
-| **Escondido** | cantos não-óbvios: atrás de árvores, fim de cavernas opcionais, ilhotas | só achar | gold, potions, gear **comum–incomum** que facilita a progressão |
-| **Guardado** | fundo de covis perigosos (mobs acima do tier da zona) | risco | gear **incomum–raro**, gold alto |
+| **Escondido** | cantos não-óbvios: atrás de árvores, fim de cavernas opcionais, ilhotas | só achar | **utilitários (pá/corda/tocha)**, gold, potions, **chaves**, gear comum–incomum |
+| **Guardado** | fundo de covis perigosos (mobs acima do tier da zona) | risco | gear **incomum–raro**, gold alto, chaves |
 | **Lacrado** | visível em caminhos naturais — a "promessa" | **nível mínimo** (estilo quest door) | gear **raro**, às vezes **lendário** nos lacres altos |
 | **Secreto** | atrás de interação: alavanca, parede rachada, puzzle simples | descoberta | o topo: **raro–lendário**, itens de acesso |
 
-- **Baú é asset RARO, não regra (decidido):** o MVP inteiro tem **5–10 baús, máximo 15**. Achar um é EVENTO — exatamente porque quase nunca acontece. A recompensa-base da exploração não é baú: é **descobrir** (spots de caça escondidos, segredos, atalhos, rumores confirmados, conhecimento). O baú é o jackpot por cima disso.
-- **Lacrados** ficam à vista de propósito: o jogador nível 8 passa pelo lacre "nível 20", memoriza, e voltar lá vira objetivo pessoal. O mapa acumula promessas. (Com o orçamento raro: 2–3 lacrados no MVP, bem escolhidos.)
-- **Escondidos**: num jogo onde upar é difícil, achar um anel de regen ou botas melhores **muda o dia do jogador** — e com baús raros, muda de verdade.
+- **Orçamento piramidal (revisado jun/2026, com o sistema de chaves):** **~20–30 baús no MVP** — a base (~⅔) é de baús **iniciais/baixos** em áreas T1–T2: utilitários (pá/corda/tocha), gold pequeno, consumíveis e **chaves** — exploração recompensada desde níveis baixíssimos. O meio é gear (guardados/escondidos). O topo é **enxuto**: poucos baús avançados (3–5 lacrados altos/secretos com raro–lendário). A decisão das chaves é o que torna o volume maior válido: baú com chave = uma **porta em algum lugar** acaba de virar promessa.
+- **Lacrados** ficam à vista de propósito: lacres BAIXOS perto da civilização (ex.: nível 10 nos esgotos — promessa de early game, volta-se em dias, não semanas), lacres altos nas profundezas. O jogador memoriza e volta. (2–4 lacrados no MVP.)
+- **Escondidos**: num jogo onde upar é difícil, achar uma corda, uma chave ou umas botas melhores **muda o dia do jogador**. A recompensa-base da exploração continua sendo *descobrir* (spots, atalhos, conhecimento) — o baú é a cereja material por cima.
 - Interagir com baú já aberto mostra que está vazio ("Você já levou o que havia aqui.") — o estado é claro.
 - ✏️ Posições reais: M3 (design de mapa), distribuindo o orçamento entre os 4 tipos.
+
+## Portas & Chaves (decidido — jun/2026, modelo Apogea)
+
+Portas trancadas que só abrem com a chave certa — e **a chave não diz qual porta abre**:
+
+- **Chave = flag permanente por personagem**: não-física, não ocupa espaço, **introcável** (fora da economia), impossível perder. É "informação é loot" mecanizado — acesso como conhecimento, não como item.
+- **Fontes**: containers, quests, cantos do mundo (mesmo espírito dos baús: achar uma é evento, ~✏️ orçamento MVP).
+- **O mistério é dos dois lados**: a chave achada é uma promessa ("o que ela abre?"); a porta trancada vista é uma pergunta ("onde está a chave?"). O mapa acumula promessas — mesma lógica dos lacres por nível.
+- **Chaveiro no diário (decidido)**: lista as chaves com **nomes/descrições evocativas** ("chave de bronze com cabeça de corvo" — Loremaster); **nunca** a porta associada, **nem onde foi achada** (minimalista no MVP — revisitável se a escala pedir). Portas trancadas **não são rastreadas** — o mapa mental é do jogador.
+- **Aviso só no primeiro uso (decidido)**: a primeira porta aberta por uma chave anuncia qual serviu ("a chave de bronze serviu") — o payoff do mistério. Usos subsequentes: silêncio, a porta só abre. (Chave multi-porta: aviso no 1º uso da *chave*, não por porta.)
+- **Dois tipos de porta (decidido)**:
+  - **Comum (padrão, social)** — abre com a chave do portador e **segura aberta ~X segundos** para o grupo passar junto. "O portador da chave" vira papel social: ele lidera a expedição.
+  - **Selada (exceção autoral)** — só passa quem tem a chave, individualmente. Reservada a conteúdo de conquista pessoal (NPC secreto, sala de quest, prêmio de linha individual) — fecha o furo do loot per-character atrás de porta social.
+- **A chave é exigida dos DOIS lados (decidido — sem "abre por dentro")**: quem entrou pela janela social está **comprometido** — sai com o portador, ou morrendo (custo de XP). O risco é legível ANTES (pilar 2: você atravessou sabendo que não tem a chave). Efeitos desejados: caçar em party atrás de porta = compromisso real; co-dependência do portador; **venda de acesso vira serviço de sessão** (o dono controla entrada e saída — pagar uma vez ≠ caçar lá pra sempre).
+- **Telegrafia honesta**: porta-de-chave tem visual distinto de porta-lacre-de-nível (fechadura × selo ✏️ Diretor de Arte) — o jogador sabe *que tipo* de barreira vê, nunca *como* resolvê-la.
+- **Taxonomia limpa**: chave abre **portas/portões/alçapões** (prova de descoberta); lacre de baú segue por **nível** (prova de poder). Sem sobreposição.
+- **Anti-datamine**: o mapeamento chave→porta nunca viaja no snapshot — porta só informa "trancada"; a sim valida ao interagir.
+- **Arquitetura**: porta = dado declarativo (`requiredKey` + tipo comum/selada); eventos `key_found`/`door_open` entram na leva do M3 (com `chest_open`/`region_enter`).
+
+**Blindagens propostas ✏️** (a confirmar no design de mapa/M3):
+
+- **Distância narrativa**: a maioria das chaves encontra sua porta **na mesma região/capítulo**; só 1–2 "mistérios longos" por região.
+- **Anti-softlock**: porta de chave tranca conteúdo **opcional/secreto/atalho** — caminho obrigatório de quest usa lacre de nível, ou garante a chave na própria linha.
+- **Rumores como válvula**: toda porta/chave importante tem um rumor de Sussurrador associado — chaves alimentam o hábito de falar com todo mundo.
+- **1 chave : 1 porta como padrão**; chaves temáticas multi-porta ("a do carcereiro" abre as 4 celas) são exceção autoral.
+
+## Casa inicial — o nascimento (decidido — jun/2026)
+
+Tutorial 100% diegético, modelo Tibia/Apogea: o personagem (sem classe — `DESIGN-EVOLUCAO.md`) acorda numa **casa inicial** da cidade de spawn:
+
+1. **NPC-guia** conversa e orienta (primeiro contato com diálogo).
+2. **Containers domésticos** (caixas/armários/barris — **nunca o asset de baú**, que é sagrado/raro) guardam: 1–2 peças de armadura simples, **arma genérica** (✏️ qual) e **sacola** (mochila pequena).
+3. O jogador **equipa** (aprende slots na prática), acha a **primeira chave** num armário e abre a **porta de saída** — o loop assinatura container→chave→porta ensinado no minuto 2.
+4. Sai da casa direto na cidade de spawn, classless, com a régua do zero vestida.
+
+- Uma casa por cidade de spawn (Alvorada + Charneca no MVP); conteúdo per-character (princípio MMO padrão).
+- Itens da casa: **zero bônus de identidade, venda ≈ 0** (regras do kit em `DESIGN-ITENS.md`).
+- ✏️ roteiro/falas do NPC-guia (Loremaster); layout da casa (world-designer).
 
 ## Itens — papel no sistema (detalhamento no M2)
 

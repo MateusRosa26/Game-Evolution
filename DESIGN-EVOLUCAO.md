@@ -22,7 +22,7 @@
 | Crítico | **Sem roll passivo** — crítico só existe como efeito explícito de skills/Mutações/Caminhos, multiplicador padrão ×2 ✏️ |
 | Respec | 1 reset de stats grátis por char; extras restritos (futuro: feature paga). Marcas nunca resetam |
 | Skills | **Compradas em NPCs** (classe + nível + gold), tiers de acesso. Sem árvore de pontos; único upgrade = Mutação |
-| Classes | **Knight / Mage / Rogue / Priest**, base fixa + especialização emergente. Sem subclasses escolhíveis |
+| Classes | **Knight / Mage / Rogue / Priest**, base fixa + especialização emergente. Sem subclasses escolhíveis. **Classe é adquirida no mundo, não na criação (jun/2026)**: nasce **sem classe**, spawn aleatório em cidade inicial; rito no NPC da classe = **quest boba + gold simbólico**, entrega a arma do kit. Condutas de Caminho contam **da aquisição da classe** |
 | Monge | Não é classe — é **Caminho emergente do Priest** (conduta *Mão Vazia*) |
 | Visibilidade | Condições ocultas; hint vaga aos **~50%**; nunca contador exato; unlock é um momento screenshotável |
 | Slots de Marca | Itens comuns→raros **1**, lendários **2**, únicos **3**; Caminhos sem cap, dificuldade escalante por Caminho obtido. **Slots ocultos no tooltip** (decidido jun/2026, `DESIGN-ITENS.md`): descobertos quando Marcas despontam — nº de slots visível vazaria a raridade |
@@ -95,6 +95,8 @@ Skills são **compradas em NPCs treinadores**, com restrições — não existe 
 - **Tiers de acesso:** Básicas (NPC de toda cidade) → Intermediárias (NPCs específicos/cidades distantes) → Avançadas (quests, drops de boss, NPCs secretos) ✏️.
 - Gold vira sink relevante da economia (importante pro online).
 - **A "árvore" de uma skill é a vida dela:** comprou → usou → (perfil de uso extremo) → **Mutação**. A mutação é a coroa oculta — única forma de upgrade da skill, e por isso especial.
+- **Nenhuma skill é automática (decidido jun/2026):** nem no nascimento (não há classe ao nascer), nem no rito de classe, nem por level up — **todas compradas**. As básicas custam quase nada (funcionalmente grátis; o *ato* de ir ao treinador é a didática). Level é **requisito**, nunca entregador.
+- **Traits/árvore de passivas (estilo Apogea): avaliados e REJEITADOS (jun/2026)** — competiriam com Marcas/Caminhos pela especialização e violam "sem árvore de pontos". A escolha contínua mora nos pontos de atributo (custo crescente); se parecer rasa no playtest, calibra-se números, não se adiciona sistema.
 
 ## Outras formas de melhorar o char
 
@@ -270,7 +272,14 @@ Padrões de comportamento do **personagem inteiro**. Dois sabores:
 
 ## Classes (decidido — base fixa + especialização emergente)
 
-O jogador escolhe uma **classe base simples** (kit inicial + afinidades). **Não existem subclasses escolhíveis** — especialização emerge via Caminhos e Mutações.
+**A classe é adquirida no mundo, não escolhida na criação (decidido jun/2026 — modelo Rookgaard/Oráculo):**
+
+- O personagem nasce **sem classe**: roupas simples + arma genérica + mochila, **sem skills** (kit detalhado ✏️ em `DESIGN-ITENS.md`), e **spawna aleatoriamente** numa cidade inicial (regra de cidade de spawn em `DESIGN-MUNDO.md`: constelação T1 ao redor + os **4 NPCs de classe**).
+- Virar uma classe = procurar o NPC dela e cumprir o **rito: quest boba + gold simbólico**. A quest tem a cara da classe e dobra como tutorial de uma mecânica; o rito **entrega a arma do kit**. Até a classe é algo que você FEZ (pilar 6).
+- Classless tem crescimento por level **genérico e fraco** e nenhum acesso a skills — a pressão para se classar é natural, sem gate artificial. (✏️ crescimento recalcula retroativo ao classar? — Balancista.)
+- **Condutas de Caminho contam a partir da aquisição da classe (decidido):** o período sem classe não conta nem quebra conduta (*Mão Vazia* etc.) — o voto começa na ordenação; o rito é o marco zero dos contadores.
+
+**Não existem subclasses escolhíveis** — especialização emerge via Caminhos e Mutações.
 
 A classe base define **o que a sim rastreia com mais peso** para aquele personagem (as "lentes" dos contadores).
 
@@ -280,7 +289,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Knight
 - **Fantasia:** a muralha — aguenta o que ninguém aguenta e devolve em aço.
-- **Kit inicial:** espada curta + escudo de madeira; skill *Golpe Forte* (ataque carregado).
+- **Kit do rito de classe:** espada curta + escudo de madeira. (*Golpe Forte* é a primeira compra natural no treinador — nenhuma skill vem de graça.)
 - **Atributos-chave:** Força, Vitalidade
 - **Lentes de rastreamento:** kills **por tipo de arma** (espada/machado/maça), kills por família de criatura **com a arma equipada**, golpes **bloqueados com escudo**, dano **absorvido**, kills em HP baixo.
 - **Caminhos típicos:**
@@ -291,7 +300,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Mage
 - **Fantasia:** o canal bruto dos elementos — frágil, devastador, obcecado.
-- **Kit inicial:** cajado simples; magia *Bola de Fogo* + *Lança de Gelo*.
+- **Kit do rito de classe:** cajado simples (✏️ elemento e 1H×2H — `DESIGN-ITENS.md`). (*Bola de Fogo*/*Lança de Gelo* = primeiras compras.)
 - **Atributos-chave:** Inteligência (dano/mana), Vitalidade (sobreviver)
 - **Lentes de rastreamento:** dano **por elemento**, perfil de **distância** dos casts, **combos** elementais (alvo congelado recebendo fogo etc.), % do dano total vindo de magia.
 - **Caminhos típicos:**
@@ -302,7 +311,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Rogue
 - **Fantasia:** a lâmina que você não viu — posição, timing e veneno.
-- **Kit inicial:** adaga; skill *Apunhalar* (bônus por trás).
+- **Kit do rito de classe:** adaga (✏️ uma ou duas — `DESIGN-ITENS.md`). (*Apunhalar* = primeira compra.)
 - **Atributos-chave:** Destreza (dano/esquiva/vel. ataque), Vitalidade
 - **Lentes de rastreamento:** kills **pelas costas**, kills **à noite**, combates vencidos **sem tomar dano**, kills com alvo **envenenado**, kills com golpe final em alvo com HP cheio (one-shot de abertura).
 - **Caminhos típicos:**
@@ -313,7 +322,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Priest
 - **Fantasia:** o canal do sagrado — sustenta os vivos, apaga os profanos.
-- **Kit inicial:** cetro; magia *Luz Sagrada* (dano holy, forte vs mortos-vivos) + *Curar Ferimentos*.
+- **Kit do rito de classe:** cetro. (*Luz Sagrada* + *Curar Ferimentos* = primeiras compras.)
 - **Atributos-chave:** Espírito (cura/regen de mana), Inteligência (dano sagrado)
 - **Lentes de rastreamento:** **cura total realizada**, kills vs mortos-vivos/demônios **com dano sagrado**, dano tomado **no lugar de aliados** (online), conduta de **nunca equipar arma**, conduta de pacifismo.
 - **Caminhos típicos:**
@@ -499,6 +508,7 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
 - [ ] Calibrar na sim: % exata da XP total perdida na morte (ref. 10%) e fator da curva (ref. ~2×/nível) — alvo 1→25 em ~30–45h eficientes; ⚠️ vigiar que morte no cap (~3–4h perdidas) fique em "dói muito" sem cruzar pra rage-quit; punições secundárias leves (gold? debuff?)
 - [ ] Lista de eventos canônicos que evoluem Marcas (world bosses no M3+, PvP no M6+)
 - [ ] Curva de XP / força dos mobs — números no M2
+- [ ] Classless: números do crescimento genérico; recalcula retroativo ao adquirir classe?; custo em gold do rito (Balancista) e conteúdo das 4 quests de rito (world-designer/Loremaster)
 
 ### Decididos recentemente (histórico)
 

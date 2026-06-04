@@ -205,6 +205,22 @@ Duas camadas:
 
 **1 slot de mão cada.** Combinações: 1 luva + arma 1H · 1 luva + escudo/livro · **2 luvas = commit na mecânica do item** (dois pacotes de stats, mãos vazias de arma). Luva não impede segurar machado/espada na outra mão. Continua não-arma: nenhuma combinação com luva quebra *Mão Vazia* — só a arma quebra.
 
+## Itens de nascimento & kit de classe (em desenho — jun/2026)
+
+Com o início **sem classe** (decidido — `DESIGN-EVOLUCAO.md`), o "kit inicial" se divide em dois momentos:
+
+| Momento | Conteúdo | Status |
+|---|---|---|
+| **Nascimento (classless)** | **coletado na casa inicial** (tutorial diegético — `DESIGN-MUNDO.md`): 1–2 armaduras simples + **arma genérica** (✏️ qual — porrete/faca?) + **sacola**, tirados de containers domésticos; a 1ª chave abre a porta de saída. Sem skills, sem capacete | estrutura decidida; itens ✏️ |
+| **Rito de classe** | o NPC entrega a **arma do kit**: espada curta + escudo (Knight) · cajado simples (Mage ✏️ elemento/mãos) · adaga (Rogue ✏️ 1 ou 2) · cetro (Priest) | estrutura decidida; detalhes ✏️ |
+
+Princípios (propostos nesta sessão, a confirmar com os detalhes ✏️):
+
+- **Itens de kit têm base do slot e ZERO bônus de identidade** — são a régua do zero; o primeiro item com bônus (comprado/dropado) é o momento "entendi o que itens fazem".
+- **Valor de venda ≈ 0** (anti-loop de gold) e sem requisitos.
+- **Instâncias com ledger desde o nascimento** — a arma do rito tem 1 slot de Marca: quem nunca trocar pode transformá-la em relíquia (pilar 6 desde o minuto 1).
+- Skills nunca vêm em kit nenhum — todas compradas (básicas quase grátis).
+
 ## Raridades e slots de Marca (já decidido — referência)
 
 | Raridade | Slots de Marca | Fonte principal |
@@ -256,6 +272,7 @@ Estado da discussão:
 - [ ] Limites de aninhamento/capacidade da mochila (profundidade máx? peso via Força?)
 - [ ] Visibilidade de raridade na UI (cor/label × invisível) — decidir junto com a conversa de **forja** (⚠️ forja renegocia o Modelo A: "sem upgrade de raridade, sem forja destrutiva")
 - [ ] Nomes das famílias de equipamento (Loremaster) + refinamento da matriz slot × bônus
+- [ ] Kit de nascimento/rito: arma genérica do classless; elemento e mãos do cajado do Mage; 1×2 adagas do Rogue; vestes variam por visual?; extras (tocha?)
 
 ### Decididos recentemente (histórico)
 
