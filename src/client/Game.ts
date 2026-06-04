@@ -12,6 +12,7 @@ import { Mouse } from "./input/Mouse";
 import { Hud } from "./ui/Hud";
 import { CharacterPanel } from "./ui/CharacterPanel";
 import { SkillBar } from "./ui/SkillBar";
+import { TrackingToast } from "./ui/TrackingToast";
 import { ALL_SKILL_IDS, skillMeta } from "./ui/skillMeta";
 
 /** Hotkeys 1–6 → índice de slot da barra de skills. */
@@ -36,6 +37,7 @@ export class Game {
     this.transport.send({ type: "allocateStatPoint", attr }),
   );
   private skillBar = new SkillBar();
+  private trackingToast = new TrackingToast();
 
   private worldContainer = new Container();
   private worldRenderer: WorldRenderer | null = null;
@@ -153,6 +155,10 @@ export class Game {
     this.app.stage.addChild(this.charPanel.container);
     this.charPanel.resize(this.app.screen.height);
 
+    // Toast da camada emergente (hint/unlock) — por cima de tudo.
+    this.app.stage.addChild(this.trackingToast.container);
+    this.trackingToast.resize(this.app.screen.width, this.app.screen.height);
+
     this.camera.setMapSize(map.width, map.height);
     this.camera.snapTo((map.spawn.x + 0.5) * TILE_SIZE, (map.spawn.y + 0.5) * TILE_SIZE);
 
@@ -165,13 +171,13 @@ export class Game {
   private onSnapshot(snap: Snapshot): void {
     this.entityRenderer?.apply(snap);
     // Camada emergente (DESIGN-EVOLUCAO.md §"Visibilidade"): hint/unlock chegam
-    // como eventos one-shot SEM progresso numérico. A UI de toast é da próxima
-    // wave — por ora o client só loga discretamente (regra: client não tem UI).
+    // como eventos one-shot SEM progresso numérico. O toast só ENCENA o evento
+    // (sussurro no hint, momento épico no unlock) — ZERO regra de jogo aqui.
     for (const ev of snap.events) {
       if (ev.kind === "trackingHint") {
-        console.log(`[tracking] ${ev.text}`);
+        this.trackingToast.enqueueHint(ev.text);
       } else if (ev.kind === "trackingUnlock") {
-        console.log(`[tracking] DESBLOQUEIO (${ev.category}): ${ev.name} — ${ev.flavorText}`);
+        this.trackingToast.enqueueUnlock(ev.category, ev.name, ev.flavorText);
       }
     }
     this.lastEntities = snap.entities;
@@ -200,6 +206,7 @@ export class Game {
     this.worldRenderer?.tick(deltaMS);
     this.entityRenderer?.tick(deltaMS);
     this.hud.tick(deltaMS); // pulso do badge de pontos livres
+    this.trackingToast.tick(deltaMS); // fila + animação de hint/unlock
 
     // câmera segue a posição visual (interpolada) do jogador
     const p = this.entityRenderer?.playerWorldPos();
@@ -238,5 +245,6 @@ export class Game {
     this.hud.resize(w, h);
     this.skillBar.resize(w, h);
     this.charPanel.resize(h);
+    this.trackingToast.resize(w, h);
   }
 }
