@@ -224,35 +224,42 @@ function capuzSombra(p: Px, facing: PartFacing, frame: number): void {
   p.rect(13, 12 + bob, 6, 1, SENT.shadow);
 }
 
-/** Chapéu Arcano: aba larga + cone torto; rosto aberto. */
+/** Chapéu Arcano: aba LARGA, cone torto com quebra, faixa com broche. */
 function chapeuArcano(p: Px, facing: PartFacing, frame: number): void {
   const bob = bobOf(frame);
   openFace(p, bob, facing);
   if (facing === "e") {
-    p.px(13, 3 + bob, SENT.base); // ponta caída
-    p.rect(14, 3 + bob, 2, 1, SENT.light);
+    // ponta dobrada para trás (quebra no meio do cone)
+    p.rect(11, 2 + bob, 2, 1, SENT.base);
+    p.px(13, 3 + bob, SENT.light);
+    p.rect(13, 3 + bob, 3, 1, SENT.base);
     p.rect(14, 4 + bob, 3, 1, SENT.base);
-    p.rect(15, 5 + bob, 3, 1, SENT.base);
-    p.rect(12, 6 + bob, 9, 1, SENT.light); // aba
-    p.rect(12, 7 + bob, 9, 1, SENT.dark);
+    p.rect(15, 5 + bob, 3, 1, SENT.dark); // faixa
+    p.rect(11, 6 + bob, 11, 1, SENT.light); // aba larga
+    p.rect(11, 7 + bob, 11, 1, SENT.dark);
+    p.px(21, 6 + bob, SENT.edge); // borda da aba pega luz
     return;
   }
-  // cone (torto p/ s; reto p/ n)
-  p.px(14, 2 + bob, SENT.base);
-  p.rect(14, 3 + bob, 2, 1, SENT.light);
+  // cone torto com QUEBRA (a ponta cai para a esquerda)
+  p.rect(12, 2 + bob, 2, 1, SENT.base);
+  p.px(11, 3 + bob, SENT.dark); // pingo da ponta
+  p.rect(13, 3 + bob, 2, 1, SENT.light);
   p.rect(14, 4 + bob, 3, 1, SENT.base);
-  p.rect(15, 5 + bob, 3, 1, facing === "s" ? SENT.base : SENT.dark);
-  // aba larga
-  p.rect(11, 6 + bob, 10, 1, SENT.light);
-  p.rect(11, 7 + bob, 10, 1, SENT.dark);
+  // faixa do chapéu com broche
+  p.rect(14, 5 + bob, 5, 1, SENT.shadow);
+  if (facing === "s") p.px(16, 5 + bob, PAL.buckle); // broche fixo
+  // aba LARGA com leve curva (pontas 1px acima)
+  p.rect(10, 6 + bob, 12, 1, SENT.light);
+  p.px(10, 5 + bob, SENT.light);
+  p.px(21, 5 + bob, SENT.base);
+  p.rect(10, 7 + bob, 12, 1, SENT.dark);
   if (facing === "n") {
-    p.rect(13, 8 + bob, 6, 4, SENT.dark); // nuca coberta? não: cabelo
     p.rect(13, 8 + bob, 6, 4, PAL.hair);
     p.rect(13, 12 + bob, 6, 1, PAL.skinShade);
   }
 }
 
-/** Coifa da Aurora: justa, emoldura o rosto. */
+/** Coifa da Aurora: justa, emoldura o rosto; véu curto caindo atrás. */
 function coifaAurora(p: Px, facing: PartFacing, frame: number): void {
   const bob = bobOf(frame);
   openFace(p, bob, facing);
@@ -260,14 +267,21 @@ function coifaAurora(p: Px, facing: PartFacing, frame: number): void {
     p.rect(14, 4 + bob, 5, 1, SENT.light);
     p.rect(13, 5 + bob, 2, 7, SENT.base); // lateral
     p.rect(15, 5 + bob, 4, 1, SENT.base);
+    p.rect(12, 8 + bob, 1, 5, SENT.dark); // véu atrás
     p.rect(13, 12 + bob, 6, 1, SENT.dark); // queixo/gola
     return;
   }
   p.rect(13, 4 + bob, 6, 1, SENT.light);
+  p.px(16, 4 + bob, SENT.shine); // costura central pega luz
   p.rect(12, 5 + bob, 2, 7, SENT.base);
   p.rect(18, 5 + bob, 2, 7, SENT.dark);
   p.rect(14, 5 + bob, 4, 2, SENT.base);
-  if (facing === "n") p.rect(14, 7 + bob, 4, 5, SENT.base); // costas fechadas
+  if (facing === "n") {
+    p.rect(14, 7 + bob, 4, 5, SENT.base); // costas fechadas
+    p.rect(13, 13 + bob, 6, 2, SENT.dark); // véu curto sobre os ombros
+    p.px(12, 14 + bob, SENT.shadow);
+    p.px(19, 14 + bob, SENT.shadow);
+  }
   p.rect(13, 12 + bob, 6, 1, SENT.dark); // gola
 }
 
@@ -279,12 +293,19 @@ function cabecaCidadao(p: Px, facing: PartFacing, frame: number): void {
     p.rect(13, 4 + bob, 7, 3, SENT.base);
     p.rect(13, 5 + bob, 2, 5, SENT.base); // costeleta/atrás
     p.px(13, 4 + bob, SENT.light);
+    p.px(18, 7 + bob, SENT.base); // mecha na testa
     return;
   }
   p.rect(12, 4 + bob, 8, 3, SENT.base);
   p.rect(12, 4 + bob, 8, 1, SENT.light);
   p.px(11, 6 + bob, SENT.base);
   p.px(20, 6 + bob, SENT.dark);
+  if (facing === "s") {
+    // franja com dentes (quebra a linha reta do corte)
+    p.px(13, 7 + bob, SENT.base);
+    p.px(16, 7 + bob, SENT.base);
+    p.px(19, 7 + bob, SENT.dark);
+  }
   if (facing === "n") {
     p.rect(12, 7 + bob, 8, 5, SENT.base); // nuca de cabelo
     p.rect(12, 11 + bob, 8, 1, SENT.dark);
@@ -377,8 +398,16 @@ function plateTorso(
   p.rect(20, 14 + bob, 3, 1, SENT.base);
   p.rect(21, 15 + bob, 2, 1, SENT.dark);
   if (opts.trim) {
+    // ombreiras cerimoniais maiores com friso
+    p.px(8, 14 + bob, SENT.edge);
+    p.px(23, 14 + bob, SENT.dark);
     p.px(9, 13 + bob, SENT.shine);
     p.px(22, 13 + bob, SENT.shine);
+  }
+  if (opts.studs) {
+    // espinhos nas ombreiras (vigília)
+    p.px(9, 12 + bob, SENT.edge);
+    p.px(22, 12 + bob, SENT.dark);
   }
 }
 
@@ -386,17 +415,27 @@ const peitoralAlvorada: PartDrawFn = (p, f, fr) => plateTorso(p, f, fr, {});
 const peitoralOuro: PartDrawFn = (p, f, fr) => plateTorso(p, f, fr, { trim: true });
 const peitoralVigilia: PartDrawFn = (p, f, fr) => plateTorso(p, f, fr, { studs: true, tattered: true });
 
-/** Gibão da Sombra: couro justo, tiras cruzadas, sem ombreiras. */
+/** Gibão da Sombra: couro justo, ombros acolchoados, tira a tiracolo. */
 function gibaoSombra(p: Px, facing: PartFacing, frame: number): void {
   simpleTorso(p, facing, frame, true);
   const bob = bobOf(frame);
   if (facing === "s") {
-    // tira a tiracolo (fixa, couro)
+    // ombros acolchoados (silhueta de couro, não placa)
+    p.rect(9, 14 + bob, 2, 1, SENT.light);
+    p.rect(21, 14 + bob, 2, 1, SENT.base);
+    // tira a tiracolo (fixa, couro) com fivela
     for (let i = 0; i < 6; i++) p.px(12 + i, 14 + bob + i, PAL.bootsDark);
     p.px(11, 13 + bob, PAL.bootsDark);
+    p.px(15, 17 + bob, PAL.buckle);
+    // bainha de adaga no quadril (assinatura do rogue)
+    p.rect(20, 19 + bob, 1, 3, PAL.bootsDark);
+    p.px(20, 18 + bob, SENT.edge);
   } else if (facing === "e") {
     p.rect(13, 16 + bob, 5, 1, PAL.bootsDark);
+    p.px(14, 13 + bob, SENT.light); // ombro
   } else {
+    p.rect(9, 14 + bob, 2, 1, SENT.light);
+    p.rect(21, 14 + bob, 2, 1, SENT.base);
     for (let i = 0; i < 6; i++) p.px(19 - i, 14 + bob + i, PAL.bootsDark);
   }
 }
@@ -425,7 +464,14 @@ function robeArcano(p: Px, facing: PartFacing, frame: number): void {
     p.rect(13, y, 6, 1, back ? SENT.dark : SENT.base);
     p.rect(19, y, 2, 1, SENT.dark);
   }
-  if (!back) p.rect(15, 14 + bob, 2, 7, SENT.dark); // abertura central
+  if (!back) {
+    p.rect(15, 14 + bob, 2, 7, SENT.dark); // abertura central
+    // runas na barra (pontos claros alternados — assinatura arcana)
+    p.px(13, 20 + bob, SENT.shine);
+    p.px(18, 20 + bob, SENT.shine);
+    // faixa de pano na cintura
+    p.rect(12, 18 + bob, 8, 1, SENT.shadow);
+  }
   // mangas LARGAS
   const armL = frame === 1 ? 1 : frame === 2 ? -1 : 0;
   p.rect(8, 15 + bob + armL, 3, 5, SENT.dark);
@@ -451,8 +497,20 @@ function tunicaAurora(p: Px, facing: PartFacing, frame: number): void {
   }
 }
 
-/** Camisa de Cidadão: pano simples, mangas curtas (antebraço de pele). */
-const camisaCidadao: PartDrawFn = (p, f, fr) => simpleTorso(p, f, fr, false);
+/** Camisa de Cidadão: gola em V + cordões (pano de gente comum). */
+function camisaCidadao(p: Px, facing: PartFacing, frame: number): void {
+  simpleTorso(p, facing, frame, false);
+  const bob = bobOf(frame);
+  if (facing === "s") {
+    // gola em V com cordões
+    p.px(15, 14 + bob, SENT.shadow);
+    p.px(16, 14 + bob, SENT.shadow);
+    p.px(15, 15 + bob, SENT.shadow);
+    p.px(16, 16 + bob, PAL.dirtLight); // cordão
+  } else if (facing === "e") {
+    p.px(17, 14 + bob, SENT.shadow);
+  }
+}
 
 // ──────────────────────────────────────────────────────────────────────
 // PERNAS
@@ -519,6 +577,7 @@ function skirtLegs(p: Px, facing: PartFacing, frame: number, long: boolean): voi
     p.rect(18 + spread, y, 2, 1, SENT.dark);
   }
   if (!back) p.rect(15 + sway, 23, 1, hem - 23, SENT.dark); // prega
+  p.rect(11, hem, 10, 1, SENT.light); // orla clara (detalhe de barra)
   p.rect(11, hem + 1, 10, 1, SENT.shadow); // barra
   p.rect(13, hem + 1, 2, 1, PAL.bootsDark);
   p.rect(17, hem + 1, 2, 1, PAL.bootsDark);

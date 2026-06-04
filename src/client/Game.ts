@@ -121,6 +121,9 @@ export class Game {
       }
     });
     this.mouse = new Mouse(this.app.canvas, (sx, sy) => {
+      // Clique sobre painel de UI NÃO vaza para o mundo (anti click-through):
+      // o boneco não anda quando o jogador interage com uma janela.
+      if (this.uiBlocksClick(sx, sy)) return;
       const tile = this.camera.screenToTile(sx, sy, this.app.screen.width, this.app.screen.height);
       // Click num monstro = seleciona alvo (re-click no alvo atual = cancela,
       // toggle estilo Tibia); click no chão = só anda — andar NÃO cancela o
@@ -163,6 +166,14 @@ export class Game {
     } else {
       this.transport.send({ type: "useSkill", skillId, targetId: this.targetId });
     }
+  }
+
+  /** True se (sx,sy) está sobre um painel de UI visível (janelas clicáveis). */
+  private uiBlocksClick(sx: number, sy: number): boolean {
+    for (const c of [this.charPanel.container, this.outfitPanel.container]) {
+      if (c.visible && c.getBounds().rectangle.contains(sx, sy)) return true;
+    }
+    return false;
   }
 
   /**

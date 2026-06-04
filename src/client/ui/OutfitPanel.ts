@@ -8,6 +8,7 @@ import {
   type OutfitState,
 } from "../../shared/outfits";
 import { hex, PAL } from "../assets/palette";
+import { makeDraggable } from "./draggable";
 
 const SLOT_LABELS: Record<OutfitSlot, string> = {
   head: "Cabeça",
@@ -53,10 +54,15 @@ export class OutfitPanel {
   private selectedSlot: OutfitSlot = "torso";
   private screenW = 0;
   private screenH = 0;
+  /** Posição escolhida pelo usuário ao arrastar (null = default à direita). */
+  private userPos: { x: number; y: number } | null = null;
 
   constructor(private onSetOutfit: (outfit: OutfitState) => void) {
     this.container.visible = false;
     this.container.addChild(this.bg);
+    makeDraggable(this.container, HEADER_H, (x, y) => {
+      this.userPos = { x, y };
+    });
 
     this.headerText = new Text({
       text: "Outfit",
@@ -201,9 +207,9 @@ export class OutfitPanel {
     const gridH = gridRows * (SW + SW_GAP);
     const gridTop = rowsTop + SLOTS.length * ROW_H + 10;
     const panelH = gridTop + gridH + PAD;
-    // ancorado à direita (DESIGN-VISUAL: painéis abrem à direita)
-    const x = Math.max(12, this.screenW - PANEL_W - 16);
-    const y = Math.max(12, (this.screenH - panelH) / 2);
+    // posição do usuário (drag) ou default ancorado à direita (DESIGN-VISUAL)
+    const x = this.userPos?.x ?? Math.max(12, this.screenW - PANEL_W - 16);
+    const y = this.userPos?.y ?? Math.max(12, (this.screenH - panelH) / 2);
     this.container.position.set(x, y);
 
     this.bg.clear();

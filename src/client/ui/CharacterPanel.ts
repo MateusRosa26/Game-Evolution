@@ -2,6 +2,7 @@ import { Container, Graphics, Text } from "pixi.js";
 import type { PlayerProgressState } from "../../shared/protocol";
 import { ATTRIBUTE_KEYS, type AttributeKey } from "../../shared/types";
 import { PAL, hex } from "../assets/palette";
+import { makeDraggable } from "./draggable";
 
 /** Rótulos pt-BR dos 5 atributos da camada sólida (chaves estáveis em inglês). */
 const ATTR_LABELS: Record<AttributeKey, string> = {
@@ -41,10 +42,15 @@ export class CharacterPanel {
   private freePoints = 0;
   private hasData = false;
   private screenH = 0;
+  /** Posição escolhida pelo usuário ao arrastar (null = default à esquerda). */
+  private userPos: { x: number; y: number } | null = null;
 
   constructor(private onAllocate: (attr: AttributeKey) => void) {
     this.container.visible = false;
     this.container.addChild(this.bg);
+    makeDraggable(this.container, HEADER_H, (x, y) => {
+      this.userPos = { x, y };
+    });
 
     this.headerText = new Text({
       text: "Personagem",
@@ -167,9 +173,10 @@ export class CharacterPanel {
   private layout(): void {
     const rowsTop = HEADER_H + 46; // header + bloco de resumo
     const panelH = rowsTop + ATTRIBUTE_KEYS.length * ROW_H + PAD;
-    // centralizado verticalmente, encostado à esquerda
-    const y = Math.max(12, (this.screenH - panelH) / 2);
-    this.container.position.set(PANEL_X, y);
+    // posição do usuário (drag) ou default: centralizado, encostado à esquerda
+    const x = this.userPos?.x ?? PANEL_X;
+    const y = this.userPos?.y ?? Math.max(12, (this.screenH - panelH) / 2);
+    this.container.position.set(x, y);
 
     this.bg.clear();
     this.bg.roundRect(0, 0, PANEL_W, panelH, 7).fill({ color: hex(PAL.panelBg), alpha: 0.95 });
