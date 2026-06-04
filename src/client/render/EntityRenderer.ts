@@ -103,6 +103,12 @@ export class EntityRenderer {
     // remove quem saiu
     for (const [id, v] of this.visuals) {
       if (!seen.has(id)) {
+        // o marcador de alvo é compartilhado — resgata antes de destruir o
+        // container, senão destroy({children}) o leva junto e setTarget crasha
+        if (this.targetMarker.parent === v.container) {
+          v.container.removeChild(this.targetMarker);
+          this.targetMarker.visible = false;
+        }
         v.container.destroy({ children: true });
         this.visuals.delete(id);
       }
