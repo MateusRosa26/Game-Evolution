@@ -29,19 +29,43 @@ O jogo é desenhado como **MMORPG** — toda mecânica de mundo nasce pensada pa
 
 **Uma região do continente central**, suportando evolução até **lvl ~20–25** — upar é difícil (ver Ritmo em `DESIGN-EVOLUCAO.md`), e é essa lentidão que torna Marcas/Mutações/Caminhos viáveis dentro do cap baixo.
 
-| Faixa | Zonas de caça | Exemplos com o bestiário atual |
+| Faixa | Spots viáveis (alvo) | Exemplos com o bestiário atual |
 |---|---|---|
-| T1 (lvl 1–8) | 2–3 | campos/trilhas (ratos, lobos), acampamento goblin, borda da floresta |
-| T2 (8–15) | 3–4 | caverna de aranhas, **cemitério contaminado** (1º arco), pântano raso, estrada dos bandidos |
-| T3 (15–25) | 3–4 | cripta profunda, floresta densa (plantas/urso), colinas (ogros), covil do culto |
+| T1 (lvl 1–8) | 4–5 | ratos na cidade + esgotos, trilha dos lobos, acampamento goblin, borda da floresta |
+| T2 (8–15) | **7–9** | mini-caverna de aranhas, **cemitério contaminado** (1º arco), pântano raso, estrada dos bandidos |
+| T3 (15–25) | 5–6 | cripta profunda, floresta densa (plantas/urso), colinas (ogros), covil do culto |
+
+> Ponderação pelo ritmo (ver alvo de horas em `DESIGN-EVOLUCAO.md`): **T2 é o centro de gravidade** — a maioria da população vive entre os níveis 8–18, então é a faixa que mais precisa de variedade.
 
 Regras do recorte:
 
-- **2–3 spots viáveis por faixa é o mínimo**: upar lento = muito tempo em cada faixa; spot único cansa e congestiona no MMO.
-- Dimensão alvo: ✏️ depende do escopo escolhido (ver "Aberto sobre o layout"): subconjunto do layout em **~300×350 tiles** ou layout inteiro (4 núcleos) em **~500×500**. Em ambos: ~65% wilderness com cantos escondidos para baús + **dungeons pequenas como mapas separados** (cripta, cavernas — adia tecnologia de andares/z-level).
+- **Spots suficientes por faixa**: upar lento = muito tempo em cada faixa; spot único cansa e congestiona no MMO. Spots são **bolsões pequenos** (ver Gramática de spawns abaixo).
+- Dimensão: **800×800 tiles (decidido)** — travessia real ~6–8 min; cidade↔cidade ~2–2,5 min (morrer longe de casa custa de verdade); wilderness genuína entre os spots. Dungeons como **mapas separados** (não consomem o overworld; adia tecnologia de andares/z-level).
+- A exploração é **liberada por poder, não por pernas**: lvl 1–8 anda seguro por ~25% do mapa; 8–15 por ~55%; 15–25 por ~85% — conhecer o mapa inteiro é projeto das ~30–45h, não da primeira hora (soft gates de letalidade fazem o trabalho).
 - **T4–T5 ficam fora do cap mas dentro do mapa** como "muros vivos": um Espectro (T4) no fundo da cripta é a promessa que o jogador um dia cumpre.
 - **Saídas da região bloqueadas naturalmente** (cordilheira, rio largo, posto de guarda "estrada fechada") — cada bloqueio é uma porta de expansão pronta.
 - Rascunhos de layout do criador em `design/rascunhos/`.
+
+## Gramática de spawns — spots, não cinturões (decidido)
+
+A caça **não** vive em "zonas/cinturões" demarcados: o mundo é uma **paisagem contínua salpicada de bolsões de spawn** pequenos, cada um com cara própria. A "área de caça" é o jogador quem monta, encadeando spots numa rota. Tipos de spot:
+
+| Tipo | O que é | Exemplos |
+|---|---|---|
+| **Covil** | o átomo do farm: 3–8 mobs de uma espécie num lugar com identidade | mini-caverna que spawna 3–5 esqueletos, ninho de aranhas |
+| **Rota habitada** | mobs que vivem AO LONGO de um caminho — viajar é encontrar | bandidos na estrada, lobos na trilha |
+| **Infestação urbana** | mobs avulsos na cidade/periferia + a dungeon urbana | ratos espalhados pela cidade + **esgotos** (clássico Tibia) |
+| **Campo temático** | assentamento com narrativa espacial — o spot é legível como LUGAR | bandit camp (tendas, fogueira), cemitério de esqueletos (lápides) |
+| **Bioma misto** | 2–4 espécies coerentes dividindo a mesma área, tiers vizinhos misturados | perto de terra gelada: elementais de gelo + ursos + lobos; pântano: serpente + tritões (+ piranhas na água) |
+
+**Regras de coerência (o universo pensa junto):**
+
+1. **Mob mora onde faz sentido** — família × habitat do bestiário, sempre. E o spot conta uma micro-história: *por que* esses esqueletos estão AQUI? (a resposta vem da lore: contaminação, tenente, apego).
+2. **Transições fluidas**: nas bordas entre áreas os spawns se misturam (borda da floresta: lobos + goblins) — descobrir a mistura É sentir a transição, sem placa.
+3. **Mesmo tier, lugares diferentes**: espécies da mesma faixa espalhadas em spots distintos — variedade de rota de farm e de paisagem, nunca "o corredor único do seu level".
+4. **Rotas emergem de encadear**: spots próximos formam circuitos (covil → campo → covil → cidade) que o jogador desenha sozinho; o mapa só posiciona as contas do colar.
+5. **Exploração paga em spots**: descobrir um covil escondido É recompensa (e os melhores têm baú guardado no fundo). Spot óbvio = salário; spot escondido = prêmio.
+6. **Densidade/respawn por spot**: dimensionados pra sustentar caçada contínua de 1–2 jogadores por spot (números ✏️ balancista, na sim).
 
 ## Layout da área inicial (rascunho de trabalho)
 
@@ -52,18 +76,20 @@ Regras do recorte:
 1. **Tier por distância** — o perigo cresce conforme se afasta das cidades: T1 no perímetro urbano → T3 nas áreas remotas. Gradiente contínuo com zonas sobrepostas (áreas de transição), não zonas fechadas.
 2. **Tier por profundidade** — caves/dungeons/ruínas têm múltiplos níveis: entrada T1–T2, profundezas T2–T3. Efeitos: o mundo serve várias faixas no mesmo lugar; o jogador **vê o próprio futuro** ("um dia eu desço"); e o último andar é o "muro" T4 natural.
 
-**Estrutura:**
+**Estrutura — 3 cidades no MVP + 1 porta de expansão (decidido):**
 
-- **4 núcleos urbanos** ligados por estradas — **batizados (decidido)**, peso ✏️ proposta: 1 capital + 3 vilarejos temáticos:
-  - **Alvorada** (oeste, planícies) — capital, hub completo. A primeira cidade fundada após a Chegada: "o amanhecer da humanidade no mundo novo".
-  - **Brumal** (nordeste) — vilarejo madeireiro/caçador nas florestas fechadas, borda gelada ao norte.
-  - **Charneca** (sul) — vilarejo na planície brava, à sombra das próprias catacumbas. Porta do arco da Contaminação.
-  - **Pontal** (leste) — o último assentamento humano antes do território élfico; fronteira e comércio.
-  - *(banco: **Atalaia** — reservado para o posto de vigia da saída de expansão da região ✏️)*
-- **13 pontos de interesse** em 5 categorias:
+- **Alvorada** (oeste, planícies) — **capital**, hub completo. A primeira cidade fundada após a Chegada: "o amanhecer da humanidade no mundo novo". District: planície dourada, civilização, muralha; weenie: a torre da muralha (+ a **Árvore Sagrada** no horizonte distante — promessa macro da lore). Constelação T1: ratos na cidade + **Esgotos** (dungeon urbana), planícies, trilha dos lobos, acampamento goblin, estrada dos bandidos ao sul.
+- **Charneca** (sul) — vilarejo do **arco da Contaminação**. District: planície brava, névoa, musgo cinza; weenie: a colina do cemitério com a capela em ruína. Constelação T1→T2: pântano raso (Aquáticos), cemitério (Mortos-Vivos), **Catacumbas**.
+- **Brumal** (nordeste) — vilarejo madeireiro, a **fronteira selvagem**. District: floresta fechada, bruma azulada; weenie: o **Pico do Dragão** ao norte (muro T4–T5 do MVP). Constelação T2→T3: Floresta Sombria, Dungeon da Floresta, Cavernas de Gelo, colinas de ogros — bioma misto na borda da serra (elementais de gelo + ursos + lobos).
+- **Pontal** (leste) — **fechada no MVP**: visível do outro lado do rio (a balsa não atravessa), guardada por **Atalaia**, o posto de vigia na estrada leste. É a porta de expansão élfica — o Santuário Élfico (T1–T2) fica acessível como POI deste lado.
+- **Esqueleto Lynch**: triângulo de estradas Alvorada↔Charneca↔Brumal com as **Ruínas Antigas no node central** (T1→T3 por profundidade, boss do arco no fundo); edges = serra ao norte, rio a leste, penhascos ao sul (3 portas de expansão); canto NE (gelo+Pico) = extremo do gradiente, o mais longe da segurança.
+- **Orçamento de conteúdo do MVP**: ~20–25 spots de caça (ponderados: T2 maior fatia) · ~25–35 quests · **5–15 baús** (raros — ver Baús) · ~12+ segredos não-baú (atalhos, áreas, keywords, NPCs escondidos) · ~16–18 andares de dungeon somados.
+- **Construção em fatias verticais**: ① constelação de Alvorada (cidade + esgotos + spots T1) → ② Charneca + atos 1–2 do arco → ③ Brumal + fronteira T3 + boss. Cada fatia jogável de ponta a ponta.
+- **14 pontos de interesse** em 5 categorias (Esgotos de Alvorada adicionado):
 
 | Categoria | POI (placeholder) | Tiers | Encaixe proposto (lore/bestiário) |
 |---|---|---|---|
+| 🏰 Dungeon | **Esgotos de Alvorada** | T1→T2 | dungeon urbana a 30s do depot — onde todo novato aprende o que é dungeon (ratos → ⁇ na profundidade) |
 | ⛰️ Caverna | Caverna dos Goblins | T1–T2 | goblins → hobgoblins (Humanoides) |
 | ⛰️ Caverna | Minas Perdidas | T1–T2 | Vermes/Humanoides; túneis rasos → poços profundos |
 | ⛰️ Caverna | Covil do Dragão do Pântano | T3 | boss Dracônico alcançável do MVP |
@@ -80,10 +106,9 @@ Regras do recorte:
 
 **Aberto sobre o layout ✏️:**
 
-- [ ] Escopo MVP: implementar subconjunto (capital + 1 vilarejo e POIs próximos, resto bloqueado) ou mapa inteiro maior (~500×500)?
-- [ ] Confirmar pesos: capital + 3 vilarejos
-- [ ] Marcar saídas de expansão (norte gelado parece borda natural; demais a definir)
-- [ ] Redistribuir os 2 POIs de dragão (1 boss T3 + 1 promessa T4–T5)
+- [ ] Posições exatas de cidades/POIs/spots no grid 800×800 (fatia por fatia, com rascunhos do criador)
+- [ ] POIs de dragão: Covil do Pântano = boss T3 alcançável; Pico do Dragão = promessa T4–T5 (proposta — confirmar)
+- [ ] Pirâmide Esquecida → *Túmulo dos Primeiros* (proposta de re-tema na mesa)
 
 ## Nomenclatura (processo a construir ✏️)
 
@@ -240,10 +265,11 @@ Janela de diálogo moderna com **opções clicáveis** + **campo de texto livre*
 | **Lacrado** | visível em caminhos naturais — a "promessa" | **nível mínimo** (estilo quest door) | gear **raro**, às vezes **lendário** nos lacres altos |
 | **Secreto** | atrás de interação: alavanca, parede rachada, puzzle simples | descoberta | o topo: **raro–lendário**, itens de acesso |
 
-- **Escondidos** são a malha base: num jogo onde upar é difícil e mobs são fortes (ver Ritmo em `DESIGN-EVOLUCAO.md`), achar um anel de regen ou botas melhores **muda o dia do jogador**. É o vetor que torna exploração = progressão.
-- **Lacrados** ficam à vista de propósito: o jogador nível 8 passa pelo lacre "nível 20", memoriza, e voltar lá vira objetivo pessoal. O mapa acumula promessas.
+- **Baú é asset RARO, não regra (decidido):** o MVP inteiro tem **5–10 baús, máximo 15**. Achar um é EVENTO — exatamente porque quase nunca acontece. A recompensa-base da exploração não é baú: é **descobrir** (spots de caça escondidos, segredos, atalhos, rumores confirmados, conhecimento). O baú é o jackpot por cima disso.
+- **Lacrados** ficam à vista de propósito: o jogador nível 8 passa pelo lacre "nível 20", memoriza, e voltar lá vira objetivo pessoal. O mapa acumula promessas. (Com o orçamento raro: 2–3 lacrados no MVP, bem escolhidos.)
+- **Escondidos**: num jogo onde upar é difícil, achar um anel de regen ou botas melhores **muda o dia do jogador** — e com baús raros, muda de verdade.
 - Interagir com baú já aberto mostra que está vazio ("Você já levou o que havia aqui.") — o estado é claro.
-- ✏️ Densidade por região e posições reais: M3 (design de mapa).
+- ✏️ Posições reais: M3 (design de mapa), distribuindo o orçamento entre os 4 tipos.
 
 ## Itens — papel no sistema (detalhamento no M2)
 

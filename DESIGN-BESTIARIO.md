@@ -189,7 +189,7 @@ Fendas do Abismo, profundezas dos cultos. **Imunes a fogo; fracos a sagrado** �
 | Plantas | sangramento | veneno | **fogo** (muito) |
 | Aquáticos | — | fogo | **gelo** |
 | Voadores | — | — | — |
-| Mortos-Vivos | veneno, sangramento | gelo; físico (só Espectro) | **sagrado**, fogo |
+| Mortos-Vivos | veneno, sangramento, **sombrio** | gelo; físico (só Espectro) | **sagrado**, fogo |
 | Dracônicos | — | fogo | **gelo** |
 | Gigantes | — | — | — |
 | Elementais | próprio elemento, veneno, sangramento | físico (Terra) | **elemento oposto** |
@@ -197,6 +197,23 @@ Fendas do Abismo, profundezas dos cultos. **Imunes a fogo; fracos a sagrado** �
 | Demônios | fogo | — | **sagrado** |
 
 Leitura de design: **fogo** é a fraqueza mais comum no early-mid (Vermes/Plantas/Mortos-Vivos) mas perde valor no endgame (Demônios imunes, Dracônicos resistem) — o mago de fogo brilha cedo e sofre tarde. **Gelo** inverte (forte vs Aquáticos/Dracônicos no late). **Sagrado** é nicho absoluto: devastador vs profanos, neutro no resto. Nenhum elemento é resposta universal.
+
+### Escala de multiplicadores — a "Regra 10–20" (decidido — jun/2026)
+
+Fraqueza/resistência é **multiplicador sobre o dano** (baseline 100%), nunca interruptor — com uma única exceção: imunidade. **A norma do jogo é ±10–20%** (balance); uns **poucos quebradores autorais** passam da régua onde a **verossimilhança exige** — a quebra é sempre identitária: o corpo da criatura justifica o número.
+
+| Camada | Faixa | Exemplo |
+|---|---|---|
+| **Subtipo físico** (corte/impacto/perfuração) | sussurro: **±10%**, exceções raríssimas | esqueleto: maça 110%, flecha 90% |
+| **Elemental — a norma (regra 10–20)** | fraqueza **110–120%** · resistência **80–90%** | undead: fogo 110% · gelo ~85% |
+| **Quebradores autorais** (poucos, identitários) | fraqueza **~125%** · resistência **~70%** | elemental × elemento oposto ~125% · undead × sagrado ~125% ✏️ · dracônico cuspidor de fogo × fogo ~70% |
+| **Imunidade** | **0%**, raríssima e tematicamente óbvia | elemental × próprio elemento (golem de pedra × terra, elemental de fogo × fogo) · undead × sombrio · demônio × fogo |
+
+- **Exemplo canônico — Mortos-Vivos:** sombrio **0%** · sagrado **~120–125%** (candidato a quebrador ✏️) · fogo **110%** · gelo **~85%** · demais **100%**.
+- **Números exatos de toda a matriz ✏️ Balancista** — as faixas acima são a régua de design, não valores finais.
+- "Devastador" no vocabulário deste doc = ~125% (quebrador) — fraqueza **nunca dobra dano**.
+- **Sombrio** é o elemento dos profanos (Projétil sombrio de Cultistas/Tormentadores) — formalizado como classe de dano; nome final ✏️ Loremaster (sombrio? trevas?). Se/quando jogadores acessam dano sombrio ✏️ aberto.
+- **Anti-datamine:** nenhum multiplicador aparece em tooltip ou viaja no snapshot — descobre-se sentindo o dano e por NPCs. Regras da camada física em `DESIGN-ITENS.md`.
 
 ## Ganchos com o sistema de Marcas
 

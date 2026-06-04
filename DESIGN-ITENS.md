@@ -8,21 +8,22 @@
 |---|---|
 | Slots de equipamento | **11 slots, modelo Tibia**: capacete, armadura, calça, botas, 2 mãos, colar, 2 anéis, mochila, utilitário |
 | Mãos | Arma de **2 mãos ocupa os dois slots** (estilo Tibia). **Dual wield existe, restrito ao Rogue** |
-| Luvas/soqueiras | Item de mão **não-arma**, com stats, usável por **qualquer classe** — equipar/lutar com luvas **não quebra** a conduta *Mão Vazia* (kills com luvas contam como desarmado p/ o Monge) |
+| Luvas/soqueiras | Item de mão **não-arma**, com stats, usável por **qualquer classe** — equipar/lutar com luvas **não quebra** a conduta *Mão Vazia* (kills com luvas contam como desarmado p/ o Monge). **1 slot cada**: 1 luva + arma/escudo/livro, ou 2 luvas (commit na mecânica) |
 | Condutas × slots | *Pele de Ferro* = nunca equipar **as 4 peças de vestir** (capacete/armadura/calça/botas) · *Mão Vazia* = nunca equipar **arma** (luvas ok) |
 | Mochila | **Containers aninhados** estilo Tibia (mochila dentro de mochila, cada uma abre sua janela) |
-| Slot utilitário | Regras por tipo: **flechas consomem** (munição), **tocha ilumina** (raio de luz pessoal), **charm é passivo** |
-| Raridades | Comum → Incomum → Raro → **Lendário** → **Único** (decidido em `DESIGN-MUNDO.md`), slots de Marca 1/1/1/2/3 |
+| Slot utilitário | Regras por tipo: **flechas/virotes consomem** (munição), **tocha ilumina** (raio de luz pessoal), **charm é passivo** |
+| Raridades | Comum → Incomum → Raro → **Lendário** → **Único** (decidido em `DESIGN-MUNDO.md`), slots de Marca 1/1/1/2/3. **Raridade é taxonomia interna** (peso dos stats, slots de Marca, fonte/escassez) — **nunca** quantidade de linhas de stat; lendário/único = end-game **pelas Marcas**, poder base contido. Slots de Marca **ocultos no tooltip**. Visibilidade da raridade na UI ✏️ (acoplada à conversa futura de forja) |
 | Modelo de raridade | **Fixa por item (Modelo A, decidido)**: *Espada de Ossos* é sempre rara, sempre os mesmos stats. Sem upgrade de raridade, sem forja destrutiva, sem rolls por instância — instâncias diferem pelo **ledger/Marcas** (história), nunca por stats rolados |
 | Economia de itens | ✏️ **em discussão** — acoplada à decisão de PvP/perda de loot (o churn de itens define quanto sink artificial a economia precisa). Já descartado: encantamento temporário/renovável (treadmill). Em avaliação: desmantelar/salvage, têmpera permanente, preparos consumíveis. Direções aceitas: quests/oferendas que consomem itens; ledger = apreciação com uso |
 | Instâncias | Todo item equipável é **instância com ID + ledger** — contadores de Marca viajam com o item (decidido em `DESIGN-EVOLUCAO.md`) |
-| Requisitos de uso | Itens têm requisito de **nível** e de **stats**: nem todos têm requisito de stats; **poucos** itens não têm requisito de nível. Restrição por **classe é minoria** — a maioria dos itens é *desinteressante* para certas classes **por essência** (stats que não servem), não por trava |
-| Mitigação | **Exclusiva de itens** (decidido com `DESIGN-EVOLUCAO.md`): defesa física, resistência mágica e resists elementais são stats de equipamento — atributos nunca mitigam, só dão potência/recursos |
+| Requisitos de uso | Itens têm requisito de **nível** (o gate mais comum) e de **stats** (comum, não universal). Restrição por **classe é virtualmente zero em armas** e raríssima no geral — a segregação é **por essência** (stats que não servem àquela classe), não por trava |
+| Mitigação | **Exclusiva de itens** (decidido com `DESIGN-EVOLUCAO.md`): defesa física, resistência mágica e resists elementais são stats de equipamento — atributos nunca mitigam, só dão potência/recursos. **Def física é FLAT** (cada hit físico chega −X, modelo Tibia Arm); resists mágica/elementais são % |
 | Cap de resistência | Resistências (mágica/elementais) têm **teto declarado** ✏️ valor (lição UO: cap 70%) |
-| Armas mágicas (cajado/wand) | Auto-attack mágico tem **dano fixo em faixa** (ex: 8–10) por tier de arma — **não escala com Int** (anti-OP de Mage). Magias/skills continuam escalando com Int |
+| Armas mágicas (cajado/wand) | Auto-attack mágico tem **dano fixo em faixa** (ex: 8–10) por tier de arma — **não escala com Int** (anti-OP de Mage). Magias/skills continuam escalando com Int. **Wand 1H × cajado 2H = escolha de loadout do caster**; cetro = a wand holy do Priest; wands/cajados vêm por elemento |
 | Acerto/esquiva | **Sem stat de acerto** (modelo Tibia). Esquiva é exclusiva de jogador — **mobs não esquivam**: o dano do jogador é sempre legível |
-| Tipos de item de mão | ✏️ a aprofundar (armas por classe, escudos, cajados, livros de magia, luvas…) |
-| Stats de item | ✏️ a decidir (depois de aprofundar stats de personagem) |
+| Tipos de item de mão | **Decidido (jun/2026)** — roster completo na seção. Trio For diferenciado por **subtipos físicos sutis** (corte/impacto/perfuração, teto **±10%**, camada-sussurro) + perfil numérico; **arco × besta** (rápido × pesado, flechas × virotes); **2H compra dano, paga a off-hand** (velocidade é da família); adaga tipo único; casters wand 1H × cajado 2H; cetro **sem trava**; livro de magia com stats autorais; escudo = Def passiva + bloqueio em chunks (nunca 100%); luva = 1 slot cada |
+| Stats de item | **Decidido (jun/2026)**: Def física **flat**; atributos em item **raríssimos** (só lendário/único, sempre com tradeoff; **requisito de equip checa atributo base**, nunca bônus de item); recursos (+HP/mana, +regen) ok; tradeoffs autorais; +poder de cura ok; **+poder mágico raro e pequeno**, muitas vezes com tradeoff. **Modelo de peça**: base do slot + **1 bônus de identidade** (2º só quando o design pede, ex. tradeoff — nunca função da raridade); **joias sem Def física** |
+| Famílias de equipamento | **Famílias temáticas SEM set bonus (decidido)**: cada peça carrega o tema sozinha, mix-and-match livre; a camada "conjunto com história" é das Marcas. Cadência de conteúdo: básicos → diversificados → tradeoffs → lendários/únicos de evento, **limitadíssimos** |
 | Loot tables | ✏️ a decidir (modelo por família/tier) |
 | Economia / gold | ✏️ a decidir (drop, preços, sinks) |
 
@@ -70,28 +71,139 @@ Três eixos de gate, do mais comum ao mais raro:
 
 | Eixo | Frequência | Exemplo |
 |---|---|---|
-| **Nível mínimo** | quase todo item (poucos não têm) | espada longa: nível 12 |
+| **Nível mínimo** | **o gate mais comum** — quase todo item (poucos não têm) | espada longa: nível 12 |
 | **Stats mínimos** | comum, mas não universal | machado pesado: Força 25 |
-| **Classe** | **minoria deliberada** | cetro consagrado: só Priest |
+| **Classe** | **virtualmente zero em armas**; raríssima no geral | (exceção estrutural: dual wield só Rogue) |
 
-**Princípio:** a segregação natural vem dos **stats**, não de travas. Um robe com +mana é *legal* pro Mage e *inútil* pro Knight por essência — ninguém precisa proibir nada. Restrição de classe é reservada para itens identitários (✏️ critério exato ao definir os tipos de mão).
+**Princípio:** a segregação natural vem dos **stats**, não de travas. Um robe com +mana é *legal* pro Mage e *inútil* pro Knight por essência; um Knight **pode** equipar cajado — só não tem motivo. Hierarquia de gates: **nível > stats > classe (~0)**. Restrição de classe real é reservada a raríssimos itens identitários (✏️ critério ao definir os tipos de mão).
 
 - Item com requisito não atendido: **não equipa** (estilo Tibia ✏️ confirmar — alternativa seria equipar com penalidade; proposta: não equipa, simples e legível).
 
-## Anatomia de um item ✏️ (próxima decisão)
+## Anatomia de um item (decidido — jun/2026)
 
-Pré-requisito fechado: stats de personagem definidos em `DESIGN-EVOLUCAO.md` (atributos = potência/recursos; itens = mitigação). O que falta decidir aqui — o **vocabulário de stats de item**:
+O **vocabulário de stats de item**:
 
-- **Mitigação** (exclusiva de itens): defesa física, resistência mágica, resists elementais (%)
-- **Ofensa**: dano da arma (base + cooldown próprio), dano elemental adicional ("+X de fogo"), dano mágico ✏️
-- **Recursos**: +HP/+mana flat, +regen (mana regen, HP regen) ✏️
-- **Atributos**: itens podem dar +For/+Des/etc.? ✏️
-- **Tradeoffs** (a personalidade dos itens): −vida +mana, +dano −defesa e nuances assim ✏️
-- **Stats únicos/especiais**: velocidade de movimento (botas), raio de luz (tocha), capacidade (mochila) ✏️
+| Grupo | Stats | Status |
+|---|---|---|
+| **Mitigação** (exclusiva de itens) | **Def física FLAT** — soma das peças, cada hit físico chega −X (modelo Tibia Arm) · resist mágica **%** · resists elementais **%** (cap ✏️ valor) | decidido |
+| **Ofensa** | dano base da arma + cooldown próprio · subtipo físico · dano elemental adicional ("+X de fogo", modelo Fire Sword) | decidido |
+| **Recursos** | +HP/+mana flat · +regen de HP/mana (já existem como facilitação: *anel de regen menor*) | decidido |
+| **Atributos** | **Raríssimo: só lendários/únicos, sempre com tradeoff autoral** (arquétipo Thanatos: +Int −Vit). **Regra anti-loop: requisitos de equip checam o atributo BASE** (distribuído no level up), nunca bônus de item | decidido |
+| **Tradeoffs** | autorais, por item, nunca rolados (−HP +dano · resist X / vulnerável Y, modelo Glacier) | decidido |
+| **Únicos/contextuais** | velocidade de movimento (botas) · raio de luz (tocha) · capacidade (mochila) | decidido |
+| **Potência de skill** | **+poder de cura**: existe (já canônico em livros/cetros) · **+poder mágico** (ofensivo): existe, **raro e pequeno** (✏️ valores Balancista), frequentemente pago com tradeoff autoral (−HP +poder) — modelo +magic level do Tibia | decidido |
 
-## Tipos de item de mão ✏️
+- **Por que flat na Def física:** hordas fracas viram arranhão pra quem investiu em armadura, mas o golpe do T5 **atravessa** — armadura nunca te salva do que é maior que você (pilar 2: o perigo continua perigo). Contraste legível com as duas camadas %: bloqueio de escudo e resists.
+- Ordem das camadas de mitigação no cálculo (bloqueio % → Def flat → resist %?) ✏️ Balancista/implementação.
 
-_(armas por classe, escudos, cajados, livros de magia, luvas — aprofundar)_
+## Famílias de equipamento & modelo de peça (decidido — jun/2026)
+
+**Modelo de peça** — toda peça = **stat-base do slot** (pago pelo tier) + **bônus de identidade** (a personalidade):
+
+```
+Peça de vestir:    Def flat (base do slot/tier)  +  bônus de identidade
+Arma:              dano (base do tier)           +  bônus (+X elemental…)
+Joia (colar/anel): SEM base — o slot é só bônus (joia NUNCA tem Def física)
+```
+
+- **1 bônus por peça na regra; o 2º só quando o design pede** (tradeoff exige duas linhas: −HP +poder). **Nunca função da raridade** — um Único pode ter uma linha só e ser o melhor item do jogo naquela linha.
+- O exemplo-modelo: todo capuz T2 tem a mesma Def base; a variante do caçador dá **+dano de distância**, a do erudito **+mana**, a do templário **+poder de cura**. Mesmo orçamento, essências diferentes — segregação por essência, peça a peça.
+- **+dano físico/distância em peças de vestir** entra no vocabulário (o espelho marcial do +poder mágico): mesmo regime — raro e pequeno.
+- **Guardrail anti-stack:** stats de potência (+poder mágico/cura, +dano) existem em **poucos slots por design** (ex: capacete, colar, livro) — a escassez de slots portadores é o cap natural, sem regra extra.
+
+**Matriz slot × bônus de identidade** (✏️ refinável; potência marcada com ⚡ = regime raro/pequeno):
+
+| Slot | Base | Bônus possíveis |
+|---|---|---|
+| Capacete | Def | +mana · +regen · ⚡+poder mágico/cura · ⚡+dano dist./melee |
+| Armadura (peito) | Def maior | +HP · resists · tradeoffs autorais |
+| Calça | Def | +HP/+mana · resists |
+| Botas | Def | **velocidade** (o lar dela) · +regen |
+| Colar | — | resists · +regen · ⚡+poder · tradeoffs (modelo Glacier) |
+| Anel ×2 | — | +regen · facilitação · resists · atributo (só lendário/único + tradeoff) |
+| Mãos | dano / Def | já especificado no roster de tipos |
+
+**Famílias temáticas — SEM set bonus (decidido):** linhas de gear com tema onde **cada peça carrega o tema sozinha** (capuz, robe e calça do erudito dão mana/regen cada um — usar várias soma naturalmente; misturar linhas é livre e eficiente). Sem bônus por completar conjunto: a camada "conjunto com história" é das **Marcas**, e o mix-and-match é onde mora a expressão de build num jogo sem subclasses. Famílias-exemplo (nomes ✏️ Loremaster): sustain arcano (mana/regen) · potência mágica · dano elemental · caçador (distância) · bastião (Def/HP) · templário (holy/cura).
+
+**Cadência de conteúdo** (régua de releases): itens básicos → diversificados → com tradeoffs → lendários/únicos de quests difíceis e **eventos icônicos do mundo**, em quantidades **limitadíssimas** — nunca quebram a balança; abrem espaço de upgrade e build.
+
+### Raridade re-fundamentada (decidido)
+
+Raridade é **taxonomia interna de design**, não rótulo de poder na tela:
+
+| Raridade define | Raridade NÃO define |
+|---|---|
+| **peso/orçamento** dos stats (qualidade que o jogador sente) | quantidade de linhas de stat |
+| **slots de Marca** (1/1/1/2/3) | salto de poder que quebra a balança |
+| **fonte e escassez** (mob → baú → quest/evento icônico) | |
+
+- **Lendário/único = end-game pelas Marcas, não pelo número:** poder base contido; os 2–3 slots de Marca fazem o item **crescer com a história** — o único "upgrade infinito" do jogo, e é conquistado, não dropado.
+- **O dilema-relíquia é design desejado:** lendário lvl 20 com 2 Marcas desenvolvidas × raro lvl 45 com mais atk base e zero história. A dor dessa escolha é o sistema funcionando ("ledger = apreciação", economia).
+- **Slots de Marca ocultos no tooltip (decidido):** o jogador descobre os slots quando Marcas despontam (hint ~50%, modelo de `DESIGN-EVOLUCAO.md`) — número de slots visível vazaria a raridade por outra porta.
+- **Visibilidade da raridade na UI ✏️ ABERTO** — acoplada à conversa futura de **forja** (interesse declarado: modelo Apogea, combinar idênticos + ingots). ⚠️ **Alerta de constituição:** o Modelo A registra *"sem upgrade de raridade, sem forja destrutiva"* — qualquer sistema de forja **renegocia o Modelo A explicitamente**, não entra como acréscimo.
+
+## Tipos de item de mão (decidido — sessão jun/2026)
+
+### Roster
+
+| Tipo | Mãos | Escala | Subtipo físico | Essência |
+|---|---|---|---|---|
+| **Espada** | 1H e 2H | For | corte | a arma equilibrada |
+| **Machado** | 1H e 2H | For | corte | dano máximo, lenta |
+| **Maça** | 1H e 2H | For | impacto | intermediária — o diferencial é o impacto |
+| **Adaga** | 1H (única dual-wieldável; Rogue) | Des | perfuração | rápida, fraca por golpe |
+| **Arco** | 2H | Des | perfuração | distância, cadência rápida; flechas no utilitário (consomem) |
+| **Besta** | 2H | Des | perfuração | distância, lenta e pesada; virotes no utilitário (consomem) |
+| **Wand** | 1H | dano fixo/tier | elemental | caster com off-hand livre |
+| **Cajado** | 2H | dano fixo/tier | elemental | dano fixo maior; conta p/ *Duas Mãos* |
+| **Cetro** | 1H | dano fixo/tier | holy | a wand do elemento sagrado — arquétipo do Priest, **sem trava** |
+| **Escudo** | 1H (off-hand) | — | — | Def passiva + bloqueio em chunks (nunca 100%) |
+| **Livro de magia** | 1H (off-hand) | — | — | stats autorais por livro |
+| **Luva/soqueira** | 1H (**1 slot cada**) | — | — | não-arma; 1 luva + arma/off-hand, ou 2 luvas (commit) |
+
+### Subtipos físicos (decidido — a camada-sussurro)
+
+Dano físico tem 3 subtipos: **corte** (espada/machado), **impacto** (maça), **perfuração** (adaga/arco). O medo a evitar: o jogador se sentir **cobrado** a otimizar loadout. Regras que travam o dial:
+
+- **Default global: neutro.** A maioria das famílias ignora subtipo físico — na caçada comum, arma é identidade + lente de Marca, não otimização.
+- **Exceções raríssimas e autorais**, onde a física narra sozinha (esqueleto racha com maça e ri de flecha; gosma não se corta) — telegrafia pelo corpo da criatura (pilar 2).
+- **Modificadores sutis: teto ±10%** (✏️ valores exatos com Balancista). Perceptível — o dano do jogo é estável (sem crit passivo, sem accuracy, mob não esquiva), então ±10% é legível nos números — mas **nunca decisivo**: ±25% já seria "caçar 25% mais rápido", otimização real, pressão de loadout.
+- **Imunidade NUNCA por subtipo de arma.** Imunidade/resistência forte só existe na **classe de dano inteira** (ex: Espectro resiste a *físico* — já no bestiário) e segue raríssima.
+- **Anti-datamine:** resists do mob não viajam no snapshot nem aparecem em tooltip — descobre-se sentindo o dano e por NPCs ("flecha em osso é reza pro vento", diz o caçador).
+- **Divisão de papéis:** a matriz **elemental** do bestiário é quem carrega a demanda situacional de loadout — e mesmo ela segue a **"Regra 10–20"**: norma ±10–20%, poucos quebradores autorais identitários (~125% / ~70%) e imunidade (0%) raríssima e temática (golem de pedra × terra, undead × sombrio). Escala completa em `DESIGN-BESTIARIO.md` ("Escala de multiplicadores"). O subtipo físico (±10%) é a camada-sussurro abaixo dela.
+
+### Regras transversais do roster (decidido)
+
+- **1H × 2H (espada/machado/maça):** o 2H compra **dano por golpe** e paga com a **off-hand** (escudo/livro/luva). Velocidade é perfil da **família**, não das mãos — machado é lento sendo 1H ou 2H, espada é equilibrada nas duas. Quanto dano a mais ✏️ Balancista.
+- **Arco × besta:** arco = cadência rápida, dano menor · besta = lenta, golpe pesado — o perfil espada×machado do ranged. Munições distintas (**flechas × virotes**), ambas no utilitário, consomem.
+- **Adaga é tipo único** — sem subtipos; a variedade vem de itens autorais (adaga com veneno, +sombrio, lendárias…). Mantém a lente de Marca do Rogue coesa.
+- **Off-hand fechada:** a segunda mão recebe **arma 1H** (dual wield só Rogue), **escudo**, **livro** ou **luva**. Tocha mora no utilitário. Categoria nova de off-hand só como item raro dentro de tipo existente (ex: "foco arcano" = livro).
+- **Nenhum tipo tem trava de classe** — confirmado inclusive pro cetro. A única trava do jogo segue sendo dual wield (Rogue).
+
+### Decidido nesta sessão (casters e livro)
+
+- **Wand 1H × Cajado 2H — escolha de loadout do caster.** Wand 1H: dano fixo menor, libera a off-hand (livro/escudo). Cajado 2H: dano fixo maior, ocupa as duas mãos — e **conta para o caminho *Duas Mãos, Nenhuma Dúvida***. O caster participa do mesmo tradeoff de mãos do marcial.
+- **Cetro = a wand do elemento sagrado** (1H, dano fixo holy) — arquétipo e kit inicial do Priest, **sem trava de classe**: como o auto-attack mágico é fixo por tier (não escala com Int/Esp), um Mage com cetro caçando undead é loadout situacional legítimo; a essência de Priest mora nos stats secundários do cetro (+poder de cura). Wands/cajados vêm **por elemento** (cajado de fogo, wand de gelo…) — o auto-attack mágico carrega tipo elemental.
+- **Livro de magia (off-hand): stats variados por livro.** É o "escudo do caster" com personalidade: cada livro dá um pacote autoral (+mana e regen de mana · +resist mágica · +poder de cura…). Escolha de livro = expressão de build; espaço para livros raros memoráveis. Sem fórmula fixa por tier.
+
+### Amarras já decididas (referência)
+
+- Restrição de classe em armas ≈ **zero** (segregação por stats/essência); dual wield é a única trava (Rogue, adagas)
+- Arma de 2 mãos ocupa os dois slots; adagas escalam Des, demais melee For (`formulas.ts`); arco/distância = Des
+- Luvas/soqueiras: item de mão não-arma (compatível com Monge)
+
+### Escudo (decidido)
+
+Duas camadas:
+
+1. **Def passiva** — stat constante, entra na fórmula de mitigação física normal (como peça de armadura). Sempre ativa, visível no tooltip.
+2. **Bloqueio** — chance % de bloquear; ao bloquear, absorve **% grande do golpe (✏️ ~60–80%, Balancista), nunca 100%** — sempre vaza dano. Cada bloqueio emite o evento `block` (contador do *Inabalável*).
+
+**Bloqueio total é exclusivo do Caminho *Inabalável*** (50k bloqueios): a recompensa lendária é fazer o que nenhum escudo do jogo faz. Por isso o bloqueio comum *nunca* chega a 100% — é regra de identidade, não só de balance.
+
+### Luvas/soqueiras (decidido)
+
+**1 slot de mão cada.** Combinações: 1 luva + arma 1H · 1 luva + escudo/livro · **2 luvas = commit na mecânica do item** (dois pacotes de stats, mãos vazias de arma). Luva não impede segurar machado/espada na outra mão. Continua não-arma: nenhuma combinação com luva quebra *Mão Vazia* — só a arma quebra.
 
 ## Raridades e slots de Marca (já decidido — referência)
 
@@ -103,7 +215,7 @@ _(armas por classe, escudos, cajados, livros de magia, luvas — aprofundar)_
 | **Lendário** | 2 | segredos profundos, lacres altos, bosses (doc futuro) |
 | **Único** | 3 | eventos canônicos, world bosses — nunca de baú comum |
 
-Cores de raridade em `DESIGN-VISUAL.md`. Itens de **facilitação** (anel de regen menor, botas do viajante…) em `DESIGN-MUNDO.md`.
+Cores de raridade em `DESIGN-VISUAL.md` (⚠️ ✏️ em revisão — raridade pode ficar **invisível na UI**; decidir junto com a conversa de forja). Itens de **facilitação** (anel de regen menor, botas do viajante…) em `DESIGN-MUNDO.md`.
 
 ## Instância & ledger ✏️
 
@@ -136,12 +248,14 @@ Estado da discussão:
 ## Aberto / a decidir ✏️
 
 - [ ] Lentes de Marca por slot: quais dimensões cada slot rastreia (arma=kills, escudo=bloqueios, armadura=dano absorvido, anel/colar=?)
-- [ ] Stats de item e fórmula de defesa (com `formulas.ts`)
-- [ ] Tipos de arma por classe + tabela inicial de itens T1–T2
+- [ ] Fórmula de defesa em `formulas.ts` (modelo flat decidido; números e ordem das camadas ✏️ Balancista)
+- [ ] Tabela inicial de itens T1–T2 (tipos fechados ✅; nomes c/ Loremaster, números c/ Balancista)
 - [ ] Modelo de loot table por família/tier
 - [ ] Economia: drop de gold, preços, sinks
 - [ ] Durabilidade? (proposta: não — itens nunca se perdem, ver filosofia de morte)
 - [ ] Limites de aninhamento/capacidade da mochila (profundidade máx? peso via Força?)
+- [ ] Visibilidade de raridade na UI (cor/label × invisível) — decidir junto com a conversa de **forja** (⚠️ forja renegocia o Modelo A: "sem upgrade de raridade, sem forja destrutiva")
+- [ ] Nomes das famílias de equipamento (Loremaster) + refinamento da matriz slot × bônus
 
 ### Decididos recentemente (histórico)
 
@@ -152,6 +266,12 @@ Estado da discussão:
 - ✅ Mochila com containers aninhados estilo Tibia
 - ✅ Utilitário: flechas consomem, tocha ilumina, charm é passivo
 - ✅ Requisitos: nível (quase universal) + stats (comum) + classe (minoria); segregação por essência
+- ✅ Tipos de item de mão: roster completo; subtipos físicos como camada-sussurro (teto ±10%, exceções raríssimas, imunidade só por classe de dano); wand 1H × cajado 2H; cetro = wand holy; livro com stats autorais
+- ✅ Escudo: Def passiva + bloqueio em chunks (~60–80%, nunca 100%) — bloqueio total exclusivo do *Inabalável*
+- ✅ Luvas: 1 slot cada (1 luva + arma/off-hand, ou 2 luvas)
+- ✅ Besta no roster (arco rápido × besta pesada; virotes); regra 1H×2H (2H = +dano, paga off-hand; velocidade é da família); adaga tipo único; cetro sem trava de classe; off-hands fechadas (arma 1H/escudo/livro/luva)
+- ✅ Anatomia de stats: Def física flat (Tibia Arm); atributos em item raríssimos (lendário/único + tradeoff; requisito checa base); recursos e tradeoffs autorais confirmados; +poder de cura ok; +poder mágico raro/pequeno (modelo +magic level)
+- ✅ Modelo de peça (base do slot + 1 bônus de identidade; 2º só por design, nunca por raridade); joias sem Def; famílias temáticas SEM set bonus; raridade = taxonomia interna (peso/slots/fonte, não nº de stats); lendário/único = end-game via Marcas (dilema-relíquia desejado); slots de Marca ocultos no tooltip
 
 ---
 

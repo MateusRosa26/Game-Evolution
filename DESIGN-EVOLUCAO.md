@@ -25,10 +25,10 @@
 | Classes | **Knight / Mage / Rogue / Priest**, base fixa + especialização emergente. Sem subclasses escolhíveis |
 | Monge | Não é classe — é **Caminho emergente do Priest** (conduta *Mão Vazia*) |
 | Visibilidade | Condições ocultas; hint vaga aos **~50%**; nunca contador exato; unlock é um momento screenshotável |
-| Slots de Marca | Itens comuns→raros **1**, lendários **2**, únicos **3**; Caminhos sem cap, dificuldade escalante por Caminho obtido |
+| Slots de Marca | Itens comuns→raros **1**, lendários **2**, únicos **3**; Caminhos sem cap, dificuldade escalante por Caminho obtido. **Slots ocultos no tooltip** (decidido jun/2026, `DESIGN-ITENS.md`): descobertos quando Marcas despontam — nº de slots visível vazaria a raridade |
 | Permanência | **Marcas, Mutações e Caminhos nunca se perdem** — nem por morte, respec ou quebra de conduta pós-aquisição. Monge que equipa arma continua Monge |
 | Níveis de Marca | Marca tem **1–3 níveis** (depende da marca): subir nível = repetição contínua; **evoluir/alterar** = só evento canônico raro (boss mundial, PvP extremo). A Marca é o **ego** do item |
-| Ritmo / Morte | Progressão **difícil**: upar é lento, mobs são fortes. Morte pune **pesado em XP**, leve no resto — **itens nunca são perdidos em PvE**. Exceção única: contexto PvP escolhido (flag/zona) tem perda de loot — esqueleto em `DESIGN.md` ✏️ |
+| Ritmo / Morte | Progressão **difícil**, curva **exponencial** (ref. Apogea: cada nível ≈ 2× o anterior; rápido até ~8, depois cada level é projeto). Morte perde **% da XP total** (ref. 10% ✏️) — **pode deslevelar**; punição cresce com o personagem. Itens **nunca perdidos em PvE**. Exceção única: contexto PvP escolhido (flag/zona) tem perda de loot — esqueleto em `DESIGN.md` ✏️ |
 | Mutações | Nomeadas e qualitativas (não ranks); o **perfil de uso** decide qual mutação nasce; 2–4 por skill, autorais |
 | Thresholds | Brutais: ordem de 10–20k repetições / condutas por dezenas de níveis (números ✏️ calibrar com combate real) |
 | Proveniência | Contadores de item vivem na **instância** (ledger); progresso viaja com o item em trade/drop |
@@ -80,7 +80,7 @@ ITENS     → defesa física, resistência mágica, resists elementais (DESIGN-I
 - **Crítico (decidido): não existe roll passivo de atributo.** Crítico é efeito explícito concedido por skills, Mutações e Caminhos (*Riposte*, *Sombra Sem Nome*…), com multiplicador padrão do sistema (×2 ✏️). Sem variância invisível no combate core — crítico é evento desenhado, não moeda aleatória.
 - **Esquiva é assimétrica (decidido): mobs não esquivam.** Esquiva é derivado exclusivo de jogador — o dano do jogador é sempre legível (sem "errou" frustrante no grind). Sem stat de acerto no jogo (modelo Tibia).
 - Classes têm **crescimento base** próprio por nível além dos pontos livres (implementado em `CLASS_GROWTH`; números ✏️).
-- **Bloqueio de escudo** ✏️ proposta: escudo concede chance de **bloquear** (absorve X do golpe), rolada na sim — é o contador do Caminho *Inabalável*. Detalhar junto com os tipos de item de mão (`DESIGN-ITENS.md`).
+- **Bloqueio de escudo (decidido em `DESIGN-ITENS.md`, jun/2026):** escudo = **Def passiva** + chance de **bloqueio** que absorve % grande do golpe (~60–80% ✏️ Balancista), **nunca 100%** — bloqueio total é exclusivo do Caminho *Inabalável*. Cada bloqueio emite `block` (o contador do Caminho).
 
 **Respec (reroll de stats):**
 - **1 reset gratuito por personagem**, permanentemente disponível.
@@ -105,11 +105,13 @@ Vetores de poder da camada sólida (todos previsíveis e claros):
 3. **Equipamento** → loot/tiers de item (e onde as Marcas de item brilham como bônus)
 4. ✏️ futuro: crafting/profissões? consumíveis? — _a pensar_
 
-## Ritmo de progressão e morte (decidido)
+## Ritmo de progressão e morte (decidido — modelo Apogea)
 
 **Upar é difícil. Mobs são fortes.** Nível é símbolo de competência, não de tempo jogado:
 
-- Curva de XP íngreme (números ✏️ — calibrar no M2); cada level é conquista.
+- **Forma da curva (decidida, ref. Apogea):** começa rápido e fica **exponencialmente** mais lento — cada nível custa **aproximadamente o dobro** do anterior. Os primeiros níveis (~1–8) vêm rápido (o jogador entra no jogo); depois cada level vira projeto. Números exatos ✏️ balancista calibra na sim.
+- **Alvo de ritmo do MVP (decidido):** 1→25 em **~30–45h de caça eficiente** (casual: 2–3× isso). Split-alvo: 1→8 ~2–3h · 8→15 ~8–12h · 15→20 ~9–13h · 20→25 ~11–17h — **mais de um terço das horas nos últimos 5 níveis**. Lvl 25 é prestígio na escala da região (ref. criador: nos primeiros anos de Tibia não existia 200+ — o cap caro vem primeiro, áreas que facilitam vêm em expansões). Consequência de população: a maioria vive entre 8–18 → T2 é o centro de gravidade do conteúdo.
+  - ⚠️ Implementação: `formulas.ts` hoje usa a curva **cúbica do Tibia** — precisa migrar para a forma exponencial (delta ~2×/nível) na calibração.
 - Mobs exigem atenção e respeito — combate não é farm trivial nem de passagem. Um mob comum mal jogado pode matar.
 - Consequência: os thresholds das Marcas (10–20k kills) ficam ainda mais lendários, porque cada kill custa.
 
@@ -117,11 +119,11 @@ Vetores de poder da camada sólida (todos previsíveis e claros):
 
 | Aspecto | Punição |
 |---|---|
-| XP | **Pesada** — perde % significativa ✏️ (pode deslevelar? ✏️) |
+| XP | **Perde % da XP TOTAL acumulada** (ref. Apogea: 10% ✏️ calibrar) — **pode deslevelar, sim**. Com a curva exponencial, a punição cresce com o personagem: no early são minutos; no late, 1 morte ≈ retroceder 1+ níveis (10% do total ≈ 20% do custo do nível atual — quem acabou de upar deslevela) |
 | Itens / equipamento | **Nunca perdidos** — Marcas são o ego dos itens, e ego não se perde na morte |
 | Outros (gold, debuff temporário…) | Leve ou nenhuma ✏️ |
 
-Racional: a dor da morte precisa ser real (XP caro num jogo de upar difícil = morte dói muito), mas sem destruir a camada de Marcas/relíquias — perder uma espada com 14k kills seria punição desproporcional e mataria o investimento emocional que o jogo inteiro cultiva.
+Racional: a dor da morte precisa ser real (XP caro num jogo de upar difícil = morte dói muito) e **escalar junto com o que está em jogo** — o lvl 20 numa dungeon T3 arrisca horas, não minutos; é isso que torna profundidade um compromisso (custo de fracasso cresce, regra do world design). Mas sem destruir a camada de Marcas/relíquias — perder uma espada com 14k kills seria punição desproporcional e mataria o investimento emocional que o jogo inteiro cultiva. (Morte ainda não desconta XP no M1 — entra junto com a calibração ✏️.)
 
 ---
 
@@ -494,7 +496,7 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
 - [ ] Mutação substitui ou convive com a skill original? (proposta: substitui)
 - [ ] Rito de substituição/fusão de Marca em item com slots cheios?
 - [ ] Multiplicador de dificuldade por Caminho acumulado (ex: ×1.5)
-- [ ] % de XP perdida na morte; pode deslevelar? Punições secundárias leves (gold? debuff?)
+- [ ] Calibrar na sim: % exata da XP total perdida na morte (ref. 10%) e fator da curva (ref. ~2×/nível) — alvo 1→25 em ~30–45h eficientes; ⚠️ vigiar que morte no cap (~3–4h perdidas) fique em "dói muito" sem cruzar pra rage-quit; punições secundárias leves (gold? debuff?)
 - [ ] Lista de eventos canônicos que evoluem Marcas (world bosses no M3+, PvP no M6+)
 - [ ] Curva de XP / força dos mobs — números no M2
 
