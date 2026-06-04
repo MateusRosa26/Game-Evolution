@@ -5,8 +5,15 @@ RPG top-down em grid (estilo Tibia/Apogea), pixel art procedural 32px, dark medi
 ## Comandos
 
 - `npm run dev` — dev server Vite em http://localhost:5173 (polling ativado: projeto fica em /mnt/c)
+- Dependências instaladas **pelo WSL** (binários Linux). No PowerShell do Windows usar `.\dev.cmd` (encaminha pro WSL); nunca rodar `npm install` pelo Windows.
 - `npm run build` — type-check (tsc) + build de produção
 - `npx tsc --noEmit` — só type-check
+
+## Documentação de design
+
+- `DESIGN.md` (visão), `DESIGN-EVOLUCAO.md` (progressão + sistema de Marcas), `DESIGN-BESTIARIO.md` (criaturas), `DESIGN-VISUAL.md` (direção de arte + UI/layout), `DESIGN-MUNDO.md` (exploração, quests, NPCs, baús/itens), `DESIGN-LORE.md` (história do mundo, linha do tempo, raças), `DESIGN-ITENS.md` (slots de equipamento, raridades, loot, economia) — fonte da verdade do design.
+- **Wiki de leitura**: http://localhost:5173/wiki/ (com dev server rodando) renderiza esses .md. Autocontida em `wiki/` (zero deps, extraível p/ projeto separado); doc novo = entrada no array `DOCS` de `wiki/wiki.js`.
+- A wiki também tem **views interativas** (`#/db/bestiario`, `#/db/skills`, `#/db/classes`) com filtros/ordenação, parseadas dos .md por `wiki/db.js`. Os parsers dependem da estrutura dos docs (headings de família, colunas das tabelas, bullets `- **Campo:**` das skills/classes) — manter o formato ao editar os .md, ou ajustar `db.js` (detalhes em `wiki/README.md`).
 
 ## Arquitetura — REGRA DE OURO
 

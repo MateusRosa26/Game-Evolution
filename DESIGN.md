@@ -8,6 +8,7 @@ RPG top-down em grid, inspirado em **Tibia / Ragnarok / Apogea**. Pixel art mode
 
 - **Plataforma:** browser primeiro → Steam (Electron) → online (game server Node + Supabase para conta/persistência).
 - **Visual:** "charmoso sem ser bobo" — o charme vem de luz, atmosfera e feedback, não de resolução de sprite.
+- **Idiomas (decidido):** lançamento em **inglês + português**, selecionável pelo jogador (playerbase PT-BR é pequena; EN abre o mundo). Consequência técnica desde já: **nenhum texto hardcoded** — todo conteúdo (nomes, diálogos, quests, itens) referencia chaves de localização; a sim só conhece IDs.
 
 ## Sistema (decidido)
 
@@ -18,6 +19,10 @@ RPG top-down em grid, inspirado em **Tibia / Ragnarok / Apogea**. Pixel art mode
 | Simulação | Tick-based 20/s, autoritativa, determinística (RNG seedado) |
 | Combate | Híbrido: alvo selecionado + auto-attack contínuo + skills de área/direção manuais (estilo runas/waves de Tibia) |
 | Câmera | Top-down, zoom 2x, seguimento suave |
+
+## Visual & UI (decidido)
+
+Mundo pixel art 32px + **UI moderna clean por cima** (referências: Apogea/Ragnarok Online). Layout overlay: mundo fullscreen, status embaixo-esquerda, hotbar centro-inferior, painéis por hotkey. Feedback de combate completo (números coloridos por tipo, flash, barra de HP em mobs). Tokens, layout e specs em **`DESIGN-VISUAL.md`**.
 
 ## Arquitetura (regra de ouro)
 
@@ -57,8 +62,26 @@ Skills compradas em NPCs (classe + nível + gold). Kit do M1: *Golpe Forte* (Kni
 
 ## Inimigos e Bestiário (criaturas padrão decididas)
 
-**7 famílias, 25 criaturas padrão** em tiers T1–T5: Bestas, Peles-Verdes, Renegados, Mortos-Vivos (família-coração), Rastejantes, Elementais, Demônios. Família é a unidade do sistema de Marcas; cada família ensina uma mecânica (matilha, fuga, fraqueza elemental, anti-sustain…). Ver **`DESIGN-BESTIARIO.md`**. ✏️ Mini-bosses/bosses de área e números: docs futuros.
+**12 famílias, ~46 criaturas padrão** em tiers T1–T5: Bestial, Humanoides, Vermes, Plantas, Aquáticos, Voadores, Mortos-Vivos (família-coração), Dracônicos, Gigantes, Elementais, Míticos, Demônios. Modelo Tibia: família é organização (tema, habitat, resist/fraquezas, unidade de Marcas) — ~90% dos mobs agem de forma semelhante; mecânicas especiais são exceções pontuais por criatura. Ver **`DESIGN-BESTIARIO.md`**. ✏️ Mini-bosses/bosses de área e números: docs futuros.
 
-## ✏️ História e Mundo
+## Mundo, Quests e NPCs (estrutura decidida)
 
-_(a definir pelo criador)_
+Estilo **Apogea/Tibia**: exploração e descoberta como recompensa central. Quests em **3 camadas** (diretas com marker no mapa / abertas por rumor, sem marker / segredos nunca anunciados), diário escrito sem tracker, diálogo híbrido (opções + keywords secretas digitáveis), NPCs em 4 papéis (treinador/mercador/quest giver/sussurrador), baús one-time por personagem — escondidos, guardados, **lacrados por nível** e secretos. Raridades de item alinhadas aos slots de Marca. Ver **`DESIGN-MUNDO.md`**. ✏️ Conteúdo concreto (quests/NPCs/posições): M3 com o mapa.
+
+## PvP e perda de loot (esqueleto preliminar — ✏️ revisar antes do M6)
+
+O jogo **terá PvP com perda de loot**, em contextos que o jogador escolhe. Arquitetura: **flag individual** (principal) + **zonas high-level de PvP aberto** (complemento). Evento periódico estilo Blood Moon: descartado (plágio direto do Apogea).
+
+| Contexto da morte | Perda |
+|---|---|
+| PvE normal (sem flag, fora de zona PvP) | **só XP — nenhum item** (pilar intocado) |
+| Morte em PvP (flagado ou em zona) | **mochila dropa sempre** + **% de chance por item equipado** ✏️ |
+| Morte **PvE dentro de zona PvP** | mesma perda de PvP |
+| Morte **PvE enquanto flagado** | mesma perda de PvP — anti-exploit: impede suicidar em mob para escapar de gank |
+
+- **Itens com Marca: inclusos na mesma % dos equipados, aleatório — sem proteção especial.** Levar a relíquia pro risco é a escolha; o ledger viaja com o item (a espada tomada em sangue carrega a história).
+- ✏️ a definir na revisão: % de drop por equipado, incentivo da flag (XP? drop?), skull/karma anti-gank de novato, quais zonas são PvP (design de mapa M3+), dimensionamento dos sinks de economia em função do churn (conversa de `DESIGN-ITENS.md`).
+
+## História e Mundo (fundação decidida)
+
+Humanos vêm de um planeta mundano **teleportado** (explosão de uma estrela) para um mundo maior cheio de magia, monstros e demônios; **mutações** deram aos humanos habilidades sobre-humanas. Três crises históricas: o **Primeiro Mago** (eugenista, selado na Árvore Sagrada; seus Seguidores vivem em enclaves remotos), a **Guerra do Submundo** (demônios selados nas profundezas; rituais de invocação espalhados pela terra) e a **Guerra dos Mortos** (Necromante derrotado, mas seus tenentes — liches, death knights — ainda erguem mortos-vivos). Mortos-vivos têm 3 origens: necromancia, apego (*lingering attachment*) e contaminação. 5 continentes; o jogo começa no **continente central**, humano e de natureza abundante. **Crise atual (primeiro arco): a Contaminação se espalha** — investigá-la leva ao autor dos experimentos, o primeiro grande boss da questline. A lore cresce junto com o jogo, e toda mecânica de mundo é pensada para **MMORPG** (mundo compartilhado, progresso por jogador). Ver **`DESIGN-LORE.md`**.
