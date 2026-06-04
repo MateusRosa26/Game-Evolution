@@ -71,3 +71,49 @@ sim/shared intocados.
   está idêntico ao original (`git diff src/main.ts` vazio).
 - As durações de fade/hold e a geometria do banner são constantes no topo do
   componente, fáceis de calibrar quando houver áudio/SFX (wave futura).
+
+## Verificação independente (verificador)
+
+**Status: VERIFIED.**
+
+**Escopo do diff.** Só 3 arquivos: `docs/reports/...md`, `src/client/Game.ts`,
+`src/client/ui/TrackingToast.ts`. `git diff main...HEAD -- src/sim src/shared`
+vazio — sim/shared **intocados**. `git diff -- src/main.ts` vazio — o hook DEV
+foi de fato revertido (main.ts idêntico ao original). Sem scope creep.
+`git ls-tree -r HEAD | grep node_modules` → nada; nenhum PNG no repo.
+
+**Higiene do client (sem regras de jogo).** `TrackingToast` só consome
+`text`/`name`/`flavorText`/`category` dos eventos one-shot — **zero** contador,
+barra ou progresso (alinhado ao §"Visibilidade"). `container.eventMode="none"`
+(não intercepta input). Os dois `console.log` antigos viraram
+`enqueueHint`/`enqueueUnlock`. Integração mínima e correta no `Game.ts`: add ao
+stage por cima de tudo, `resize` no build e no `onResize`, `tick(deltaMS)` no
+frame loop. A union de `category` ("mark"|"mutation"|"path") e os nomes de campo
+batem com `src/shared/protocol.ts:150-157`.
+
+**Fila / leaks.** Um item por vez com `GAP_MS` de respiro; `start`/`finish`
+alternam `visible` das duas camadas — hint e unlock nunca coexistem. Text/Graphics
+são reusados (não recriados por evento) → sem leak. Resize recalcula geometria via
+`layout()`/`drawBanner`.
+
+**Visual end-to-end (rota real, headless).** `npm run dev -- --port 5183` +
+chromium isolado dirigido por CDP (Node, user-data-dir próprio). Auto-attack real
+(`selectTarget`+`walkTo`) em Ratos Lanhosos. A **sim** emitiu, de fato, os 4
+eventos: hints *"Há força em recusar a magia fácil."* (conduta) e *"Sua arma
+parece sedenta quando feras rondam por perto."* (bestial), e unlocks
+**CAMINHO — Punho Bruto** (level sem skill) e **MARCA — Roedor de Ferro** (10º
+kill bestial). Screenshots conferidos:
+- *Hint:* texto pequeno em serifa itálica, inferior-central, cor suave, **sem
+  caixa** — um sussurro. Tom discreto ✔.
+- *Unlock:* faixa escura translúcida com moldura dourada, "C A M I N H O" em caps
+  espaçadas, nome em **dourado grande** com glow, flavor em itálico. Momento
+  épico/screenshotável, coerente com o dark medieval ✔.
+- *Fila:* os dois unlocks (Punho Bruto → Roedor de Ferro) saíram em sequência,
+  **sem sobreposição** ✔.
+
+Console **limpo** (só `[vite]` HMR; nenhum erro/exceção; nenhum `[tracking]`
+log remanescente). Browser/server encerrados; nada de PNG deixado no repo.
+
+**Build.** `npx tsc --noEmit` limpo; `npm run build` OK (763 módulos).
+
+Sem discrepâncias com o relatório do worker.
