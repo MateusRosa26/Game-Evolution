@@ -10,6 +10,7 @@ import { WorldRenderer } from "./render/WorldRenderer";
 import { Keyboard } from "./input/Keyboard";
 import { Mouse } from "./input/Mouse";
 import { Hud } from "./ui/Hud";
+import { CharacterPanel } from "./ui/CharacterPanel";
 
 /**
  * Orquestra o lado do cliente: recebe mensagens do "servidor",
@@ -19,6 +20,9 @@ export class Game {
   private sprites: SpriteLibrary;
   private camera = new Camera();
   private hud = new Hud();
+  private charPanel = new CharacterPanel((attr) =>
+    this.transport.send({ type: "allocateStatPoint", attr }),
+  );
 
   private worldContainer = new Container();
   private worldRenderer: WorldRenderer | null = null;
@@ -31,6 +35,8 @@ export class Game {
   private playerState: EntityState | null = null;
   private lastEntities: EntityState[] = [];
   private started = false;
+  /** Último level visto no snapshot — para detectar subida (só apresentação). */
+  private lastLevel = 0;
 
   constructor(
     private app: Application,
@@ -43,6 +49,13 @@ export class Game {
 
     // input
     new Keyboard((dir) => this.transport.send({ type: "setDir", dir }));
+    // Tecla C: abre/fecha o painel de personagem (apresentação pura).
+    window.addEventListener("keydown", (ev) => {
+      if (ev.code === "KeyC" && !ev.repeat) {
+        ev.preventDefault();
+        this.charPanel.toggle();
+      }
+    });
     this.mouse = new Mouse(this.app.canvas, (sx, sy) => {
       const tile = this.camera.screenToTile(sx, sy, this.app.screen.width, this.app.screen.height);
       // Click num monstro = seleciona alvo (auto-attack); senão, anda até lá.
@@ -85,6 +98,10 @@ export class Game {
     this.app.stage.addChild(this.hud.container);
     this.hud.resize(this.app.screen.width, this.app.screen.height);
 
+    // Painel de personagem por cima da HUD (oculto até apertar C).
+    this.app.stage.addChild(this.charPanel.container);
+    this.charPanel.resize(this.app.screen.height);
+
     this.camera.setMapSize(map.width, map.height);
     this.camera.snapTo((map.spawn.x + 0.5) * TILE_SIZE, (map.spawn.y + 0.5) * TILE_SIZE);
 
@@ -100,6 +117,16 @@ export class Game {
     this.playerState = snap.entities.find((e) => e.id === this.playerId) ?? null;
     if (this.playerState) {
       this.hud.setStats(this.playerState.hp, this.playerState.maxHp, this.playerState.mp, this.playerState.maxMp);
+      const progress = this.playerState.progress;
+      if (progress) {
+        this.hud.setProgress(progress);
+        this.charPanel.setProgress(progress);
+        // Subiu de nível? Texto flutuante dourado (apresentação, não regra).
+        if (this.lastLevel > 0 && progress.level > this.lastLevel) {
+          this.entityRenderer?.spawnLevelUpText();
+        }
+        this.lastLevel = progress.level;
+      }
     }
   }
 
@@ -109,6 +136,7 @@ export class Game {
 
     this.worldRenderer?.tick(deltaMS);
     this.entityRenderer?.tick(deltaMS);
+    this.hud.tick(deltaMS); // pulso do badge de pontos livres
 
     // câmera segue a posição visual (interpolada) do jogador
     const p = this.entityRenderer?.playerWorldPos();
@@ -145,5 +173,6 @@ export class Game {
     const h = this.app.screen.height;
     this.lighting?.resize(w, h);
     this.hud.resize(w, h);
+    this.charPanel.resize(h);
   }
 }

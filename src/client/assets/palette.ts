@@ -86,9 +86,29 @@ export const PAL = {
   ratTail: "#9a8472",
   ratEye: "#b83a3a",
 
+  // UI — progressão (XP/level/atributos)
+  xpBack: "#1a160d", // trilho da barra de XP
+  xpFill: "#c9a83b", // preenchimento dourado
+  xpShine: "#e8cf6a", // brilho superior da barra de XP
+  levelGold: "#e8cf6a", // texto/level dourado
+  badgePulse: "#ffd95a", // badge de pontos livres (pulsa)
+  panelBg: "#12151d", // fundo do painel de personagem
+  panelBorder: "#3a4254", // borda do painel
+  panelHeader: "#1c212c", // faixa de título do painel
+  attrLabel: "#cfc8b4", // rótulo de atributo
+  attrValue: "#e8e4d8", // valor de atributo
+  btnPlus: "#2e5f38", // botão "+" (verde-musgo)
+  btnPlusLight: "#3f7d4a", // topo/brilho do botão "+"
+  btnPlusHover: "#4a9156", // botão "+" sob o mouse
+
   // Outline universal da pixel art
   outline: "#10141c",
 } as const;
+
+/** Converte cor hex string ("#rrggbb") para número 0xRRGGBB (Pixi Graphics/Text). */
+export function hex(color: string): number {
+  return parseInt(color.slice(1), 16);
+}
 
 /** Cor ambiente da cena (multiplicada sobre o mundo — "entardecer sombrio"). */
 export const AMBIENT_COLOR = 0x8088a8;
