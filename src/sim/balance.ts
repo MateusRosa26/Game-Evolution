@@ -8,18 +8,18 @@ import type { PlayerClass } from "../shared/types";
  * fortes (até T1 pune descuido), então o jogador morre se for descuidado.
  *
  * NOTA (Wave Stats/XP): HP máx, mana e dano/cooldown do jogador NÃO vivem mais
- * aqui — derivam de `formulas.ts` a partir de atributos/classe/nível. Restam
- * aqui só números que ainda não são derivados (base da arma inicial, alcance).
+ * aqui — derivam de `formulas.ts` a partir de atributos/classe/nível.
+ *
+ * NOTA (Wave Itens): o dano-base/cooldown/ID da arma inicial saíram daqui — agora
+ * vivem nos TEMPLATES de item (`src/sim/items/templates.ts`). O jogador equipa
+ * uma INSTÂNCIA da arma da classe; o auto-attack lê o template dela. Os antigos
+ * `STARTER_WEAPON_DAMAGE`/`STARTER_WEAPON_ID` foram removidos (substituídos pelos
+ * templates `espada_curta`/`adaga`/… e o template `fists` dos punhos).
  */
 
 /** Player */
 /** Classe padrão de um novo jogador enquanto não há seleção de classe (HUD/UI). */
 export const DEFAULT_PLAYER_CLASS: PlayerClass = "knight";
-/** Dano-base da arma inicial do jogador (consumido por `physicalDamage`). ✏️ placeholder. */
-export const STARTER_WEAPON_DAMAGE = 6; // ✏️ placeholder — calibrar no M2
-
-/** ID placeholder da "arma" com que o jogador ataca no M1 (para o evento kill). */
-export const STARTER_WEAPON_ID = "fists";
 
 /** Combate geral */
 /** Alcance melee em tiles (Chebyshev: adjacente incl. diagonal = 1). */

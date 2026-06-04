@@ -1,6 +1,7 @@
 import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS } from "../shared/constants";
 import type {
   EntityState,
+  EquippedWeaponState,
   KnownSkillState,
   PlayerProgressState,
   Snapshot,
@@ -18,17 +19,19 @@ import {
   type PlayerClass,
   type Vec2,
 } from "../shared/types";
-import {
-  DEFAULT_PLAYER_CLASS,
-  MELEE_RANGE,
-  STARTER_WEAPON_DAMAGE,
-  STARTER_WEAPON_ID,
-} from "./balance";
+import { DEFAULT_PLAYER_CLASS, MELEE_RANGE } from "./balance";
 import { CREATURES, type CreatureTemplate } from "./bestiary";
-import { applyDamage, chebyshev, type CombatCtx } from "./combat";
+import { applyDamage, chebyshev, type CombatCtx, type WeaponSource } from "./combat";
 import type { SimEntity } from "./entity";
 import { EventBus, type KillEvent } from "./events";
 import { attackCooldownMs, physicalDamage, xpForLevel } from "./formulas";
+import {
+  ItemRegistry,
+  attachItemLedger,
+  getItemTemplate,
+  STARTER_WEAPON_BY_CLASS,
+  FISTS_TEMPLATE_ID,
+} from "./items";
 import { updateChaser } from "./monsterAi";
 import {
   SKILLS,
@@ -67,6 +70,12 @@ export class Simulation {
   readonly world: World;
   /** Barramento interno de eventos (kill/damage/...) — base da progressão. */
   readonly bus = new EventBus();
+  /**
+   * Registro de instâncias de item (IDs determinísticos por contador). Fundação
+   * de "itens são instâncias com ID + ledger" (DESIGN-EVOLUCAO.md). O ledger das
+   * instâncias é alimentado pelos eventos do bus (ver construtor).
+   */
+  readonly items = new ItemRegistry();
   private entities = new Map<number, SimEntity>();
   private nextId = 1;
   private tickCount = 0;
@@ -88,6 +97,19 @@ export class Simulation {
     this.spawnInitialMonsters();
     // XP/level derivam do evento `kill` do bus (DESIGN-EVOLUCAO.md §Camada Sólida).
     this.bus.on("kill", (ev) => this.onKill(ev));
+    // Ledger das instâncias de arma alimentado pelos eventos kill/damage do bus.
+    attachItemLedger(this.bus, {
+      registry: this.items,
+      attackerLevelOf: (id) => this.progressions.get(id)?.level ?? null,
+    });
+  }
+
+  /** Monta o `WeaponSource` (p/ payloads/ledger) da arma equipada de `e`. */
+  private weaponSourceOf(e: SimEntity): WeaponSource | null {
+    if (e.equippedWeaponId == null) return null;
+    const inst = this.items.get(e.equippedWeaponId);
+    if (!inst) return null;
+    return { instanceId: inst.id, templateId: inst.templateId, label: inst.templateId };
   }
 
   /** Tempo lógico atual em ms. */
@@ -123,6 +145,8 @@ export class Simulation {
       attackDamage: 0,
       attackCooldownMs: 0,
       dead: false,
+      // Arma inicial da classe como INSTÂNCIA equipada (preenchido abaixo).
+      equippedWeaponId: null,
       // Kit inicial da classe (compra em NPC é M2+).
       knownSkills: [...STARTER_KITS[cls]],
       skillCooldowns: {},
@@ -131,6 +155,11 @@ export class Simulation {
       aggroRadius: 0,
       spawnPos: { x: spawn.x, y: spawn.y },
     };
+    // Arma inicial da classe como instância única equipada (DESIGN-EVOLUCAO.md
+    // §Classes "Kit inicial"). O ledger nasce zerado e passa a contar a partir
+    // do primeiro golpe.
+    const weapon = this.items.create(STARTER_WEAPON_BY_CLASS[cls]);
+    entity.equippedWeaponId = weapon.id;
     this.entities.set(id, entity);
     this.progressions.set(id, prog);
     syncMaxResources(entity, prog, true); // preenche HP/Mana ao máximo derivado
@@ -140,13 +169,27 @@ export class Simulation {
   }
 
   /**
-   * Retrofit do combate da Wave 1: o dano físico e o cooldown do auto-attack do
-   * jogador passam a vir de `formulas.ts` (monstros continuam com números do
-   * bestiário). `STARTER_WEAPON_DAMAGE` é a base da arma inicial (placeholder).
+   * Stats de arma da instância equipada de uma entidade (fallback: punhos).
+   * Ponto único onde o auto-attack/skills leem o dano-base/cooldown/escala da
+   * arma — SUBSTITUI o antigo placeholder `STARTER_WEAPON_DAMAGE` de balance.ts.
+   */
+  private weaponStatsOf(entity: SimEntity) {
+    const id = entity.equippedWeaponId;
+    const tpl = id != null ? this.items.templateOf(id) : undefined;
+    const w = tpl?.weapon ?? getItemTemplate(FISTS_TEMPLATE_ID)!.weapon!;
+    return w;
+  }
+
+  /**
+   * Retrofit do combate da Wave 1: dano físico e cooldown do auto-attack do
+   * jogador derivam de `formulas.ts` usando o DANO-BASE/COOLDOWN da ARMA
+   * EQUIPADA (template da instância) — não mais o placeholder global. Monstros
+   * continuam com números do bestiário.
    */
   private recomputePlayerDerived(entity: SimEntity, prog: Progression): void {
-    entity.attackDamage = physicalDamage(prog.attributes, STARTER_WEAPON_DAMAGE);
-    entity.attackCooldownMs = attackCooldownMs(prog.attributes);
+    const w = this.weaponStatsOf(entity);
+    entity.attackDamage = physicalDamage(prog.attributes, w.baseDamage, w.usesDexterity);
+    entity.attackCooldownMs = attackCooldownMs(prog.attributes, w.baseCooldownMs);
   }
 
   removeEntity(id: number): void {
@@ -204,6 +247,8 @@ export class Simulation {
       attackDamage: template.attackDamage,
       attackCooldownMs: template.attackCooldownMs,
       dead: false,
+      // Mobs usam números do bestiário, sem arma-instância (ledger só p/ players).
+      equippedWeaponId: null,
       knownSkills: [],
       skillCooldowns: {},
       status: [],
@@ -285,7 +330,10 @@ export class Simulation {
       const skillCtx: SkillCastCtx = {
         ...ctx,
         prog,
-        weaponBase: STARTER_WEAPON_DAMAGE,
+        // Dano-base da ARMA equipada (Golpe Forte/Apunhalar escalam a arma).
+        weaponBase: this.weaponStatsOf(caster).baseDamage,
+        // Instância da arma p/ atribuir dano/kill de skill física ao ledger.
+        weaponSource: this.weaponSourceOf(caster),
         enemiesInWorld: [...this.entities.values()],
       };
       castSkill(skillCtx, caster, req.skillId, target);
@@ -361,7 +409,10 @@ export class Simulation {
     if (chebyshev(player.pos, target.pos) > MELEE_RANGE) return; // fora de alcance
     if (now < player.nextAttackAt) return;
     player.facing = this.facingToward(player.pos, target.pos);
-    applyDamage(ctx, player, target, player.attackDamage, "physical", STARTER_WEAPON_ID, null);
+    // Auto-attack alimenta o ledger da arma equipada (DESIGN-EVOLUCAO.md §"Magias
+    // e Skills": todo kill por auto-attack conta no ledger da arma).
+    const w = this.weaponStatsOf(player);
+    applyDamage(ctx, player, target, player.attackDamage, w.damageType, this.weaponSourceOf(player), null);
     player.nextAttackAt = now + player.attackCooldownMs;
   }
 
@@ -504,6 +555,19 @@ export class Simulation {
     return out;
   }
 
+  /**
+   * Projeta a arma equipada do jogador (só a IDENTIDADE — DESIGN-EVOLUCAO.md
+   * §"mínimo para a HUD futura"). O LEDGER é OCULTO por design (Marcas secretas)
+   * e NUNCA entra no snapshot.
+   */
+  private projectWeapon(e: SimEntity): EquippedWeaponState | undefined {
+    if (e.equippedWeaponId == null) return undefined;
+    const inst = this.items.get(e.equippedWeaponId);
+    if (!inst) return undefined;
+    const tpl = getItemTemplate(inst.templateId);
+    return { instanceId: inst.id, templateId: inst.templateId, name: tpl?.name ?? inst.templateId };
+  }
+
   private emitSnapshot(events: SnapshotEvent[]): void {
     const entities: EntityState[] = [];
     for (const e of this.entities.values()) {
@@ -524,7 +588,11 @@ export class Simulation {
       };
       const prog = this.progressions.get(e.id);
       if (prog) state.progress = this.projectProgress(prog);
-      if (e.kind === "player") state.skills = this.projectSkills(e);
+      if (e.kind === "player") {
+        state.skills = this.projectSkills(e);
+        const weapon = this.projectWeapon(e);
+        if (weapon) state.weapon = weapon;
+      }
       entities.push(state);
     }
     // targetId é por-jogador; entregue por entidade abaixo via snapshot.

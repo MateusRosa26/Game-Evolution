@@ -77,6 +77,21 @@ export interface KnownSkillState {
   manaCost: number;
 }
 
+/**
+ * Arma equipada do jogador, projetada no snapshot (DESIGN-EVOLUCAO.md §"Itens
+ * são instâncias" — mínimo para a HUD futura). Só a IDENTIDADE da instância:
+ * o LEDGER (contadores de Marca) é OCULTO por design (§"Visibilidade": Marcas são
+ * secretas) e NUNCA vai ao snapshot.
+ */
+export interface EquippedWeaponState {
+  /** ID da instância equipada (estável dentro da sessão). */
+  instanceId: number;
+  /** ID do template (stats compartilhados). */
+  templateId: string;
+  /** Nome exibível da arma (pt-BR). */
+  name: string;
+}
+
 export interface EntityState {
   id: number;
   kind: EntityKind;
@@ -100,6 +115,11 @@ export interface EntityState {
   progress?: PlayerProgressState;
   /** Skills conhecidas — SOMENTE na entidade do jogador (undefined p/ mobs). */
   skills?: KnownSkillState[];
+  /**
+   * Arma equipada — SOMENTE na entidade do jogador (undefined p/ mobs). Apenas a
+   * identidade (instanceId/templateId/nome); o ledger é oculto e não trafega.
+   */
+  weapon?: EquippedWeaponState;
 }
 
 /**

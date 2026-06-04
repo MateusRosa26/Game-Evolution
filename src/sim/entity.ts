@@ -53,6 +53,15 @@ export interface SimEntity {
   /** True se está morta (aguardando remoção/respawn neste tick). */
   dead: boolean;
 
+  // ── Equipamento (fundação de itens — DESIGN-EVOLUCAO.md §"Itens são instâncias") ──
+  /**
+   * ID da INSTÂNCIA de arma equipada (no `ItemRegistry` da sim). Jogador nasce
+   * com a arma da classe; null só em entidades sem arma (mobs — usam números do
+   * bestiário). O dano-base/cooldown do auto-attack derivam do TEMPLATE desta
+   * instância (ver `Simulation.recomputePlayerDerived`).
+   */
+  equippedWeaponId: number | null;
+
   // ── Skills + status (Wave Skills M1) ──
   /** Skills conhecidas (IDs). Jogador nasce com o kit da classe; mobs vazio. */
   knownSkills: string[];
