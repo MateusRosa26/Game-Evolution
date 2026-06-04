@@ -64,10 +64,24 @@ export const PAL = {
   skin: "#d8a87c",
   skinShade: "#b8865e",
   hair: "#33271f",
-  armorBase: "#5d6a7e",
-  armorLight: "#79879c",
+  // Ramp de armadura (sombra→brilho): sombra azulada dessaturada → topo
+  // levemente quente (hue-shift, ver design/ESTUDO-REFERENCIAS.md §1)
+  armorShadow: "#3b4452",
   armorDark: "#4b5566",
-  armorEdge: "#8a98ad",
+  armorBase: "#5d6a7e",
+  armorLight: "#7d8a9c",
+  armorEdge: "#98a3ae",
+  armorShine: "#b2b8ba",
+  // Escudo de madeira (kit inicial do Knight)
+  shieldWood: "#6e5638",
+  shieldWoodDark: "#4a3a26",
+  shieldWoodLight: "#83683f",
+  shieldRim: "#33383f",
+  // Espada
+  swordBlade: "#b8c2cc",
+  swordDark: "#7e8894",
+  // Interior do visor (buraco do elmo — quase-preto justificado)
+  visorSlit: "#0c0f14",
   capeBase: "#5c2531",
   capeDark: "#471c26",
   capeLight: "#6d2c3a",

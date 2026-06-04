@@ -39,7 +39,8 @@ Você é o diretor de arte do projeto. Sua função é dupla: **criticar** (com 
 ## Processo de CRÍTICA (sempre com os olhos, nunca só lendo código)
 
 1. Dev server (`npm run dev -- --port 5190`) + screenshot via Playwright (browser ocupado? chromium isolado via CDP, user-data-dir próprio).
-2. Capture: (a) cena geral, (b) o alvo ampliado, (c) o alvo contra 2+ fundos.
+2. **Sprite Lab**: `http://localhost:<porta>/sprite-lab.html` renderiza sprites em grid ampliado (8×/16×, todas as direções × frames, fundos grama/pedra) — a ferramenta padrão de crítica e iteração (código em `src/client/dev/spriteLab.ts`; adicione fileiras para sprites novos). Depois confirme NO JOGO (a luz ambiente fria muda tudo).
+3. Capture: (a) cena geral, (b) o alvo ampliado no lab, (c) o alvo contra 2+ fundos.
 3. Avalie pela régua, na ordem; depois pelas regras de ofício. Para cada falha: QUAL critério, ONDE, e O QUE mudar (acionável: "afasta o valor do peitoral 2 tons do da calça").
 4. UI: avalie contra os tokens/layout de `DESIGN-VISUAL.md` + Teste da Mastigação.
 
@@ -64,7 +65,7 @@ Você é o diretor de arte do projeto. Sua função é dupla: **criticar** (com 
 
 ## Backlog conhecido
 
-1. **Refazer o knight** (ver caso de estudo) — aplicar: silhueta com hierarquia, ramp com separação de valor, selout, luz global.
+1. ~~Refazer o knight~~ ✅ (jun/2026 — elmo em T + escudo + espada, zero pele; ver `drawKnight` como exemplar das regras)
 2. Melhorar ramp das árvores (saturação pico no meio, separação de valor).
 3. Criar `theme.ts` com os tokens de `DESIGN-VISUAL.md` e migrar a HUD.
 4. Cores por tipo de dano (tabela do DESIGN-VISUAL) nos floating texts.

@@ -321,103 +321,173 @@ function makeTorchFrames(): Texture[] {
 /**
  * frame 0 = parado, frames 1/2 = passos (pernas alternadas, corpo com bob).
  * Desenhado de frente (s), costas (n) e perfil (e); oeste = flip de leste.
+ *
+ * Direção de arte: elmo fechado com fresta em T (a silhueta É o cavaleiro),
+ * escudo de madeira no braço esquerdo + espada no direito (o kit inicial),
+ * zero pele exposta. Luz global do topo-esquerda: colunas esquerdas claras,
+ * direitas escuras; selout interno (segmentação em armorShadow, não preto).
  */
 function drawKnight(p: Px, facing: Exclude<Facing, "w">, frame: number): void {
   const bob = frame === 0 ? 0 : -1;
 
-  if (facing === "s" || facing === "n") {
-    // ── pernas/botas ──
+  /** Elmo visto de frente/costas (x12–20, y5–12 + bob). */
+  const helmFrontBack = (withVisor: boolean): void => {
+    p.rect(14, 5 + bob, 5, 1, PAL.armorEdge); // topo arredondado (passos 5-7-9)
+    p.rect(13, 6 + bob, 7, 1, PAL.armorLight);
+    p.px(16, 5 + bob, PAL.armorShine); // specular no topo
+    for (let y = 7 + bob; y <= 10 + bob; y++) {
+      p.rect(12, y, 2, 1, PAL.armorLight); // lado esquerdo lit
+      p.rect(14, y, 5, 1, PAL.armorBase);
+      p.rect(19, y, 2, 1, PAL.armorDark); // lado direito sombra
+    }
+    if (withVisor) {
+      // fresta em T: rasgo horizontal + canal vertical (buraco, quase-preto)
+      p.rect(13, 8 + bob, 7, 1, PAL.visorSlit);
+      p.rect(16, 9 + bob, 1, 2, PAL.visorSlit);
+    } else {
+      // costas: crista central pegando luz
+      p.rect(16, 6 + bob, 1, 5, PAL.armorEdge);
+    }
+    p.rect(12, 11 + bob, 2, 1, PAL.armorBase);
+    p.rect(14, 11 + bob, 5, 1, PAL.armorDark); // queixo na sombra
+    p.rect(19, 11 + bob, 2, 1, PAL.armorShadow);
+    p.rect(13, 12 + bob, 7, 1, PAL.armorShadow); // gola
+  };
+
+  /** Pauldrons largos (a base do triângulo). vy = deslocamento vertical. */
+  const pauldrons = (): void => {
+    p.rect(9, 13 + bob, 3, 1, PAL.armorEdge);
+    p.rect(9, 14 + bob, 3, 1, PAL.armorLight);
+    p.rect(9, 15 + bob, 2, 1, PAL.armorBase);
+    p.rect(20, 13 + bob, 3, 1, PAL.armorLight);
+    p.rect(20, 14 + bob, 3, 1, PAL.armorBase);
+    p.rect(21, 15 + bob, 2, 1, PAL.armorDark);
+  };
+
+  /** Pernas frente/costas com passo alternado. */
+  const legsFrontBack = (): void => {
     const leftUp = frame === 1 ? 1 : 0;
     const rightUp = frame === 2 ? 1 : 0;
-    // perna esquerda
-    p.rect(12, 24 - leftUp, 3, 4, PAL.pants);
+    p.rect(12, 23 - leftUp, 3, 4, PAL.pants);
     p.rect(12, 27 - leftUp, 3, 2, PAL.boots);
     p.rect(12, 29 - leftUp, 3, 1, PAL.bootsDark);
-    // perna direita
-    p.rect(17, 24 - rightUp, 3, 4, PAL.pants);
+    p.rect(17, 23 - rightUp, 3, 4, PAL.pants);
     p.rect(17, 27 - rightUp, 3, 2, PAL.boots);
     p.rect(17, 29 - rightUp, 3, 1, PAL.bootsDark);
+  };
 
-    if (facing === "s") {
-      // ── capa atrás (bordas visíveis) ──
-      p.rect(10, 14 + bob, 1, 9, PAL.capeDark);
-      p.rect(21, 14 + bob, 1, 9, PAL.capeDark);
-      // ── torso ──
-      p.rect(11, 13 + bob, 10, 10, PAL.armorBase);
-      p.rect(12, 14 + bob, 5, 5, PAL.armorLight);
-      p.rect(11, 13 + bob, 10, 1, PAL.armorEdge);
-      // cinto
-      p.rect(11, 22 + bob, 10, 1, PAL.belt);
-      p.rect(15, 22 + bob, 2, 1, PAL.buckle);
-      // ── braços ──
-      const armL = frame === 1 ? 1 : frame === 2 ? -1 : 0;
-      p.rect(9, 15 + bob + armL, 2, 7, PAL.armorDark);
-      p.rect(9, 21 + bob + armL, 2, 2, PAL.skin);
-      p.rect(21, 15 + bob - armL, 2, 7, PAL.armorDark);
-      p.rect(21, 21 + bob - armL, 2, 2, PAL.skin);
-      // pauldrons
-      p.rect(9, 13 + bob, 3, 2, PAL.armorLight);
-      p.rect(20, 13 + bob, 3, 2, PAL.armorLight);
-      // ── cabeça ──
-      p.rect(12, 6 + bob, 8, 7, PAL.skin);
-      p.rect(12, 11 + bob, 8, 1, PAL.skinShade);
-      p.rect(12, 4 + bob, 8, 3, PAL.hair);
-      p.px(11, 6 + bob, PAL.hair);
-      p.px(20, 6 + bob, PAL.hair);
-      p.px(11, 7 + bob, PAL.hair);
-      p.px(20, 7 + bob, PAL.hair);
-      // olhos
-      p.rect(14, 9 + bob, 1, 1, "#20242e");
-      p.rect(18, 9 + bob, 1, 1, "#20242e");
-    } else {
-      // ── NORTH: capa cobre o corpo ──
-      p.rect(10, 13 + bob, 12, 11, PAL.capeBase);
-      p.rect(10, 13 + bob, 12, 2, PAL.capeLight);
-      p.rect(10, 20 + bob, 12, 4, PAL.capeDark);
-      p.px(11, 23 + bob, PAL.capeBase);
-      p.px(20, 23 + bob, PAL.capeBase);
-      // ombros de armadura aparecendo
-      p.rect(9, 13 + bob, 3, 2, PAL.armorLight);
-      p.rect(20, 13 + bob, 3, 2, PAL.armorLight);
-      // cabeça por trás (cabelo)
-      p.rect(12, 5 + bob, 8, 8, PAL.hair);
-      p.rect(12, 5 + bob, 8, 2, "#403228");
-      p.rect(12, 12 + bob, 8, 1, PAL.skinShade);
+  if (facing === "s") {
+    legsFrontBack();
+    // ── capa: borda direita atrás do braço da espada ──
+    p.rect(22, 14 + bob, 1, 8, PAL.capeDark);
+    // ── torso (x11–21): esquerda lit → direita sombra ──
+    p.rect(13, 14 + bob, 6, 1, PAL.armorEdge); // peitoral superior
+    for (let y = 15 + bob; y <= 20 + bob; y++) {
+      p.rect(11, y, 2, 1, PAL.armorLight);
+      p.rect(13, y, 6, 1, PAL.armorBase);
+      p.rect(19, y, 3, 1, PAL.armorDark);
     }
+    p.rect(13, 15 + bob, 2, 2, PAL.armorLight); // volume do peito (conectado ao lado lit)
+    p.rect(11, 21 + bob, 11, 1, PAL.belt);
+    p.rect(15, 21 + bob, 2, 1, PAL.buckle);
+    p.rect(11, 22 + bob, 11, 1, PAL.armorShadow); // tassets
+    helmFrontBack(true);
+    pauldrons();
+    // ── braço direito + espada apontando para baixo ──
+    const armSwing = frame === 1 ? 1 : frame === 2 ? -1 : 0;
+    p.rect(21, 15 + bob + armSwing, 2, 4, PAL.armorDark);
+    p.rect(21, 19 + bob + armSwing, 2, 1, PAL.armorShadow); // manopla
+    p.rect(21, 20 + bob + armSwing, 3, 1, PAL.buckle); // guarda
+    p.rect(22, 21 + bob + armSwing, 1, 6, PAL.swordBlade);
+    p.px(22, 27 + bob + armSwing, PAL.swordDark); // ponta
+    // ── escudo de madeira no braço esquerdo (cobre o braço) ──
+    p.rect(7, 15 + bob, 3, 1, PAL.shieldWoodLight);
+    for (let y = 16 + bob; y <= 19 + bob; y++) {
+      p.px(6, y, PAL.shieldWoodLight);
+      p.rect(7, y, 3, 1, PAL.shieldWood);
+      p.px(10, y, PAL.shieldWoodDark);
+    }
+    p.rect(7, 20 + bob, 3, 1, PAL.shieldWood);
+    p.rect(7, 21 + bob, 3, 1, PAL.shieldWoodDark);
+    p.rect(8, 22 + bob, 1, 1, PAL.shieldWoodDark); // ponta do escudo
+    p.rect(8, 17 + bob, 1, 1, PAL.armorShine); // umbo de metal
+    p.px(8, 18 + bob, PAL.armorDark);
     return;
   }
 
-  // ── EAST (perfil) ──
+  if (facing === "n") {
+    legsFrontBack();
+    // ── capa cobre o corpo (o acento de cor do jogo) ──
+    p.rect(10, 13 + bob, 12, 2, PAL.capeLight);
+    p.rect(10, 15 + bob, 12, 6, PAL.capeBase);
+    p.rect(10, 21 + bob, 12, 3, PAL.capeDark);
+    // dobras verticais (clusters intencionais)
+    p.rect(13, 15 + bob, 1, 6, PAL.capeDark);
+    p.rect(18, 15 + bob, 1, 6, PAL.capeDark);
+    p.px(10, 23 + bob, PAL.capeDark);
+    p.px(21, 23 + bob, PAL.capeDark);
+    helmFrontBack(false);
+    pauldrons();
+    // ── escudo pendurado: borda aparece no lado direito (braço esq. do char) ──
+    p.rect(22, 14 + bob, 1, 7, PAL.shieldWood);
+    p.px(22, 14 + bob, PAL.shieldWoodLight);
+    p.px(22, 20 + bob, PAL.shieldWoodDark);
+    // ── punho da espada acima do quadril esquerdo (lado do viewer) ──
+    p.px(9, 17 + bob, PAL.buckle); // pomo
+    p.rect(9, 18 + bob, 1, 2, PAL.shieldRim); // bainha
+    return;
+  }
+
+  // ── EAST (perfil, andando para a direita) ──
   const stride = frame === 1 ? 2 : frame === 2 ? -2 : 0;
-  // perna de trás
-  p.rect(13 - stride, 24, 3, 4, PAL.pants);
+  // perna de trás / da frente
+  p.rect(13 - stride, 23, 3, 4, PAL.pants);
   p.rect(13 - stride, 27, 3, 2, PAL.boots);
   p.rect(13 - stride, 29, 3, 1, PAL.bootsDark);
-  // perna da frente
-  p.rect(16 + stride, 24, 3, 4, PAL.pants);
+  p.rect(16 + stride, 23, 3, 4, PAL.pants);
   p.rect(16 + stride, 27, 3, 2, PAL.boots);
   p.rect(16 + stride, 29, 3, 1, PAL.bootsDark);
-  // capa esvoaçando atrás
-  p.rect(10, 13 + bob, 3, 10, PAL.capeBase);
-  p.rect(10, 13 + bob, 1, 10, PAL.capeDark);
-  p.px(9, 21 + bob, PAL.capeDark);
-  // torso
-  p.rect(12, 13 + bob, 8, 10, PAL.armorBase);
-  p.rect(13, 14 + bob, 4, 5, PAL.armorLight);
-  p.rect(12, 13 + bob, 8, 1, PAL.armorEdge);
-  p.rect(12, 22 + bob, 8, 1, PAL.belt);
-  // braço (balança oposto às pernas)
-  const armSwing = frame === 1 ? -1 : frame === 2 ? 1 : 0;
-  p.rect(14 + armSwing, 15 + bob, 3, 7, PAL.armorDark);
-  p.rect(14 + armSwing, 21 + bob, 3, 2, PAL.skin);
-  // pauldron
-  p.rect(13, 13 + bob, 4, 2, PAL.armorLight);
-  // cabeça perfil
-  p.rect(13, 6 + bob, 7, 7, PAL.skin);
-  p.rect(13, 4 + bob, 7, 3, PAL.hair);
-  p.rect(12, 5 + bob, 2, 6, PAL.hair);
-  p.px(20, 8 + bob, PAL.skinShade); // nariz
-  p.rect(17, 9 + bob, 1, 1, "#20242e"); // olho
+  // ── capa esvoaçando atrás ──
+  p.rect(10, 13 + bob, 2, 2, PAL.capeLight);
+  p.rect(10, 15 + bob, 2, 6, PAL.capeBase);
+  p.rect(9, 18 + bob, 1, 4, PAL.capeDark);
+  p.rect(10, 21 + bob, 2, 2, PAL.capeDark);
+  // ── torso (x12–19): costas lit (luz vem de trás-esquerda) ──
+  p.rect(13, 14 + bob, 5, 1, PAL.armorEdge);
+  for (let y = 15 + bob; y <= 20 + bob; y++) {
+    p.rect(12, y, 2, 1, PAL.armorLight);
+    p.rect(14, y, 4, 1, PAL.armorBase);
+    p.rect(18, y, 2, 1, PAL.armorDark);
+  }
+  p.rect(12, 21 + bob, 8, 1, PAL.belt);
+  p.px(15, 21 + bob, PAL.buckle);
+  p.rect(12, 22 + bob, 8, 1, PAL.armorShadow);
+  // ── elmo perfil (x13–20): fresta na frente ──
+  p.rect(15, 5 + bob, 4, 1, PAL.armorEdge);
+  p.rect(14, 6 + bob, 6, 1, PAL.armorLight);
+  p.px(16, 5 + bob, PAL.armorShine);
+  for (let y = 7 + bob; y <= 10 + bob; y++) {
+    p.rect(13, y, 2, 1, PAL.armorLight);
+    p.rect(15, y, 4, 1, PAL.armorBase);
+    p.px(19, y, PAL.armorDark);
+  }
+  p.rect(17, 8 + bob, 3, 1, PAL.visorSlit); // rasgo do visor na frente
+  p.px(19, 9 + bob, PAL.visorSlit);
+  p.rect(14, 11 + bob, 6, 1, PAL.armorDark);
+  p.rect(14, 12 + bob, 5, 1, PAL.armorShadow);
+  // ── pauldron próximo ──
+  p.rect(13, 13 + bob, 5, 1, PAL.armorEdge);
+  p.rect(13, 14 + bob, 5, 1, PAL.armorLight);
+  // ── escudo na frente (braço avançado — o knight avança atrás do escudo) ──
+  p.rect(19, 14 + bob, 3, 1, PAL.shieldWoodLight);
+  for (let y = 15 + bob; y <= 20 + bob; y++) {
+    p.px(19, y, PAL.shieldWoodDark);
+    p.rect(20, y, 2, 1, PAL.shieldWood);
+    p.px(22, y, PAL.shieldWoodDark);
+  }
+  p.rect(20, 21 + bob, 2, 1, PAL.shieldWoodDark);
+  p.px(21, 22 + bob, PAL.shieldWoodDark);
+  p.px(20, 17 + bob, PAL.armorShine); // umbo
 }
 
 function makeKnightTextures(): Record<Facing, Texture[]> {
