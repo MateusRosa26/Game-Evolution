@@ -1,6 +1,6 @@
 import type { CreatureFamily, Facing, Vec2 } from "../../shared/types";
 import type { SimEntity } from "../entity";
-import { actorRef, applyDamage, applyHeal, chebyshev, type CombatCtx } from "../combat";
+import { actorRef, applyDamage, applyHeal, chebyshev, type CombatCtx, type WeaponSource } from "../combat";
 import { magicDamage, physicalDamage, healPower } from "../formulas";
 import type { Progression } from "../progression";
 import type { SkillDef } from "./types";
@@ -31,6 +31,12 @@ export interface SkillCastCtx extends CombatCtx {
   prog: Progression;
   /** Dano-base da arma equipada do caster (para skills físicas que escalam arma). */
   weaponBase: number;
+  /**
+   * Arma-instância equipada do caster (p/ atribuir dano/kill de skill FÍSICA de
+   * arma ao ledger — DESIGN-EVOLUCAO.md: skills com tag `arma` alimentam Marcas).
+   * Magias NÃO usam isto (passamos null no executor) → não tocam o ledger da arma.
+   */
+  weaponSource: WeaponSource | null;
   /** Famílias dadas como alvos válidos de um line/projétil (entidades vivas). */
   enemiesInWorld: SimEntity[];
 }
@@ -154,7 +160,10 @@ function execMelee(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: 
   const behind = def.targeting === "meleePositional" && isBehind(caster, target);
   const dmg = computeDamage(ctx, def, caster, target);
   caster.facing = facingTo(caster.pos, target.pos);
-  applyDamage(ctx, caster, target, dmg, def.damageType, ctx.weaponBase > 0 ? "weapon" : null, def.id);
+  // Skill FÍSICA de arma (Golpe Forte/Apunhalar, tag `arma`/`posicional`) alimenta
+  // o ledger da arma equipada; sem efeito físico, não há arma envolvida.
+  const weapon = def.effect === "physical" ? ctx.weaponSource : null;
+  applyDamage(ctx, caster, target, dmg, def.damageType, weapon, def.id);
   applySkillStatus(ctx, def, caster, target);
   ctx.pending.push({ kind: "cast", skillId: def.id, casterId: caster.id, from: { ...caster.pos }, to: { ...target.pos } });
   return { validHit: true, targets: [target], hitFromBehind: behind, ...pre };

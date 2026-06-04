@@ -35,8 +35,26 @@ export function chebyshev(a: Vec2, b: Vec2): number {
 }
 
 /**
+ * Identifica a ARMA-INSTÂNCIA por trás de um golpe (null = não foi a arma:
+ * magia/DoT/ambiental). É a chave que o ledger usa para atribuir dano/kill à
+ * arma equipada (DESIGN-EVOLUCAO.md §"Itens são instâncias").
+ */
+export interface WeaponSource {
+  /** ID da instância de arma equipada. */
+  instanceId: number;
+  /** Template da instância (conveniência p/ os payloads). */
+  templateId: string;
+  /** Label legado para o floating text/`weaponId` (ex: "weapon"/templateId). */
+  label: string;
+}
+
+/**
  * Aplica dano de `source` em `target`. Emite `damage` sempre; se matar,
  * emite `kill` e marca `target.dead`. Retorna true se o golpe foi fatal.
+ *
+ * `weapon` (null = não-arma) propaga a instância equipada aos payloads `damage`/
+ * `kill` para o ledger (auto-attack e skills físicas de arma a passam; projéteis/
+ * cura passam null). `skillId` identifica a skill, se veio de uma.
  */
 export function applyDamage(
   ctx: CombatCtx,
@@ -44,7 +62,7 @@ export function applyDamage(
   target: SimEntity,
   amount: number,
   damageType: DamageType,
-  weaponId: string | null,
+  weapon: WeaponSource | null,
   skillId: string | null,
 ): boolean {
   if (target.dead) return false;
@@ -57,8 +75,10 @@ export function applyDamage(
     amount,
     damageType,
     at: { x: target.pos.x, y: target.pos.y },
-    weaponId,
+    weaponId: weapon ? weapon.label : null,
     skillId,
+    weaponInstanceId: weapon ? weapon.instanceId : null,
+    weaponTemplateId: weapon ? weapon.templateId : null,
     context: { tick: ctx.tick, night: ctx.night },
   });
   ctx.pending.push({
@@ -75,8 +95,10 @@ export function applyDamage(
   ctx.bus.emit("kill", {
     attacker: actorRef(source),
     victim: actorRef(target),
-    weaponId,
+    weaponId: weapon ? weapon.label : null,
     skillId,
+    weaponInstanceId: weapon ? weapon.instanceId : null,
+    weaponTemplateId: weapon ? weapon.templateId : null,
     finalBlow: { amount, damageType },
     attackerHpPct: source.maxHp > 0 ? source.hp / source.maxHp : 0,
     attackerPos: { x: source.pos.x, y: source.pos.y },

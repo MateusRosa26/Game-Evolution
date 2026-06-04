@@ -43,9 +43,22 @@ export interface DamageEvent {
   damageType: DamageType;
   /** Posição (tile) do alvo ao receber o dano. */
   at: Vec2;
-  /** ID da arma/skill que causou o dano (null = fonte ambiental). */
+  /**
+   * ID da arma/skill que causou o dano (null = fonte ambiental). DEPRECADO como
+   * fonte de verdade da arma: mantido p/ floating text/legado. A ARMA real é a
+   * instância em `weaponInstanceId`/`weaponTemplateId` abaixo (ledger lê dali).
+   */
   weaponId: string | null;
   skillId: string | null;
+  /**
+   * Instância de arma equipada que causou o dano (null = não foi a arma:
+   * magia/DoT/ambiental). É a CHAVE que o ledger usa para atribuir dano à arma
+   * (DESIGN-EVOLUCAO.md §"Itens são instâncias"). Auto-attack e skills físicas de
+   * arma (Golpe Forte/Apunhalar) trazem a instância; projéteis/cura trazem null.
+   */
+  weaponInstanceId: number | null;
+  /** Template da arma-instância acima (conveniência p/ consumidores). */
+  weaponTemplateId: string | null;
   context: CombatContext;
 }
 
@@ -58,10 +71,22 @@ export interface DamageEvent {
 export interface KillEvent {
   attacker: CombatActorRef;
   victim: CombatActorRef;
-  /** Arma equipada que deu o golpe final (conta para a Marca da arma). */
+  /**
+   * Arma equipada que deu o golpe final — DEPRECADO como fonte de verdade
+   * (mantido p/ legado). A arma real é a instância em `weaponInstanceId`.
+   */
   weaponId: string | null;
   /** Skill que deu o golpe final, se foi por skill. */
   skillId: string | null;
+  /**
+   * Instância de arma que deu o GOLPE FINAL estando equipada (null = golpe final
+   * por magia/DoT/ambiental → NÃO conta para a Marca da arma). É a chave que o
+   * ledger usa p/ atribuir o kill à arma (DESIGN-EVOLUCAO.md §"Anti-degeneração":
+   * "conta o kill se ela deu o golpe final estando equipada").
+   */
+  weaponInstanceId: number | null;
+  /** Template da arma-instância acima (conveniência p/ consumidores). */
+  weaponTemplateId: string | null;
   /** Dano do golpe final e seu tipo. */
   finalBlow: { amount: number; damageType: DamageType };
   /** HP% do atacante NO MOMENTO do kill (0..1) — ex.: Marca "Última Resposta". */
