@@ -1,28 +1,43 @@
 import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS } from "../shared/constants";
-import type { EntityState, Snapshot, SnapshotEvent } from "../shared/protocol";
+import type {
+  EntityState,
+  PlayerProgressState,
+  Snapshot,
+  SnapshotEvent,
+} from "../shared/protocol";
 import type { ClientCommand } from "../shared/protocol";
 import {
   DIR_VECTORS,
   dirFromDelta,
   facingFromDir,
   isDiagonal,
+  type AttributeKey,
   type Dir8,
   type MapData,
+  type PlayerClass,
   type Vec2,
 } from "../shared/types";
 import {
+  DEFAULT_PLAYER_CLASS,
   MELEE_RANGE,
-  PLAYER_ATTACK_COOLDOWN_MS,
-  PLAYER_ATTACK_DAMAGE,
-  PLAYER_MAX_HP,
-  PLAYER_MAX_MP,
+  STARTER_WEAPON_DAMAGE,
   STARTER_WEAPON_ID,
 } from "./balance";
 import { CREATURES, type CreatureTemplate } from "./bestiary";
 import { applyDamage, chebyshev, type CombatCtx } from "./combat";
 import type { SimEntity } from "./entity";
-import { EventBus } from "./events";
+import { EventBus, type KillEvent } from "./events";
+import { attackCooldownMs, physicalDamage, xpForLevel } from "./formulas";
 import { updateChaser } from "./monsterAi";
+import {
+  allocateStatPoint,
+  createProgression,
+  creatureLevelForTier,
+  grantKillXp,
+  regenTick,
+  syncMaxResources,
+  type Progression,
+} from "./progression";
 import { findPath, nearestWalkable } from "./pathfinding";
 import { World } from "./World";
 
@@ -48,10 +63,14 @@ export class Simulation {
   private snapshotListeners: ((snap: Snapshot) => void)[] = [];
   private playerIds = new Set<number>();
   private respawns: PendingRespawn[] = [];
+  /** Progressão por jogador (level/XP/atributos) — só na sim. */
+  private progressions = new Map<number, Progression>();
 
   constructor(map: MapData) {
     this.world = new World(map);
     this.spawnInitialMonsters();
+    // XP/level derivam do evento `kill` do bus (DESIGN-EVOLUCAO.md §Camada Sólida).
+    this.bus.on("kill", (ev) => this.onKill(ev));
   }
 
   /** Tempo lógico atual em ms. */
@@ -59,10 +78,11 @@ export class Simulation {
     return this.tickCount * TICK_MS;
   }
 
-  addPlayer(name: string): number {
+  addPlayer(name: string, cls: PlayerClass = DEFAULT_PLAYER_CLASS): number {
     const id = this.nextId++;
     const spawn = this.world.map.spawn;
-    this.entities.set(id, {
+    const prog = createProgression(cls);
+    const entity: SimEntity = {
       id,
       kind: "player",
       name,
@@ -75,26 +95,56 @@ export class Simulation {
       justMoved: false,
       baseStepMs: BASE_WALK_MS,
       intent: null,
-      hp: PLAYER_MAX_HP,
-      maxHp: PLAYER_MAX_HP,
-      mp: PLAYER_MAX_MP,
-      maxMp: PLAYER_MAX_MP,
+      // Recursos/dano/cooldown do jogador DERIVAM das fórmulas (retrofit Wave 1).
+      hp: 0,
+      maxHp: 0,
+      mp: 0,
+      maxMp: 0,
       targetId: null,
       nextAttackAt: 0,
-      attackDamage: PLAYER_ATTACK_DAMAGE,
-      attackCooldownMs: PLAYER_ATTACK_COOLDOWN_MS,
+      attackDamage: 0,
+      attackCooldownMs: 0,
       dead: false,
       ai: null,
       aggroRadius: 0,
       spawnPos: { x: spawn.x, y: spawn.y },
-    });
+    };
+    this.entities.set(id, entity);
+    this.progressions.set(id, prog);
+    syncMaxResources(entity, prog, true); // preenche HP/Mana ao máximo derivado
+    this.recomputePlayerDerived(entity, prog); // dano/cooldown de auto-attack
     this.playerIds.add(id);
     return id;
+  }
+
+  /**
+   * Retrofit do combate da Wave 1: o dano físico e o cooldown do auto-attack do
+   * jogador passam a vir de `formulas.ts` (monstros continuam com números do
+   * bestiário). `STARTER_WEAPON_DAMAGE` é a base da arma inicial (placeholder).
+   */
+  private recomputePlayerDerived(entity: SimEntity, prog: Progression): void {
+    entity.attackDamage = physicalDamage(prog.attributes, STARTER_WEAPON_DAMAGE);
+    entity.attackCooldownMs = attackCooldownMs(prog.attributes);
   }
 
   removeEntity(id: number): void {
     this.entities.delete(id);
     this.playerIds.delete(id);
+    this.progressions.delete(id);
+  }
+
+  /** Concede XP/level quando um jogador dá o golpe final numa criatura. */
+  private onKill(ev: KillEvent): void {
+    const prog = this.progressions.get(ev.attacker.id);
+    if (!prog) return; // só jogadores têm progressão
+    const attacker = this.entities.get(ev.attacker.id);
+    if (!attacker) return;
+    const template = ev.victim.species ? CREATURES[ev.victim.species] : undefined;
+    if (!template) return; // só criaturas do bestiário dão XP
+    const creatureLevel = creatureLevelForTier(template.tier);
+    grantKillXp(prog, attacker, template.xp, creatureLevel, this.bus, ev.context);
+    // O crescimento de stats por level up pode ter mudado o dano de auto-attack.
+    this.recomputePlayerDerived(attacker, prog);
   }
 
   // ── Monstros ────────────────────────────────────────────────────────
@@ -162,6 +212,15 @@ export class Simulation {
         e.targetId = target && target.kind === "monster" && !target.dead ? cmd.entityId : null;
         break;
       }
+      case "allocateStatPoint": {
+        const prog = this.progressions.get(entityId);
+        if (!prog) break; // só jogadores têm progressão
+        if (allocateStatPoint(prog, e, cmd.attr as AttributeKey)) {
+          // Atributo mudou → dano/cooldown de auto-attack podem ter mudado.
+          this.recomputePlayerDerived(e, prog);
+        }
+        break;
+      }
       case "stop":
         e.intent = null;
         break;
@@ -190,10 +249,13 @@ export class Simulation {
       }
     }
 
-    // ── 2. Auto-attack do jogador (estilo Tibia) ──
+    // ── 2. Auto-attack + regen do jogador (estilo Tibia) ──
     for (const id of this.playerIds) {
       const e = this.entities.get(id);
-      if (e) this.updatePlayerAttack(ctx, e, now);
+      if (!e) continue;
+      this.updatePlayerAttack(ctx, e, now);
+      const prog = this.progressions.get(id);
+      if (prog) regenTick(prog, e); // regen de HP/mana por fórmula
     }
 
     // ── 3. Movimento (player + monstros) ──
@@ -337,10 +399,22 @@ export class Simulation {
     return true;
   }
 
+  /** Projeta a progressão da sim no formato serializável do snapshot. */
+  private projectProgress(prog: Progression): PlayerProgressState {
+    return {
+      cls: prog.cls,
+      level: prog.level,
+      xp: prog.xp,
+      xpForNextLevel: xpForLevel(prog.level + 1),
+      attributes: { ...prog.attributes },
+      freeStatPoints: prog.freeStatPoints,
+    };
+  }
+
   private emitSnapshot(events: SnapshotEvent[]): void {
     const entities: EntityState[] = [];
     for (const e of this.entities.values()) {
-      entities.push({
+      const state: EntityState = {
         id: e.id,
         kind: e.kind,
         name: e.name,
@@ -353,7 +427,10 @@ export class Simulation {
         maxHp: e.maxHp,
         mp: e.mp,
         maxMp: e.maxMp,
-      });
+      };
+      const prog = this.progressions.get(e.id);
+      if (prog) state.progress = this.projectProgress(prog);
+      entities.push(state);
     }
     // targetId é por-jogador; entregue por entidade abaixo via snapshot.
     // O snapshot é o mesmo para todos (M1 single-player local); o targetId

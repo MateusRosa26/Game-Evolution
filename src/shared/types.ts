@@ -54,6 +54,43 @@ export function dirFromDelta(dx: number, dy: number): Dir8 | null {
 export type EntityKind = "player" | "monster" | "npc";
 
 /**
+ * Classes-base do jogador (DESIGN-EVOLUCAO.md §Classes). Sem subclasses
+ * escolhíveis — a especialização emerge via Caminhos/Mutações (wave futura).
+ * Identificadores estáveis (chaves de dados/fórmulas).
+ */
+export type PlayerClass = "knight" | "mage" | "rogue" | "priest";
+
+/**
+ * Os 5 atributos da camada sólida (DESIGN-EVOLUCAO.md §Stats). DISTRIBUÍVEIS
+ * (pontos no level up); tudo o mais é DERIVADO via `src/sim/formulas.ts`.
+ * Nomes em inglês, estáveis (chaves de dados). Chave de atributo isolada em
+ * `AttributeKey` para o comando `allocateStatPoint` validar.
+ */
+export interface Attributes {
+  /** Força — dano corpo-a-corpo, capacidade de carga. */
+  strength: number;
+  /** Destreza — dano de adagas/distância, velocidade de ataque, esquiva. */
+  dexterity: number;
+  /** Inteligência — dano mágico, mana máxima. */
+  intelligence: number;
+  /** Vitalidade — HP máximo, regeneração de HP. */
+  vitality: number;
+  /** Espírito — poder de cura, regen de mana, resistência mágica. */
+  spirit: number;
+}
+
+export type AttributeKey = keyof Attributes;
+
+/** As 5 chaves de atributo, em ordem estável (para validação/iteração). */
+export const ATTRIBUTE_KEYS: AttributeKey[] = [
+  "strength",
+  "dexterity",
+  "intelligence",
+  "vitality",
+  "spirit",
+];
+
+/**
  * As 12 famílias canônicas do bestiário (DESIGN-BESTIARIO.md).
  * Família é a unidade do sistema de Marcas: contadores de kill rastreiam
  * espécie E família. Toda criatura pertence a exatamente uma família.
