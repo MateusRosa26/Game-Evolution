@@ -80,3 +80,24 @@
 - Números de hue-shift e cadência de beats: guias flexíveis, não constantes.
 - WoW gray-level: números exatos não verificados além de snippets.
 - Fonossemântica: corpus minúsculo — heurística.
+
+## 6. Estudo 2 (jun/2026): cidades iniciais de MMORPGs 2D clássicos (→ refino da Alvorada v4)
+
+> Pesquisa dedicada: Tibia (Thais/Rookgaard), RO (Prontera/Izlude), MU (Lorencia). 73 claims → 25 verificadas (3 votos adversariais) → **21 confirmadas, 4 refutadas**. Fontes: TibiaWiki + biblioteca oficial Tibia.com, iRO Wiki/RateMyServer/rAthena, muonlinefanz, blogs de design MMO.
+
+**Confirmado (alta confiança):**
+
+| Padrão | Evidência canônica | Aplicação Alvorada |
+|---|---|---|
+| **Geografia define o perímetro; muralha NÃO cerca tudo** | Thais: 2 rios (N/S) + muralha LESTE + baía aberta a oeste | rio + colina cobrem lados; muralha só nos abertos ✓ (v4 já faz) |
+| **Poucas saídas, cardinais; capital = gateway, nunca beco** | Prontera: exatas 3 saídas de campo (W/E/S, nenhuma N — norte reservado ao castelo); Lorencia: hub de ~5 conexões | 4 saídas ✓; **reservar uma direção pra conteúdo especial** (como Prontera reserva o norte) |
+| **Spot iniciante COLADO num portão** | Thais: Ancient Temple "just outside the north gate" | ≥1 portão abre direto num bolsão T1 (segundos, não minutos) |
+| **Dificuldade zoneada por DIREÇÃO + PROFUNDIDADE, não anéis radiais** | Thais (templo N iniciante, Mt. Sternum NE, Cyclops S, Mintwallin no fundo); Rookgaard (clusters cardinais + superfície fraca/fundo forte). **Anéis radiais REFUTADO 0-3** (campos de Prontera não graduam por raio) | cada direção com assinatura de tema/tier; esgoto -1 trivial → -3 perigoso ✓ |
+| **Esgoto urbano multi-andar é O padrão de dungeon de capital** | Thais Sewers: 3 andares, rec. lvl 6, SÓ vermes low-tier, entrada de DENTRO (junto ao depot); Prontera Culvert: 4 andares, quest-gated, entrada em campo EXTERNO | nossos 3 andares ✓; modelos de acesso: livre-de-dentro (Thais) vs gated-de-fora (Prontera) — nosso híbrido (1–2 livres, 3º atrás de segredo/ferramenta) cobre os dois |
+| **Concentração de utilidade cria o hub; dispersão mata** | Lorencia: TODOS os serviços num mapa; FFXIV Limsa (market+bell colados no Aetheryte); WoW Ironforge esvaziou quando a AH saiu | depot+mercado+praça num cluster apertado; respawn a passos do hub |
+| **Cidade-satélite temática é precedente válido** | Izlude: porto/escola de Prontera, com zoneamento interno claro | futuro: porto fluvial; dentro da capital, lados com função (bairros ✓) |
+| **~12 zonas de caça por capital é sustentável** | Prontera: 12 campos (prt_fild00–11; só ~2 adjacentes diretos — teia, não anel) | nossos ~12 spots ✓; encadeamento em teia |
+
+**Refutado / não usar:** anéis radiais de dificuldade (0-3); "RO mal telegrafado" (1-2 — não sustentado).
+
+**Lacunas:** APOGEA — zero claims verificáveis nas fontes públicas (wiki rasa); a referência mais próxima do nosso jogo precisa vir do conhecimento direto do criador. Distância portão→spot e densidade de bolsão: sem métricas nas fontes (decisão nossa + balancista).
