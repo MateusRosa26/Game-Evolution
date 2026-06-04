@@ -174,7 +174,9 @@ export function generateTestMap(): MapData {
     monsters.push({ x: mx, y: my, species: "rato_lanhoso" });
   }
 
-  // Zonas seguras (depot) e de passagem (escadas/portais): nenhuma no mapa de
-  // teste — os mecanismos são exercitados nas cidades/dungeons do M3.
-  return { width: W, height: H, tiles, lights, decor, monsters, safeZones: [], passZones: [], spawn };
+  // Área de respawn = ZONA SEGURA (decidido): sem bloqueio de corpo (players
+  // AFK não trancam ninguém no spawn), mobs não entram e não há combate a
+  // partir de dentro. Zonas de passagem (escadas/portais): nenhuma ainda (M3).
+  const safeZones = [{ x: spawn.x - 1, y: spawn.y - 1, w: 3, h: 3 }];
+  return { width: W, height: H, tiles, lights, decor, monsters, safeZones, passZones: [], spawn };
 }

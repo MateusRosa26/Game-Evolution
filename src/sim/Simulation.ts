@@ -420,6 +420,11 @@ export class Simulation {
       if (!caster || caster.dead) continue;
       const prog = this.progressions.get(req.casterId);
       if (!prog) continue;
+      // Zona segura: skill OFENSIVA não sai de dentro (cura pode — padrão PZ).
+      const def = SKILLS[req.skillId];
+      if (def && def.targeting !== "healTarget" && this.world.isSafeZone(caster.pos.x, caster.pos.y)) {
+        continue;
+      }
       const target = req.targetId != null ? this.entities.get(req.targetId) ?? null : null;
       const skillCtx: SkillCastCtx = {
         ...ctx,
@@ -509,6 +514,9 @@ export class Simulation {
   /** Auto-attack: com alvo vivo e adjacente, ataca a cada cooldown. */
   private updatePlayerAttack(ctx: CombatCtx, player: SimEntity, now: number): void {
     if (player.dead || player.targetId == null) return;
+    // Zona segura é zona SEM combate: não se ataca de dentro dela (a IA já é
+    // cega para quem está dentro — atacar de lá seria abuso de mão única).
+    if (this.world.isSafeZone(player.pos.x, player.pos.y)) return;
     const target = this.entities.get(player.targetId);
     if (!target || target.kind !== "monster" || target.dead) {
       player.targetId = null;
