@@ -134,6 +134,33 @@ export class EntityRenderer {
     this.targetMarker.visible = true;
   }
 
+  /**
+   * Texto flutuante dourado "SUBIU DE NÍVEL!" sobre o jogador (apresentação:
+   * o Game detecta a subida comparando snapshots e chama isto). Ancorado no
+   * container do player para seguir a interpolação de posição.
+   */
+  spawnLevelUpText(): void {
+    const v = this.visuals.get(this.playerId);
+    if (!v) return;
+    const text = new Text({
+      text: "SUBIU DE NÍVEL!",
+      style: {
+        fontFamily: "monospace",
+        fontSize: 12,
+        fontWeight: "bold",
+        fill: 0xffd95a,
+        stroke: { color: 0x10141c, width: 4 },
+      },
+    });
+    text.resolution = 4;
+    text.anchor.set(0.5, 1);
+    text.position.set(0, -44);
+    text.zIndex = 1e9;
+    v.container.addChild(text);
+    // Reusa o pool de floats: sobe e some sobre o player.
+    this.floats.push({ text, elapsed: 0 });
+  }
+
   private spawnDamageText(amount: number, tileX: number, tileY: number): void {
     const text = new Text({
       text: `${amount}`,
