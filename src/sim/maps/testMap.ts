@@ -1,4 +1,4 @@
-import { TileId, type MapData, type MapDecor, type MapLight } from "../../shared/types";
+import { TileId, type MapData, type MapDecor, type MapLight, type MapMonster } from "../../shared/types";
 import { mulberry32 } from "../rng";
 
 /**
@@ -156,5 +156,23 @@ export function generateTestMap(): MapData {
     }
   }
 
-  return { width: W, height: H, tiles, lights, decor, spawn };
+  // ── Ratos Lanhosos: "o primeiro sangue" — pequenos grupos perto do spawn ─
+  const monsters: MapMonster[] = [];
+  const ratSpots: [number, number][] = [
+    [33, 27],
+    [34, 28],
+    [32, 29], // matilha a leste do spawn
+    [25, 31],
+    [26, 30], // dupla a sudoeste
+    [30, 22], // batedor solitário ao norte
+  ];
+  for (const [mx, my] of ratSpots) {
+    // garante tile andável (limpa árvore/pedra que tenha caído ali)
+    const t = get(mx, my);
+    if (t === TileId.Tree || t === TileId.Rock || t === TileId.Wall) set(mx, my, TileId.Grass);
+    if (get(mx, my) === TileId.Water) continue;
+    monsters.push({ x: mx, y: my, species: "rato_lanhoso" });
+  }
+
+  return { width: W, height: H, tiles, lights, decor, monsters, spawn };
 }

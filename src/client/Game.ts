@@ -29,6 +29,7 @@ export class Game {
 
   private playerId = -1;
   private playerState: EntityState | null = null;
+  private lastEntities: EntityState[] = [];
   private started = false;
 
   constructor(
@@ -44,7 +45,16 @@ export class Game {
     new Keyboard((dir) => this.transport.send({ type: "setDir", dir }));
     this.mouse = new Mouse(this.app.canvas, (sx, sy) => {
       const tile = this.camera.screenToTile(sx, sy, this.app.screen.width, this.app.screen.height);
-      this.transport.send({ type: "walkTo", x: tile.x, y: tile.y });
+      // Click num monstro = seleciona alvo (auto-attack); senão, anda até lá.
+      const monster = this.lastEntities.find(
+        (e) => e.kind === "monster" && e.pos.x === tile.x && e.pos.y === tile.y,
+      );
+      if (monster) {
+        this.transport.send({ type: "selectTarget", entityId: monster.id });
+      } else {
+        this.transport.send({ type: "selectTarget", entityId: null });
+        this.transport.send({ type: "walkTo", x: tile.x, y: tile.y });
+      }
     });
 
     this.transport.onMessage((msg) => {
@@ -86,6 +96,7 @@ export class Game {
 
   private onSnapshot(snap: Snapshot): void {
     this.entityRenderer?.apply(snap);
+    this.lastEntities = snap.entities;
     this.playerState = snap.entities.find((e) => e.id === this.playerId) ?? null;
     if (this.playerState) {
       this.hud.setStats(this.playerState.hp, this.playerState.maxHp, this.playerState.mp, this.playerState.maxMp);

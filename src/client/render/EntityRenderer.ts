@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Text } from "pixi.js";
+import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { TILE_SIZE } from "../../shared/constants";
 import type { EntityState, Snapshot } from "../../shared/protocol";
 import type { Facing } from "../../shared/types";
@@ -7,9 +7,20 @@ import type { SpriteLibrary } from "../assets/sprites";
 /** Ciclo de caminhada: passo-esq, neutro, passo-dir, neutro. */
 const WALK_CYCLE = [1, 0, 2, 0];
 
+/** Floating damage text — sobe e some. */
+const FLOAT_DUR_MS = 900;
+const FLOAT_RISE_PX = 22;
+
+interface FloatingText {
+  text: Text;
+  elapsed: number;
+}
+
 interface EntityVisual {
   container: Container;
   sprite: Sprite;
+  /** Conjunto de texturas (knight/rat) deste visual. */
+  textures: Record<Facing, Texture[]>;
   nameText: Text;
   hpBar: Graphics;
   // tween de posição (em tiles, com fração)
@@ -31,6 +42,10 @@ interface EntityVisual {
 export class EntityRenderer {
   private visuals = new Map<number, EntityVisual>();
   private playerId: number;
+  /** Marcador de alvo (estilo Tibia) reparentado sob o monstro alvo. */
+  private targetMarker: Sprite;
+  /** Floating damage texts ativos. */
+  private floats: FloatingText[] = [];
 
   constructor(
     private sprites: SpriteLibrary,
@@ -38,6 +53,15 @@ export class EntityRenderer {
     playerId: number,
   ) {
     this.playerId = playerId;
+    this.targetMarker = new Sprite(sprites.targetMarker);
+    this.targetMarker.anchor.set(0.5, 0.5);
+    this.targetMarker.visible = false;
+  }
+
+  /** Texturas certas para a espécie (player = knight, rato = rat). */
+  private texturesFor(e: EntityState): Record<Facing, Texture[]> {
+    if (e.species === "rato_lanhoso") return this.sprites.rat;
+    return this.sprites.knight;
   }
 
   /** Posição visual atual do jogador local, em pixels de mundo (centro). */
@@ -83,6 +107,50 @@ export class EntityRenderer {
         this.visuals.delete(id);
       }
     }
+
+    // ── Eventos one-shot do tick: floating damage text ──
+    for (const ev of snap.events) {
+      if (ev.kind === "damage") this.spawnDamageText(ev.amount, ev.pos.x, ev.pos.y);
+      // death: a remoção visual já acontece pelo diff de entidades acima.
+    }
+
+    // ── Marcador de alvo ──
+    this.setTarget(snap.targetId);
+  }
+
+  /** Reposiciona/atualiza o marcador de alvo sob o monstro selecionado. */
+  private setTarget(id: number | null): void {
+    const v = id != null ? this.visuals.get(id) : undefined;
+    if (!v) {
+      this.targetMarker.visible = false;
+      if (this.targetMarker.parent) this.targetMarker.parent.removeChild(this.targetMarker);
+      return;
+    }
+    // ancorado no container do alvo (segue a interpolação de posição)
+    if (this.targetMarker.parent !== v.container) {
+      v.container.addChild(this.targetMarker);
+    }
+    this.targetMarker.position.set(0, -TILE_SIZE / 2);
+    this.targetMarker.visible = true;
+  }
+
+  private spawnDamageText(amount: number, tileX: number, tileY: number): void {
+    const text = new Text({
+      text: `${amount}`,
+      style: {
+        fontFamily: "monospace",
+        fontSize: 11,
+        fontWeight: "bold",
+        fill: 0xff5a4a,
+        stroke: { color: 0x10141c, width: 3 },
+      },
+    });
+    text.resolution = 4;
+    text.anchor.set(0.5, 1);
+    text.position.set((tileX + 0.5) * TILE_SIZE, (tileY + 0.6) * TILE_SIZE);
+    text.zIndex = 1e9; // sempre por cima
+    this.layer.addChild(text);
+    this.floats.push({ text, elapsed: 0 });
   }
 
   tick(deltaMS: number): void {
@@ -100,6 +168,21 @@ export class EntityRenderer {
       v.container.zIndex = v.container.position.y;
       if (moving) this.applyFrame(v, this.currentFrame(v));
     }
+
+    // floating damage text: sobe e desaparece
+    for (const f of this.floats) {
+      f.elapsed += deltaMS;
+      const t = Math.min(f.elapsed / FLOAT_DUR_MS, 1);
+      f.text.y -= (FLOAT_RISE_PX / FLOAT_DUR_MS) * deltaMS;
+      f.text.alpha = 1 - t * t;
+    }
+    this.floats = this.floats.filter((f) => {
+      if (f.elapsed >= FLOAT_DUR_MS) {
+        f.text.destroy();
+        return false;
+      }
+      return true;
+    });
   }
 
   private currentTilePos(v: EntityVisual): { x: number; y: number } {
@@ -118,18 +201,19 @@ export class EntityRenderer {
   }
 
   private applyFrame(v: EntityVisual, frame: number): void {
-    v.sprite.texture = this.sprites.knight[v.facing][frame];
+    v.sprite.texture = v.textures[v.facing][frame];
   }
 
   private createVisual(e: EntityState): EntityVisual {
     const container = new Container();
+    const textures = this.texturesFor(e);
 
     const shadow = new Sprite(this.sprites.shadow);
     shadow.anchor.set(0.5, 0.5);
     shadow.position.set(0, -3);
     container.addChild(shadow);
 
-    const sprite = new Sprite(this.sprites.knight[e.facing][0]);
+    const sprite = new Sprite(textures[e.facing][0]);
     sprite.anchor.set(0.5, 1);
     sprite.position.set(0, 0);
     container.addChild(sprite);
@@ -155,6 +239,7 @@ export class EntityRenderer {
     const v: EntityVisual = {
       container,
       sprite,
+      textures,
       nameText,
       hpBar,
       fromX: e.pos.x,
