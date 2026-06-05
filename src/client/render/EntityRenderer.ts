@@ -4,7 +4,7 @@ import type { EntityState, Snapshot, StatusEffectState } from "../../shared/prot
 import { DEFAULT_OUTFIT_BY_CLASS } from "../../shared/outfits";
 import type { Facing } from "../../shared/types";
 import { outfitTextures } from "../assets/outfit/compose";
-import { PIXELLAB } from "../assets/pixellab";
+import { PIXELLAB, PIXELLAB_CHAR_SCALE } from "../assets/pixellab";
 import type { SpriteLibrary } from "../assets/sprites";
 import { skillMeta } from "../ui/skillMeta";
 
@@ -426,6 +426,9 @@ export class EntityRenderer {
     const sprite = new Sprite(textures[e.facing][0]);
     sprite.anchor.set(0.5, 1);
     sprite.position.set(0, 0);
+    // Chars PixelLab são gerados a 64px e exibidos a 0.5 (32px = 1 tile) —
+    // qualidade do canvas maior, proporção coesa com o universo.
+    if (!e.species && PIXELLAB.knight) sprite.scale.set(PIXELLAB_CHAR_SCALE);
     container.addChild(sprite);
 
     const nameText = new Text({
