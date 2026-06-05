@@ -4,6 +4,7 @@ import type { EntityState, Snapshot, StatusEffectState } from "../../shared/prot
 import { DEFAULT_OUTFIT_BY_CLASS } from "../../shared/outfits";
 import type { Facing } from "../../shared/types";
 import { outfitTextures } from "../assets/outfit/compose";
+import { pixellabOutfitTextures } from "../assets/outfit/pixellabCompose";
 import { PIXELLAB, PIXELLAB_CHAR_SCALE } from "../assets/pixellab";
 import type { SpriteLibrary } from "../assets/sprites";
 import { skillMeta } from "../ui/skillMeta";
@@ -113,18 +114,18 @@ export class EntityRenderer {
   /** Texturas certas: mob pela espécie; player pelo OUTFIT (compositor+cache). */
   private texturesFor(e: EntityState): Record<Facing, Texture[]> {
     if (e.species === "rato_lanhoso") return this.sprites.rat;
-    // PREVIEW PixelLab: knight aprovado pelo criador (1 frame/direção, sem
-    // walk ainda). Outfits por peças voltam quando as peças virarem PNGs.
-    if (PIXELLAB.knight) return PIXELLAB.knight;
     const outfit = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
+    // Sprite PixelLab + CORES do outfit (recolor por zonas). Troca de PEÇAS
+    // entre classes é fase futura (inpaint) — ver pixellabCompose.ts.
+    if (PIXELLAB.knight) return pixellabOutfitTextures(outfit);
     return outfitTextures(outfit, e.weapon?.templateId ?? null);
   }
 
   /** Chave do visual atual (detecta troca de outfit/arma em runtime). */
   private skinKeyOf(e: EntityState): string {
     if (e.species) return e.species;
-    if (PIXELLAB.knight) return "pixellab-knight";
     const o = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
+    if (PIXELLAB.knight) return `pixellab|${o.head.color}|${o.torso.color}|${o.legs.color}`;
     return `${o.head.part}.${o.head.color}|${o.torso.part}.${o.torso.color}|${o.legs.part}.${o.legs.color}|${e.weapon?.templateId ?? "-"}`;
   }
 
