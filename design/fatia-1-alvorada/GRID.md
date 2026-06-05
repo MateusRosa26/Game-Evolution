@@ -397,3 +397,29 @@ NE (P02/P07): Q5,Q8,Q13 ✓ · Sul (P03/P08): Q9,Q12,Q7,Q11,Q14 ✓ · Oeste (P0
 - [ ] Confirmar largura do leito do afluente e dos vaus (tiles cruzáveis) — diretor-de-arte + engenharia.
 
 > **Nota de processo:** este GRID consome `QUESTS.md`, que ainda é arquivo **não-commitado** na árvore principal (produzido em paralelo). Se `QUESTS.md` mudar referências espaciais, revalidar a tabela §10.
+
+---
+
+## Verificação independente (verificador)
+
+> Conferência fresca contra as fontes da verdade na árvore principal (`QUESTS.md`, `NPCS.md`, `ITENS-LOOTS.md`, `DESIGN-MUNDO.md`) — não confiei nas afirmações do autor. Diff limpo: só este arquivo novo, zero edição em docs canônicos.
+
+**Cobertura quest→POI: 19/19 ✓** — todos os 4 ritos + Q1–Q15 + casa inicial têm coordenada/entrada física. Spot-check das referências espaciais do `QUESTS.md` (porão estalagem, bueiro praça, granja, gruta, vau NE, acampamento/caverna goblin + Orc, Atalaia/balsa/Pontal, Toca, Matagal/Presa-Torta, ponte dos bandidos, carta-loot, moinho/porão, boca da mina/carrinhos, pedras do junco→margem leste, alvenaria A2+baú lacrado, passagem alagada→A3) — **todas presentes**. As 5 travessias estão graduadas (livre→vau→pedágio→escondida→secreta). Named **Presa-Torta** bate com o cânone.
+
+**Discrepâncias encontradas:**
+
+1. **[média] NPCs batizados referenciados só por papel, sem o nome próprio** (§3.3, §4, §10). 7 NPCs do `NPCS.md` aparecem genéricos: **Telmo** (taverneiro Q9 → GRID diz só "Taverneiro", inclusive a posição `(51,29)` fica sem nome canônico); **Gualter** (R1 → "Instrutor de armas"); **Leonor** (R2 → "Arcanista"); **Vicente "Gralha"** (R3 → "Contato do beco"); **Eusébio** (R4 → "Monge"); **Rosa** (tutorial → "NPC-guia"); **Heitor** (vigia de Atalaia, Q4 → "Vigia de Atalaia"); **Honório** (prefeito → "Câmara (prefeito)"). Nenhum nome *conflitante/inventado* — é lacuna de rastreabilidade, não erro de cânone. Corrigir: anexar os nomes próprios nessas linhas.
+
+2. **[média] Inconsistência entre os dois sistemas de coordenadas dos portões** (§3.1 coord-cidade vs §9 local). Aplicando a conversão declarada `local = cidade + (100,80)`, nenhum portão fecha: NE `(40,2)`→(140,82) vs P02 `(150,80)`; Sul `(20,58)`→(120,138) vs P03 `(120,178)` (**Y diverge 40 tiles**); Oeste `(2,30)`→(102,110) vs P04 `(112,98)`; Porta d'Água `(56,52)`→(156,132) vs P05 `(150,148)`. Tudo marcado ✏️, mas as duas tabelas precisam casar pela própria fórmula do doc.
+
+3. **[média] Portão Sul P03 `(120,178)` cai FORA do retângulo da cidade** `[100..170]×[80..150]` (Y=178 > 150, ~28 tiles ao sul da muralha). Um portão tem de estar na muralha. A versão coord-cidade (local Y=138) está dentro — a tabela §9 herdou o erro do item 2.
+
+4. **[média] Spot S4 Toca dos Lobos `[145..180]×[78..105]` SOBREPÕE a cidade** `[100..170]×[80..150]` (interseção x[145..170]×y[80..105]); a âncora `(160,90)` também está intramuros. Viola "spots não sobrepõem a cidade" — empurrar a Toca para fora da muralha NE/leste.
+
+5. **[baixa] Tamanho da cidade auto-inconsistente:** §3 diz "~60×60" no texto mas declara o retângulo `[100..170]×[80..150]` = **70×70**. Alinhar prosa e número.
+
+**Orçamentos:** baús **8 (+1?)** = ~32% de 20–30 ✓ (piramidal: base B6/B7/B8, meio B1–B4, 1 lacrado B5, zero lendário); dungeon **3 andares** de 16–18 ✓; segredos não-baú ✓ folgado; casa inicial + cluster de utilidade + zona segura ✓. **Tensão (não-estouro):** **15 spots** (12 over + 3 esgoto) ≈ **67% do envelope ~20–25 ponderado** do MVP — para 1 de ~3 fatias, e quase todos T1, é alto. Defensável (Alvorada é a maior fonte de T1 do MVP, declarado em DESIGN-MUNDO §98), mas vale o criador confirmar que Charneca/Brumal cabem no resto. O próprio doc já marca essa linha ✏️.
+
+**Método:** ✏️ aplicado de forma consistente; nada escrito como "decidido" pelo autor (só cita decisões já tomadas nas fontes); pt-BR; não inventou mecânica. Bom.
+
+**Veredito:** estrutura, rastreabilidade e orçamentos sólidos; as 4 discrepâncias de média (#1–#4) são correções de consistência/rastreabilidade antes de virar dados — nenhuma é redesenho.
