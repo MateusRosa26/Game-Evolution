@@ -372,16 +372,15 @@ O sistema de comida é a **fundação do sustain**. Referência explícita do cr
 
 ### Esqueleto do sistema próprio (direção do criador — peças do Apogea a TRADUZIR, não copiar)
 
-| Peça | O que é | Nota de tradução ✏️ |
+| Peça | O que é | Decisão/nota |
 |---|---|---|
-| **Cru × cozido** | todo ingrediente animal existe em 2 estados; cozinhar transforma | cru sacia pouco (ou risco de efeito ruim? ✏️) — cozinhar sempre vale o gesto |
-| **Fogueiras** | estação de cozinha do MUNDO: pontos fixos (acampamentos, clareiras) + cozinha urbana (estalagem) | ✏️ fogueira montável pelo jogador? (lenha como recurso?) — decidir; se sim, efeito temporário como as ferramentas |
-| **Utensílios** | itens que destravam CATEGORIAS de receita: **pote** (caldos/sopas), espeto/grelha ✏️ | utensílio é como ferramenta: compra única, decisão de mochila |
-| **Pote + água** | encher o pote em poço/rio/fonte → base de **caldos e sopas** | água como recurso de mundo (mais uma função pro rio/poço da praça!) |
+| **Cru × cozido** | todo ingrediente animal existe em 2 estados | **decidido**: cru sacia MENOS, **sem risco** (nada de efeito ruim). E **receitas usam cru OU cozido conforme a receita** — usar cru não torna a receita pior; é dimensão de ingrediente, não hierarquia de qualidade |
+| **Fogueiras** | estação de cozinha do MUNDO | **decidido: FIXAS pelo mapa, NUNCA montáveis** — cozinhar exige **planejamento** (preparar na cidade) ou **achar fogueiras espalhadas** (acampamentos, clareiras — viram pontos de descanso/landmark; o world-designer as posiciona como beats de vale) |
+| **Utensílios** | itens que destravariam categorias de receita (pote p/ caldos, espeto…) | ✏️ **EM AVALIAÇÃO — pensar mais a fundo SE existe**; se entrar: pote+água (poço/rio) → caldos/sopas. **Adagas e facas cortam alguns tipos de comida** (decidido) — arma serve de utensílio de corte |
 | **Sanduíches/montados** | comida FRIA montada (pão + recheios), sem fogo | a comida de viagem: prepara na cidade, come na dungeon — categoria própria |
 | **NPC que compra comida** | cozinheiro/estalajadeiro compram ingredientes E pratos prontos | **renda não-combate**: caçar→cozinhar→vender vira loop legítimo (entra no mapa de comércio) |
 
-- A régua das categorias: **assado** (fogueira, simples) < **sopa/caldo** (pote+água, melhor regen) < **prato completo** (receita descoberta, buff food) — esforço/conhecimento crescente, recompensa crescente.
+- A régua das categorias (esforço/conhecimento ↑ = recompensa ↑): **assado** (fogueira, simples) < **prato de receita** (descoberta, buff food); caldos/sopas condicionados à decisão de utensílios ✏️.
 - ✏️ Identidade própria a desenhar (Designer de Sistemas + Loremaster): pratos regionais por cidade? qualidade por ingrediente? — o que nos torna NÓS e não um clone do Apogea.
 
 ## Consumíveis — Poções (decidido — jun/2026)
