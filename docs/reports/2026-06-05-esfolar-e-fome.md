@@ -202,3 +202,33 @@ Nenhum número final aqui. Pendências de calibração:
 ---
 
 *Próximo passo após o ✏️ do criador: registrar as decisões fechadas em `ITENS-LOOTS.md` §Aberto e `DESIGN-ITENS.md` §Comida (linha "✏️ Fome"), e abrir a bateria M2 com o Balancista (parâmetros §acima).*
+
+---
+
+## Verificação independente (verificador)
+
+Verificador fresco (persona Designer de Sistemas como autor original). Cada claim factual foi conferido contra as fontes canônicas na árvore principal, sem confiar no report.
+
+- **Diff real × report:** `git diff main...HEAD --stat` mostra **só** `docs/reports/2026-06-05-esfolar-e-fome.md` (+204). Nenhum doc canônico tocado, nenhum arquivo extra. Escopo limpo — proposta pura, não mexe em conteúdo decidido. ✓
+
+- **Claims factuais conferidos:**
+  - *"Regen só funciona saciado já é canon"* → `DESIGN-ITENS.md` L365: **"Fome como portão do regen: o regen natural de HP/mana só funciona saciado"**. **Bate LITERALMENTE** — não há over-claim; é o claim mais load-bearing do report e está exato.
+  - *Pendência da fome é só "como decai + o que faminto adiciona"* → `DESIGN-ITENS.md` L370 / `ITENS-LOOTS.md` L101: "decai com tempo? com ação? penalidade de faminto (sem regen apenas, ou debuff?)". **Bate** — o report reduz o espaço corretamente.
+  - *Buff food (cozido = regen melhor + stat temporário por duração); cru sacia menos sem risco; fogueiras fixas nunca montáveis* → `DESIGN-ITENS.md` L366, L377, L378. **Bate** (cru/risco e fogueiras estão em §tabela L377–378, "decidido").
+  - *Hierarquia base→kit→buff food→poção* → `DESIGN-ITENS.md` L369. **Bate.**
+  - *Deadlock Q7-Ato1:* `QUESTS.md` L221 — Ato 1 (lvl ~4–6) "trazer **3** Peles de Lobo"; L223 — Faca de Esfolar é recompensa do Ato 2 (lvl ~8–9). **Bate exatamente.** A leitura "a quest que dá a faca exige a faca → deadlock se Opção B" é logicamente correta. Reforço extra que o report subutiliza: a própria loot table (`ITENS-LOOTS.md` L17) já lista **Pele de Lobo** como drop normal do Lobo — então Opção B contraria também a tabela vigente, não só a Q7.
+  - *DESIGN-MUNDO "esfolar → peles EXTRA"* → `DESIGN-MUNDO.md` L356: "carcaças → peles/carnes EXTRA … **aprofunda a caçada ✏️**". O report representa isso com honestidade rara (L29): reconhece que "EXTRA" sussurra Opção A **mas** o `✏️` mantém aberto, e leva isso só como inclinação, não como decisão. **Bate e é honesto.**
+  - *"Ferramenta = chave de acesso, nunca tesouro; kit é decisão de mochila"* → `DESIGN-MUNDO.md` L364. **Bate.**
+  - *Números M1:* `2026-06-04-bateria-m1-knight-rato.md` L61–63 (85%, 87%, 36% all-in STR), L87 (V3 → 91%), L73 (leitura 1: 85–91% = piso, recalibrar com comida), L74 (leitura 2: all-in STR 87→36%). Report cita "85–91%", "36%", "descanso 36% que o report flagou". **Todos batem.**
+  - *`formulas.ts`:* L172–177 — `hpRegenPerTick = base + vitality*factor`, `manaRegenPerTick` escala com Spirit; L163–166 todos `✏️ placeholder M2`. Report descreve "base/tick + atributo×fator (Vit→HP, Espírito→mana), placeholder M2, sem gate de fome". **Bate.** Gate booleano `×0/×1/×buff` por cima é tecnicamente trivial como afirmado.
+  - *Exceção "barra visível = camada sólida"* (auto-verificação pilar 1) → `DESIGN-FILOSOFIA.md` L57 confirma a exceção da barra de XP por contrato. Aplicar a mesma a uma barra de saciedade é extrapolação defensável e marcada como tal.
+
+- **Qualidade das opções:** As 3 opções de esfolar (A extra / B requisito / C híbrido) são genuinamente distintas e cobrem o eixo gateamento↔gradação; **C não é strawman** — é a síntese, com sub-decisão própria (Ato 1 aceita refugo?). B não é abatido por preguiça e sim por colisão concreta com conteúdo batizado (bom rigor). As 3 da fome derivam de 2 eixos ortogonais bem montados (decay: tempo/esforço/híbrido × penalidade: só-regen/+debuff/dano), e o report **fecha o espaço antes** mostrando que "qual família" já é canon — então as opções são honestamente "como decai + o que faminto adiciona", não famílias-fantasma. Degeneração analisada com Sirlin nomeado: spam de comida (L143 fome decorativa), esfolar AFK/custo de oportunidade (L52), estoque/uptime infinito reconectado ao all-in-STR do M1 (L189). Dano por inanição **vetado** com motivo de pilar (L125/L176). Zero números cravados — só ordens de grandeza + lista M2 de 6 itens (L182–189). **Toda** decisão visceral termina em ✏️ do criador (L93, L176). Teste da Mastigação aplicado por opção (L51, L60, L72, L135, L151), não só no fim.
+
+- **Observações:**
+  - Nenhum defeito factual encontrado. O claim mais arriscado (regen-gate "já é canon") é o que está mais literal.
+  - Sub-ponto que o report poderia ter usado como reforço (não defeito): a loot table vigente (`ITENS-LOOTS.md` L17/L23) **já** dropa Pele/Couro/Presa sem faca — argumento extra contra Opção B além da Q7. O report ancora só na Q7, o que já basta.
+  - `ITENS-LOOTS.md` L100 grafa "loot EXTRA (**proposta**)" — coerente com o report tratar A como o texto existente e não como decisão fechada.
+  - Recomendações (esfolar C; fome Opção 1) são ancoradas em pilar+fonte citada e não cravam número. Em linha com o método (decisão visceral fica com o criador).
+
+**Conclusão:** report honesto, factualmente preciso, opções distintas, degeneração coberta, zero números cravados, ✏️ preservados. Pronto para o ✏️ do criador.
