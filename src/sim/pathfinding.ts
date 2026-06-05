@@ -3,8 +3,10 @@ import type { World } from "./World";
 
 /**
  * A* em grid, 8 direções, custo diagonal 1.41.
- * Diagonal proibida quando "cortaria" uma quina (os dois ortogonais
- * adjacentes precisam estar livres).
+ * Diagonal estilo Tibia (decidido jun/2026): só o tile DESTINO importa —
+ * cortar quina é permitido, mesmo entre dois tiles sólidos. (A regra de
+ * quina anterior travava caçada perto de árvores/muros — as copas de 64px
+ * escondem qual tile é o sólido, e a travada parecia bug de mob.)
  */
 
 const ORTHO_COST = 1;
@@ -73,9 +75,6 @@ export function findPath(world: World, from: Vec2, to: Vec2, opts?: PathOpts): V
         // Bloqueio dinâmico (entidades), exceto no tile-destino.
         if (isBlocked && !(nx === to.x && ny === to.y) && isBlocked(nx, ny)) continue;
         const diagonal = dx !== 0 && dy !== 0;
-        if (diagonal && (!world.isWalkable(current.x + dx, current.y) || !world.isWalkable(current.x, current.y + dy))) {
-          continue; // não cortar quinas
-        }
         const g = current.g + (diagonal ? DIAG_COST : ORTHO_COST);
         const k = key(nx, ny);
         const known = bestG.get(k);

@@ -173,6 +173,59 @@ function makeStoneFloor(seed: number): Texture {
   return p.texture();
 }
 
+function makeBridge(seed: number): Texture {
+  const rng = mulberry32(seed);
+  const p = new Px(32, 32);
+  p.fill(PAL.shieldWood);
+  // tábuas horizontais: sulco a cada 8px + highlight no topo de cada tábua
+  for (let y = 0; y < 32; y += 8) {
+    p.rect(0, y, 32, 1, PAL.shieldWoodDark);
+    p.rect(0, y + 1, 32, 1, PAL.shieldWoodLight);
+  }
+  // veios da madeira (riscos horizontais curtos)
+  for (let i = 0; i < 22; i++) {
+    const x = Math.floor(rng() * 29);
+    const y = Math.floor(rng() * 32);
+    if (y % 8 <= 1) continue; // não sujar sulco/highlight
+    p.rect(x, y, 2 + Math.floor(rng() * 3), 1, rng() < 0.6 ? PAL.shieldWoodDark : PAL.shieldWoodLight);
+  }
+  // pregos nas cabeceiras das tábuas
+  for (let y = 4; y < 32; y += 8) {
+    p.px(2, y, PAL.woodPost);
+    p.px(29, y, PAL.woodPost);
+  }
+  return p.texture();
+}
+
+function makeSwamp(seed: number): Texture {
+  const rng = mulberry32(seed);
+  const p = new Px(32, 32);
+  p.fill(PAL.grassDark);
+  // poças paradas de água lamacenta
+  for (let i = 0; i < 6; i++) {
+    const x = Math.floor(rng() * 27);
+    const y = Math.floor(rng() * 28);
+    const w = 3 + Math.floor(rng() * 3);
+    p.rect(x, y, w, 2, PAL.waterDark);
+    p.rect(x + 1, y + 1, w - 2, 1, PAL.waterBase);
+  }
+  // lama e matéria podre
+  for (let i = 0; i < 18; i++) {
+    const x = Math.floor(rng() * 32);
+    const y = Math.floor(rng() * 32);
+    p.px(x, y, rng() < 0.5 ? PAL.dirtDark : PAL.grassMid);
+  }
+  // tufos de junco doentios
+  for (let i = 0; i < 4; i++) {
+    const x = 2 + Math.floor(rng() * 28);
+    const y = 3 + Math.floor(rng() * 26);
+    p.px(x, y, PAL.grassMid);
+    p.px(x, y - 1, PAL.grassMid);
+    p.px(x + 1, y - 2, PAL.grassDark);
+  }
+  return p.texture();
+}
+
 function makeWaterFrames(): Texture[] {
   const frames: Texture[] = [];
   for (let f = 0; f < 3; f++) {
@@ -502,6 +555,8 @@ export interface SpriteLibrary {
   dirt: Texture[];
   stoneFloor: Texture[];
   waterFrames: Texture[];
+  bridge: Texture[];
+  swamp: Texture[];
   trees: Texture[];
   rocks: Texture[];
   wall: Texture;
@@ -521,6 +576,8 @@ export function createSprites(): SpriteLibrary {
     dirt: [makeDirt(10), makeDirt(20), makeDirt(30)],
     stoneFloor: [makeStoneFloor(7), makeStoneFloor(14), makeStoneFloor(21)],
     waterFrames: makeWaterFrames(),
+    bridge: [makeBridge(601), makeBridge(602)],
+    swamp: [makeSwamp(701), makeSwamp(702), makeSwamp(703)],
     // Árvores: PixelLab (curadoria) quando carregadas; fallback procedural.
     trees: PIXELLAB.trees.length > 0 ? PIXELLAB.trees : [makeTree(101), makeTree(202), makeTree(303)],
     rocks: [makeRock(401), makeRock(402)],

@@ -97,6 +97,6 @@ A fome é o portão do regen; a fatia ① introduz o sistema inteiro em pequena 
 - [x] ~~Hobgoblin ou Orc Soldado no fundo da caverna?~~ → **Orc Soldado** (decidido jun/2026 — clímax de *Orelha por Orelha*, `QUESTS.md` Q8)
 - [x] ~~Loot raro de Bandido (pista/mapa)~~ → **Carta Rabiscada** (`QUESTS.md` Q11 — aponta a Fortaleza Abandonada, fecha na fatia ③)
 - [x] ~~Nomes de NPCs~~ → batizados (Loremaster, jun/2026 — `NPCS.md`)
-- [ ] Esfolar com faca: rende loot EXTRA (proposta) ou é requisito pra pele dropar? — Designer de Sistemas
-- [ ] Mecânica da fome: decai com tempo/ação? penalidade = só sem-regen ou debuff? — Designer de Sistemas + Balancista
+- [x] ~~Esfolar com faca: rende loot EXTRA ou é requisito?~~ → **decidido (criador, jun/2026): esfolar é VERBO gated pela faca, em cima do drop normal.** A loot table normal do mob cai sempre, com ou sem faca (a Q7-Ato1 segue sem deadlock). Com a Faca de Esfolar, mobs **esfoláveis** (lista específica — uns rendem pele+comida, outros só pele) podem ser esfolados: chance de pele e chance de comida, **cada uma <50% e nunca garantida**, com **condicional negativa** (saiu pele → chance de comida cai; saiu comida → chance de pele cai — anti-jackpot). Quais mobs são esfoláveis e os % exatos ✏️ Balancista (bateria M2).
+- [x] ~~Mecânica da fome~~ → **decidido (criador, jun/2026): modelo de DURAÇÃO (Tibia)** — comida ativa saciedade por tempo específico do alimento; sem comida ativa, a única penalidade é regen natural de HP/MP desligado. Registrado em `DESIGN-ITENS.md` §Comida. Durações ✏️ Balancista.
 - [ ] Pares EN dos nomes de item (Loremaster, com o catálogo) e números (Balancista)

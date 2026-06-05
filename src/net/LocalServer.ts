@@ -1,7 +1,7 @@
 import { TICK_MS } from "../shared/constants";
 import type { ClientCommand, ClientTransport, ServerMessage } from "../shared/protocol";
 import { Simulation } from "../sim/Simulation";
-import { generateTestMap } from "../sim/maps/testMap";
+import { generateAlvoradaMap } from "../sim/maps/alvorada";
 
 /**
  * "Servidor" embutido: roda a Simulation em ticks dentro da página e entrega
@@ -17,7 +17,8 @@ export class LocalServer {
   private accumulator = 0;
 
   constructor() {
-    this.sim = new Simulation(generateTestMap());
+    // Fatia ① — Alvorada (GRID.md). testMap segue no repo pro harness do Balancista.
+    this.sim = new Simulation(generateAlvoradaMap());
   }
 
   start(): void {

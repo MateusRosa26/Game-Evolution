@@ -48,6 +48,10 @@ export class WorldRenderer {
         return s.stoneFloor[Math.floor(h * s.stoneFloor.length)];
       case TileId.Water:
         return s.waterFrames[0];
+      case TileId.Bridge:
+        return s.bridge[Math.floor(h * s.bridge.length)];
+      case TileId.Swamp:
+        return s.swamp[Math.floor(h * s.swamp.length)];
       default: {
         const flower = hash2D(x, y, 99) < 0.06;
         return flower

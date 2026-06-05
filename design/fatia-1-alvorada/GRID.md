@@ -1,8 +1,8 @@
-# Fatia ① Alvorada — GRID (spec implementável do mapa) · **PROPOSTA**
+# Fatia ① Alvorada — GRID (spec implementável do mapa) · **APROVADO COMO BASE (criador, jun/2026)**
 
 > Espacialização do layout aprovado `design/rascunhos/alvorada-v4.html` (fonte da verdade espacial) em coordenadas de tile. Consome: `QUESTS.md` (cada referência espacial precisa existir aqui) · `ITENS-LOOTS.md` (mobs por spot, compradores) · `DESIGN-MUNDO.md` (orçamentos: 800×800 macro, ~20–30 baús MVP piramidais, cluster de utilidade + NPCs espalhados, casa inicial, spawn sem classe). World-designer: esqueleto de Lynch, gradiente de perigo, telegrafia, custo de fuga crescente.
 >
-> **Esta é uma PROPOSTA.** Toda escolha posicional arbitrária está marcada ✏️ — a decisão final é do criador. Nada aqui está "decidido". Não inventei mecânica nova: só dei lugar e coordenada ao que já está desenhado.
+> **Status: APROVADO COMO BASE implementável (criador, jun/2026).** As coordenadas ✏️ viram código já; o afinamento fino acontece com o mapa rodando no jogo (ajustar vendo > ajustar no papel), sem nova rodada de aprovação por coordenada. Não inventa mecânica nova: só dá lugar e coordenada ao que já está desenhado.
 >
 > **Método de derivação das coordenadas:** as posições saem das proporções das três pranchas do v4 (Constelação 1000×840, Cidade 820×640, Esgotos corte 820×360), reprojetadas no recorte de tiles abaixo. São aproximações de layout para o engenheiro começar — todas ✏️, afináveis ao colocar no editor.
 

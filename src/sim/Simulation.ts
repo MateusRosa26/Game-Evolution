@@ -708,14 +708,9 @@ export class Simulation {
     const nx = e.pos.x + v.x;
     const ny = e.pos.y + v.y;
     // Bloqueio de corpo: tile precisa estar andável E livre (canEnter).
+    // Diagonal estilo Tibia (decidido jun/2026): só o destino importa —
+    // cortar quina é permitido (mesma regra do A* em pathfinding.ts).
     if (!this.canEnter(e, nx, ny)) return false;
-    if (isDiagonal(dir)) {
-      // Mesma regra do pathfinding: não atravessar quinas (regra ESTÁTICA —
-      // entidades só bloqueiam o próprio tile, não a passagem diagonal).
-      if (!this.world.isWalkable(e.pos.x + v.x, e.pos.y) || !this.world.isWalkable(e.pos.x, e.pos.y + v.y)) {
-        return false;
-      }
-    }
     this.moveTo(e, nx, ny);
     e.facing = facingFromDir(dir);
     e.stepMs = this.quantizeToTickMs(e.baseStepMs * (isDiagonal(dir) ? DIAGONAL_FACTOR : 1));

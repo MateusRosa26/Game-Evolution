@@ -367,7 +367,7 @@ O sistema de comida é a **fundação do sustain**. Referência explícita do cr
 - **Cozinhar NÃO é skill com level** (modelo Apogea): é atividade de utilidade — fogueira/cozinha como estação, **receitas como conhecimento descobrível** (livros, NPCs, experimentação ✏️) — encaixa direto no pilar "informação é loot".
 - **Ingredientes vêm do mundo**: carnes da caça (loot tables), **pesca** (vara = ferramenta), forrageio/hortas, compra e intermediários (massa, queijo ✏️).
 - **Divisão de papéis do sustain** (a hierarquia que evita degenerar): regen base (saciado) → kit de classe (*Primeiros Socorros*/*Curar Ferimentos*) → buff food (planejamento) → **poção (emergência cara)**.
-- ✏️ Fome: decai com tempo? com ação? penalidade de faminto (sem regen apenas, ou debuff?) — Designer de Sistemas + Balancista.
+- **Fome — modelo de DURAÇÃO (decidido jun/2026, modelo Tibia):** cada comida ativa a saciedade por um **tempo específico do alimento** (pão X min, assado Y min…); acabou a duração, precisa comer de novo. **Sem comida ativa, a ÚNICA consequência é o regen natural de HP/mana desligado** — nenhum debuff, nenhum dano, nada além disso. Durações e valores por alimento ✏️ Balancista (bateria M2, junto da economia de comida).
 - ✏️ Quest do cozinheiro (modelo *Licensed Chef* do Apogea) — destrava estação/receitas; fatia ①.
 
 ### Esqueleto do sistema próprio (direção do criador — peças do Apogea a TRADUZIR, não copiar)

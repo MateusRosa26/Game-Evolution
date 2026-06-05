@@ -134,6 +134,10 @@ export enum TileId {
   Tree = 4,
   Rock = 5,
   Wall = 6,
+  /** Tábuas sobre água — pontes do GRID (andável). */
+  Bridge = 7,
+  /** Pântano — andável; telegrafia de borda mole (GRID §6). */
+  Swamp = 8,
 }
 
 export const WALKABLE: Record<TileId, boolean> = {
@@ -144,6 +148,8 @@ export const WALKABLE: Record<TileId, boolean> = {
   [TileId.Tree]: false,
   [TileId.Rock]: false,
   [TileId.Wall]: false,
+  [TileId.Bridge]: true,
+  [TileId.Swamp]: true,
 };
 
 /** Fonte de luz estática do mapa (posição em tiles). */
