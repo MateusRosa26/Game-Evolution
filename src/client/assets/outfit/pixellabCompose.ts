@@ -21,12 +21,33 @@ import type { Facing } from "../../../shared/types";
 import { PIXELLAB } from "../pixellab";
 import { rampFromColor } from "./sentinels";
 
-/** Zonas verticais no canvas 64×64 (calibradas no knight1). */
-const ZONES: { slot: keyof OutfitState; y0: number; y1: number }[] = [
-  { slot: "head", y0: 0, y1: 30 },
-  { slot: "torso", y0: 30, y1: 47 },
-  { slot: "legs", y0: 47, y1: 64 },
-];
+type Box = [x0: number, y0: number, x1: number, y1: number];
+
+/**
+ * CAIXAS de pintura por facing/slot, MEDIDAS nos frames do knight1 (debug
+ * pixel a pixel). Espada e escudo ficam majoritariamente FORA das caixas;
+ * dentro delas a cobertura é contínua (mata os "flecks" que escapavam da
+ * classificação por material). De costas só o elmo pinta (capa é capa).
+ */
+const PAINT_BOXES: Record<string, { slot: keyof OutfitState; boxes: Box[] }[]> = {
+  s: [
+    { slot: "head", boxes: [[16, 0, 50, 30]] },
+    { slot: "torso", boxes: [[10, 30, 28, 46]] },
+    { slot: "legs", boxes: [[14, 48, 48, 62]] },
+  ],
+  e: [
+    { slot: "head", boxes: [[16, 0, 46, 30]] },
+    { slot: "torso", boxes: [[12, 30, 36, 46]] },
+    { slot: "legs", boxes: [[14, 46, 42, 62]] },
+  ],
+  // oeste = textura espelhada de leste → caixas espelhadas (64 - x)
+  w: [
+    { slot: "head", boxes: [[18, 0, 48, 30]] },
+    { slot: "torso", boxes: [[28, 30, 52, 46]] },
+    { slot: "legs", boxes: [[22, 46, 50, 62]] },
+  ],
+  n: [{ slot: "head", boxes: [[16, 0, 48, 28]] }],
+};
 
 const cache = new Map<string, Record<Facing, Texture[]>>();
 
@@ -48,27 +69,23 @@ function hueOf(r: number, g: number, b: number): number {
 }
 
 /**
- * Classificação ESTÁVEL entre frames (a causa do glitch era o corte de
- * saturação por frame): pixel só recebe tinta se NÃO pertence a um material
- * protegido por MATIZ — capa (vermelhos, mesmo dessaturados nas sombras),
- * madeira do escudo/cabo (marrons saturados) e pele.
+ * Proteções DENTRO das caixas (assinaturas que nunca recebem tinta):
+ * specular/lâmina (quase-branco), vermelho forte (echarpe/capa) e
+ * marrom-madeira/couro saturado (escudo, botas).
  */
-function isPaintable(r: number, g: number, b: number): boolean {
+function isProtected(r: number, g: number, b: number): boolean {
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  if (lum >= 190) return true; // specular/lâmina
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   const sat = max === 0 ? 0 : (max - min) / max;
   const hue = hueOf(r, g, b);
-  // capa: qualquer vermelho, até nas sombras dessaturadas
-  if ((hue >= 325 || (hue >= 0 && hue <= 25)) && sat >= 0.08) return false;
-  // madeira/pele: laranjas-marrons com saturação real
-  if (hue >= 15 && hue <= 55 && sat > 0.25) return false;
-  // metal: cinza puro ou azul-acinzentado frio
-  if (sat <= 0.14) return true;
-  if (sat <= 0.32 && hue >= 170 && hue <= 280) return true;
-  return false;
+  if ((hue >= 325 || (hue >= 0 && hue <= 20)) && sat >= 0.22) return true; // vermelho
+  if (hue >= 15 && hue <= 55 && sat >= 0.35) return true; // madeira/couro
+  return sat > 0.5; // qualquer cor muito saturada é assinatura, não aço
 }
 
-/** Recolore um frame: zonas × pixels de METAL → ramp da cor do slot. */
+/** Recolore um frame: CAIXAS por facing × pixels não-protegidos → ramp. */
 function recolorFrame(src: Texture, outfit: OutfitState, facing: Facing): HTMLCanvasElement {
   const w = src.width;
   const h = src.height;
@@ -86,26 +103,25 @@ function recolorFrame(src: Texture, outfit: OutfitState, facing: Facing): HTMLCa
     legs: rampFromColor(OUTFIT_COLORS[outfit.legs.color] ?? "#777"),
   };
 
-  for (let y = 0; y < h; y++) {
-    const zone = ZONES.find((z) => y >= z.y0 && y < z.y1);
-    if (!zone) continue;
-    // De COSTAS a capa cobre torso+pernas: só a cabeça (elmo) recebe tinta —
-    // pintar "através" da capa era a fonte do glitch malhado no norte.
-    if (facing === "n" && zone.slot !== "head") continue;
-    const ramp = ramps[zone.slot];
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      if (d[i + 3] < 60) continue; // transparente
-      const r = d[i], g = d[i + 1], b = d[i + 2];
-      if (Math.max(r, g, b) < 28) continue; // outline/quase-preto fica
-      if (!isPaintable(r, g, b)) continue;
-      // luminância → 6 faixas → tom do ramp (preserva o shading original)
-      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-      const bin = Math.min(5, Math.floor((lum / 232) * 6));
-      const [nr, ng, nb] = ramp[bin];
-      d[i] = nr;
-      d[i + 1] = ng;
-      d[i + 2] = nb;
+  for (const { slot, boxes } of PAINT_BOXES[facing] ?? []) {
+    const ramp = ramps[slot];
+    for (const [x0, y0, x1, y1] of boxes) {
+      for (let y = y0; y < y1 && y < h; y++) {
+        for (let x = x0; x < x1 && x < w; x++) {
+          const i = (y * w + x) * 4;
+          if (d[i + 3] < 60) continue; // transparente
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          if (Math.max(r, g, b) < 28) continue; // outline/quase-preto fica
+          if (isProtected(r, g, b)) continue;
+          // luminância → 6 faixas → tom do ramp (preserva o shading)
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          const bin = Math.min(5, Math.floor((lum / 200) * 6));
+          const [nr, ng, nb] = ramp[bin];
+          d[i] = nr;
+          d[i + 1] = ng;
+          d[i + 2] = nb;
+        }
+      }
     }
   }
   ctx.putImageData(img, 0, 0);
