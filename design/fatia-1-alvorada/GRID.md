@@ -433,3 +433,16 @@ NE (P02/P07): Q5,Q8,Q13 ✓ · Sul (P03/P08): Q9,Q12,Q7,Q11,Q14 ✓ · Oeste (P0
 - **#4 (Toca dos Lobos sobre a cidade):** S4 reposicionada para a **orla NE, fora da muralha** — âncora `(185,68)`, retângulo `[172..200]×[55..80]` (sem interseção com a cidade; coerente com Q5/Q6 e o v4). Atualizados §5 e §9 (P14) e o rótulo no mini-mapa macro §1.
 - **#5 (prosa "~60×60"):** alinhada para **70×70** (retângulo declarado `[100..170]×[80..150]`) no título e no corpo de §3.
 - **Re-checagem:** os 4 portões derivados pelas duas vias coincidem; nenhum POI da tabela-mestra cai fora do seu retângulo; nenhum spot sobrepõe a cidade.
+
+### Verificação round 2
+
+> Verificação independente focada SÓ nos 5 fixes (cobertura 19/19 já passou no round 1). Fonte da verdade dos nomes: `NPCS.md` (árvore principal). Derivações de coordenada refeitas do zero.
+
+- **#1 (nomes NPCs): ✓** — todos os NPCs aparecem com o nome canônico de `NPCS.md` em §3.3 / §4 / §10, no formato "Nome (papel)". Telmo (taverneiro), Ricardo (R1), Leonor (R2), Vincente "Gralha" (R3, grafia VINCENTE conferida em §3.3 e §4), Gabriel (R4), Rosa (guia), Marco (vigia Atalaia), Augusto (prefeito), Nina (lojista), Silas (boticário), Abel (coveiro), Hugo (mineiro) — todos batem. Os nomes errados antigos (Olinda, Anselmo, Custódio, Firmino) e os hipotéticos do achado #1 (Gualter, Eusébio, Vicente, Heitor, Honório) só sobrevivem dentro da prosa histórica do verificador round 1 (registro correto, não identidade de NPC). As palavras de papel restantes ("Lojista", "Boticário", "Taverneiro", etc.) são rótulos de ocupação colados a um nome próprio — legítimas.
+- **#2 (reconciliação de coords): ✓** — derivados os 4 portões pelas duas vias (§3.1 coord-cidade `+ (100,80)` × §9 local): NE (140,82), Sul (120,138), Oeste (102,110), Porta d'Água/Ponte ① (156,132) — **batem exatamente** pelos dois caminhos. Ocorrências em §2.2/§2.3 também reconciliadas.
+- **#3 (Portão Sul na muralha): ✓** — os 4 portões caem dentro do rect da cidade `[100..170]×[80..150]`; Portão Sul em Y=138 ≤ 150.
+- **#4 (Toca dos Lobos fora da cidade): ✓** — S4 rect `[172..200]×[55..80]` ∩ cidade = vazio (x começa em 172 > 170); âncora P14 (185,68) está dentro do rect do spot e fora da muralha; rótulo do mini-mapa §1 movido p/ a orla NE.
+- **#5 (prosa 70×70): ✓** — título e corpo de §3 dizem 70×70, coerente com `[100..170]×[80..150]` (70×70).
+- **Colateral:** só `GRID.md` tocado no commit de fix (9e1f66d); seção do verificador round 1 preservada intacta; sub-seção de correções presente. Amostragem de 6 POIs da tabela-mestra (P13/P14/P15/P19/P20/P21) — todas as âncoras dentro dos seus retângulos de spot e do recorte da fatia. `git status` limpo.
+
+**Veredito round 2: VERIFIED** — os 5 fixes são reais e nada mais quebrou.
