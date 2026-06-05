@@ -221,8 +221,9 @@ export class EntityRenderer {
       // death: a remoção visual já acontece pelo diff de entidades acima.
     }
 
-    // ── Marcador de alvo ──
-    this.setTarget(snap.targetId);
+    // ── Marcador de alvo (targetId é por-jogador: lê da PRÓPRIA entidade) ──
+    const me = snap.entities.find((e) => e.id === this.playerId);
+    this.setTarget(me?.targetId ?? null);
   }
 
   /** Reposiciona/atualiza o marcador de alvo sob o monstro selecionado. */

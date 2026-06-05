@@ -260,8 +260,9 @@ export class Game {
       }
     }
     this.lastEntities = snap.entities;
-    this.targetId = snap.targetId;
     this.playerState = snap.entities.find((e) => e.id === this.playerId) ?? null;
+    // Alvo vem da PRÓPRIA entidade do jogador (targetId é por-jogador no protocolo).
+    this.targetId = this.playerState?.targetId ?? null;
     if (this.playerState) {
       // Teleporte (respawn de morte): corta a câmera junto com o sprite —
       // sem isso ela atravessaria o mapa "voando" até o spawn.

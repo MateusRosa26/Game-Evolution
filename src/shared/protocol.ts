@@ -137,6 +137,11 @@ export interface EntityState {
   outfit?: OutfitState;
   /** Peças possuídas (ids) — SOMENTE o próprio jogador (para a UI de outfit). */
   wardrobe?: string[];
+  /**
+   * Alvo selecionado — SOMENTE jogadores. Por-entidade (não global no snapshot):
+   * cada jogador tem o SEU alvo; o client lê o da própria entidade. null = nenhum.
+   */
+  targetId?: number | null;
 }
 
 /**
@@ -173,11 +178,16 @@ export type SnapshotEvent =
    */
   | { kind: "trackingUnlock"; category: "mark" | "mutation" | "path"; name: string; flavorText: string };
 
+/**
+ * NOTA (online): snapshots são FULL a cada tick — decisão consciente do M1
+ * (transport local, custo zero). Na migração para rede, trocar por
+ * delta-encoding (baseline + diff por entidade + ack do client); o formato
+ * já é serializável e o ponto único de emissão (`Simulation.emitSnapshot`)
+ * concentra a mudança.
+ */
 export interface Snapshot {
   tick: number;
   entities: EntityState[];
-  /** Alvo selecionado do jogador local (marcador visual). null = nenhum. */
-  targetId: number | null;
   /** Eventos one-shot deste tick (não persistem). */
   events: SnapshotEvent[];
 }

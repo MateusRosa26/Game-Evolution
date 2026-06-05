@@ -15,6 +15,15 @@ import type { World } from "./World";
  */
 
 /**
+ * Histerese de perda de alvo, em tiles: o mob ADQUIRE alvo dentro do raio puro
+ * (`aggroRadius`, em `nearestPlayerInAggro`), mas só SOLTA o alvo além de
+ * `aggroRadius + GRACE`. Sem a folga, um alvo parado exatamente na borda do
+ * raio liga/desliga o aggro a cada passo (flicker de intenção). A assimetria
+ * entre adquirir e soltar é DELIBERADA — não igualar os dois lados.
+ */
+const AGGRO_DROP_GRACE_TILES = 1;
+
+/**
  * Escolhe o jogador vivo mais próximo dentro do raio de aggro, ou null.
  * Jogador em ZONA SEGURA é invisível para a IA (depot: mobs não entram nem
  * ficam batendo da borda — a zona é cega para eles).
@@ -53,7 +62,7 @@ export function updateChaser(
   if (
     !target ||
     target.dead ||
-    chebyshev(monster.pos, target.pos) > monster.aggroRadius + 1 ||
+    chebyshev(monster.pos, target.pos) > monster.aggroRadius + AGGRO_DROP_GRACE_TILES ||
     world.isSafeZone(target.pos.x, target.pos.y) // alvo entrou em zona segura → solta
   ) {
     target = nearestPlayerInAggro(world, monster, players) ?? undefined;

@@ -9,11 +9,14 @@ import { OUTFIT_COLORS, type OutfitState } from "../../../shared/outfits";
 import { PAL } from "../palette";
 import { Px } from "../sprites";
 import { drawHeldEquipment, PART_DRAW, type PartFacing } from "./parts";
+import { OutfitTextureLru } from "./lruCache";
 import { recolorCanvas } from "./sentinels";
 
 export type OutfitTextures = Record<Facing, Texture[]>;
 
-const cache = new Map<string, OutfitTextures>();
+// LRU com teto: combinações peças×cores são abertas — sem limite, cada combo
+// vira texturas GPU vivas pra sempre (ver lruCache.ts para o caveat de online).
+const cache = new OutfitTextureLru(64);
 
 function keyOf(outfit: OutfitState, weaponTemplateId: string | null): string {
   const o = outfit;

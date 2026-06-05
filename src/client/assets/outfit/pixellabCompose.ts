@@ -18,9 +18,12 @@ import { Texture } from "pixi.js";
 import { OUTFIT_COLORS, type OutfitState } from "../../../shared/outfits";
 import type { Facing } from "../../../shared/types";
 import { PIXELLAB } from "../pixellab";
+import { OutfitTextureLru } from "./lruCache";
 import { rampFromColor } from "./sentinels";
 
-const cache = new Map<string, Record<Facing, Texture[]>>();
+// LRU com teto: combinações de cores são abertas — sem limite, cada combo
+// vira texturas GPU vivas pra sempre (ver lruCache.ts para o caveat de online).
+const cache = new OutfitTextureLru(64);
 
 function colorKey(o: OutfitState): string {
   return `${o.head.color}|${o.torso.color}|${o.legs.color}`;

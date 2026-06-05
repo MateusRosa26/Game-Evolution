@@ -789,17 +789,16 @@ export class Simulation {
         if (weapon) state.weapon = weapon;
         if (e.outfit) state.outfit = structuredCloneOutfit(e.outfit);
         state.wardrobe = [...e.wardrobe];
+        // Alvo selecionado é POR-JOGADOR: vai na própria entidade, não no topo
+        // do snapshot — cada client lê o targetId da SUA entidade (pronto pro
+        // online, sem o alvo do "primeiro player" vazar para os demais).
+        state.targetId = e.targetId;
       }
       entities.push(state);
     }
-    // targetId é por-jogador; entregue por entidade abaixo via snapshot.
-    // O snapshot é o mesmo para todos (M1 single-player local); o targetId
-    // é do primeiro jogador. No online, cada conexão recebe seu próprio.
-    const firstPlayer = this.entities.get([...this.playerIds][0]);
     const snap: Snapshot = {
       tick: this.tickCount,
       entities,
-      targetId: firstPlayer?.targetId ?? null,
       events,
     };
     for (const cb of this.snapshotListeners) cb(snap);
