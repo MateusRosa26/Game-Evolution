@@ -51,6 +51,7 @@ import {
 } from "./skills";
 import {
   allocateStatPoint,
+  applyDeathPenalty,
   createProgression,
   creatureLevelForTier,
   grantKillXp,
@@ -582,6 +583,15 @@ export class Simulation {
     for (const e of [...this.entities.values()]) {
       if (!e.dead) continue;
       if (e.kind === "player") {
+        // Penalidade de morte (macro do MVP): perde 10% do XP TOTAL ANTES do
+        // refill do respawn — pode dar level-down (o teto de recursos desce, e o
+        // refill abaixo enche já no novo máximo). Se o nível caiu, dano/cooldown
+        // derivados podem mudar, então recomputamos antes de encher.
+        const prog = this.progressions.get(e.id);
+        if (prog) {
+          const { leveledDown } = applyDeathPenalty(prog, e);
+          if (leveledDown) this.recomputePlayerDerived(e, prog);
+        }
         // Respawn simples: volta ao spawn com HP cheio (tile livre mais próximo,
         // mantendo o índice de ocupação coerente).
         const sp = this.nearestFree(e, e.spawnPos);

@@ -2,6 +2,7 @@ import type { AttributeKey, Attributes, PlayerClass } from "../shared/types";
 import type { CombatContext, EventBus } from "./events";
 import type { SimEntity } from "./entity";
 import type { Tier } from "./bestiary";
+import { DEATH_XP_PENALTY } from "./balance";
 import {
   CLASS_BASE_ATTRIBUTES,
   STAT_POINTS_PER_LEVEL,
@@ -134,6 +135,47 @@ function applyLevelUps(
   }
   // HP/Mana enchem ao novo máximo (decisão documentada acima).
   syncMaxResources(entity, prog, true);
+}
+
+/**
+ * Penalidade de XP por morte do jogador (macro do MVP — "morte dói", modelo
+ * Tibia). Remove `DEATH_XP_PENALTY` (10%) do XP TOTAL acumulado e recalcula o
+ * nível a partir do novo total.
+ *
+ * Decisões de design (documentadas):
+ * - LEVEL-DOWN É PERMITIDO: se o XP perdido derrubar o total abaixo do limiar do
+ *   nível atual, `prog.level` desce (piso natural: level 1 / xp 0, pois
+ *   `xpForLevel(1) = 0` e o floor garante `lost ≥ 0`). É o que faz a morte doer
+ *   de verdade — perder progresso, não só "a barra do nível".
+ * - `freeStatPoints` NÃO são revogados: pontos já concedidos por level ups (e os
+ *   atributos já gastos) ficam. Revogá-los exigiria rastrear quais pontos vieram
+ *   de quais níveis e "desfazer" alocações do jogador — complexo e punitivo
+ *   demais para o MVP. Consequência aceita: um jogador que dá level-down e re-sobe
+ *   acumula pontos de "níveis repetidos". Reavaliar se virar exploit (alternativa:
+ *   limitar freeStatPoints a `STAT_POINTS_PER_LEVEL * (level - 1)`).
+ *
+ * NÃO mexe em HP/Mana atuais aqui (o respawn enche depois). Só ajusta o TETO de
+ * recursos quando houve level-down, via `syncMaxResources(.., false)`: o máximo
+ * desce para o do novo nível e o atual é clampado — depois o respawn refilla.
+ * Quem chama deve recomputar derivados (dano/cooldown) se `leveledDown`.
+ *
+ * Retorna `{ lostXp, leveledDown }` para telemetria/log do chamador.
+ */
+export function applyDeathPenalty(
+  prog: Progression,
+  entity: SimEntity,
+): { lostXp: number; leveledDown: boolean } {
+  // floor garante XP inteira e ≥ 0 (lvl1/0xp → perde 0, sem efeito colateral).
+  const lostXp = Math.floor(prog.xp * DEATH_XP_PENALTY);
+  prog.xp -= lostXp;
+  const newLevel = levelForXp(prog.xp);
+  const leveledDown = newLevel < prog.level;
+  prog.level = newLevel;
+  if (leveledDown) {
+    // Teto de HP/Mana desce ao do novo nível (sem encher: o respawn faz isso).
+    syncMaxResources(entity, prog, false);
+  }
+  return { lostXp, leveledDown };
 }
 
 /**
