@@ -84,3 +84,35 @@ Resultado: **todos os asserts passaram** (exit 0).
 4. Após o respawn no spawn, conferir que a **barra de XP recuou ~10%** do total e,
    se o XP estava logo acima de um limiar de nível, que o **nível desceu** (o teto
    de HP/mana acompanha; o respawn enche ao novo máximo).
+
+## Verificação independente (verificador)
+
+- **Diff real × report:** bate. `git diff main...HEAD --stat` mostra só os 3
+  arquivos de sim alegados (`balance.ts`, `progression.ts`, `Simulation.ts`) +
+  este report. Nenhum arquivo extra, nenhum refactor não solicitado, sem scope
+  creep. Working tree limpo; `node_modules` é git-ignored (não commitado).
+- **tsc --noEmit:** OK (exit 0).
+- **Harness próprio** (`/tmp/v.ts`, descartável — independente do worker; testa a
+  função pura com números calculados pelo verificador A PARTIR de `xpForLevel`,
+  + integração na `Simulation` real). Todos os asserts PASS:
+  - T1 piso lvl1/xp0: `lostXp=0`, `xp=0` (não negativo), `level=1`, sem efeito.
+  - T2 sem level-down (xp=900 no L5): `lostXp=floor(90)=90`, `level=5` mantido,
+    teto de HP inalterado.
+  - T3 level-down 5→4 (xp=810 → perde 81 → 729 < 800): `level=4`,
+    `maxHp 174→159` (knight L4 = 114+15·3), `maxMp 42→40`, `hp` clampado a 159.
+  - T4 xp=1305 no L6 → 1175 → `level=5` (1 nível), `leveledDown=true`.
+  - T5 INTEGRAÇÃO `Simulation` real: player L5/810xp, `ent.dead=true`, `tick()`.
+    Pós-tick: `xp=729`, `level=4`, `hp=159/159` — **prova que a penalidade roda
+    em `resolveDeaths` ANTES do refill e que o refill usa o teto JÁ rebaixado**
+    (159, não o 174 de L5). `attackDamage` recomputado (level-down).
+  - T6 monstro morto + `tick()`: ramo player não o toca; monstro não tem
+    `Progression` → penalidade nunca roda nele.
+  - T7 determinismo: duas progressões idênticas → resultado idêntico.
+- **Casos de borda checados:** xp=0 (floor ≥ 0, sem negativo); sem level-down
+  (teto intacto); level-down recalcula maxHp E maxMp E attackDamage; ordem
+  penalidade→refill correta (refill usa máximo novo); morte de monstro não
+  afetada; determinismo (sem `Date.now`/`Math.random`/browser/pixi nos arquivos
+  alterados — confirmado por grep).
+- **Observações:** Implementação correta e enxuta. Confirmei os números do report
+  do worker contra a fórmula real (`xpForLevel(8)=4200`, `maxHp` knight). `freeStatPoints`
+  preservados em level-down conforme pedido. Nenhuma preocupação. **VERIFIED.**
