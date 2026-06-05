@@ -78,8 +78,8 @@ Instancie `Simulation`, injete comandos (`selectTarget`, `useSkill`, `walkTo`), 
 
 ## Backlog conhecido
 
-1. **Primeira bateria completa do M1**: TTK/TTL knight vs rato (1/2/3), XP/hora real, curva até lvl 5.
-2. Migrar a curva de XP para a família cúbica (corrige early raso — flag da Wave 2).
-3. Implementar custo de stat por faixa (regra do RO — decisão já tomada no DESIGN-EVOLUCAO).
-4. Custos/cooldowns das 6 skills (hoje uniformes demais) + teste de degeneração de Sirlin entre elas.
-5. Dimensionar primeiros thresholds REAIS de Marca (taxa medida → alvo em horas).
+1. ~~Primeira bateria completa do M1~~ ✓ rodada 2026-06-04 — `docs/reports/2026-06-04-bateria-m1-knight-rato.md` (knobs ✏️ aguardam o criador).
+2. ~~Migrar a curva de XP para a família cúbica~~ ✓ já implementada em `formulas.ts` (verificado na bateria; item estava stale).
+3. Implementar custo de stat por faixa (regra do RO — decisão já tomada no DESIGN-EVOLUCAO). **Prioridade ↑**: bateria mostrou all-in STR degenerando o T1 (auto one-shot a partir de STR 18, lvl ~4–5).
+4. Custos/cooldowns das 6 skills (hoje uniformes demais) + teste de degeneração de Sirlin entre elas. Bateria já flagrou: custo de mana do GF é decorativo; toda skill one-shota o T1.
+5. Dimensionar primeiros thresholds REAIS de Marca — **decidido (jun/2026): casa de 10.000 kills no T1** (~25–50h nas taxas medidas; 150–475 kills/h). ATENÇÃO: thresholds são SEGREDO do jogo — nunca meta comunicada, nunca justificativa de ritmo do loop sólido (feedback do criador na bateria M1.1).

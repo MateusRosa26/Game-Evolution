@@ -61,10 +61,10 @@ export const RATO_LANHOSO: CreatureTemplate = {
   tier: "T1",
   behavior: "chaser",
   maxHp: 24,
-  attackDamage: 8,
+  attackDamage: 7, // calibrado (bateria M1.1, jun/2026): início classless 3→1 morte/h, matilha ainda mata em 6,4s; pós-rito intacto
   attackType: "physical",
   attackCooldownMs: 1600,
-  xp: 20, // ✏️ placeholder — calibrar no M2 (curva de XP íngreme por design)
+  xp: 15, // calibrado (bateria M1.1, jun/2026): lvl 5 pós-rito ~14min dedicado — loop de upar divertido por si só; o aspiracional é segredo, não meta
   aggroRadius: 6,
   baseStepMs: 220, // ligeiramente mais rápido que o jogador (260)
   respawnTicks: 200, // ~10s
