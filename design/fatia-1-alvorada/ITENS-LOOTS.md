@@ -1,6 +1,6 @@
 # Fatia ① Alvorada — Itens, Loots & Comércio
 
-> Especificação de conteúdo da fatia (consome: `DESIGN-ITENS.md` §Loot & gold, §Poções, §Ferramentas · `DESIGN-MUNDO.md` §Comércio especializado · `DESIGN-BESTIARIO.md`). Números de drop rate/preço = ✏️ Balancista (na sim). Nomes = placeholders (✏️ Loremaster batiza em par PT/EN).
+> Especificação de conteúdo da fatia (consome: `DESIGN-ITENS.md` §Loot & gold, §Poções, §Ferramentas · `DESIGN-MUNDO.md` §Comércio especializado · `DESIGN-BESTIARIO.md`). Números de drop rate/preço = ✏️ Balancista (na sim). **NPCs batizados** (jun/2026 — elenco em `NPCS.md`); nomes de item = working titles PT (✏️ pares EN com o catálogo).
 
 ## Princípios aplicados (decididos pelo criador)
 
@@ -21,8 +21,8 @@
 | Escaravelho de Cripta | T1 | esgoto A2 | minúsculo | **Carapaça de Escaravelho** | — |
 | Aranha-das-Cavernas | T2 | ninho, esgoto A2 | pequeno | **Glândula de Veneno**, Seda | — |
 | Javali de Presas | T2 | matagal | pequeno | **Presa de Javali**, Couro Grosso, **Carne de Caça** | — |
-| Orc Soldado *(ou Hobgoblin ✏️ bestiário)* | T2 | fundo da Caverna dos Goblins | pequeno–médio | **Sucata de Arma**, Escudo Lascado | peça T1 de gear |
-| Bandido da Estrada | T2 | ponte | **médio** (humanos carregam gold) | **Adaga Enferrujada**, Anel de Latão | mapa/pista ✏️ quest |
+| Orc Soldado *(decidido jun/2026 — orcs armam os goblins; fio → Fortaleza)* | T2 | fundo da Caverna dos Goblins | pequeno–médio | **Sucata de Arma**, Escudo Lascado | peça T1 de gear |
+| Bandido da Estrada | T2 | ponte | **médio** (humanos carregam gold) | **Adaga Enferrujada**, Anel de Latão | **Carta Rabiscada** (*Scrawled Letter* — inicia *O Tesouro do Bando*, `QUESTS.md` Q11) |
 | Ghoul | T3 | Porão Afogado (1–2) | médio | ✏️ (família-coração — ver arco) | — |
 
 - Regra de família mantida: humanoides dropam mais gold e gear (carregam coisas); bestas dropam troféu de caça; vermes dropam reagente.
@@ -32,13 +32,13 @@
 
 | Comprador (NPC v4) | Compra | Destravado por |
 |---|---|---|
-| **Vendor geral** (Baixa) | quase nada, preço ruim (vendor floor) | sempre aberto — a opção preguiçosa |
-| **Caçador-peleteiro** (civil, CAIS) | Pele de Lobo, Couro Grosso, Presa de Javali | **quest dele** (caçada conjunta? ✏️ design na conversa de quests) |
-| **Boticário** (loja de Poções, Baixa) | Glândula, Seda, Asa de Morcego, Cauda de Rato | **quest dele** (coleta de reagentes — a própria quest ensina o que ele compra) |
-| **Ferreiro** (Baixa) | Sucata de Arma, Adaga Enferrujada, Escudo Lascado | **quest da Entrega** (já existente — vira a porta do trade) |
-| **Guarda-capitão** (Quartel) | Orelha de Goblin (*bounty*) | **quest Lobos Demais** → abre o contrato de bounty |
-| **Coveiro** (Capela) | ✏️ itens do arco (restos profanos — fatia ②) | quest A Água do Poço |
-| **Cozinheiro da estalagem** | ingredientes (carnes, colheita) **e pratos prontos** — renda não-combate | **quest do cozinheiro** (a mesma que destrava a 1ª receita) |
+| **Nina — Loja Geral** (vendor geral, Baixa) | quase nada, preço ruim (vendor floor) | sempre aberto — a opção preguiçosa |
+| **Amaro, o caçador-peleteiro** (civil, CAIS) | Pele de Lobo, Couro Grosso, Presa de Javali | **A Caçada do Peleteiro** (`QUESTS.md` Q7 — 2 atos, clímax no named **Presa-Torta**/*Crooktusk*) |
+| **Silas, o boticário** (loja de Poções, Baixa) | Glândula, Seda, Asa de Morcego, Cauda de Rato | **quest dele** (coleta de reagentes — a própria quest ensina o que ele compra) |
+| **Duarte, o ferreiro** (Baixa) | Sucata de Arma, Adaga Enferrujada, Escudo Lascado | **quest da Entrega** (já existente — vira a porta do trade) |
+| **Capitão Vidal** (Quartel) | Orelha de Goblin (*bounty*) | **quest Lobos Demais** → abre o contrato de bounty |
+| **Abel, o coveiro** (Capela) | ✏️ itens do arco (restos profanos — fatia ②) | quest A Água do Poço |
+| **Bento, o cozinheiro** (estalagem) | ingredientes (carnes, colheita) **e pratos prontos** — renda não-combate | **quest do cozinheiro** (a mesma que destrava a 1ª receita) |
 
 - **Nenhum comprador especializado é anunciado**: descobre-se conversando (keywords/diálogo) ou pela quest. O vendor geral existe pra venda preguiçosa render pouco — a diferença paga o conhecimento.
 - No online: o "mapa de comércio" vira conhecimento que circula entre jogadores — exatamente como rotas de hunt.
@@ -94,8 +94,9 @@ A fome é o portão do regen; a fatia ① introduz o sistema inteiro em pequena 
 
 ## Aberto ✏️
 
-- [ ] Hobgoblin no bestiário ou Orc Soldado no fundo da caverna?
+- [x] ~~Hobgoblin ou Orc Soldado no fundo da caverna?~~ → **Orc Soldado** (decidido jun/2026 — clímax de *Orelha por Orelha*, `QUESTS.md` Q8)
+- [x] ~~Loot raro de Bandido (pista/mapa)~~ → **Carta Rabiscada** (`QUESTS.md` Q11 — aponta a Fortaleza Abandonada, fecha na fatia ③)
+- [x] ~~Nomes de NPCs~~ → batizados (Loremaster, jun/2026 — `NPCS.md`)
 - [ ] Esfolar com faca: rende loot EXTRA (proposta) ou é requisito pra pele dropar? — Designer de Sistemas
 - [ ] Mecânica da fome: decai com tempo/ação? penalidade = só sem-regen ou debuff? — Designer de Sistemas + Balancista
-- [ ] Loot raro de Bandido (pista/mapa) amarrar na conversa de quests
-- [ ] Nomes (Loremaster) e números (Balancista)
+- [ ] Pares EN dos nomes de item (Loremaster, com o catálogo) e números (Balancista)

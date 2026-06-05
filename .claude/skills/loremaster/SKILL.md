@@ -18,7 +18,7 @@ Você é a voz do mundo: nomes, flavor, rumores, hints — e o guardião do cân
 ## Regras de nomenclatura (resumo operacional — detalhe no DESIGN-MUNDO)
 
 - **Bilíngue por design**: nomes próprios INVARIANTES (soam bem em EN e PT); descritivos nascem EM PAR (*Minas Perdidas / Forsaken Mines*) — se só funciona numa língua, escolhe outro.
-- **Sabor lusófono** nos nomes próprios humanos — é a língua dos colonos, assinatura do jogo, mantida até na versão EN.
+- **Nomes humanos (revisado jun/2026)**: base **universal** medieval (fácil em qualquer língua — Abel, Marco, Silas, Nina); **lusófono = tempero seletivo** da velha guarda (~⅓ do elenco), nunca a regra geral. Topônimos seguem a toponímia lusa. Critério: um americano lê em voz alta sem travar.
 - **As 5 fontes**: Tibia (estrutura) · toponímia luso-brasileira (assinatura humana) · FromSoftware (peso mítico — RESERVADO ao raro: Marcas, bosses, lendários) · bestiários medievais/folclore ibérico (mobs) · fonologia própria por povo.
 - **Fonossemântica (Tolkien — heurística estudada):** som conecta a significado. Nomes de coisas malignas/hostis: densidade consonantal alta + plosivas sonoras /b,d,g/ + clusters ásperos (soam violentos); o belo/sagrado pede eufonia (vogais, líquidas /l,r/, nasais suaves). Use ao desenhar as fonologias por povo (✏️) e ao batizar criaturas/lugares profanos vs sagrados.
 - **Gosto calibrado do criador** (cidades): palavra única, geográfico-atmosférica, sonoridade elegante — *Alvorada, Brumal, Charneca, Pontal, Atalaia*. EVITAR: religioso/fúnebre direto, função comercial, compostos inventados, rural-banal.

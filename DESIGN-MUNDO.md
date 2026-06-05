@@ -17,6 +17,7 @@ O jogo é desenhado como **MMORPG** — toda mecânica de mundo nasce pensada pa
 
 - **O mundo é de todos; o progresso é do jogador.** Quests, camadas de rumor, baús abertos, acesso a áreas: tudo é estado **por personagem**. O mundo em si (spawns, zonas, NPCs) é compartilhado e estável — a ação de um jogador nunca remove/muda conteúdo permanentemente para os outros.
 - Consequências práticas: "matar a fonte" de uma região infestada é clímax de quest **do jogador** (a fonte respawna/persiste para os demais); "purificar" uma área nunca apaga um spot de caça do servidor; NPCs respondem ao **seu** progresso, não ao de quem passou antes.
+- **Named mobs de quest = mundo compartilhado, nunca phasing (decidido jun/2026):** o named vive no mundo desde sempre, visível pra todos, com **respawn contínuo lento** (✏️ balancista — evento, não farm); explorador sem quest pode topar com ele e morrer (descoberta pura). O evento `kill` **credita todo personagem que contribuiu** no combate (dano/party), não só o golpe final — multidão no spawn (launch day) vira mutirão social, não fila frustrada. Exemplo canônico: **Presa-Torta** (*Crooktusk*), o javali velho (fatia ①, `design/fatia-1-alvorada/QUESTS.md`).
 - A exceção que confirma a regra: **eventos canônicos** raros (world bosses, momentos históricos do servidor — ver evolução de Marcas em `DESIGN-EVOLUCAO.md`) são o único mecanismo que muda o mundo para todos.
 
 ## Permanência do mapa (decidido)
@@ -133,14 +134,14 @@ A caça **não** vive em "zonas/cinturões" demarcados: o mundo é uma **paisage
 - **Bilíngue por design (decidido):** o jogo lança em **EN + PT-BR** selecionável. Regra de nomenclatura em dois regimes:
   - **Nomes próprios** (cidades, NPCs, vilões, povos) são **invariantes** — iguais nos dois idiomas, como Tibia faz (Thais é Thais em qualquer língua). Devem soar bem em ambos.
   - **Nomes descritivos** (zonas, POIs, mobs, itens, quests) são **traduzidos** — autorados **em par** desde o nascimento (ex: *Minas Perdidas* / *Forsaken Mines*). Se um nome só funciona num idioma, escolhe-se outro.
-- **Sabor lusófono nos nomes próprios humanos (decidido):** a língua dos humanos do Mundo Antigo tem fonologia portuguesa — nomes próprios humanos (cidades, NPCs) soam lusófonos **até na versão EN** (como games usam francês/italiano de tempero). Na lore, é literalmente a língua dos colonos. Assinatura do jogo.
+- **Nomes humanos: base universal + tempero lusófono seletivo (revisado jun/2026):** com dezenas de NPCs vindo, nome lusófono para TODOS vira caricatura e trava a pronúncia dos gringos. Regra: a **base do elenco usa nomes universais** da fantasia medieval (pan-europeus, fáceis em qualquer língua — Abel, Marco, Gabriel, Silas, Nina); o **sabor lusófono vira assinatura seletiva** — uma minoria marcante (velha guarda, fundadores, gente "da terra": um Bartolo, um Amaro, um Duarte no meio do elenco). **Topônimos seguem a toponímia lusa** (Alvorada, Charneca… — a assinatura geográfica não muda). Critério prático para todo nome novo: **um americano lê em voz alta sem travar**. Na lore segue valendo: a língua dos colonos tem fonologia portuguesa — ela aparece nos topônimos e nos nomes da velha guarda. Elenco-piloto: fatia ① (`design/fatia-1-alvorada/NPCS.md`, ~⅓ luso / ⅔ universal).
 
 ### As 5 fontes de referência (decidido)
 
 | # | Fonte | O que ela dá | Usar para |
 |---|---|---|---|
 | 1 | **Tibia** | a regra de dois regimes: civilização = nome próprio inventado; wilderness = descritivo evocativo | estrutura geral |
-| 2 | **Toponímia luso-brasileira** | como colonos batizam terra nova: geografia + fé + acontecimento (Ribeirão das Almas, Serra do Desterro, Ouro Preto) | nomes próprios humanos e topônimos — a assinatura |
+| 2 | **Toponímia luso-brasileira** | como colonos batizam terra nova: geografia + fé + acontecimento (Ribeirão das Almas, Serra do Desterro, Ouro Preto) | topônimos (sempre) + a minoria lusófona do elenco humano (revisado jun/2026 — ver regra acima) |
 | 3 | **FromSoftware** (Dark Souls/Elden Ring) | peso mítico: substantivo + genitivo carregado (*Túmulo dos Gigantes / Tomb of the Giants*) | lugares lendários, itens, Marcas, bosses, eventos canônicos — reservado pro que é raro |
 | 4 | **Bestiários medievais / folclore ibérico** | criatura com sabor de crônica ("registrada por um estudioso") | mobs, famílias, variantes |
 | 5 | **Fonologia própria por povo** | humanos = lusófona; planeta nativo, elfos, anões, demônios = fonologias distintas ✏️ a desenhar | qualquer nome próprio novo sai das regras do povo dono dele |
@@ -159,6 +160,8 @@ A caça **não** vive em "zonas/cinturões" demarcados: o mundo é uma **paisage
 |---|---|
 | Quests | **3 camadas**: diretas (com marker no mapa) / abertas (rumor, sem marker) / segredos (nunca anunciadas) |
 | Marcador de mapa | **Só quests diretas** marcam o mapa. Quest aberta nunca ganha marker depois — hint extra vem de NPCs, não de UI |
+| Contador de caça | **Só nas diretas** (contador discreto no diário, "4/8") — abertas e segredos nunca (jun/2026) |
+| Named mobs | Mundo compartilhado, **nunca phasing**: respawn contínuo lento; `kill` credita **todos que contribuíram** (jun/2026) |
 | Journal | **Diário escrito** com as palavras do NPC. Sem tracker de objetivos na tela, sem setas |
 | Diálogo NPC | **Híbrido**: janela com opções clicáveis + campo de texto onde **palavras-chave secretas** desbloqueiam falas que nenhuma opção mostra |
 | Papéis de NPC | 4 papéis misturáveis: **Treinador / Mercador / Quest giver / Sussurrador** |
@@ -195,7 +198,7 @@ A espinha de progressão. Ensinam as zonas, apresentam as famílias de mob, dão
 - Formato clássico: *mate X*, *leve item Y a Z*, *vá até o local e volte*.
 - O NPC marca o ponto no mapa do jogador (📍). A marca é a **única** ajuda — sem seta na tela, sem distância.
 - Recompensas previsíveis e modestas: são o "salário", não o tesouro.
-- ✏️ Contagem de caça no diário ("3/10 lobos") ou só pela fala do NPC? — a decidir.
+- **Contagem de caça SÓ nas diretas (decidido jun/2026):** a entrada do diário mostra contador discreto ("4/8") — mesma lógica do 📍 (a direta é a camada-salário, exceção consciente da constituição). Abertas e segredos: **nunca**.
 
 ## Quests abertas (rumores)
 
@@ -406,7 +409,7 @@ Raridades alinhadas aos slots de Marca (`DESIGN-EVOLUCAO.md`):
 
 ## Aberto / a decidir ✏️
 
-- [ ] Contagem de caça no diário ("3/10") ou só via fala do NPC?
+- [x] ~~Contagem de caça no diário?~~ → **contador discreto só nas diretas** (decidido jun/2026 — ver Quests diretas)
 - [ ] Tratamento visual das keywords destacadas nas falas (sutil, não link azul)
 - [ ] Marcas de exploração (ex: abrir N baús secretos → Caminho *Olho de Corvo*?) — desenhar junto com a categoria futura
 - [ ] Quest épica/chain por região (a "quest grande" de cada zona, estilo a quest de acesso de Tibia)
