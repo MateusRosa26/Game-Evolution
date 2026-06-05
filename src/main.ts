@@ -1,4 +1,5 @@
 import { Application, TextureStyle } from "pixi.js";
+import { loadPixellabAssets } from "./client/assets/pixellab";
 import { Game } from "./client/Game";
 import { LocalServer } from "./net/LocalServer";
 
@@ -15,6 +16,9 @@ async function boot(): Promise<void> {
     preference: "webgl",
   });
   document.getElementById("game")!.appendChild(app.canvas);
+
+  // Assets PixelLab (árvores, knight preview) — antes do Game nascer.
+  await loadPixellabAssets();
 
   // "Servidor" local — no futuro online, troca-se por um WebSocketTransport.
   const server = new LocalServer();

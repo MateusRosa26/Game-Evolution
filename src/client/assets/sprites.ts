@@ -2,6 +2,7 @@ import { Texture } from "pixi.js";
 import { mulberry32, type Rng } from "../../sim/rng";
 import type { Facing } from "../../shared/types";
 import { PAL } from "./palette";
+import { PIXELLAB } from "./pixellab";
 
 /**
  * Toda a pixel art do jogo é gerada proceduralmente aqui, em canvases
@@ -520,7 +521,8 @@ export function createSprites(): SpriteLibrary {
     dirt: [makeDirt(10), makeDirt(20), makeDirt(30)],
     stoneFloor: [makeStoneFloor(7), makeStoneFloor(14), makeStoneFloor(21)],
     waterFrames: makeWaterFrames(),
-    trees: [makeTree(101), makeTree(202), makeTree(303)],
+    // Árvores: PixelLab (curadoria) quando carregadas; fallback procedural.
+    trees: PIXELLAB.trees.length > 0 ? PIXELLAB.trees : [makeTree(101), makeTree(202), makeTree(303)],
     rocks: [makeRock(401), makeRock(402)],
     wall: makeWall(500),
     torchFrames: makeTorchFrames(),
