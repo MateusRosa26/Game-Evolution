@@ -75,7 +75,11 @@ function hueOf(r: number, g: number, b: number): number {
  */
 function isProtected(r: number, g: number, b: number): boolean {
   const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-  if (lum >= 190) return true; // specular/lâmina
+  // Só specular VERDADEIRO (quase-branco) fica — proteger brilhos médios
+  // (lum~190-220, o domo do elmo) deixava uma "bola" prata no meio quando
+  // o jogador escolhia cores escuras; o brilho agora é pintado pelo tom
+  // claro do próprio ramp (preto vira preto-com-brilho, não preto-com-bola).
+  if (lum >= 225) return true;
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   const sat = max === 0 ? 0 : (max - min) / max;
