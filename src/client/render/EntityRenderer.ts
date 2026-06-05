@@ -117,7 +117,7 @@ export class EntityRenderer {
     const outfit = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
     // Sprite PixelLab + CORES do outfit (recolor por zonas). Troca de PEÇAS
     // entre classes é fase futura (inpaint) — ver pixellabCompose.ts.
-    if (PIXELLAB.knight) return pixellabOutfitTextures(outfit);
+    if (PIXELLAB.knight && PIXELLAB.knightMasks) return pixellabOutfitTextures(outfit);
     return outfitTextures(outfit, e.weapon?.templateId ?? null);
   }
 

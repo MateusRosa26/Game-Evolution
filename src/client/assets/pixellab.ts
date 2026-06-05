@@ -25,12 +25,25 @@ import s0 from "./img/walk/s0.png";
 import s1 from "./img/walk/s1.png";
 import s2 from "./img/walk/s2.png";
 import s3 from "./img/walk/s3.png";
+import me0 from "./img/walk/mask_e0.png";
+import me1 from "./img/walk/mask_e1.png";
+import me2 from "./img/walk/mask_e2.png";
+import me3 from "./img/walk/mask_e3.png";
+import mn0 from "./img/walk/mask_n0.png";
+import mn1 from "./img/walk/mask_n1.png";
+import mn2 from "./img/walk/mask_n2.png";
+import mn3 from "./img/walk/mask_n3.png";
+import ms0 from "./img/walk/mask_s0.png";
+import ms1 from "./img/walk/mask_s1.png";
+import ms2 from "./img/walk/mask_s2.png";
+import ms3 from "./img/walk/mask_s3.png";
 
 /**
  * Escala de render dos chars PixelLab: gerados a 64px (qualidade), exibidos
- * a 0.6 (~38px — levemente acima do tile, presença sem desproporção).
+ * a 0.66 (~42px — levemente acima do tile, presença sem desproporção;
+ * +10% sobre os 0.6 originais, pedido do criador jun/2026).
  */
-export const PIXELLAB_CHAR_SCALE = 0.6;
+export const PIXELLAB_CHAR_SCALE = 0.66;
 
 /** Registry preenchido por loadPixellabAssets() antes do Game nascer. */
 export const PIXELLAB: {
@@ -40,10 +53,17 @@ export const PIXELLAB: {
   swampTrees: Texture[];
   /** Texturas do knight por direção (4 frames de walk; 0 = idle). */
   knight: Record<Facing, Texture[]> | null;
+  /**
+   * MÁSCARAS DE TINTURA por frame (estilo canais de outfit do Tibia, geradas
+   * offline por segmentação pixel-perfeita): R=elmo, G=torso, B=pernas.
+   * Pixel fora dos canais nunca é tingido (lâmina, escudo, capa, pele).
+   */
+  knightMasks: Record<Facing, Texture[]> | null;
 } = {
   trees: [],
   swampTrees: [],
   knight: null,
+  knightMasks: null,
 };
 
 /** Flip horizontal de uma textura (oeste = espelho de leste). */
@@ -59,9 +79,15 @@ function flipped(tex: Texture): Texture {
 }
 
 export async function loadPixellabAssets(): Promise<void> {
-  const urls = [tree1Url, tree2Url, s0, s1, s2, s3, e0, e1, e2, e3, n0, n1, n2, n3];
+  const urls = [
+    tree1Url, tree2Url,
+    s0, s1, s2, s3, e0, e1, e2, e3, n0, n1, n2, n3,
+    ms0, ms1, ms2, ms3, me0, me1, me2, me3, mn0, mn1, mn2, mn3,
+  ];
   const tex = await Promise.all(urls.map((u) => Assets.load<Texture>(u)));
-  const [t1, t2, ...k] = tex;
+  const [t1, t2, ...rest] = tex;
+  const k = rest.slice(0, 12);
+  const m = rest.slice(12, 24);
   PIXELLAB.trees = [t1];
   PIXELLAB.swampTrees = [t2];
   const east = k.slice(4, 8);
@@ -70,5 +96,12 @@ export async function loadPixellabAssets(): Promise<void> {
     e: east,
     n: k.slice(8, 12),
     w: east.map(flipped),
+  };
+  const eastMasks = m.slice(4, 8);
+  PIXELLAB.knightMasks = {
+    s: m.slice(0, 4),
+    e: eastMasks,
+    n: m.slice(8, 12),
+    w: eastMasks.map(flipped),
   };
 }
