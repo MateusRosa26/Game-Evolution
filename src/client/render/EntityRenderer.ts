@@ -403,9 +403,12 @@ export class EntityRenderer {
 
   private currentFrame(v: EntityVisual): number {
     if (v.walkClock === 0) return 0;
-    // meio passo por frame do ciclo
-    const stepHalf = Math.max(v.tweenDur / 2, 80);
-    return WALK_CYCLE[Math.floor(v.walkClock / stepHalf) % WALK_CYCLE.length];
+    // Conjuntos de 4+ frames (PixelLab) tocam o ciclo completo por passo;
+    // os procedurais de 3 usam o ciclo clássico passo-neutro-passo-neutro.
+    const frames = v.textures[v.facing];
+    const cycle = frames.length >= 4 ? [0, 1, 2, 3] : WALK_CYCLE;
+    const period = Math.max(v.tweenDur / cycle.length, 70);
+    return cycle[Math.floor(v.walkClock / period) % cycle.length];
   }
 
   private applyFrame(v: EntityVisual, frame: number): void {

@@ -4,25 +4,33 @@
  * aprovados na pasta de candidatos. Os PNGs aprovados vivem em `img/` (o
  * .gitignore tem exceção para PNGs dentro de src) e são carregados aqui.
  *
- * PREVIEW do knight: por ora 1 frame por direção (sem walk cycle — animação
- * via /animate-with-skeleton é a próxima fase). O sistema de OUTFITS por
- * peças continua por trás (compositor procedural); este preview o substitui
- * visualmente até as peças virarem PNGs (inpaint por zonas — ver memória do
- * pipeline).
+ * Knight (knight3 "soldado comum"): walk cycle de 4 frames por direção via
+ * /animate-with-text (frame 0 = idle aproximado). Oeste = flip de leste.
+ * O sistema de OUTFITS por peças continua por trás (compositor procedural);
+ * este visual o substitui até as peças virarem PNGs (inpaint por zonas).
  */
 import { Assets, Texture } from "pixi.js";
 import type { Facing } from "../../shared/types";
-import knightEUrl from "./img/knight_e.png";
-import knightNUrl from "./img/knight_n.png";
-import knightSUrl from "./img/knight_s.png";
 import tree1Url from "./img/tree1.png";
 import tree2Url from "./img/tree2.png";
+import e0 from "./img/walk/e0.png";
+import e1 from "./img/walk/e1.png";
+import e2 from "./img/walk/e2.png";
+import e3 from "./img/walk/e3.png";
+import n0 from "./img/walk/n0.png";
+import n1 from "./img/walk/n1.png";
+import n2 from "./img/walk/n2.png";
+import n3 from "./img/walk/n3.png";
+import s0 from "./img/walk/s0.png";
+import s1 from "./img/walk/s1.png";
+import s2 from "./img/walk/s2.png";
+import s3 from "./img/walk/s3.png";
 
 /**
  * Escala de render dos chars PixelLab: gerados a 64px (qualidade), exibidos
- * a 0.5 (32px de largura = 1 tile) para manter a proporção do universo.
+ * a 0.6 (~38px — levemente acima do tile, presença sem desproporção).
  */
-export const PIXELLAB_CHAR_SCALE = 0.5;
+export const PIXELLAB_CHAR_SCALE = 0.6;
 
 /** Registry preenchido por loadPixellabAssets() antes do Game nascer. */
 export const PIXELLAB: {
@@ -30,7 +38,7 @@ export const PIXELLAB: {
   trees: Texture[];
   /** Reserva p/ bioma de pântano (a variação com musgo escorrendo). */
   swampTrees: Texture[];
-  /** Texturas do knight por direção (1 frame — preview sem walk). */
+  /** Texturas do knight por direção (4 frames de walk; 0 = idle). */
   knight: Record<Facing, Texture[]> | null;
 } = {
   trees: [],
@@ -51,15 +59,16 @@ function flipped(tex: Texture): Texture {
 }
 
 export async function loadPixellabAssets(): Promise<void> {
-  const [t1, t2, ks, ke, kn] = await Promise.all(
-    [tree1Url, tree2Url, knightSUrl, knightEUrl, knightNUrl].map((u) => Assets.load<Texture>(u)),
-  );
+  const urls = [tree1Url, tree2Url, s0, s1, s2, s3, e0, e1, e2, e3, n0, n1, n2, n3];
+  const tex = await Promise.all(urls.map((u) => Assets.load<Texture>(u)));
+  const [t1, t2, ...k] = tex;
   PIXELLAB.trees = [t1];
   PIXELLAB.swampTrees = [t2];
+  const east = k.slice(4, 8);
   PIXELLAB.knight = {
-    s: [ks],
-    e: [ke],
-    n: [kn],
-    w: [flipped(ke)],
+    s: k.slice(0, 4),
+    e: east,
+    n: k.slice(8, 12),
+    w: east.map(flipped),
   };
 }
