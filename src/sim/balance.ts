@@ -21,6 +21,15 @@ import type { PlayerClass } from "../shared/types";
 /** Classe padrão de um novo jogador enquanto não há seleção de classe (HUD/UI). */
 export const DEFAULT_PLAYER_CLASS: PlayerClass = "knight";
 
+/** Morte */
+/**
+ * Penalidade de XP por morte do jogador: fração do XP TOTAL acumulado perdida ao
+ * morrer (macro do MVP — "morte dói", modelo Tibia). Aplicada em `progression.ts`
+ * via `applyDeathPenalty`; level-down é permitido (o teto de recursos pode descer).
+ * ✏️ calibrar — knob visceral: define o quanto a morte machuca a progressão.
+ */
+export const DEATH_XP_PENALTY = 0.1;
+
 /** Combate geral */
 /** Alcance melee em tiles (Chebyshev: adjacente incl. diagonal = 1). */
 export const MELEE_RANGE = 1;
