@@ -60,6 +60,12 @@ export interface PlayerProgressState {
   attributes: Attributes;
   /** Pontos de atributo livres não distribuídos. */
   freeStatPoints: number;
+  /**
+   * Custo (em pontos livres) do PRÓXIMO ponto de cada atributo — custo
+   * crescente por faixa (DESIGN-EVOLUCAO.md §Stats). Vem da sim
+   * (`formulas.statPointCost`); o client só exibe, não computa a regra.
+   */
+  statPointCosts: Attributes;
 }
 
 /**

@@ -7,11 +7,11 @@
 1. **"Charmoso sem ser bobo"** — o charme vem de luz, atmosfera e feedback, não de resolução de sprite (já em `DESIGN.md`).
 2. **Mundo pixel, UI limpa** — o mundo é pixel art 32px; a UI é moderna, escura e discreta **por cima**, nunca competindo com o jogo. Contraste proposital (estilo Apogea/Hades).
 3. **Clean e intuitivo** — toda informação a no máximo 1 tecla de distância; nada de UI ocupando tela à toa.
-4. **Barato de produzir** — tudo procedural (canvas/Graphics), zero assets externos; componentes reutilizáveis com tokens centrais. Bonito por consistência, não por ornamento.
+4. **Barato de produzir** — assets do mundo via **PixelLab + curadoria** (decidido jun/2026; style-references amarram a coerência), com procedural (canvas/Graphics) como fallback permanente; UI segue 100% procedural com tokens centrais. Bonito por consistência, não por ornamento.
 
 ## Mundo (pixel art) — regras já estabelecidas
 
-- Tiles e sprites **32px**, gerados proceduralmente (`sprites.ts`); zoom 2x da câmera.
+- Tiles **32px**; criaturas em canvas **64×64 exibido 1:1** (norma de densidade, jun/2026): 1 px do sprite = 1 px do mundo, escala fracionária proibida (*mixels*). O tamanho relativo vem da **figura desenhada dentro do canvas** (modelo Tibia): rato ~28 · morcego ~36 · goblin ~40 · char ~46 · lobo ~46 · javali ~50 · boss 64+ ✏️. Exceção transitória: knight 64@0.66 até regen 1:1. Origem: **PixelLab + curadoria** (jun/2026), fallback procedural em `sprites.ts`; zoom 2x da câmera.
 - **Paleta central** em `palette.ts` (fonte canônica de cor do mundo): tons frios e dessaturados no ambiente, **luz quente como contraste** (tochas, fogo).
 - **Outline universal** `#10141c` em toda pixel art — unifica o estilo.
 - `scaleMode = "nearest"` sempre (pixel nítido, sem blur).

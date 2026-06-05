@@ -31,7 +31,7 @@ import { CREATURES, type CreatureTemplate } from "./bestiary";
 import { applyDamage, chebyshev, type CombatCtx, type WeaponSource } from "./combat";
 import type { SimEntity } from "./entity";
 import { EventBus, type KillEvent } from "./events";
-import { attackCooldownMs, physicalDamage, xpForLevel } from "./formulas";
+import { attackCooldownMs, physicalDamage, statPointCost, xpForLevel } from "./formulas";
 import {
   ItemRegistry,
   attachItemLedger,
@@ -729,6 +729,14 @@ export class Simulation {
       xpLevelFloor: xpForLevel(prog.level),
       attributes: { ...prog.attributes },
       freeStatPoints: prog.freeStatPoints,
+      // Custo do próximo ponto por atributo (custo por faixa — o client exibe).
+      statPointCosts: {
+        strength: statPointCost(prog.attributes.strength),
+        dexterity: statPointCost(prog.attributes.dexterity),
+        intelligence: statPointCost(prog.attributes.intelligence),
+        vitality: statPointCost(prog.attributes.vitality),
+        spirit: statPointCost(prog.attributes.spirit),
+      },
     };
   }
 

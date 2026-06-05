@@ -11,6 +11,7 @@ import {
   maxHp,
   maxMana,
   hpRegenPerTick,
+  statPointCost,
   xpFromKill,
 } from "./formulas";
 
@@ -179,7 +180,9 @@ export function applyDeathPenalty(
 }
 
 /**
- * Aloca 1 ponto livre num atributo. Retorna true se aplicou (havia ponto).
+ * Sobe um atributo em +1, debitando o CUSTO POR FAIXA em pontos livres
+ * (`formulas.statPointCost` — estilo RO: atributo alto custa mais). Retorna
+ * true se aplicou (havia pontos suficientes para o custo do próximo ponto).
  * Recalcula os recursos máximos (sem encher — só sobe o teto e mantém o atual).
  */
 export function allocateStatPoint(
@@ -187,8 +190,9 @@ export function allocateStatPoint(
   entity: SimEntity,
   attr: AttributeKey,
 ): boolean {
-  if (prog.freeStatPoints <= 0) return false;
-  prog.freeStatPoints -= 1;
+  const cost = statPointCost(prog.attributes[attr]);
+  if (prog.freeStatPoints < cost) return false;
+  prog.freeStatPoints -= cost;
   prog.attributes[attr] += 1;
   syncMaxResources(entity, prog, false);
   return true;

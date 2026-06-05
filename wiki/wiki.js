@@ -3,7 +3,7 @@
 // Views interativas (Bestiário/Skills/Classes) em db.js — parseiam os mesmos .md.
 // Para extrair para outro projeto: copiar a pasta wiki/ + os .md e ajustar DOCS.
 
-import { parseBestiary, parseSkills, parseClasses, parseItems, renderDbPage } from "./db.js";
+import { parseBestiary, parseSkills, parseClasses, parseItems, parseQuests, renderDbPage } from "./db.js";
 
 // ---------- Registry de documentos (adicionar novos docs aqui) ----------
 
@@ -24,6 +24,10 @@ const DOCS = [
     desc: "Slots de equipamento (modelo Tibia), raridades, instância+ledger, loot e economia (doc do M2)." },
   { id: "visual", title: "Design Visual & UI", file: "../DESIGN-VISUAL.md",
     desc: "Direção de arte, layout de tela, tokens de UI e feedback de combate." },
+  { id: "quests-fatia1", title: "Quests — Fatia ① (Alvorada)", file: "../design/fatia-1-alvorada/QUESTS.md",
+    desc: "Spec das 15 quests + 4 ritos da fatia ①: camadas, áreas, níveis, NPCs, XP e recompensas." },
+  { id: "npcs-fatia1", title: "NPCs — Fatia ① (Alvorada)", file: "../design/fatia-1-alvorada/NPCS.md",
+    desc: "O elenco batizado da fatia ①: 19 NPCs com papéis, locais e vozes + topônimos PT/EN." },
 ];
 
 // Views interativas (banco de dados) — parseadas dos .md acima em db.js
@@ -36,6 +40,8 @@ const DB_PAGES = [
     desc: "Knight, Mage, Rogue e Priest: kits, atributos-chave e Caminhos típicos." },
   { id: "itens", title: "Itens & Equipamento", icon: "🎒",
     desc: "Catálogos T1–T2 e o roster de tipos de mão — filtros por tier, categoria e busca." },
+  { id: "quests", title: "Quests", icon: "📜",
+    desc: "As 15 quests + 4 ritos da fatia ① — filtros por camada, área e nível; cards com pista, etapas e recompensa." },
 ];
 
 // ---------- Markdown → HTML (subset: headings, tabelas, listas, código, quote, hr, inline) ----------
@@ -272,6 +278,8 @@ function buildDb() {
   }
   const it = state.docs.get("itens");
   if (it?.md) dbData.itens = parseItems(it.md);
+  const qs = state.docs.get("quests-fatia1");
+  if (qs?.md) dbData.quests = parseQuests(qs.md);
 }
 
 // ---------- Navegação ----------

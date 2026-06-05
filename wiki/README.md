@@ -23,17 +23,21 @@ Pronto — navegação, índice por seção e busca passam a incluir o doc autom
 
 ## Banco de dados (views interativas)
 
-Além da leitura dos docs, a wiki tem três views estruturadas com **filtros e ordenação** (`db.js`):
+Além da leitura dos docs, a wiki tem views estruturadas com **filtros e ordenação** (`db.js`):
 
 - **`#/db/bestiario`** — todas as criaturas em cards (agrupadas por família) ou tabela; filtros por família, tier (com faixa de nível), comportamento, bruto/signature; busca e ordenação.
 - **`#/db/skills`** — kit inicial M1, skills comuns e roster planejado, com mutações; filtros por classe e grupo.
 - **`#/db/classes`** — os 5 atributos + as 4 classes com kit, lentes e Caminhos típicos.
+- **`#/db/itens`** — catálogos T1–T2 + roster de tipos de mão; filtros por tier e categoria.
+- **`#/db/quests`** — as 15 quests + 4 ritos da fatia ① em cards; filtros por camada, área, longa maturação; ordenação por nível.
 
 **Os dados são parseados dos próprios `.md`** (zero duplicação — os docs continuam sendo a fonte única da verdade). Os parsers em `db.js` dependem da estrutura dos documentos:
 
 - Bestiário: headings de família `## N. Nome (T1–T3) — tagline`, tabelas com colunas `Criatura | Tier | Comportamento | Ataques | Notas`, tabela de tiers (seção "Tiers") e "Matriz de fraquezas".
 - Skills: blocos `#### Nome (Classe)` sob `### Skills comuns` / `### Kit inicial`, bullets `- **Campo:** valor`, mutações em lista numerada; tabela do `### Roster planejado`.
 - Classes: blocos `### Nome` sob `## Classes`, bullets de Fantasia/Kit/Atributos/Lentes e Caminhos numerados; tabela de atributos.
+- Itens: tabelas sob `## Tabela de itens — T<N>` (grupos por `###`) e roster sob `## Tipos de item de mão`.
+- Quests (`design/fatia-1-alvorada/QUESTS.md`): tabela do `## Índice` (colunas `# | Quest | Camada | Área | Nível | NPC | Destrava`) + seções `### Q<n>. Nome / *EN*` e `### R<n>. … — rito do <Classe>` com bullets `- **Campo:** valor`.
 
 Se mudar a estrutura nos `.md`, ajustar os parsers correspondentes em `db.js`.
 

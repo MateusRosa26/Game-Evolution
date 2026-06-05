@@ -11,32 +11,32 @@
  */
 import { Assets, Texture } from "pixi.js";
 import type { Facing } from "../../shared/types";
-import tree1Url from "./img/tree1.png";
-import tree2Url from "./img/tree2.png";
-import e0 from "./img/walk/e0.png";
-import e1 from "./img/walk/e1.png";
-import e2 from "./img/walk/e2.png";
-import e3 from "./img/walk/e3.png";
-import n0 from "./img/walk/n0.png";
-import n1 from "./img/walk/n1.png";
-import n2 from "./img/walk/n2.png";
-import n3 from "./img/walk/n3.png";
-import s0 from "./img/walk/s0.png";
-import s1 from "./img/walk/s1.png";
-import s2 from "./img/walk/s2.png";
-import s3 from "./img/walk/s3.png";
-import me0 from "./img/walk/mask_e0.png";
-import me1 from "./img/walk/mask_e1.png";
-import me2 from "./img/walk/mask_e2.png";
-import me3 from "./img/walk/mask_e3.png";
-import mn0 from "./img/walk/mask_n0.png";
-import mn1 from "./img/walk/mask_n1.png";
-import mn2 from "./img/walk/mask_n2.png";
-import mn3 from "./img/walk/mask_n3.png";
-import ms0 from "./img/walk/mask_s0.png";
-import ms1 from "./img/walk/mask_s1.png";
-import ms2 from "./img/walk/mask_s2.png";
-import ms3 from "./img/walk/mask_s3.png";
+import tree1Url from "./img/scenery/tree1.png";
+import tree2Url from "./img/scenery/tree2.png";
+import e0 from "./img/chars/knight/walk/e0.png";
+import e1 from "./img/chars/knight/walk/e1.png";
+import e2 from "./img/chars/knight/walk/e2.png";
+import e3 from "./img/chars/knight/walk/e3.png";
+import n0 from "./img/chars/knight/walk/n0.png";
+import n1 from "./img/chars/knight/walk/n1.png";
+import n2 from "./img/chars/knight/walk/n2.png";
+import n3 from "./img/chars/knight/walk/n3.png";
+import s0 from "./img/chars/knight/walk/s0.png";
+import s1 from "./img/chars/knight/walk/s1.png";
+import s2 from "./img/chars/knight/walk/s2.png";
+import s3 from "./img/chars/knight/walk/s3.png";
+import me0 from "./img/chars/knight/walk/mask_e0.png";
+import me1 from "./img/chars/knight/walk/mask_e1.png";
+import me2 from "./img/chars/knight/walk/mask_e2.png";
+import me3 from "./img/chars/knight/walk/mask_e3.png";
+import mn0 from "./img/chars/knight/walk/mask_n0.png";
+import mn1 from "./img/chars/knight/walk/mask_n1.png";
+import mn2 from "./img/chars/knight/walk/mask_n2.png";
+import mn3 from "./img/chars/knight/walk/mask_n3.png";
+import ms0 from "./img/chars/knight/walk/mask_s0.png";
+import ms1 from "./img/chars/knight/walk/mask_s1.png";
+import ms2 from "./img/chars/knight/walk/mask_s2.png";
+import ms3 from "./img/chars/knight/walk/mask_s3.png";
 
 /**
  * Escala de render dos chars PixelLab: gerados a 64px (qualidade), exibidos

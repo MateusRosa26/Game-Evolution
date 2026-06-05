@@ -40,6 +40,8 @@ export class CharacterPanel {
   private summaryText: Text;
   private rows: Record<AttributeKey, AttrRow>;
   private freePoints = 0;
+  /** Custo do próximo ponto por atributo (vem da sim no snapshot). */
+  private costs: Record<AttributeKey, number> | null = null;
   private hasData = false;
   private screenH = 0;
   /** Posição escolhida pelo usuário ao arrastar (null = default à esquerda). */
@@ -151,6 +153,7 @@ export class CharacterPanel {
   setProgress(p: PlayerProgressState): void {
     this.hasData = true;
     this.freePoints = p.freeStatPoints;
+    this.costs = p.statPointCosts;
     for (const key of ATTRIBUTE_KEYS) {
       this.rows[key].value.text = `${p.attributes[key]}`;
     }
@@ -207,8 +210,17 @@ export class CharacterPanel {
       row.plusBg.visible = showPlus;
       row.plusText.visible = showPlus;
       if (showPlus) {
+        // Custo por faixa (vem da sim): botão mostra "+custo" e fica apagado
+        // quando os pontos livres não cobrem o custo deste atributo.
+        const cost = this.costs?.[key] ?? 1;
+        const affordable = this.freePoints >= cost;
         row.plusBg.position.set(plusX, plusY);
         this.drawPlus(row.plusBg, false);
+        row.plusBg.alpha = affordable ? 1 : 0.35;
+        row.plusBg.eventMode = affordable ? "static" : "none";
+        row.plusText.text = cost > 1 ? `+${cost}` : "+";
+        row.plusText.style.fontSize = cost > 1 ? 9 : 12;
+        row.plusText.alpha = affordable ? 1 : 0.35;
         row.plusText.position.set(plusX + plusSize / 2, cy);
       }
     }

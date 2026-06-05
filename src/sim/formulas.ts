@@ -52,6 +52,35 @@ export const CLASS_BASE_ATTRIBUTES: Record<PlayerClass, Attributes> = {
 export const STAT_POINTS_PER_LEVEL = 3; // ✏️ placeholder — calibrar no M2
 
 // ─────────────────────────────────────────────────────────────────────────
+//  Custo de ponto de atributo (crescente por faixa — estilo Ragnarok Online)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Knobs do custo por faixa (DESIGN-EVOLUCAO.md §Stats: "Custo crescente
+ * (decidido — estilo Ragnarok Online): subir um atributo já alto custa mais
+ * pontos, por faixa"). Objeto mutável de calibração — o harness do Balancista
+ * testa variantes mutando-o (mesmo padrão de CLASS_GROWTH).
+ * ✏️ faixas/números calibrados na bateria M1.2 (2026-06-05).
+ */
+export const STAT_COST = {
+  /** Largura da faixa: a cada `bandSize` valores, o custo sobe +1. */
+  bandSize: 10,
+  /** Custo na primeira faixa (valores 1..bandSize). */
+  baseCost: 2,
+};
+
+/**
+ * Custo em PONTOS LIVRES para subir um atributo do valor `current` para
+ * `current + 1`. Família RO: `floor((current − 1)/bandSize) + baseCost` —
+ * valores 1–10 custam `baseCost`, 11–20 custam +1, e assim por diante.
+ * O EFEITO do ponto nunca muda (+X é sempre +X); só o custo sobe — build
+ * extrema é possível, só cara (anti-degeneração do all-in, bateria M1).
+ */
+export function statPointCost(current: number): number {
+  return Math.floor((current - 1) / STAT_COST.bandSize) + STAT_COST.baseCost;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 //  Recursos — HP e Mana máximos
 // ─────────────────────────────────────────────────────────────────────────
 

@@ -412,6 +412,88 @@ export function parseItems(md) {
   return { items, roster };
 }
 
+// --- design/fatia-1-alvorada/QUESTS.md → { quests } ---
+// Depende de: tabela do "## Índice" (colunas #, Quest, Camada, Área, Nível,
+// NPC/gatilho, Destrava) + seções de detalhe "### Q<n>. Nome / *EN*" e
+// "### R<n>. Nome / *EN* — rito do <Classe>" com bullets "- **Campo:** valor".
+
+export function parseQuests(md) {
+  const lines = md.split(/\r?\n/);
+
+  // nome "PT / *EN*" → { pt, en }
+  const splitName = (s) => {
+    const en = (s.match(/\/\s*\*([^*]+)\*/) ?? [])[1] ?? "";
+    const pt = s.split(" / ")[0].replace(/\*/g, "").trim();
+    return { pt, en };
+  };
+  const camadaBase = (c) => {
+    const t = c.toLowerCase();
+    if (t.startsWith("rito")) return "rito";
+    if (t.startsWith("segredo")) return "segredo";
+    if (t.includes("aberta")) return "aberta";
+    if (t.includes("encadeada")) return "encadeada";
+    if (t.includes("composta")) return "composta";
+    return "direta";
+  };
+  const areaBase = (a) => a.split(/[(→]/)[0].trim();
+
+  // 1) índice — meta por id
+  const meta = new Map();
+  let inIndice = false, headers = null, order = 0;
+  for (const l of lines) {
+    if (/^## /.test(l)) { inIndice = /^## Índice/.test(l); headers = null; continue; }
+    if (!inIndice || !/^\s*\|/.test(l) || isSep(l)) continue;
+    const cells = splitRow(l);
+    if (!headers) { headers = cells; continue; }
+    const id = cells[0].replace(/\*/g, "").trim();
+    if (!/^Q\d+$/.test(id)) continue; // pula a linha agregada R1–R4
+    meta.set(id, {
+      id, order: order++,
+      ...splitName(cells[1]),
+      camadaRaw: cells[2], camada: camadaBase(cells[2]),
+      longa: /longa maturação/i.test(cells[2]),
+      areaRaw: cells[3], area: areaBase(cells[3]),
+      nivel: cells[4].replace(/\*/g, "").trim(),
+      npc: cells[5], destrava: cells[6] ?? "",
+    });
+  }
+
+  // 2) seções de detalhe — campos por id (Q e R)
+  const details = new Map();
+  const ritos = [];
+  let cur = null;
+  for (const l of lines) {
+    const h = l.match(/^### (Q|R)(\d+)\.\s+(.*)$/);
+    if (h) {
+      const id = h[1] + h[2];
+      cur = { id, kind: h[1], heading: h[3], fields: [] };
+      details.set(id, cur);
+      if (h[1] === "R") ritos.push(cur);
+      continue;
+    }
+    if (/^## /.test(l)) { cur = null; continue; }
+    const b = cur && l.match(/^- \*\*([^*]+):?\*\*:?\s*(.*)$/);
+    if (b) cur.fields.push({ label: b[1].replace(/:$/, ""), value: b[2] });
+  }
+
+  // 3) monta a lista final: ritos primeiro, depois Q1..Qn na ordem do índice
+  const quests = [];
+  for (const r of ritos) {
+    const { pt, en } = splitName(r.heading);
+    const classe = (r.heading.match(/rito do (\w+)/) ?? [])[1] ?? "";
+    const local = r.fields.find((f) => f.label.startsWith("Local"))?.value ?? "";
+    quests.push({
+      id: r.id, pt, en, classe, camadaRaw: `rito (${classe})`, camada: "rito",
+      longa: false, areaRaw: "Cidade", area: "Cidade", nivel: "livre",
+      npc: local, destrava: "classe + arma do kit", fields: r.fields,
+    });
+  }
+  for (const m of [...meta.values()].sort((a, b) => a.order - b.order)) {
+    quests.push({ ...m, fields: details.get(m.id)?.fields ?? [] });
+  }
+  return { quests };
+}
+
 // ================================================================
 // VIEWS
 // ================================================================
@@ -420,6 +502,7 @@ export function parseItems(md) {
 const bState = { q: "", fams: new Set(), tiers: new Set(), behs: new Set(), flags: new Set(), sort: "family", view: "cards" };
 const sState = { q: "", classes: new Set(), groups: new Set() };
 const iState = { q: "", tiers: new Set(), cats: new Set(), sort: "doc" };
+const qState = { q: "", camadas: new Set(), areas: new Set(), sort: "doc" };
 
 const chip = (k, v, label, on, color) =>
   `<button class="chip${on ? " on" : ""}" data-k="${k}" data-v="${esc(v)}"${color ? ` style="--c:${color}"` : ""}>${label}</button>`;
@@ -449,6 +532,7 @@ export function renderDbPage($doc, page, data) {
   if (page === "skills" && data.skills) return renderSkills($doc, data.skills);
   if (page === "classes" && data.classes) return renderClasses($doc, data.classes);
   if (page === "itens" && data.itens) return renderItems($doc, data.itens);
+  if (page === "quests" && data.quests) return renderQuests($doc, data.quests);
   $doc.innerHTML = `<p>⚠ Página não encontrada ou documento-fonte não carregou.</p>`;
 }
 
@@ -883,5 +967,117 @@ function classCard(c) {
       </div>`).join("")}
     </div>` : ""}
     ${c.note ? `<p class="cls-note">${fmt(c.note)}</p>` : ""}
+  </article>`;
+}
+
+// ---------------- Quests (fatia ① Alvorada) ----------------
+
+const CAMADA_COLORS = {
+  rito: "#ffd86a", direta: "#58c878", composta: "#e8a35a",
+  encadeada: "#e8a35a", aberta: "#4a9cc8", segredo: "#b04ad8",
+};
+const CAMADA_ORDER = ["rito", "direta", "composta", "encadeada", "aberta", "segredo"];
+const AREA_ORDER = ["Cidade", "Esgotos", "Oeste", "Norte", "Nordeste", "Leste", "Sul"];
+
+function renderQuests($doc, data) {
+  const camadas = CAMADA_ORDER.filter((c) => data.quests.some((q) => q.camada === c));
+  const areas = AREA_ORDER.filter((a) => data.quests.some((q) => q.area === a));
+  const nQ = data.quests.filter((q) => q.camada !== "rito").length;
+  const nR = data.quests.length - nQ;
+  $doc.innerHTML = `
+    <header class="db-header">
+      <h1>📜 Quests — Fatia ① (Alvorada)</h1>
+      <p class="db-sub"><strong>${nQ} quests</strong> + <strong>${nR} ritos de classe</strong>, organizadas por área × nível.
+        Camadas: direta (marker) · aberta (rumor) · segredo (nunca anunciada) — recompensa proporcional à opacidade.
+        Fonte: <a href="#/quests-fatia1">design/fatia-1-alvorada/QUESTS.md</a></p>
+    </header>
+    <div class="db-toolbar">
+      <input class="db-search" type="search" placeholder="Filtrar por nome, NPC, recompensa…" value="${esc(qState.q)}" />
+      <div class="filter-row"><span class="filter-label">Camada</span><div class="chips">
+        ${camadas.map((c) => chip("camadas", c, c, qState.camadas.has(c), CAMADA_COLORS[c])).join("")}
+        ${chip("camadas", "longa", "⏳ longa maturação", qState.camadas.has("longa"), "#c9a8ff")}
+      </div></div>
+      <div class="filter-row"><span class="filter-label">Área</span><div class="chips">
+        ${areas.map((a) => chip("areas", a, a, qState.areas.has(a))).join("")}
+      </div></div>
+      <div class="filter-row db-controls">
+        <label>Ordenar
+          <select class="db-sort">
+            <option value="doc">Ordem do doc (área)</option>
+            <option value="nivel">Nível ↑</option>
+            <option value="camada">Camada</option>
+          </select>
+        </label>
+        <button class="db-clear">✕ Limpar filtros</button>
+        <span class="db-count"></span>
+      </div>
+    </div>
+    <div id="db-body"></div>`;
+
+  const $sort = $doc.querySelector(".db-sort");
+  $sort.value = qState.sort;
+  $sort.addEventListener("change", () => { qState.sort = $sort.value; qRenderBody($doc, data); });
+  wireToolbar($doc, qState, () => qRenderBody($doc, data), () => renderQuests($doc, data));
+  qRenderBody($doc, data);
+}
+
+function nivelMin(q) {
+  if (q.camada === "rito") return 0;
+  const m = q.nivel.match(/\d+/);
+  return m ? parseInt(m[0], 10) : 99;
+}
+
+function qRenderBody($doc, data) {
+  const q = qState.q.toLowerCase();
+  const wantLonga = qState.camadas.has("longa");
+  const wantCamadas = new Set([...qState.camadas].filter((c) => c !== "longa"));
+  let list = data.quests.filter((it) => {
+    if (wantCamadas.size && !wantCamadas.has(it.camada)) return false;
+    if (wantLonga && !it.longa) return false;
+    if (qState.areas.size && !qState.areas.has(it.area)) return false;
+    if (q) {
+      const hay = `${it.id} ${it.pt} ${it.en} ${it.npc} ${it.destrava} ${it.areaRaw} ${it.fields.map((f) => f.label + " " + f.value).join(" ")}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if (qState.sort === "nivel") list = [...list].sort((a, b) => nivelMin(a) - nivelMin(b));
+  if (qState.sort === "camada")
+    list = [...list].sort((a, b) => CAMADA_ORDER.indexOf(a.camada) - CAMADA_ORDER.indexOf(b.camada) || nivelMin(a) - nivelMin(b));
+
+  const $count = $doc.querySelector(".db-count");
+  if ($count) $count.textContent = `${list.length} de ${data.quests.length}`;
+  $doc.querySelector("#db-body").innerHTML = list.length
+    ? `<div class="quest-grid">${list.map(questCard).join("")}</div>`
+    : emptyMsg();
+}
+
+// campos de texto longo viram citação; os demais, linhas label/valor
+const QUOTE_FIELDS = ["Texto-pista", "Registro no diário", "Texto da carta"];
+
+function questCard(qst) {
+  const cc = CAMADA_COLORS[qst.camada] ?? "#8890a0";
+  const fieldHtml = (f) => {
+    const isQuote = QUOTE_FIELDS.some((x) => f.label.startsWith(x));
+    if (isQuote) return `<blockquote class="q-quote"><span class="lbl">${esc(f.label.replace(/\s*✏️.*$/, ""))}</span>${fmt(f.value)}</blockquote>`;
+    return `<p class="q-field"><span class="lbl">${esc(f.label)}</span>${fmt(f.value)}</p>`;
+  };
+  // não repetir no corpo o que já está no topo do card
+  const skip = ["Camada", "Nível-alvo", "NPC / gatilho", "Local"];
+  const fields = qst.fields.filter((f) => !skip.some((s) => f.label.startsWith(s)));
+  return `<article class="quest-card" style="--qc:${cc}">
+    <div class="qc-top">
+      <h2>${esc(qst.pt)}${qst.en ? ` <em class="qc-en">${esc(qst.en)}</em>` : ""}</h2>
+      <span class="qc-id">${esc(qst.id)}</span>
+    </div>
+    <div class="qc-meta">
+      <span class="camada-badge" style="--qc:${cc}">${esc(qst.camadaRaw)}</span>
+      ${qst.longa ? `<span class="camada-badge" style="--qc:#c9a8ff">⏳ longa maturação</span>` : ""}
+      <span class="qc-lvl">nv ${esc(qst.nivel)}</span>
+      <span class="qc-area">📍 ${esc(qst.areaRaw)}</span>
+    </div>
+    <p class="q-field"><span class="lbl">${qst.camada === "rito" ? "Local" : "NPC / gatilho"}</span>${fmt(qst.npc)}</p>
+    ${fields.map(fieldHtml).join("")}
+    ${qst.destrava ? `<p class="q-field qc-destrava"><span class="lbl">Destrava</span>${fmt(qst.destrava)}</p>` : ""}
   </article>`;
 }

@@ -3,7 +3,7 @@
  * grade curada por slot) — VIA MÁSCARAS DE TINTURA pré-computadas (decisão
  * com o criador: o "recorte perfeito" estilo canais de outfit do Tibia).
  *
- * As máscaras (img/walk/mask_*.png) são geradas OFFLINE por segmentação
+ * As máscaras (img/chars/knight/walk/mask_*.png) são geradas OFFLINE por segmentação
  * pixel-perfeita (flood-fill com os outlines pretos como paredes + correções)
  * e congeladas como assets: R=elmo, G=torso, B=pernas. Runtime = lookup:
  * pixel no canal → ramp da cor do slot (por luminância, preserva o shading).
