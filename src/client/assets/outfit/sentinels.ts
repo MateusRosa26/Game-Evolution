@@ -77,6 +77,40 @@ const COOL_HUE = 230; // sombras puxam para azul
 const WARM_HUE = 50; // luzes puxam para amarelo
 
 /**
+ * LUT CONTÍNUA de shading: lum original (0..255) → RGB da cor alvo com o
+ * shading PRESERVADO. Mesmas curvas do ramp de 6 tons (luz relativa, pico de
+ * saturação no meio, matiz frio→quente), mas interpoladas — sem os 6 degraus
+ * que posterizavam o sprite PixelLab (a armadura tem ~20 tons; achatar em 6
+ * deixava "pior que antes da tintura", veredito do criador).
+ */
+export function shadeLutFromColor(hex: string): Uint8ClampedArray {
+  const [h, s, l] = hexToHsl(hex);
+  const lightF = [0.42, 0.6, 0.8, 1.0, 1.14, 1.26];
+  const satF = [0.7, 0.9, 1.05, 1.0, 0.85, 0.68];
+  const hueAmt = [14, 9, 3, 0, 8, 14];
+  const hueAt = (i: number) =>
+    i < 3 ? rotateToward(h, COOL_HUE, hueAmt[i]) : rotateToward(h, WARM_HUE, hueAmt[i]);
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let lum = 0; lum < 256; lum++) {
+    // mesma normalização do ramp (lum/200, clampado): t contínuo em [0,5]
+    const t = Math.min(5, (lum / 200) * 6);
+    const i0 = Math.min(4, Math.floor(t));
+    const f = t - i0;
+    const li = Math.max(0.07, Math.min(0.93, l * (lightF[i0] + (lightF[i0 + 1] - lightF[i0]) * f)));
+    const si = Math.max(0.04, Math.min(0.92, s * (satF[i0] + (satF[i0 + 1] - satF[i0]) * f)));
+    // matiz: interpola pelo caminho curto entre os tons vizinhos do ramp
+    const h0 = hueAt(i0);
+    const h1 = hueAt(i0 + 1);
+    const dh = ((h1 - h0 + 540) % 360) - 180;
+    const [r, g, b] = hslToRgb((h0 + dh * f + 360) % 360, si, li);
+    lut[lum * 3] = r;
+    lut[lum * 3 + 1] = g;
+    lut[lum * 3 + 2] = b;
+  }
+  return lut;
+}
+
+/**
  * Gera o ramp de 6 tons a partir da cor base (hex da grade).
  * t∈[0..5]: brilho sobe (passos menores no topo), matiz roda frio→quente,
  * saturação pico no meio. Clamps evitam 0%/100%.

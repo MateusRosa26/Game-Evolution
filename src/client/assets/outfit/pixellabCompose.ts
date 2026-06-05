@@ -19,7 +19,7 @@ import { OUTFIT_COLORS, type OutfitState } from "../../../shared/outfits";
 import type { Facing } from "../../../shared/types";
 import { PIXELLAB } from "../pixellab";
 import { OutfitTextureLru } from "./lruCache";
-import { rampFromColor } from "./sentinels";
+import { shadeLutFromColor } from "./sentinels";
 
 // LRU com teto: combinações de cores são abertas — sem limite, cada combo
 // vira texturas GPU vivas pra sempre (ver lruCache.ts para o caveat de online).
@@ -46,10 +46,10 @@ function recolorFrame(src: Texture, maskTex: Texture, outfit: OutfitState): HTML
   const d = img.data;
   const m = mask.data;
 
-  const ramps = [
-    rampFromColor(OUTFIT_COLORS[outfit.head.color] ?? "#777"), // R
-    rampFromColor(OUTFIT_COLORS[outfit.torso.color] ?? "#777"), // G
-    rampFromColor(OUTFIT_COLORS[outfit.legs.color] ?? "#777"), // B
+  const luts = [
+    shadeLutFromColor(OUTFIT_COLORS[outfit.head.color] ?? "#777"), // R
+    shadeLutFromColor(OUTFIT_COLORS[outfit.torso.color] ?? "#777"), // G
+    shadeLutFromColor(OUTFIT_COLORS[outfit.legs.color] ?? "#777"), // B
   ];
 
   for (let i = 0; i < d.length; i += 4) {
@@ -57,13 +57,12 @@ function recolorFrame(src: Texture, maskTex: Texture, outfit: OutfitState): HTML
     const ch = m[i] > 127 ? 0 : m[i + 1] > 127 ? 1 : m[i + 2] > 127 ? 2 : -1;
     if (ch < 0) continue;
     const r = d[i], g = d[i + 1], b = d[i + 2];
-    // luminância → 6 faixas → tom do ramp (preserva o shading original)
-    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    const bin = Math.min(5, Math.floor((lum / 200) * 6));
-    const [nr, ng, nb] = ramps[ch][bin];
-    d[i] = nr;
-    d[i + 1] = ng;
-    d[i + 2] = nb;
+    // luminância → LUT contínua (shading original preservado tom a tom)
+    const lum = Math.min(255, Math.round(0.299 * r + 0.587 * g + 0.114 * b));
+    const lut = luts[ch];
+    d[i] = lut[lum * 3];
+    d[i + 1] = lut[lum * 3 + 1];
+    d[i + 2] = lut[lum * 3 + 2];
   }
   canvas.getContext("2d")!.putImageData(img, 0, 0);
   return canvas;

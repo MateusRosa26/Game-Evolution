@@ -169,7 +169,8 @@ export const DEFAULT_OUTFIT_BY_CLASS: Record<string, OutfitState> = {
   knight: {
     head: { part: "elmo_alvorada", color: 4 },
     torso: { part: "peitoral_alvorada", color: 4 },
-    legs: { part: "grevas_alvorada", color: 2 },
+    // azul-aço suave (h240 s.25 l.36) — bate com a calça do sprite original
+    legs: { part: "grevas_alvorada", color: 73 },
   },
   rogue: {
     // couro escuro mas LEGÍVEL (um tom acima do quase-preto)
