@@ -31,8 +31,8 @@ Local `(0,0)` = canto sup-esq. Norte ↑. O afluente (`~`) costura de NE → cen
    y    +----------+--------+--------+--------+--------+--------+
    0  ↑ |  planíc. .  GRUTA  .       .   ~~~  . floresta NE     |  ↗ BRUMAL
         |  oeste   . MORCEGOS.       .  ~ VAU~. (gradiente T1→T2)
-   40   | (T1)     .         .  TOCA . ~②~    .  ACAMP.GOBLIN    |
-        |          .         . LOBOS . ~     .   ↘CAVERNA GOBLIN |
+   40   | (T1)     .         .       . ~②~  TOCA  .  ACAMP.GOBLIN |
+        |          .         .       . ~   LOBOS  .  ↘CAVERNA GOB.|
    80   | GRANJA·──·── estrada O ──███████ ──·─ estrada NE ─~────|· · MINAS
         | (T1)     .         .██ ALVORADA██ NINHO ARANHAS (T2)   |   PERDIDAS
   120   |          .         .██ colina  ██  .  ~       .        |   (NE remoto)
@@ -74,7 +74,7 @@ Serpenteia NE → centro → S em diagonal (v4 Prancha A). Curso proposto em til
 
 | # | Travessia | Tipo | Âncora local ✏️ | Quem cruza | Refs |
 |---|---|---|---|---|---|
-| ① | **Ponte de Alvorada** | livre, vigiada | `(150,148)` (colada na muralha, Porta d'Água) | qualquer um | a razão da cidade existir; Q4 cruza p/ leste |
+| ① | **Ponte de Alvorada** | livre, vigiada | `(156,132)` (colada na muralha, Porta d'Água) | qualquer um | a razão da cidade existir; Q4 cruza p/ leste |
 | ② | **Vau raso (NE)** | livre | `(212,50)` | qualquer um | estrada NE → Brumal; Q5/Q8 |
 | ③ | **Ponte dos Bandidos (S)** | pedágio (T2) | `(165,272)` | quem vence o pedágio | Q9; spot Bandidos |
 | ④ | **Pedras no junco** | escondida | `(190,160)`✏️ no Juncal | o curioso/atento | Q14 (segredo) → margem leste |
@@ -82,16 +82,16 @@ Serpenteia NE → centro → S em diagonal (v4 Prancha A). Curso proposto em til
 
 ### 2.3 Estradas (paths)
 Linhas tracejadas do v4. Saem dos 4 portões:
-- **Estrada Oeste:** portão O `(112,98)` → Granja `(40,90)` → planícies. ✏️
-- **Estrada NE:** portão NE `(150,80)` → vau ② `(212,50)` → floresta/acampamento → Brumal (sai pelo canto NE). ✏️
-- **Estrada Leste / Porta d'Água:** Ponte de Alvorada ① `(150,148)` → margem leste → Atalaia (sai pelo `x=340`). ✏️
-- **Estrada Sul (do pântano):** portão Sul `(120,178)` → ponte dos bandidos ③ → Charneca (sai pelo `y=340`). ✏️
+- **Estrada Oeste:** portão O `(102,110)` → Granja `(40,90)` → planícies. ✏️
+- **Estrada NE:** portão NE `(140,82)` → vau ② `(212,50)` → floresta/acampamento → Brumal (sai pelo canto NE). ✏️
+- **Estrada Leste / Porta d'Água:** Ponte de Alvorada ① `(156,132)` → margem leste → Atalaia (sai pelo `x=340`). ✏️
+- **Estrada Sul (do pântano):** portão Sul `(120,138)` → ponte dos bandidos ③ → Charneca (sai pelo `y=340`). ✏️
 
 ---
 
-## 3. A cidade de Alvorada (intramuros) — ~60×60 tiles
+## 3. A cidade de Alvorada (intramuros) — 70×70 tiles
 
-> Prancha B do v4 reprojetada. **Âncora da cidade no recorte ✏️:** muralha ocupa `[100..170]×[80..150]` local (a colina da curva). A cidade é a **zona segura / hub** (depot + mercado + praça). Origem local da cidade para detalhe fino: o resto desta seção usa **coordenadas-cidade `(cx,cy)`** com origem no canto NW da muralha `(100,80)` local — então `local = cidade + (100,80)`. Cidade ~60×60.
+> Prancha B do v4 reprojetada. **Âncora da cidade no recorte ✏️:** muralha ocupa `[100..170]×[80..150]` local (a colina da curva). A cidade é a **zona segura / hub** (depot + mercado + praça). Origem local da cidade para detalhe fino: o resto desta seção usa **coordenadas-cidade `(cx,cy)`** com origem no canto NW da muralha `(100,80)` local — então `local = cidade + (100,80)`. Cidade 70×70.
 
 ### 3.1 Muralha e portões
 
@@ -114,19 +114,19 @@ Linhas tracejadas do v4. Saem dos 4 portões:
 | Edifício | Distrito | Porta (coord-cidade) ✏️ | Papel / quest |
 |---|---|---|---|
 | **Estalagem do Vau** | Baixa | `(20,42)` | Bartolo (Q1) + Bento cozinheiro (Q6); **porão** dos ratos; fogueira fixa (cozinha) |
-| **Loja Geral** | Baixa | `(24,38)` | Olinda (Q2); vendor geral (vendor floor); corda/pá/tochas |
-| **Boticário** (loja de Poções) | Baixa | `(31,38)` | Anselmo (Q3); vende Vida Pequena; compra reagentes pós-quest |
+| **Loja Geral** | Baixa | `(24,38)` | Nina (Q2); vendor geral (vendor floor); corda/pá/tochas |
+| **Boticário** (loja de Poções) | Baixa | `(31,38)` | Silas (Q3); vende Vida Pequena; compra reagentes pós-quest |
 | **Ferreiro** | Baixa | `(20,28)` | Duarte (Q4, Q9); compra sucata/armas pós-quest |
 | **Depot** | Baixa | `(38,32)` | banco/armazém — cluster de utilidade; R2 (Mage) busca o tomo aqui |
 | **Praça do Poço** (+ **bueiro**) | Baixa | centro `(36,34)`; **bueiro `(36,38)`** | hub; o **bueiro** = boca de esgoto principal (Q1 aponta) |
-| **Câmara (prefeito)** | Baixa | `(46,46)` | civismo/flavor; ✏️ futura quest-hub |
+| **Câmara** (Augusto, prefeito) | Baixa | `(46,46)` | civismo/flavor; ✏️ futura quest-hub |
 | **Quartel da Guarda** | embutido na muralha O | `(8,36)` | Capitão Vidal (Q5, Q8, Q9-elo); bounty de orelhas |
-| **Capela do Coveiro** (+ cemitério) | Alto, junto muralha N | `(15,12)` | Custódio (Q10); gancho do arco na capital; boca de esgoto "Capela" |
-| **Templo** (+ **Santuário** de respawn) | Alto | Templo `(20,14)`; **Santuário `(16,22)`** | R4 (Priest): oferenda+chama no Santuário; respawn da fatia |
-| **Torre Arcana** | Alto | `(30,18)` | R2 (Mage): braseiro × cristal (fogo/gelo) |
-| **Guilda dos Guerreiros** (+ pátio) | Alto-Leste | `(44,18)` | R1 (Knight): instrutor + boneco de treino no pátio |
-| **Taverna do Cais** | Cais | `(50,30)` | Tobias o bêbado (Q12); Taverneiro (elo Q9) |
-| **Beco dos Ladinos** | Cais | entrada `(52,38)`; esconderijo `(54,40)`✏️ | R3 (Rogue): "terceira pedra contando da sarjeta" |
+| **Capela do Coveiro** (+ cemitério) | Alto, junto muralha N | `(15,12)` | Abel (Q10); gancho do arco na capital; boca de esgoto "Capela" |
+| **Templo** (+ **Santuário** de respawn) | Alto | Templo `(20,14)`; **Santuário `(16,22)`** | Gabriel — R4 (Priest): oferenda+chama no Santuário; respawn da fatia |
+| **Torre Arcana** | Alto | `(30,18)` | Leonor — R2 (Mage): braseiro × cristal (fogo/gelo) |
+| **Guilda dos Guerreiros** (+ pátio) | Alto-Leste | `(44,18)` | Ricardo — R1 (Knight): instrutor + boneco de treino no pátio |
+| **Taverna do Cais** | Cais | `(50,30)` | Tobias o bêbado (Q12); Telmo taverneiro (elo Q9) |
+| **Beco dos Ladinos** | Cais | entrada `(52,38)`; esconderijo `(54,40)`✏️ | Vincente "Gralha" — R3 (Rogue): "terceira pedra contando da sarjeta" |
 | **Armazéns** | Cais | `(50,46)` | flavor; ✏️ |
 | **Balsa (FECHADA)** | Cais, à água | `(58,48)` | promessa macro: Pontal na outra margem; gancho Q4 |
 | **Casa inicial (tutorial)** | Baixa ✏️ | `(28,46)` ✏️ | **nascimento** (`DESIGN-MUNDO.md` §casa inicial): NPC-guia + containers domésticos (Gibão Roto, Botas Surradas, Espada Cega, Sacola de Pano) + 1ª chave abre a porta de saída |
@@ -169,21 +169,21 @@ cy  +----+----+----+----+----+----+----+----+
 |---|---|---|---|---|
 | **Bartolo** | Estalajadeiro | Baixa (Estalagem) | `(20,42)` | Q1 Ratos no Porão |
 | **Bento** | Cozinheiro da estalagem | Baixa (Estalagem, cozinha) | `(22,43)` | Q6; trade ingredientes/pratos; receita do Ensopado |
-| **Olinda** | Lojista (Loja Geral) | Baixa | `(24,38)` | Q2 A Mochila; vendor geral |
-| **Anselmo** | Boticário | Baixa | `(31,38)` | Q3 Reagentes; vende Vida Pequena; compra reagentes |
+| **Nina** | Lojista (Loja Geral) | Baixa | `(24,38)` | Q2 A Mochila; vendor geral |
+| **Silas** | Boticário | Baixa | `(31,38)` | Q3 Reagentes; vende Vida Pequena; compra reagentes |
 | **Duarte** | Ferreiro | Baixa | `(20,28)` | Q4 Entrega, Q9 Estrada Roubada; compra sucata/armas |
 | **Capitão Vidal** | Guarda-capitão | Muralha O (Quartel) | `(8,36)` | Q5, Q8, elo de Q9; bounty de orelhas |
-| **Custódio** | Coveiro | Alto (Capela) | `(15,12)` | Q10 Água do Poço; ✏️ trade de restos (fatia ②) |
+| **Abel** | Coveiro | Alto (Capela) | `(15,12)` | Q10 Água do Poço; ✏️ trade de restos (fatia ②) |
 | **Amaro** | Caçador-peleteiro (civil) | Cais | `(48,42)` ✏️ | Q7 A Caçada do Peleteiro; trade de peles/couro/presas |
 | **Tobias** | Bêbado da Taverna | Cais (Taverna) | `(50,30)` | Q12 Os Corvos do Moinho (sussurrador) |
-| **Taverneiro** | Taverna do Cais | Cais (Taverna) | `(51,29)` ✏️ | elo de Q9 (ouviu alguém gastando demais) |
-| **Firmino** | Mineiro aposentado | Baixa (canto) | `(26,30)` ✏️ | Q13 As Minas Perdidas (sussurrador puro — "pó de pedra na voz") |
-| **NPC-guia** (tutorial) | guia da casa inicial | Baixa (casa inicial) | `(28,46)` ✏️ | nascimento; ensina container→chave→porta |
-| Instrutor de armas | rito Knight | Alto (Guilda) | `(44,18)` | R1 (pátio + boneco) |
-| Arcanista | rito Mage | Alto (Torre) | `(30,18)` | R2 (tomo no Depot; braseiro × cristal) |
-| Contato do beco | rito Rogue | Cais (Beco) | `(52,38)` | R3 (esconderijo) |
-| Monge | rito Priest | Alto (Templo) | `(20,14)` | R4 (oferenda + chama; luva sem comentário) |
-| Vigia de Atalaia | dá/recebe pacote | **fora do recorte**, estrada leste | `(340,150)`✏️ borda | destino de Q4 (Atalaia, outra margem) |
+| **Telmo** | Taverneiro (Taverna do Cais) | Cais (Taverna) | `(51,29)` ✏️ | elo de Q9 (ouviu alguém gastando demais) |
+| **Hugo** | Mineiro aposentado | Baixa (canto) | `(26,30)` ✏️ | Q13 As Minas Perdidas (sussurrador puro — "pó de pedra na voz") |
+| **Rosa** | NPC-guia (tutorial) | Baixa (casa inicial) | `(28,46)` ✏️ | nascimento; ensina container→chave→porta |
+| **Ricardo** | Instrutor de armas (rito Knight) | Alto (Guilda) | `(44,18)` | R1 (pátio + boneco) |
+| **Leonor** | Arcanista (rito Mage) | Alto (Torre) | `(30,18)` | R2 (tomo no Depot; braseiro × cristal) |
+| **Vincente "Gralha"** | Contato do beco (rito Rogue) | Cais (Beco) | `(52,38)` | R3 (esconderijo) |
+| **Gabriel** | Sacerdote/Monge (rito Priest) | Alto (Templo) | `(20,14)` | R4 (oferenda + chama; luva sem comentário) |
+| **Marco** | Vigia de Atalaia (dá/recebe pacote) | **fora do recorte**, estrada leste | `(340,150)`✏️ borda | destino de Q4 (Atalaia, outra margem) |
 
 > Total: ~17 NPCs falantes na fatia. ✏️ posições finas — a regra é cluster de rotina + cantos escondendo valor.
 
@@ -198,7 +198,7 @@ cy  +----+----+----+----+----+----+----+----+
 | S1 | **Planícies** (O/SO) | `[10..70]×[60..200]` | T1 | Rato Lanhoso, Lobo Cinzento | 8–10 espalhados | estrada O; transição com Granja |
 | S2 | **Granja** (celeiros) | `[20..55]×[80..100]` | T1 | Rato Lanhoso | 4–6 | Q2 (fardo); portão O |
 | S3 | **Gruta dos Morcegos** | âncora `(135,58)`, gruta `[125..150]×[48..68]` | T1 | Morcego Sanguessuga | 6–8 | Q3; barranco N da colina |
-| S4 | **Toca dos Lobos** | âncora `(160,90)`, `[145..180]×[78..105]` | T1 | Lobo Cinzento | 6–8 | Q5; orla da mata; Q6 (carne) |
+| S4 | **Toca dos Lobos** | âncora `(185,68)`, `[172..200]×[55..80]` | T1 | Lobo Cinzento | 6–8 | Q5; orla NE da mata (fora da muralha); Q6 (carne) |
 | S5 | **Acampamento Goblin** | `[185..230]×[35..70]` | T1 | Goblin Batedor | 8–10 | Q8 ato 2; trilha do vau |
 | S6 | **Caverna dos Goblins** | boca `(240,40)`✏️ (dungeon/mapa sep. ou bolsão) | T1→T2 | Goblin Batedor; **Orc Soldado** (fundo, named-ish) | 8–12 + 1 Orc | Q8 ato 3; **baú guardado** no fundo |
 | S7 | **Ninho de Aranhas** | `[260..300]×[60..90]`, sem trilha | T2 | Aranha-das-Cavernas | 5–7 | fundo da mata NE; caminho curioso |
@@ -308,11 +308,11 @@ cy  +----+----+----+----+----+----+----+----+
 | id | POI | tipo | x,y (local) ✏️ | refs |
 |---|---|---|---|---|
 | P01 | Cidade de Alvorada | cidade/zona segura | `[100..170]×[80..150]` | hub, depot, santuário |
-| P02 | Portão NE | portão | `(150,80)` | Q5, Q8 |
-| P03 | Portão Sul | portão | `(120,178)` | Q7, Q9, Q11, Q14 |
-| P04 | Portão Oeste | portão | `(112,98)` | Q2 |
-| P05 | Porta d'Água | portão | `(150,148)` | Q4 |
-| P06 | Ponte de Alvorada ① | travessia | `(150,148)` | Q4 |
+| P02 | Portão NE | portão | `(140,82)` | Q5, Q8 |
+| P03 | Portão Sul | portão | `(120,138)` | Q7, Q9, Q11, Q14 |
+| P04 | Portão Oeste | portão | `(102,110)` | Q2 |
+| P05 | Porta d'Água | portão | `(156,132)` | Q4 |
+| P06 | Ponte de Alvorada ① | travessia | `(156,132)` | Q4 |
 | P07 | Vau raso ② | travessia | `(212,50)` | Q5, Q8 |
 | P08 | Ponte dos Bandidos ③ | travessia | `(165,272)` | Q9 |
 | P09 | Pedras no junco ④ | travessia secreta | `(190,160)` | Q14 |
@@ -320,7 +320,7 @@ cy  +----+----+----+----+----+----+----+----+
 | P11 | Granja | spot T1 / quest | `(40,90)` | Q2 |
 | P12 | Planícies | spot T1 | `[10..70]×[60..200]` | — |
 | P13 | Gruta dos Morcegos | spot T1 | `(135,58)` | Q3 |
-| P14 | Toca dos Lobos | spot T1 | `(160,90)` | Q5, Q6 |
+| P14 | Toca dos Lobos | spot T1 | `(185,68)` | Q5, Q6 |
 | P15 | Acampamento Goblin | spot T1 | `(205,52)` | Q8 a2 |
 | P16 | Caverna dos Goblins | spot T1→T2 + baú guardado | `(240,40)` | Q8 a3 |
 | P17 | Ninho de Aranhas | spot T2 | `(280,75)` | — (canto curioso) |
@@ -359,10 +359,10 @@ cy  +----+----+----+----+----+----+----+----+
 | Q7 Peleteiro | Caçador (Cais) + Matagal + Javali Velho | Amaro `(48,42)`, Matagal/named P20 | ✓ |
 | Q8 Cadeia Goblin | Capitão + vau + Acampamento + Caverna + Orc (fundo) | Vidal `(8,36)`, vau P07, Acamp P15, Caverna+Orc P16 | ✓ |
 | Q9 Estrada Roubada | Ferreiro→Capitão→Taverneiro→ponte dos bandidos (acampamento/carga) | Duarte, Vidal, Taverneiro `(51,29)`, Bandidos P21 / ponte P08 | ✓ |
-| Q10 Água do Poço | Coveiro (Capela) + esgoto A2 + alvenaria antiga | Custódio `(15,12)`, A2 E03, alvenaria `(70,50)` | ✓ |
+| Q10 Água do Poço | Coveiro (Capela) + esgoto A2 + alvenaria antiga | Abel `(15,12)`, A2 E03, alvenaria `(70,50)` | ✓ |
 | Q11 Tesouro do Bando | Carta (loot Bandido) → Fortaleza (fatia ③, FORA) | Bandidos P21 (loot); baú fecha fatia ③ — fora do recorte | ✓ (origem física) |
 | Q12 Corvos do Moinho | Bêbado (Taverna) + Moinho + porão/baú + corvos | Tobias `(50,30)`, Moinho P22 / baú B1 | ✓ |
-| Q13 Minas Perdidas | Mineiro aposentado + trilha NE pós-vau + carrinhos + boca da mina + baú guardado | Firmino `(26,30)`, Minas P18, carrinhos P23, baú B3 | ✓ |
+| Q13 Minas Perdidas | Mineiro aposentado + trilha NE pós-vau + carrinhos + boca da mina + baú guardado | Hugo `(26,30)`, Minas P18, carrinhos P23, baú B3 | ✓ |
 | Q14 Pedras de Passagem | pedras no junco + travessia + margem leste + baú | Pedras P09, Juncal P19, baú B4 | ✓ |
 | Q15 Porão Afogado | passagem alagada (A2) + A3 + ghouls | Passagem E04 `(40,57)`, A3 E05 | ✓ |
 
@@ -423,3 +423,13 @@ NE (P02/P07): Q5,Q8,Q13 ✓ · Sul (P03/P08): Q9,Q12,Q7,Q11,Q14 ✓ · Oeste (P0
 **Método:** ✏️ aplicado de forma consistente; nada escrito como "decidido" pelo autor (só cita decisões já tomadas nas fontes); pt-BR; não inventou mecânica. Bom.
 
 **Veredito:** estrutura, rastreabilidade e orçamentos sólidos; as 4 discrepâncias de média (#1–#4) são correções de consistência/rastreabilidade antes de virar dados — nenhuma é redesenho.
+
+### Correções round 1 (aplicadas)
+
+> Fix-round contra os 5 achados acima. Fonte da verdade dos nomes: `NPCS.md` (árvore principal) — conferida, **não** os nomes hipotéticos do achado #1 (Gualter/Eusébio/Vicente/Heitor/Honório não existem no cânone). Fonte da verdade das coords: **§3.1 coord-cidade**, propagada por `local = cidade + (100,80)`.
+
+- **#1 (nomes NPCs):** substituídos os papéis genéricos pelos nomes canônicos de `NPCS.md`, no formato "Nome (papel)", em §3.3 / §4 / §10 — Taverneiro→**Telmo**, Instrutor de armas (Guilda, R1)→**Ricardo**, Arcanista (Torre, R2)→**Leonor**, Contato do beco (R3)→**Vincente "Gralha"**, Sacerdote/Monge (Templo, R4)→**Gabriel**, NPC-guia→**Rosa**, Vigia de Atalaia→**Marco**, Câmara/prefeito→**Augusto**. Também alinhados ao cânone nomes que já existiam no GRID mas divergiam de `NPCS.md`: Olinda→**Nina**, Anselmo→**Silas**, Custódio→**Abel**, Firmino→**Hugo**.
+- **#2/#3 (coords não fechavam / Portão Sul fora da cidade):** §3.1 vira a fonte única; recalculados os 4 portões em local via `local = cidade + (100,80)` → NE `(140,82)`, Sul `(120,138)`, Oeste `(102,110)`, Porta d'Água/Ponte ① `(156,132)`. Reconciliadas as ocorrências em §2.2, §2.3 e §9 (P02–P06). Agora os 4 portões batem pelas duas vias e todos caem na muralha `[100..170]×[80..150]` (Portão Sul agora em Y=138, dentro).
+- **#4 (Toca dos Lobos sobre a cidade):** S4 reposicionada para a **orla NE, fora da muralha** — âncora `(185,68)`, retângulo `[172..200]×[55..80]` (sem interseção com a cidade; coerente com Q5/Q6 e o v4). Atualizados §5 e §9 (P14) e o rótulo no mini-mapa macro §1.
+- **#5 (prosa "~60×60"):** alinhada para **70×70** (retângulo declarado `[100..170]×[80..150]`) no título e no corpo de §3.
+- **Re-checagem:** os 4 portões derivados pelas duas vias coincidem; nenhum POI da tabela-mestra cai fora do seu retângulo; nenhum spot sobrepõe a cidade.
