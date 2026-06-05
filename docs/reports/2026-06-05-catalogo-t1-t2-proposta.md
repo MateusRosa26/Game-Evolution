@@ -256,3 +256,50 @@ A armadura T1 proposta (§C) **NÃO pode** apagar a coluna "2 ratos" — daí a 
 
 > Harness descartável em `/tmp` (não versionado). Sim/design **não** foram tocados — a entrega é
 > este report. Números marcados ✏️ aguardam o criador.
+
+---
+
+## Verificação independente (verificador)
+
+Harness próprio em `/tmp` (esbuild+node sobre a sim do worktree, arena 64×64 grass, sem safeZones,
+ratos adjacentes, mutando `ESPADA_CURTA`/`ADAGA`/`RATO_LANHOSO` em memória). TTK/TTL medidos do
+**evento `kill`/`death` do bus**; auto/cd lidos do 1º/2º `damage`. Fórmulas de `formulas.ts`
+re-derivadas à mão antes de medir. Harness apagado após uso.
+
+- **Diff real × report:** ✅ `git diff main...HEAD --stat` = SÓ o report (258 linhas, +258). Zero
+  toque em `src/`, `DESIGN-*`, `node_modules`. Confere.
+
+- **Claims re-medidos** (medido por mim → veredicto):
+  - **Espada Curta 6@2000 (knight L1):** auto **14**, cd-real **1900ms**, **2 golpes**, TTK select→kill **2,00s**. Auto/cd/golpes **batem ao dígito**; TTK 2,00 vs 1,95 do report = **+1 tick** de convenção de âncora (o report mede 1º-golpe→morte = cadência da cadência; eu meço seleção→morte). Mesma quantização, diferença só de ponto-de-partida.
+  - **Machado 8@2400:** auto **16**, cd **2300ms**, **2 golpes**, TTK **2,40s** (report 2,35) — bate (mesmo +1 tick). Auto e contagem exatos.
+  - **Clava 6@2100:** auto **14**, cd **2000ms**, **2 golpes**, TTK **2,10s** (report 2,05) — bate.
+  - **Adaga 5@1600 DEX (rogue L1):** auto **14** (`floor(5+8·1,2)=14`), cd **1400ms**, **2 golpes**, TTK **1,50s** (report 1,45) — bate; a mais rápida do T1 ✓.
+  - **TTL knight L1 parado, rato 7 dmg:** **44,80 / 16,00 / 9,60s** (1/2/3 ratos) — confere com §F (44,75/15,95/9,55, mesmo +1 tick). **Confirmado que §F usa o rato pós-M1.1 (7 dmg).** Com rato **8 dmg** (valor ATUAL do `bestiary.ts` deste worktree) medi 35,2/12,8/8,0s — a régua *velha* da bateria M1 §B.
+  - **Mitigação §C (aritmética, não simulável):** fórmula declarada `max(1, bruto−ΣDef)` com rato 7: Def5→2, Def6→1(piso), Def3→4 — **confere**. A flag 🚩 do piso-1 com couro Σ5–6 é correta e bem levantada.
+  - **Degeneração §E:** L5 all-in STR (str20) base6 → auto **26**, one-shota o rato ✓; L5 balanceado (str14) → auto **20**, 2 golpes ✓; classless str5: base6→11/3golpes, base4→9/3golpes, base8→13/2golpes ✓; L12 auto 36 one-shota ✓. **Toda a tabela de quantização (§"achado estrutural") e §E batem ao dígito.**
+
+- **Cobertura do catálogo:** **27/40** itens com linha na proposta. **Faltantes** (todos no DESIGN-ITENS):
+  T1 armas — **Arco Curto** (Short Bow) e **Luvas de Couro** (Leather Gloves); T1 utilitário — **Tocha,
+  Flechas, Mochila** (não-combate, fora de escopo declarado); T2 vendor — **Virotes** (munição); T2 mundo —
+  **Martelo de Ferro, Breviário da Vigília, Cetro de Prata, Grevas da Muralha, Peça-tradeoff** (esta já ✏️ no
+  próprio DESIGN). O Arco Curto T1 é a omissão mais sentida (o report numera ranged só no T2 — Arco Longo/Besta —
+  mas o T1 já tem Arco Curto no catálogo; ranged não-simulável, mas merecia ao menos um perfil derivado como os casters de §B).
+
+- **Coerência canônica:** ✅ armas T1 sem bônus de identidade (§A só base/CD; bônus só em joia-de-baú §C, como manda
+  o doc). Matriz esparsa respeitada (nada de tipo×elemento×tier preenchido). Wand 1H estreia no T2 ✓. Requisito de
+  nível: o doc só ancora explicitamente a Espada Longa ("nível 12"); a proposta estende req-nível a outros T2 (Punhal
+  10, Wand 10, escudos/elmo 10–12) — **mas tudo marcado ✏️**, sem inventar mecânica nova, então é proposta legítima.
+  Nenhum slot/mecânica novo inventado. Tudo ✏️, nada "decidido"; flags Sirlin presentes (§E) e flag de balance do
+  piso-1 (§C). Método OK.
+
+- **Observações:**
+  1. **A maior pegadinha (não é defeito do report):** o `bestiary.ts` DESTE worktree ainda tem rato **`attackDamage: 8`,
+     `xp: 20`** — as mudanças "8→7, XP→15" documentadas como *aplicadas* no ADENDO 2 da bateria M1 **NÃO estão na árvore**.
+     A proposta numera contra o rato **7 dmg/15 XP** (a régua *decidida*), o que é o correto; mas quem rodar o harness
+     do report sem mutar o dano do rato (o report **muta**, então está coberto) veria as TTL da régua velha. **Recomendo
+     anexar uma nota** de que a régua usada (7 dmg) diverge do código-fonte atual — ou re-aplicar a mudança no `bestiary.ts`.
+  2. O deslocamento sistemático de **+1 tick (0,05s)** em TODOS os TTK/TTL é só convenção de medição (o report ancora no
+     1º golpe, eu na seleção). Os números **load-bearing** — auto-dano, contagem de golpes, ordem de perfil, aritmética de
+     Def — verificam **exatos**. Nenhum número está errado; a leitura "diferenciador é a cadência, não a base" é sólida e
+     reproduzível.
+  3. **Veredicto:** todos os 5 números-âncora do resumo conferem. Proposta empiricamente fiel.
