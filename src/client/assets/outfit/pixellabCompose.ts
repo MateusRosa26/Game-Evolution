@@ -28,17 +28,48 @@ const ZONES: { slot: keyof OutfitState; y0: number; y1: number }[] = [
   { slot: "legs", y0: 47, y1: 64 },
 ];
 
-/** Pixel "metal" = dessaturado o bastante para receber a tinta do slot. */
-const SATURATION_CUTOFF = 0.22;
-
 const cache = new Map<string, Record<Facing, Texture[]>>();
 
 function colorKey(o: OutfitState): string {
   return `${o.head.color}|${o.torso.color}|${o.legs.color}`;
 }
 
-/** Recolore um frame: zonas × pixels dessaturados → ramp da cor do slot. */
-function recolorFrame(src: Texture, outfit: OutfitState): HTMLCanvasElement {
+/** Matiz (0–360) de um pixel; -1 para cinza puro. */
+function hueOf(r: number, g: number, b: number): number {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  if (d === 0) return -1;
+  let hh: number;
+  if (max === r) hh = ((g - b) / d) % 6;
+  else if (max === g) hh = (b - r) / d + 2;
+  else hh = (r - g) / d + 4;
+  return ((hh * 60) + 360) % 360;
+}
+
+/**
+ * Classificação ESTÁVEL entre frames (a causa do glitch era o corte de
+ * saturação por frame): pixel só recebe tinta se NÃO pertence a um material
+ * protegido por MATIZ — capa (vermelhos, mesmo dessaturados nas sombras),
+ * madeira do escudo/cabo (marrons saturados) e pele.
+ */
+function isPaintable(r: number, g: number, b: number): boolean {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const sat = max === 0 ? 0 : (max - min) / max;
+  const hue = hueOf(r, g, b);
+  // capa: qualquer vermelho, até nas sombras dessaturadas
+  if ((hue >= 325 || (hue >= 0 && hue <= 25)) && sat >= 0.08) return false;
+  // madeira/pele: laranjas-marrons com saturação real
+  if (hue >= 15 && hue <= 55 && sat > 0.25) return false;
+  // metal: cinza puro ou azul-acinzentado frio
+  if (sat <= 0.14) return true;
+  if (sat <= 0.32 && hue >= 170 && hue <= 280) return true;
+  return false;
+}
+
+/** Recolore um frame: zonas × pixels de METAL → ramp da cor do slot. */
+function recolorFrame(src: Texture, outfit: OutfitState, facing: Facing): HTMLCanvasElement {
   const w = src.width;
   const h = src.height;
   const canvas = document.createElement("canvas");
@@ -58,16 +89,16 @@ function recolorFrame(src: Texture, outfit: OutfitState): HTMLCanvasElement {
   for (let y = 0; y < h; y++) {
     const zone = ZONES.find((z) => y >= z.y0 && y < z.y1);
     if (!zone) continue;
+    // De COSTAS a capa cobre torso+pernas: só a cabeça (elmo) recebe tinta —
+    // pintar "através" da capa era a fonte do glitch malhado no norte.
+    if (facing === "n" && zone.slot !== "head") continue;
     const ramp = ramps[zone.slot];
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       if (d[i + 3] < 60) continue; // transparente
       const r = d[i], g = d[i + 1], b = d[i + 2];
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      if (max < 28) continue; // outline/quase-preto fica
-      const sat = max === 0 ? 0 : (max - min) / max;
-      if (sat > SATURATION_CUTOFF) continue; // capa/madeira/pele ficam
+      if (Math.max(r, g, b) < 28) continue; // outline/quase-preto fica
+      if (!isPaintable(r, g, b)) continue;
       // luminância → 6 faixas → tom do ramp (preserva o shading original)
       const lum = 0.299 * r + 0.587 * g + 0.114 * b;
       const bin = Math.min(5, Math.floor((lum / 232) * 6));
@@ -92,7 +123,7 @@ export function pixellabOutfitTextures(outfit: OutfitState): Record<Facing, Text
   const base = PIXELLAB.knight!;
   const result = {} as Record<Facing, Texture[]>;
   for (const facing of ["s", "n", "e", "w"] as Facing[]) {
-    result[facing] = base[facing].map((t) => Texture.from(recolorFrame(t, outfit)));
+    result[facing] = base[facing].map((t) => Texture.from(recolorFrame(t, outfit, facing)));
   }
   cache.set(key, result);
   return result;
