@@ -24,20 +24,25 @@ export function isDiagonal(dir: Dir8): boolean {
   return dir.length === 2;
 }
 
-/** Direção visual a partir da direção de movimento (diagonais mostram o lado horizontal). */
+/**
+ * Direção de movimento → facing do sprite. Nas DIAGONAIS o eixo VERTICAL
+ * domina (decisão do criador): subir em diagonal mostra as costas, descer
+ * mostra a frente — perfis e/w ficam para o movimento horizontal puro.
+ * (Vale também para gameplay: o facing alimenta o backstab do Apunhalar.)
+ */
 export function facingFromDir(dir: Dir8): Facing {
   switch (dir) {
     case "n":
+    case "ne":
+    case "nw":
       return "n";
     case "s":
+    case "se":
+    case "sw":
       return "s";
     case "e":
-    case "ne":
-    case "se":
       return "e";
     case "w":
-    case "nw":
-    case "sw":
       return "w";
   }
 }

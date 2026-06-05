@@ -79,6 +79,10 @@ interface EntityVisual {
   lastHpRatio: number;
   /** Espécie/skin do conjunto de texturas atual (troca de skin em runtime). */
   skinKey: string;
+  /** Lado horizontal do último passo (-1/0/1) — espelha s/n nas diagonais. */
+  stepDx: number;
+  /** Espelho horizontal atual do sprite (diagonais). */
+  mirrored: boolean;
 }
 
 /**
@@ -153,6 +157,8 @@ export class EntityRenderer {
           v.tweenElapsed = 0;
           v.tweenDur = 0;
         } else {
+          // lado horizontal do passo (diagonais espelham o sprite s/n)
+          v.stepDx = Math.sign(e.pos.x - v.toX);
           const cur = this.currentTilePos(v);
           v.fromX = cur.x;
           v.fromY = cur.y;
@@ -166,6 +172,7 @@ export class EntityRenderer {
         v.facing = e.facing;
         this.applyFrame(v, this.currentFrame(v));
       }
+      this.applyMirror(v, e);
       // troca de skin em runtime (hotkey 0): troca o conjunto de texturas
       const skinKey = this.skinKeyOf(e);
       if (skinKey !== v.skinKey) {
@@ -417,6 +424,22 @@ export class EntityRenderer {
     v.sprite.texture = frames[Math.min(frame, frames.length - 1)];
   }
 
+  /**
+   * Diagonais: o facing s/n domina (decisão do criador), e o LADO horizontal
+   * do passo entra por ESPELHO — o sprite sul "olha" naturalmente para a
+   * esquerda e o norte para a direita; no lado oposto, espelha. Apresentação
+   * pura (o renderer conhece o dx do tween).
+   */
+  private applyMirror(v: EntityVisual, e: EntityState): void {
+    let mirrored = false;
+    if (e.facing === "s") mirrored = v.stepDx > 0;
+    else if (e.facing === "n") mirrored = v.stepDx < 0;
+    if (mirrored === v.mirrored) return;
+    v.mirrored = mirrored;
+    const base = Math.abs(v.sprite.scale.x) || 1;
+    v.sprite.scale.x = mirrored ? -base : base;
+  }
+
   private createVisual(e: EntityState): EntityVisual {
     const container = new Container();
     const textures = this.texturesFor(e);
@@ -476,6 +499,8 @@ export class EntityRenderer {
       idleMs: 0,
       lastHpRatio: -1,
       skinKey: this.skinKeyOf(e),
+      stepDx: 0,
+      mirrored: false,
     };
     container.position.set((e.pos.x + 0.5) * TILE_SIZE, (e.pos.y + 1) * TILE_SIZE);
     container.zIndex = container.position.y;
