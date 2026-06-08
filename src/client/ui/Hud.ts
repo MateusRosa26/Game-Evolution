@@ -1,26 +1,41 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Text, type TextStyleOptions } from "pixi.js";
 import type { PlayerProgressState } from "../../shared/protocol";
-import { PAL, hex } from "../assets/palette";
+import { makeDraggable } from "./draggable";
+import { UI, bar, hpColor, uiText } from "./theme";
 
 /**
- * HUD do jogador: painel com barras de HP/MP, barra fina de XP (estilo MMO),
- * level e badge pulsante de pontos livres. Apenas apresentação — lê o snapshot
- * (HP/MP da entidade + `progress` do player) e não calcula NENHUMA regra.
+ * HUD do jogador — bloco CENTRAL embaixo (direção Apogea, jun/2026): selo de
+ * level dourado grande à esquerda, barras largas de HP (verde→âmbar→vermelho) e
+ * MP (azul) com número branco CENTRALIZADO, e uma linha fina de XP colada no
+ * topo do HP. A hotbar de skills (`SkillBar`) é posicionada logo acima por fora.
+ * Só apresentação: lê HP/MP da entidade + `progress` do player.
  */
+const BARS_W = 320; // largura das barras
+const HP_H = 18;
+const MP_H = 16;
+const XP_H = 4;
+const GAP = 3;
+const CHIP_R = 17; // raio do selo de level
+const CLUSTER_H = XP_H + 1 + HP_H + GAP + MP_H; // altura do conjunto de barras
+
 export class Hud {
   readonly container = new Container();
+  private widget = new Container();
+  private userPos: { x: number; y: number } | null = null;
 
   private panel = new Graphics();
   private bars = new Graphics();
+  private levelChip = new Graphics();
+  private badge = new Graphics();
+
   private hpText: Text;
   private mpText: Text;
-  private debugText: Text;
-
-  // ── Progressão ──
-  private levelText: Text;
   private xpText: Text;
-  private badge = new Graphics();
+  private levelText: Text;
+  private nameText: Text;
+  private goldText: Text;
   private badgeText: Text;
+  private debugText: Text;
   private badgeClock = 0;
 
   private hp = 0;
@@ -28,85 +43,44 @@ export class Hud {
   private mp = 0;
   private maxMp = 1;
   private level = 0;
+  private name = "";
+  private goldShown = -1;
   private xp = 0;
   private xpForNextLevel = 1;
   private xpLevelFloor = 0;
   private freePoints = 0;
   private hasProgress = false;
+  private screenW = 0;
   private screenH = 0;
 
   constructor() {
-    this.container.addChild(this.panel);
-    this.container.addChild(this.bars);
-
-    const textStyle = {
-      fontFamily: "monospace",
-      fontSize: 9,
-      fill: 0xe8e4d8,
-      stroke: { color: 0x10141c, width: 2 },
-    } as const;
-
-    this.hpText = new Text({ text: "", style: textStyle });
-    this.hpText.resolution = 3;
-    this.hpText.anchor.set(0.5, 0.5);
-    this.container.addChild(this.hpText);
-
-    this.mpText = new Text({ text: "", style: textStyle });
-    this.mpText.resolution = 3;
-    this.mpText.anchor.set(0.5, 0.5);
-    this.container.addChild(this.mpText);
-
-    // Level (dourado, à esquerda da barra de XP)
-    this.levelText = new Text({
-      text: "",
-      style: {
-        fontFamily: "monospace",
-        fontSize: 9,
-        fontWeight: "bold",
-        fill: hex(PAL.levelGold),
-        stroke: { color: 0x10141c, width: 2 },
-      },
+    this.container.addChild(this.widget);
+    this.widget.addChild(this.panel, this.bars, this.levelChip, this.badge);
+    makeDraggable(this.widget, CLUSTER_H + 12, (x, y) => {
+      this.userPos = { x, y };
     });
-    this.levelText.resolution = 3;
-    this.levelText.anchor.set(0, 0.5);
-    this.container.addChild(this.levelText);
 
-    // % de XP até o próximo nível (centralizado na barra de XP)
-    this.xpText = new Text({
-      text: "",
-      style: {
-        fontFamily: "monospace",
-        fontSize: 7,
-        fill: 0xe8e4d8,
-        stroke: { color: 0x10141c, width: 2 },
-      },
-    });
-    this.xpText.resolution = 3;
-    this.xpText.anchor.set(0.5, 0.5);
-    this.container.addChild(this.xpText);
+    this.nameText = this.mkText(uiText(9, UI.textDim, "bold"), [0.5, 1]);
+    this.levelText = this.mkText(uiText(15, UI.panelBg, "bold"), [0.5, 0.5]);
+    this.hpText = this.mkText(uiText(10, 0xffffff, "bold"), [0.5, 0.5]);
+    this.mpText = this.mkText(uiText(10, 0xffffff, "bold"), [0.5, 0.5]);
+    this.xpText = this.mkText(uiText(7, UI.textDim, "bold"), [1, 0.5]);
+    this.goldText = this.mkText(uiText(10, UI.goldBright, "bold"), [0, 0.5]);
+    this.badgeText = this.mkText(uiText(9, UI.panelBg, "bold"), [0.5, 0.5]);
+    this.badgeText.eventMode = "none";
 
-    // Badge pulsante de pontos livres (hint para abrir o painel com C)
-    this.container.addChild(this.badge);
-    this.badgeText = new Text({
-      text: "",
-      style: {
-        fontFamily: "monospace",
-        fontSize: 9,
-        fontWeight: "bold",
-        fill: 0x10141c,
-      },
-    });
-    this.badgeText.resolution = 3;
-    this.badgeText.anchor.set(0.5, 0.5);
-    this.container.addChild(this.badgeText);
-
-    this.debugText = new Text({
-      text: "",
-      style: { fontFamily: "monospace", fontSize: 11, fill: 0x8890a0 },
-    });
+    this.debugText = new Text({ text: "", style: { fontFamily: "monospace", fontSize: 11, fill: 0x8890a0 } });
     this.debugText.resolution = 2;
     this.debugText.anchor.set(1, 0);
     this.container.addChild(this.debugText);
+  }
+
+  private mkText(style: TextStyleOptions, anchor: [number, number]): Text {
+    const t = new Text({ text: "", style });
+    t.resolution = 3;
+    t.anchor.set(anchor[0], anchor[1]);
+    this.widget.addChild(t);
+    return t;
   }
 
   setStats(hp: number, maxHp: number, mp: number, maxMp: number): void {
@@ -118,8 +92,17 @@ export class Hud {
     this.redraw();
   }
 
-  /** Atualiza a camada de progressão a partir do snapshot do player. */
+  setName(name: string): void {
+    if (name === this.name) return;
+    this.name = name;
+    this.redraw();
+  }
+
   setProgress(p: PlayerProgressState): void {
+    if (p.gold !== this.goldShown) {
+      this.goldShown = p.gold;
+      this.goldText.text = `${p.gold}`;
+    }
     if (
       this.hasProgress &&
       p.level === this.level &&
@@ -142,13 +125,18 @@ export class Hud {
     this.debugText.text = text;
   }
 
+  /** True se (sx,sy) está sobre o widget (anti-click-through). */
+  hitTest(sx: number, sy: number): boolean {
+    return this.widget.getBounds().rectangle.contains(sx, sy);
+  }
+
   resize(screenW: number, screenH: number): void {
+    this.screenW = screenW;
     this.screenH = screenH;
     this.debugText.position.set(screenW - 10, 8);
     this.redraw();
   }
 
-  /** Animação do badge de pontos livres (pulsa). */
   tick(deltaMS: number): void {
     if (!this.hasProgress || this.freePoints <= 0) return;
     this.badgeClock += deltaMS;
@@ -158,78 +146,81 @@ export class Hud {
   }
 
   private redraw(): void {
-    const x = 12;
-    const barW = 180;
-    // altura do painel: HP + MP + barra fina de XP
-    const panelH = 80;
-    const y = this.screenH - panelH - 12;
+    // O widget é posicionado de modo que as BARRAS fiquem centradas na tela; o
+    // selo de level "pendura" à esquerda das barras. Coords locais: barra em x=0.
+    const barsX = Math.round((this.screenW - BARS_W) / 2);
+    const pos = this.userPos ?? { x: barsX, y: this.screenH - CLUSTER_H - 16 };
+    this.widget.position.set(pos.x, pos.y);
 
+    // ── painel sutil atrás do conjunto (inclui o selo à esquerda) ──
+    const padL = CHIP_R * 2 + 14;
     this.panel.clear();
-    this.panel.roundRect(x, y, barW + 28, panelH, 6).fill({ color: 0x12151d, alpha: 0.88 });
-    this.panel.roundRect(x, y, barW + 28, panelH, 6).stroke({ color: 0x3a4254, width: 1.5 });
+    this.panel
+      .roundRect(-padL, -8, BARS_W + padL + 8, CLUSTER_H + 16, 8)
+      .fill({ color: UI.panelBg, alpha: 0.8 });
+    this.panel
+      .roundRect(-padL, -8, BARS_W + padL + 8, CLUSTER_H + 16, 8)
+      .stroke({ color: UI.panelBorder, width: 1 });
 
-    this.bars.clear();
-    // HP
-    const hpRatio = Math.max(0, Math.min(1, this.hp / this.maxHp));
-    this.bars.roundRect(x + 14, y + 12, barW, 16, 3).fill(0x241015);
-    if (hpRatio > 0) {
-      this.bars.roundRect(x + 14, y + 12, barW * hpRatio, 16, 3).fill(0xa62f3b);
-      this.bars.roundRect(x + 14, y + 12, barW * hpRatio, 6, 3).fill({ color: 0xc94e58, alpha: 0.8 });
-    }
-    this.bars.roundRect(x + 14, y + 12, barW, 16, 3).stroke({ color: 0x10141c, width: 1.5 });
-    // MP
-    const mpRatio = Math.max(0, Math.min(1, this.mp / this.maxMp));
-    this.bars.roundRect(x + 14, y + 36, barW, 16, 3).fill(0x101a2c);
-    if (mpRatio > 0) {
-      this.bars.roundRect(x + 14, y + 36, barW * mpRatio, 16, 3).fill(0x2e5598);
-      this.bars.roundRect(x + 14, y + 36, barW * mpRatio, 6, 3).fill({ color: 0x4a73b8, alpha: 0.8 });
-    }
-    this.bars.roundRect(x + 14, y + 36, barW, 16, 3).stroke({ color: 0x10141c, width: 1.5 });
-
-    this.hpText.text = `${this.hp} / ${this.maxHp}`;
-    this.hpText.position.set(x + 14 + barW / 2, y + 20);
-    this.mpText.text = `${this.mp} / ${this.maxMp}`;
-    this.mpText.position.set(x + 14 + barW / 2, y + 44);
-
-    // ── Barra fina de XP (estilo Tibia/MMO) ──
-    const xpY = y + 60;
-    const xpBarX = x + 36; // espaço para o "Lv" à esquerda
-    const xpBarW = barW - 22;
-    // `xp`/`xpForNextLevel` são TOTAIS cumulativos; o progresso DENTRO do nível
-    // é relativo ao piso do nível atual (`xpLevelFloor`). Guard contra div-por-0.
-    const xpSpan = this.xpForNextLevel - this.xpLevelFloor;
-    const xpRatio =
-      this.hasProgress && xpSpan > 0
-        ? Math.max(0, Math.min(1, (this.xp - this.xpLevelFloor) / xpSpan))
-        : 0;
-
-    this.bars.roundRect(xpBarX, xpY, xpBarW, 8, 2).fill(hex(PAL.xpBack));
-    if (xpRatio > 0) {
-      this.bars.roundRect(xpBarX, xpY, xpBarW * xpRatio, 8, 2).fill(hex(PAL.xpFill));
-      this.bars
-        .roundRect(xpBarX, xpY, xpBarW * xpRatio, 3, 2)
-        .fill({ color: hex(PAL.xpShine), alpha: 0.85 });
-    }
-    this.bars.roundRect(xpBarX, xpY, xpBarW, 8, 2).stroke({ color: 0x10141c, width: 1 });
-
+    // ── selo de level (grande, dourado) à esquerda ──
+    const chipCx = -padL + CHIP_R + 6;
+    const chipCy = CLUSTER_H / 2 - 4;
+    this.levelChip.clear();
+    this.levelChip.circle(chipCx, chipCy, CHIP_R).fill(UI.gold);
+    this.levelChip.circle(chipCx, chipCy, CHIP_R).stroke({ color: UI.textShadow, width: 2 });
+    this.levelChip.circle(chipCx, chipCy, CHIP_R - 3).stroke({ color: UI.goldBright, width: 1 });
+    this.levelChip.visible = this.hasProgress;
     this.levelText.text = this.hasProgress ? `${this.level}` : "";
-    this.levelText.position.set(x + 14, xpY + 4);
+    this.levelText.position.set(chipCx, chipCy);
+    // nome do herói, centralizado sob o selo de level
+    this.nameText.text = this.name || "Herói";
+    this.nameText.position.set(chipCx, CLUSTER_H + 7);
 
-    this.xpText.text = this.hasProgress ? `${Math.floor(xpRatio * 100)}%` : "";
-    this.xpText.position.set(xpBarX + xpBarW / 2, xpY + 4);
+    // ── barras ──
+    this.bars.clear();
+    // XP: linha fina colada no topo do HP
+    const xpSpan = this.xpForNextLevel - this.xpLevelFloor;
+    const xpRatio = this.hasProgress && xpSpan > 0 ? (this.xp - this.xpLevelFloor) / xpSpan : 0;
+    bar(this.bars, 0, 0, BARS_W, XP_H, xpRatio, UI.xpFill, UI.xpTop, UI.xpBack);
 
-    // ── Badge de pontos livres (sobre o canto superior-direito do painel) ──
+    // HP (verde→âmbar→vermelho), número branco centralizado
+    const hpY = XP_H + 1;
+    const hpRatio = this.hp / this.maxHp;
+    const hpc = hpColor(hpRatio);
+    bar(this.bars, 0, hpY, BARS_W, HP_H, hpRatio, hpc.fill, hpc.top, UI.hpBack);
+    this.hpText.text = `${this.hp} / ${this.maxHp}`;
+    this.hpText.position.set(BARS_W / 2, hpY + HP_H / 2);
+
+    // MP (azul), número branco centralizado
+    const mpY = hpY + HP_H + GAP;
+    bar(this.bars, 0, mpY, BARS_W, MP_H, this.mp / this.maxMp, UI.mpFill, UI.mpTop, UI.mpBack);
+    this.mpText.text = `${this.mp} / ${this.maxMp}`;
+    this.mpText.position.set(BARS_W / 2, mpY + MP_H / 2);
+
+    // % de XP discreto na ponta direita da linha de XP
+    this.xpText.text = this.hasProgress ? `${Math.floor(Math.max(0, Math.min(1, xpRatio)) * 100)}%` : "";
+    this.xpText.position.set(BARS_W - 3, XP_H / 2 + 0.5);
+
+    // ── gold (moeda + valor) à direita, sob a barra de MP ──
+    const goldY = CLUSTER_H + 7;
+    this.goldText.anchor.set(1, 0.5);
+    this.goldText.position.set(BARS_W, goldY);
+    this.goldText.visible = this.hasProgress;
+    this.bars.circle(BARS_W - this.goldText.width - 8, goldY, 4.5).fill(UI.gold);
+    this.bars.circle(BARS_W - this.goldText.width - 8, goldY, 4.5).stroke({ color: UI.textShadow, width: 1 });
+
+    // ── badge de pontos livres (sobre o selo de level) ──
     const showBadge = this.hasProgress && this.freePoints > 0;
     this.badge.visible = showBadge;
     this.badgeText.visible = showBadge;
     if (showBadge) {
-      const bx = x + barW + 22;
-      const by = y + 2;
+      const bx = chipCx + CHIP_R - 3;
+      const by = chipCy - CHIP_R + 3;
       this.badge.clear();
-      this.badge.circle(0, 0, 9).fill(hex(PAL.badgePulse));
-      this.badge.circle(0, 0, 9).stroke({ color: 0x10141c, width: 1.5 });
+      this.badge.circle(0, 0, 8).fill(UI.goldBright);
+      this.badge.circle(0, 0, 8).stroke({ color: UI.textShadow, width: 1.5 });
       this.badge.position.set(bx, by);
-      this.badgeText.text = `${this.freePoints}`;
+      this.badgeText.text = `+${this.freePoints}`;
       this.badgeText.position.set(bx, by);
     } else {
       this.badgeClock = 0;

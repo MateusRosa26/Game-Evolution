@@ -1,6 +1,6 @@
 # Fatia ① Alvorada — Quests
 
-> Especificação das quests da fatia (consome: `DESIGN-MUNDO.md` §Quests/§NPCs · `ITENS-LOOTS.md` (comércio destravável + régua de economia) · layout aprovado `design/rascunhos/alvorada-v4.html`). **Nomes batizados (Loremaster, jun/2026)** — quests em par PT/EN, NPCs com nome próprio invariante (elenco completo em `NPCS.md`); textos-pista = rascunhos (✏️ Loremaster finaliza); **XP e contagens calibrados (Balancista, bateria M1 — jun/2026)**; gold = ✏️ aguarda economia de loot na sim. Organizado **por área**, com **nível-alvo** por quest — navegação cresce junto com o portfólio.
+> Especificação das quests da fatia (consome: `design/mundo/SISTEMA-QUESTS.md` §Quests/§NPCs · `ITENS-LOOTS.md` (comércio destravável + régua de economia) · layout aprovado `design/rascunhos/alvorada-v4.html`). **Nomes batizados (Loremaster, jun/2026)** — quests em par PT/EN, NPCs com nome próprio invariante (elenco completo em `NPCS.md`); textos-pista = rascunhos (✏️ Loremaster finaliza); **XP e contagens calibrados (Balancista, bateria M1 — jun/2026)**; gold = ✏️ aguarda economia de loot na sim. Organizado **por área**, com **nível-alvo** por quest — navegação cresce junto com o portfólio.
 
 ## Princípios do portfólio (decididos jun/2026)
 
@@ -25,7 +25,14 @@ Régua medida: rato = 15 XP · curva cúbica (lvl 5 = 800 · lvl 8 = 4.200 · lv
 | Q5 Lobos Demais | 100 | Q11 / Q14 / Q15 | **0** — segredos/aberta-por-item pagam em baú, conhecimento e registro, nunca em XP |
 | Q6 O Prato do Cozinheiro | 100 | | |
 
-Gold: ✏️ junto com a economia de loot na sim (âncora relativa decidida: 6 simples ≈ rito + caça T1 até lvl 6–8). Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando lobo/javali/goblin entrarem na sim.
+**Gold (1º passe — Balancista + criador, jun/2026** · report `docs/reports/2026-06-05-economia-gold-passe1.md`**):**
+régua "tudo baixo" — gold/h T1 ≈ 40–80 nu, 120–220 informado. As 6 simples somam **150**
+(✓ âncora: ≈ rito 10 + caça T1 até lvl 6–8): Q1 **20** · Q2 **20** · Q3 **25** · Q4 **25** ·
+Q5 **30** · Q6 **30**. Compostas (por ato): Q7 **30→60** · Q8 **30→50→80** · Q9 **80** ·
+Q10 **40**. Abertas/segredos (Q11–Q15): **0 gold direto** — pagam em baú/conhecimento/registro.
+Ritos: **custam 150** (decidido jun/2026 pelo criador — era 10 simbólico; 150 ≈ soma das 6 simples: a classe é CONQUISTA do circuito early ou de ~2h de caça T1, e o classless vira fase real ~lvl 3-5). Não pagam. ✏️ validar na sim quando loot/gold entrarem (M2).
+
+Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando lobo/javali/goblin entrarem na sim.
 
 ## Índice — todas as quests (área × nível)
 
@@ -52,7 +59,7 @@ Gold: ✏️ junto com a economia de loot na sim (âncora relativa decidida: 6 s
 
 ## Os 4 ritos de classe (seção própria — fora das ~15)
 
-> Modelo decidido em `DESIGN-EVOLUCAO.md`: quest boba + gold simbólico, com a cara da classe; entrega a **arma do kit**; nenhuma skill vem de graça. **Sem restrição de nível NENHUMA (decidido jun/2026)**: o rito pode ser feito a qualquer momento — a única barreira é o gold simbólico; quem quiser se classar no minuto 5, pode. **Cada rito tutoriza um SISTEMA diferente do jogo** (decidido jun/2026). Âncoras físicas do layout v4. Falas ✏️ Loremaster.
+> Modelo decidido em `DESIGN-EVOLUCAO.md`: quest boba + gold simbólico, com a cara da classe; entrega a **arma do kit**; nenhuma skill vem de graça. **Sem restrição de nível NENHUMA (decidido jun/2026)**: o rito pode ser feito a qualquer momento — a única barreira é o **gold (150, decidido jun/2026**; era simbólico — agora a classe é conquista do early, e o período classless é fase real do personagem**)**. **Cada rito tutoriza um SISTEMA diferente do jogo** (decidido jun/2026). Âncoras físicas do layout v4. Falas ✏️ Loremaster.
 
 ### R1. A Prova do Pátio / *The Courtyard Trial* — rito do Knight
 - **Local:** Guilda dos Guerreiros · **NPC: Ricardo**, o instrutor
@@ -295,7 +302,7 @@ demais                       → sem pré-requisito
 - [x] ~~Nomes definitivos PT/EN de quests, named e carta~~ — **batizados (Loremaster, jun/2026)**: quests em par PT/EN, **Presa-Torta/Crooktusk**, **Carta Rabiscada/Scrawled Letter**; elenco de NPCs em `NPCS.md`
 - [ ] Textos-pista finais (os daqui são rascunhos de intenção) — **Loremaster**
 - [x] ~~Níveis-alvo, contagens de kill/coleta, valores de XP~~ — calibrados (Balancista, bateria M1 — ver §Orçamento de XP)
-- [ ] Valores de gold — **Balancista**, junto com a economia de loot na sim (âncora: 6 simples ≈ rito + caça T1 até lvl 6–8)
+- [x] ~~Valores de gold~~ — 1º passe calibrado (Balancista + criador, jun/2026 — ver §Orçamento, gold por quest); ✏️ validação na sim quando loot/gold entrarem (M2)
 - [ ] Ficha de Presa-Torta (variante named do Javali de Presas) — **bestiário**
 - [ ] O destino de Jonas, o moleiro (Q12) — quão escuro? — **Loremaster**
 - [ ] Loot dos Ghouls do Porão Afogado (família-coração) — junto do arco (fatia ②)

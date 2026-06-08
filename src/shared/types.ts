@@ -58,6 +58,15 @@ export function dirFromDelta(dx: number, dy: number): Dir8 | null {
 
 export type EntityKind = "player" | "monster" | "npc";
 
+/** Semente de NPC no mapa (a sim cria a entidade; o client só desenha). */
+export interface NpcSpawnDef {
+  /** Id estável do NPC (chave do diálogo/quests — ex.: "bartolo"). */
+  npcId: string;
+  name: string;
+  x: number;
+  y: number;
+}
+
 /**
  * Classes-base do jogador (DESIGN-EVOLUCAO.md §Classes). Sem subclasses
  * escolhíveis — a especialização emerge via Caminhos/Mutações (wave futura).
@@ -188,6 +197,53 @@ export interface MapRect {
   h: number;
 }
 
+// ── Z-LEVELS / Andares (SISTEMA-ANDARES.md) ─────────────────────────────────
+
+/**
+ * PORTAL — transição entre andares (dado no andar). EIXO 1: transporta.
+ * `to` explícito p/ stairs/cave; `hole` cai p/ z−1 (cego); `rope_spot` sobe p/
+ * z+1 (com corda); `dig_spot` vira `hole` ao usar a pá. Ver SISTEMA-ANDARES §3.
+ */
+export interface MapPortal {
+  x: number;
+  y: number;
+  kind: "stairs" | "cave" | "hole" | "rope_spot" | "dig_spot";
+  to?: { x: number; y: number; z: number };
+}
+
+/**
+ * ABERTURA VISUAL — revela o andar vizinho (≠ portal). EIXO 2: deixa ver.
+ * `down` = vão de escada aberto / varanda (vê o de baixo); `up` = janela /
+ * clarabóia (vê o de cima). Buraco NÃO é abertura (cai cego). SISTEMA-ANDARES §5.
+ */
+export interface MapOpening {
+  x: number;
+  y: number;
+  dir: "down" | "up";
+}
+
+/**
+ * Camada de um andar (z-level) LOCALIZADA e esparsa: existe só onde há conteúdo
+ * (esgoto = só o rect sob a cidade, não 800×800). Coords do `tiles` são LOCAIS
+ * ao rect (`ox,oy` + `width×height`); converte p/ mundo somando o offset.
+ */
+export interface FloorLayer {
+  z: number;
+  ox: number;
+  oy: number;
+  width: number;
+  height: number;
+  /** Row-major LOCAL: tiles[ly * width + lx]. */
+  tiles: TileId[];
+  lights: MapLight[];
+  decor: MapDecor[];
+  monsters: MapMonster[];
+  portals: MapPortal[];
+  openings: MapOpening[];
+  /** Ambiente do andar (0xRRGGBB). Subsolo = breu; undefined = herda overworld. */
+  ambient?: number;
+}
+
 export interface MapData {
   width: number;
   height: number;
@@ -211,4 +267,16 @@ export interface MapData {
    */
   passZones: MapRect[];
   spawn: Vec2;
+  /** Id estável do mapa (multi-mapa: "alvorada", "porao_estalagem"…). */
+  id?: string;
+  /** NPCs plantados pelo gerador do mapa (opcional). */
+  npcSpawns?: NpcSpawnDef[];
+  // ── Z-levels (SISTEMA-ANDARES.md) — tudo opcional: ausência = andar único z=0 ──
+  /** Andar do mapa base (overworld = 0). default 0. */
+  z?: number;
+  /** Portais/aberturas do andar base. */
+  portals?: MapPortal[];
+  openings?: MapOpening[];
+  /** Andares ADICIONAIS (z ≠ base): esgotos/cavernas (z<0), telhados (z>0). Esparsos. */
+  floors?: FloorLayer[];
 }

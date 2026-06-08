@@ -84,6 +84,7 @@ export function applyDamage(
   ctx.pending.push({
     kind: "damage",
     targetId: target.id,
+    attackerId: source.id,
     amount,
     pos: { x: target.pos.x, y: target.pos.y },
   });

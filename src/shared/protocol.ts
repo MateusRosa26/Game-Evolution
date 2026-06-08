@@ -36,6 +36,24 @@ export type ClientCommand =
    * guarda-roupa no futuro — a validação de posse já mora aqui.
    */
   | { type: "setOutfit"; outfit: OutfitState }
+  /** Conversar com um NPC próximo (abre/avança o diálogo na sim). */
+  | { type: "talk"; npcId: number }
+  /** Escolher uma opção do diálogo ativo. */
+  | { type: "dialogueChoice"; optionId: string }
+  /** Fechar o diálogo ativo (Esc / clicar fora). */
+  | { type: "closeDialogue" }
+  /** Abrir um container (mochila equipada, cadáver próximo, mochila aninhada). */
+  | { type: "openContainer"; containerId: number }
+  | { type: "closeContainer"; containerId: number }
+  /**
+   * Mover item/gold entre lugares (drag & drop). A sim valida TUDO:
+   * distância, posse, tipo de slot, regra 2H. Pilha de ouro = move/funde (item).
+   */
+  | { type: "moveItem"; from: ItemRef; to: ItemRef }
+  /** Saquear gold de um container (clique na pilha). */
+  | { type: "lootGold"; containerId: number; slot: number }
+  /** Falar no canal Local (vira balão sobre a cabeça + linha no chat). */
+  | { type: "say"; text: string }
   /** DEV/teste: desbloqueia TODAS as peças do catálogo no guarda-roupa. */
   | { type: "debugGrantOutfit" }
   | { type: "stop" };
@@ -46,6 +64,14 @@ export type ClientCommand =
  */
 export interface PlayerProgressState {
   cls: PlayerClass;
+  /** Total de ouro carregado (soma das pilhas no bolso — modelo Tibia jun/2026). */
+  gold: number;
+  /**
+   * Capacidade de carga: peso atual carregado / máximo (cap). Derivado da Força
+   * (`formulas.maxCarry`); `current` = soma do peso de equip + bolso + ouro.
+   * Camada sólida (clara por contrato — a "decisão de mochila").
+   */
+  cap: { current: number; max: number };
   level: number;
   /** XP TOTAL acumulado (desde o nível 1, cumulativo — NÃO o do nível atual). */
   xp: number;
@@ -136,6 +162,16 @@ export interface EntityState {
    * identidade (instanceId/templateId/nome); o ledger é oculto e não trafega.
    */
   weapon?: EquippedWeaponState;
+  /** Equipamento nos 11 slots — SOMENTE o jogador dono (UI de equip). */
+  equipment?: Partial<Record<EquipSlot, EquippedItemView>>;
+  /** Containers ABERTOS deste jogador (mochila/cadáveres) — janelas da UI. */
+  containers?: ContainerView[];
+  /** Id do container do bolso/mochila equipada (Tab abre). SÓ o dono. */
+  backpackContainerId?: number;
+  /** Diálogo ativo — SOMENTE o jogador dono (presente enquanto conversa). */
+  dialogue?: DialogueViewState;
+  /** Diário de quests — SOMENTE o jogador dono. */
+  quests?: QuestJournalEntry[];
   /**
    * Outfit do personagem (peças + cores — `shared/outfits.ts`) — SOMENTE
    * jogadores. Estado da sim: no online, todos veem o outfit de todos.
@@ -155,9 +191,18 @@ export interface EntityState {
  * Não são estado — acontecem uma vez no tick e o client reage (floating text,
  * morte). São a projeção dos eventos da sim relevantes ao jogador.
  */
+/** Canais do chat (MVP): fala local, mensagens de sistema, falas de NPC. */
+export type ChatChannel = "local" | "system" | "npc";
+
 export type SnapshotEvent =
-  /** Dano aplicado — para floating damage text. */
-  | { kind: "damage"; targetId: number; amount: number; pos: Vec2 }
+  /**
+   * Linha de chat (online-ready): canal + texto. `speakerId` (entidade que
+   * falou) posiciona o balão sobre a cabeça (local/npc). `recipientId`, se
+   * presente, é mensagem PRIVADA — só esse jogador a vê (loot/level/quest).
+   */
+  | { kind: "chat"; channel: ChatChannel; text: string; speakerId?: number; speakerName?: string; recipientId?: number }
+  /** Dano aplicado — floating damage text no alvo + animação de ATAQUE no atacante. */
+  | { kind: "damage"; targetId: number; attackerId: number; amount: number; pos: Vec2 }
   /** Entidade morreu — para efeito/limpeza visual. */
   | { kind: "death"; entityId: number; pos: Vec2 }
   /**
@@ -194,6 +239,8 @@ export type SnapshotEvent =
 export interface Snapshot {
   tick: number;
   entities: EntityState[];
+  /** Cadáveres saqueáveis no chão (decai na sim). */
+  corpses: CorpseView[];
   /** Eventos one-shot deste tick (não persistem). */
   events: SnapshotEvent[];
 }
@@ -201,6 +248,99 @@ export interface Snapshot {
 export type ServerMessage =
   | { type: "welcome"; playerId: number; map: MapData }
   | { type: "snapshot"; snap: Snapshot };
+
+// ─────────────────────────── Itens / inventário ───────────────────────────
+
+/** Os 11 slots de equipamento (DESIGN-ITENS.md — modelo Tibia, decidido). */
+export type EquipSlot =
+  | "helmet"
+  | "armor"
+  | "legs"
+  | "boots"
+  | "hand1"
+  | "hand2"
+  | "necklace"
+  | "ring1"
+  | "ring2"
+  | "backpack"
+  | "utility";
+
+/** Referência de um lugar de item (origem/destino do drag & drop). */
+export type ItemRef =
+  /** Slot numérico dentro de um container aberto. */
+  | { kind: "container"; containerId: number; slot: number }
+  /** Slot de equipamento do próprio jogador. */
+  | { kind: "equip"; slot: EquipSlot };
+
+/** Item dentro de um container (projeção mínima p/ UI + tooltip). */
+export interface ContainedItemView {
+  slot: number;
+  instanceId: number;
+  templateId: string;
+  name: string;
+}
+
+/** Pilha de ouro num container (cadáver ou bolso) — item empilhável (modelo Tibia). */
+export interface GoldPileView {
+  slot: number;
+  amount: number;
+}
+
+/** Container aberto (mochila, cadáver…) — uma janela na UI por view. */
+export interface ContainerView {
+  containerId: number;
+  name: string;
+  capacity: number;
+  items: ContainedItemView[];
+  goldPiles: GoldPileView[];
+}
+
+/** Item equipado num slot (projeção). */
+export interface EquippedItemView {
+  instanceId: number;
+  templateId: string;
+  name: string;
+}
+
+/** Cadáver saqueável no chão (projeção de mundo — qualquer um vê). */
+export interface CorpseView {
+  id: number;
+  pos: Vec2;
+  /** Espécie do morto (client escolhe o sprite do corpo). */
+  species: string | null;
+  name: string;
+}
+
+/** Uma opção clicável do diálogo (a sim decide as opções; o client só mostra). */
+export interface DialogueOptionView {
+  id: string;
+  label: string;
+}
+
+/**
+ * Diálogo ativo do jogador — projeção da sim (texto + opções). O client
+ * renderiza a janela; toda transição é comando → sim decide (zero regra no client).
+ */
+export interface DialogueViewState {
+  npcId: number;
+  npcName: string;
+  text: string;
+  options: DialogueOptionView[];
+}
+
+/**
+ * Entrada do diário de quests (projeção). Contador SÓ nas diretas
+ * (SISTEMA-QUESTS.md — decisão jun/2026); abertas/segredos nunca.
+ */
+export interface QuestJournalEntry {
+  id: string;
+  name: string;
+  /** Texto da entrada no diário (as palavras do NPC / registro). */
+  entry: string;
+  /** Contador discreto ("4/8") — só quests diretas com etapa de caça. */
+  counter?: { cur: number; max: number };
+  completed: boolean;
+}
 
 /** Lado do cliente: envia comandos, recebe mensagens. */
 export interface ClientTransport {

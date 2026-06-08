@@ -89,40 +89,107 @@ export interface ItemTemplate {
   slot: ItemSlot;
   tags: ItemTag[];
   rarity: ItemRarity;
+  /**
+   * PESO do item (unidade de carga; entra no cap = `formulas.maxCarry`). Cria a
+   * "decisão de mochila" (DESIGN-ITENS/CONSUMIVEIS). **Escala-Tibia** (decidido
+   * jun/2026, estudo de referência): espada 35, machado-de-mão 25, adaga 10…;
+   * armaduras pesam mais (placa ~120) quando entrarem. Balancista fina-calibra.
+   * Punhos = 0 (não se carrega).
+   */
+  weight: number;
   /** Stats de arma — presente só quando `slot === "weapon"`. */
   weapon?: WeaponStats;
 }
 
+/**
+ * Peso do ouro (decidido jun/2026, criador): cada moeda pesa `0.1`, mas SÓ as
+ * primeiras `150` moedas têm peso — acima disso o ouro extra é SEM PESO. Teto de
+ * 15 de peso (150×0.1); 200 de ouro = 15 de peso. Evita que hoardar ouro trave a
+ * caça, mantendo um custo inicial de carga. Ouro stacka ilimitado em 1 slot.
+ */
+export const GOLD_WEIGHT_PER_COIN = 0.1;
+export const GOLD_WEIGHT_CAP_COINS = 150;
+
+/** Peso de uma pilha de `amount` moedas (com teto em GOLD_WEIGHT_CAP_COINS). */
+export function goldWeight(amount: number): number {
+  return Math.min(amount, GOLD_WEIGHT_CAP_COINS) * GOLD_WEIGHT_PER_COIN;
+}
+
 // ─────────────────────────────────────────────────────────────────────────
-//  Templates do kit inicial das 4 classes (DESIGN-EVOLUCAO.md §Classes)
-//  Números PLACEHOLDER — calibrar no M2. Base alinhada ao antigo
-//  STARTER_WEAPON_DAMAGE (6) para não mudar o balance atual de cara.
+//  Templates de arma T1 (DESIGN-ITENS.md §"Tabela de itens — T1")
+//  NÚMEROS DECIDIDOS (criador, jun/2026 — proposta do catálogo validada em
+//  sim, report `2026-06-05-catalogo-t1-t2-proposta.md`): escala BAIXA por
+//  design ("tudo baixo"); diferenciação T1 é CADÊNCIA, não base (contagem
+//  de golpes vs 24hp). Casters seguem placeholder até o auto mágico fixo.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Espada curta — kit do Knight. */
+/** Espada curta — kit do Knight (rito/vendor). A RÉGUA do T1: TTK 1,95s. */
 export const ESPADA_CURTA: ItemTemplate = {
   id: "espada_curta",
   name: "Espada Curta",
+  weight: 35, // escala-Tibia
   slot: "weapon",
   tags: ["espada"],
   rarity: "common",
   weapon: { baseDamage: 6, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false },
 };
 
-/** Cajado simples — kit do Mage. Baixo dano físico (o Mage luta com magia). */
+/** Espada Cega — kit de NASCIMENTO (casa inicial, classless). A régua do zero:
+ *  abaixo da espada de rito, zero bônus, venda ≈ 0. (Sim classless é wave futura;
+ *  o template já existe para o rito trocar Cega → arma da classe.) */
+export const ESPADA_CEGA: ItemTemplate = {
+  id: "espada_cega",
+  name: "Espada Cega",
+  weight: 35, // escala-Tibia (sword ~35)
+  slot: "weapon",
+  tags: ["espada"],
+  rarity: "common",
+  weapon: { baseDamage: 4, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false },
+};
+
+/** Machado de Mão — rito/vendor. Golpe pesado: o único perfil T1 que separa o
+ *  TTK (cruza o breakpoint de 2 golpes até classless). Paga no CD. */
+export const MACHADO_DE_MAO: ItemTemplate = {
+  id: "machado_de_mao",
+  name: "Machado de Mão",
+  weight: 25, // escala-Tibia (hand axe ~25)
+  slot: "weapon",
+  tags: ["machado"],
+  rarity: "common",
+  weapon: { baseDamage: 8, baseCooldownMs: 2400, damageType: "physical", usesDexterity: false },
+};
+
+/** Clava — rito/vendor. Intermediária; a identidade "impacto" mora no subtipo
+ *  físico (camada-sussurro ±10%, wave futura), não no número bruto. */
+export const CLAVA: ItemTemplate = {
+  id: "clava",
+  name: "Clava",
+  weight: 20, // escala-Tibia (club ~19)
+  slot: "weapon",
+  tags: ["maca"],
+  rarity: "common",
+  weapon: { baseDamage: 6, baseCooldownMs: 2100, damageType: "physical", usesDexterity: false },
+};
+
+/** Cajado simples — kit do Mage. PLACEHOLDER: o design pede auto-attack mágico
+ *  com dano FIXO em faixa por tier (7–9 no T1, não escala Int — DESIGN-ITENS);
+ *  a sim ainda trata como físico. Numerar quando o auto mágico fixo entrar. */
 export const CAJADO_SIMPLES: ItemTemplate = {
   id: "cajado_simples",
   name: "Cajado Simples",
+  weight: 28, // escala-Tibia
   slot: "weapon",
   tags: ["cajado"],
   rarity: "common",
   weapon: { baseDamage: 3, baseCooldownMs: 2200, damageType: "physical", usesDexterity: false },
 };
 
-/** Adaga — kit do Rogue. Escala com Destreza, ataca mais rápido. */
+/** Adaga — kit do Rogue (rito/vendor). A mais rápida do T1 (TTK 1,45s):
+ *  "fraca por golpe", escala com Destreza. Decidido jun/2026. */
 export const ADAGA: ItemTemplate = {
   id: "adaga",
   name: "Adaga",
+  weight: 10, // escala-Tibia (dagger ~9.5)
   slot: "weapon",
   tags: ["adaga"],
   rarity: "common",
@@ -133,6 +200,7 @@ export const ADAGA: ItemTemplate = {
 export const CETRO: ItemTemplate = {
   id: "cetro",
   name: "Cetro",
+  weight: 30, // escala-Tibia
   slot: "weapon",
   tags: ["cetro"],
   rarity: "common",
@@ -151,6 +219,7 @@ export const CETRO: ItemTemplate = {
 export const PUNHOS: ItemTemplate = {
   id: "fists",
   name: "Punhos",
+  weight: 0, // não se carrega
   slot: "weapon",
   tags: ["desarmado"],
   rarity: "common",
@@ -160,6 +229,9 @@ export const PUNHOS: ItemTemplate = {
 /** Registro de templates por ID — ponto único de lookup. */
 export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [ESPADA_CURTA.id]: ESPADA_CURTA,
+  [ESPADA_CEGA.id]: ESPADA_CEGA,
+  [MACHADO_DE_MAO.id]: MACHADO_DE_MAO,
+  [CLAVA.id]: CLAVA,
   [CAJADO_SIMPLES.id]: CAJADO_SIMPLES,
   [ADAGA.id]: ADAGA,
   [CETRO.id]: CETRO,

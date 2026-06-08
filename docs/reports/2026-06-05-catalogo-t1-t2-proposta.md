@@ -303,3 +303,17 @@ re-derivadas à mão antes de medir. Harness apagado após uso.
      Def — verificam **exatos**. Nenhum número está errado; a leitura "diferenciador é a cadência, não a base" é sólida e
      reproduzível.
   3. **Veredicto:** todos os 5 números-âncora do resumo conferem. Proposta empiricamente fiel.
+
+---
+
+## Decisões do criador (2026-06-05, sessão de balance)
+
+- **Armas T1 melee: APROVADAS e APLICADAS** em `src/sim/items/templates.ts` — Espada Curta
+  6@2,0s (já era) · Adaga 5@1,6s (já era) · **novos templates**: Espada Cega 4@2,0s,
+  Machado de Mão 8@2,4s, Clava 6@2,1s. Casters (faixa fixa) e Arco aguardam os sistemas
+  (auto mágico fixo / projétil) — seguem ✏️ no doc.
+- **Def do couro T1: flag confirmada, opção (a) — Σ alvo 2–3**, escudo de madeira **Def 0**
+  (paga em bloqueio). Registrado no DESIGN-ITENS; distribuição por peça ✏️ fina no M2.
+- **Princípio transversal registrado** (DESIGN-EVOLUCAO §"Escala de números"): **tudo
+  baixo** — dano/Def/gold em números pequenos legíveis (o jogo é contagem de golpes).
+- T2 segue **proposta ✏️** (numerar contra o 1º mob T2 real, nunca contra o rato).

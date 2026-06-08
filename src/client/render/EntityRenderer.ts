@@ -1,11 +1,11 @@
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { TILE_SIZE } from "../../shared/constants";
-import type { EntityState, Snapshot, StatusEffectState } from "../../shared/protocol";
-import { DEFAULT_OUTFIT_BY_CLASS } from "../../shared/outfits";
+import type { CorpseView, EntityState, Snapshot, StatusEffectState } from "../../shared/protocol";
+import { DEFAULT_OUTFIT_BY_CLASS, OUTFIT_PART_BY_ID } from "../../shared/outfits";
 import type { Facing } from "../../shared/types";
 import { outfitTextures } from "../assets/outfit/compose";
-import { pixellabOutfitTextures } from "../assets/outfit/pixellabCompose";
-import { PIXELLAB, PIXELLAB_CHAR_SCALE } from "../assets/pixellab";
+import { paperdollAttackTextures } from "../assets/outfit/paperdoll";
+import { FLYING_SPECIES, PIXELLAB, PIXELLAB_CHAR_SCALE } from "../assets/pixellab";
 import type { SpriteLibrary } from "../assets/sprites";
 import { skillMeta } from "../ui/skillMeta";
 
@@ -13,11 +13,22 @@ import { skillMeta } from "../ui/skillMeta";
 const WALK_CYCLE = [1, 0, 2, 0];
 
 /**
+ * Lado pro qual o sprite SUL de cada corpo "olha" (+1 direita, -1 esquerda) —
+ * cada corpo gerado tem o seu; calibrado NO OLHO ao integrar (diagonais).
+ */
+const BODY_SOUTH_BIAS: Record<string, 1 | -1> = {
+  knight: -1,
+  mage: 1,
+};
+
+/**
  * Tempo parado (ms) antes de voltar ao frame neutro. Entre um passo e o
  * próximo snapshot há jitter de timer de alguns ms — sem essa folga, o sprite
  * "piscava" pro idle a cada passo e a caminhada nunca emendava o ciclo.
  */
 const IDLE_RESET_MS = 90;
+/** Duração da animação de ataque (4 frames ~95ms cada — golpe seco, estilo Apogea). */
+const ATTACK_DUR_MS = 380;
 
 /** Floating damage text — sobe e some. */
 const FLOAT_DUR_MS = 900;
@@ -60,6 +71,8 @@ interface EntityVisual {
   sprite: Sprite;
   /** Conjunto de texturas (knight/rat) deste visual. */
   textures: Record<Facing, Texture[]>;
+  /** Frames de ataque deste visual (mob: espécie; char: golpe composto c/ peças). */
+  attackTextures: Record<Facing, Texture[]> | null;
   nameText: Text;
   hpBar: Graphics;
   /** Ícones de status effect (burn/slow/poison) sobre a HP bar. */
@@ -75,6 +88,8 @@ interface EntityVisual {
   tweenDur: number;
   facing: Facing;
   walkClock: number;
+  /** Tempo restante da animação de ataque (one-shot disparada pelo evento damage). */
+  attackClock: number;
   /** Tempo acumulado parado (p/ resetar a animação só após IDLE_RESET_MS). */
   idleMs: number;
   lastHpRatio: number;
@@ -99,6 +114,10 @@ export class EntityRenderer {
   private floats: FloatingText[] = [];
   /** Projéteis de cast ativos (runas viajando). */
   private casts: CastProjectile[] = [];
+  /** Balões de fala ativos (presos às entidades). */
+  private speeches: { text: Text; elapsed: number }[] = [];
+  /** Cadáveres saqueáveis (sprite do mob deitado/escurecido), por containerId. */
+  private corpseSprites = new Map<number, Sprite>();
 
   constructor(
     private sprites: SpriteLibrary,
@@ -113,11 +132,26 @@ export class EntityRenderer {
 
   /** Texturas certas: mob pela espécie; player pelo OUTFIT (compositor+cache). */
   private texturesFor(e: EntityState): Record<Facing, Texture[]> {
+    // PixelLab primeiro (norma 1:1); procedural segue como fallback eterno.
+    if (e.species && PIXELLAB.mobs[e.species]) return PIXELLAB.mobs[e.species];
     if (e.species === "rato_lanhoso") return this.sprites.rat;
+    // NPCs: cidadão procedural (distinto do herói) até a arte por elenco ✏️
+    if (e.kind === "npc") {
+      return outfitTextures(
+        {
+          head: { part: "cabeca_cidadao", color: 21 },
+          torso: { part: "camisa_cidadao", color: 41 },
+          legs: { part: "calca_cidadao", color: 17 },
+        },
+        null,
+      );
+    }
     const outfit = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
-    // Sprite PixelLab + CORES do outfit (recolor por zonas). Troca de PEÇAS
-    // entre classes é fase futura (inpaint) — ver pixellabCompose.ts.
-    if (PIXELLAB.knight && PIXELLAB.knightMasks) return pixellabOutfitTextures(outfit);
+    // CORPO POR CLASSE (receita jun/2026): o SET do torso do outfit escolhe o
+    // corpo inteiro (janela O = troca de classe visual). Sem corpo → fallback.
+    const set = OUTFIT_PART_BY_ID[outfit.torso.part]?.set;
+    const body = (set && PIXELLAB.charBodies[set]) || PIXELLAB.knight;
+    if (body) return body;
     return outfitTextures(outfit, e.weapon?.templateId ?? null);
   }
 
@@ -125,8 +159,47 @@ export class EntityRenderer {
   private skinKeyOf(e: EntityState): string {
     if (e.species) return e.species;
     const o = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
-    if (PIXELLAB.knight) return `pixellab|${o.head.color}|${o.torso.color}|${o.legs.color}`;
+    if (PIXELLAB.knight) {
+      // corpo por classe: visual muda com o SET do torso
+      return `body|${OUTFIT_PART_BY_ID[o.torso.part]?.set ?? "knight"}`;
+    }
     return `${o.head.part}.${o.head.color}|${o.torso.part}.${o.torso.color}|${o.legs.part}.${o.legs.color}|${e.weapon?.templateId ?? "-"}`;
+  }
+
+  /** Frames de ATAQUE da entidade (mob pela espécie; char pelo golpe COMPOSTO). */
+  private attackTexturesFor(e: EntityState): Record<Facing, Texture[]> | null {
+    if (e.species) return PIXELLAB.mobAttacks[e.species] ?? null;
+    if (!PIXELLAB.knight) return null;
+    return paperdollAttackTextures(e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight);
+  }
+
+  /** Cadáveres no chão: sprite do mob de lado + escurecido (apresentação). */
+  setCorpses(corpses: CorpseView[]): void {
+    const seen = new Set<number>();
+    for (const c of corpses) {
+      seen.add(c.id);
+      if (this.corpseSprites.has(c.id)) continue;
+      const set = c.species ? PIXELLAB.mobs[c.species] : undefined;
+      const tex = set?.s?.[0] ?? (c.species === "rato_lanhoso" ? this.sprites.rat.s[0] : null);
+      if (!tex) continue;
+      const spr = new Sprite(tex);
+      // Corpo "tombado": achata no eixo Y (parece deitado) sem encolher; tom
+      // sem vida; âncora na base do tile como o mob vivo (não flutua nem mingua).
+      spr.anchor.set(0.5, 0.92);
+      spr.scale.set(1, 0.5);
+      spr.tint = 0x8a8a96;
+      spr.alpha = 0.9;
+      spr.position.set((c.pos.x + 0.5) * TILE_SIZE, (c.pos.y + 1) * TILE_SIZE);
+      spr.zIndex = spr.position.y - 8; // levemente atrás dos vivos no mesmo tile
+      this.layer.addChild(spr);
+      this.corpseSprites.set(c.id, spr);
+    }
+    for (const [id, spr] of [...this.corpseSprites]) {
+      if (!seen.has(id)) {
+        spr.destroy();
+        this.corpseSprites.delete(id);
+      }
+    }
   }
 
   /** Posição visual atual do jogador local, em pixels de mundo (centro). */
@@ -179,6 +252,7 @@ export class EntityRenderer {
       if (skinKey !== v.skinKey) {
         v.skinKey = skinKey;
         v.textures = this.texturesFor(e);
+        v.attackTextures = this.attackTexturesFor(e);
         this.applyFrame(v, this.currentFrame(v));
       }
       const ratio = e.maxHp > 0 ? e.hp / e.maxHp : 0;
@@ -212,6 +286,9 @@ export class EntityRenderer {
       if (ev.kind === "damage") {
         const at = this.visualPosOf(ev.targetId, ev.pos);
         this.spawnDamageText(ev.amount, at.x, at.y);
+        // animação de ataque no ATACANTE (se a espécie tiver frames de attack)
+        const av = this.visuals.get(ev.attackerId);
+        if (av?.attackTextures) av.attackClock = ATTACK_DUR_MS;
       } else if (ev.kind === "cast") {
         this.spawnCast(ev.skillId, ev.casterId, ev.from, ev.to);
       } else if (ev.kind === "heal") {
@@ -247,6 +324,32 @@ export class EntityRenderer {
    * o Game detecta a subida comparando snapshots e chama isto). Ancorado no
    * container do player para seguir a interpolação de posição.
    */
+  /** Balão de fala (Tibia/Apogea): texto branco preso à entidade, sobe e some. */
+  spawnSpeech(entityId: number, text: string): void {
+    const v = this.visuals.get(entityId);
+    if (!v) return;
+    const t = new Text({
+      text: text.length > 60 ? text.slice(0, 60) + "…" : text,
+      style: {
+        fontFamily: "monospace",
+        fontSize: 9,
+        fontWeight: "bold",
+        fill: 0xf4f0e6,
+        stroke: { color: 0x10141c, width: 3 },
+        align: "center",
+        wordWrap: true,
+        wordWrapWidth: 130,
+      },
+    });
+    t.resolution = 3;
+    t.anchor.set(0.5, 1);
+    t.position.set(0, -46);
+    t.zIndex = 1e9;
+    v.container.addChild(t);
+    // dura mais que dano (leitura): 2.4s parado-ish + fade. Pool de speech.
+    this.speeches.push({ text: t, elapsed: 0 });
+  }
+
   spawnLevelUpText(): void {
     const v = this.visuals.get(this.playerId);
     if (!v) return;
@@ -370,6 +473,19 @@ export class EntityRenderer {
       );
       v.container.zIndex = v.container.position.y;
       if (moving) this.applyFrame(v, this.currentFrame(v));
+
+      // Ataque tem prioridade sobre walk/idle enquanto durar (one-shot).
+      if (v.attackClock > 0) {
+        v.attackClock -= deltaMS;
+        const atk = v.attackTextures?.[v.facing];
+        if (atk && v.attackClock > 0) {
+          const t = 1 - v.attackClock / ATTACK_DUR_MS;
+          v.sprite.texture = atk[Math.min(Math.floor(t * atk.length), atk.length - 1)];
+        } else {
+          // expirou neste tick: devolve o frame de walk/idle imediatamente
+          this.applyFrame(v, moving ? this.currentFrame(v) : 0);
+        }
+      }
     }
 
     // floating damage text: sobe e desaparece
@@ -382,6 +498,21 @@ export class EntityRenderer {
     this.floats = this.floats.filter((f) => {
       if (f.elapsed >= FLOAT_DUR_MS) {
         f.text.destroy();
+        return false;
+      }
+      return true;
+    });
+
+    // balões de fala: 2.4s legíveis, fade nos últimos 0.6s
+    const SPEECH_DUR = 2400;
+    for (const s of this.speeches) {
+      s.elapsed += deltaMS;
+      const left = SPEECH_DUR - s.elapsed;
+      s.text.alpha = left < 600 ? Math.max(0, left / 600) : 1;
+    }
+    this.speeches = this.speeches.filter((s) => {
+      if (s.elapsed >= SPEECH_DUR) {
+        s.text.destroy();
         return false;
       }
       return true;
@@ -428,14 +559,17 @@ export class EntityRenderer {
 
   /**
    * Diagonais: o facing s/n domina (decisão do criador), e o LADO horizontal
-   * do passo entra por ESPELHO — o sprite sul "olha" naturalmente para a
-   * esquerda e o norte para a direita; no lado oposto, espelha. Apresentação
-   * pura (o renderer conhece o dx do tween).
+   * do passo entra por ESPELHO. O corpo canônico atual (receita jun/2026)
+   * "olha" pro lado DIREITO no sul e esquerdo no norte — espelha no oposto.
+   * Apresentação pura (o renderer conhece o dx do tween).
    */
   private applyMirror(v: EntityVisual, e: EntityState): void {
+    // viés POR CORPO: lado pro qual o sprite SUL "olha" (+1 direita, -1 esquerda)
+    const set = v.skinKey.startsWith("body|") ? v.skinKey.slice(5) : null;
+    const bias = set ? (BODY_SOUTH_BIAS[set] ?? 1) : -1; // mobs/procedural: convenção antiga
     let mirrored = false;
-    if (e.facing === "s") mirrored = v.stepDx > 0;
-    else if (e.facing === "n") mirrored = v.stepDx < 0;
+    if (e.facing === "s") mirrored = v.stepDx === -bias;
+    else if (e.facing === "n") mirrored = v.stepDx === bias;
     if (mirrored === v.mirrored) return;
     v.mirrored = mirrored;
     const base = Math.abs(v.sprite.scale.x) || 1;
@@ -454,9 +588,16 @@ export class EntityRenderer {
     const sprite = new Sprite(textures[e.facing][0]);
     sprite.anchor.set(0.5, 1);
     sprite.position.set(0, 0);
-    // Chars PixelLab são gerados a 64px e exibidos a 0.5 (32px = 1 tile) —
-    // qualidade do canvas maior, proporção coesa com o universo.
+    // Norma de densidade (jun/2026): mobs PixelLab 64px exibidos 1:1.
+    // Exceção transitória: o knight (char) segue a 0.66 até a regen 1:1.
     if (!e.species && PIXELLAB.knight) sprite.scale.set(PIXELLAB_CHAR_SCALE);
+    // Grounding: voadores pairam (offset fixo); terrestres descem pelo padding
+    // transparente medido no load — sem isso o sprite 64px "flutuava" no tile.
+    if (e.species) {
+      sprite.position.y = FLYING_SPECIES.has(e.species)
+        ? -6
+        : PIXELLAB.mobBaseline[e.species] ?? 0;
+    }
     container.addChild(sprite);
 
     const nameText = new Text({
@@ -498,6 +639,8 @@ export class EntityRenderer {
       tweenDur: 0,
       facing: e.facing,
       walkClock: 0,
+      attackClock: 0,
+      attackTextures: this.attackTexturesFor(e),
       idleMs: 0,
       lastHpRatio: -1,
       skinKey: this.skinKeyOf(e),

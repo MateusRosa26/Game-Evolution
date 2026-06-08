@@ -25,8 +25,10 @@ export interface SkillNumbers {
 
 // ── Golpe Forte (Knight) — golpe com a arma por ~1.8× ──
 export const GOLPE_FORTE = {
-  manaCost: 6, // ✏️ placeholder
-  cooldownTicks: 120, // ~6s @20tps ✏️ placeholder
+  // calibrado (bateria M1.2, jun/2026): inerte no T1 (provado 6/12/15 idênticos);
+  // 12 abre espaço de decisão de burst em correntes contínuas T2+ sem custo presente.
+  manaCost: 12,
+  cooldownTicks: 120, // ~6s @20tps — freio real do GF; re-régua na bateria T2 (gap knight×rogue adiado)
   /** Multiplicador sobre o dano da ARMA equipada (ficha: ~1.8×). */
   weaponMultiplier: 1.8, // ✏️ placeholder
   range: 1, // melee

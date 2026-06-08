@@ -14,14 +14,30 @@ const DOCS = [
     desc: "Visão do jogo, sistemas decididos, arquitetura sim/client e roadmap M0–M6." },
   { id: "progressao", title: "Progressão & Marcas", file: "../DESIGN-EVOLUCAO.md",
     desc: "Duas camadas: sólida (stats, skills, level) + emergente (Marcas, Mutações, Caminhos)." },
-  { id: "bestiario", title: "Bestiário", file: "../DESIGN-BESTIARIO.md",
-    desc: "Princípios, as 12 famílias, tiers, blocos de ataque e matriz de fraquezas." },
-  { id: "mundo", title: "Mundo, Quests & NPCs", file: "../DESIGN-MUNDO.md",
-    desc: "Exploração, as 3 camadas de quest, papéis de NPC, baús e raridades." },
+  { id: "bestiario", title: "Bestiário — Hub", file: "../DESIGN-BESTIARIO.md",
+    desc: "Princípios, tiers e orçamento de ataques, biblioteca de blocos e matriz de fraquezas (Regra 10–20)." },
+  { id: "bestiario-familias", title: "Bestiário — Famílias", file: "../design/bestiario/FAMILIAS.md",
+    desc: "O catálogo das 12 famílias com todas as criaturas (tabelas parseadas pela view do bestiário)." },
+  { id: "mundo", title: "Mundo — Hub", file: "../DESIGN-MUNDO.md",
+    desc: "Filosofia de exploração, princípio MMO, permanência do mapa, recorte do MVP e nomenclatura." },
+  { id: "mundo-quests", title: "Mundo — Sistema de Quests", file: "../design/mundo/SISTEMA-QUESTS.md",
+    desc: "As 3 camadas (diretas, abertas, segredos), template de quest e o diário." },
+  { id: "mundo-npcs", title: "Mundo — Sistema de NPCs", file: "../design/mundo/SISTEMA-NPCS.md",
+    desc: "Comércio especializado e destravável, diálogo híbrido e template de NPC." },
+  { id: "mundo-exploracao", title: "Mundo — Exploração", file: "../design/mundo/EXPLORACAO.md",
+    desc: "Gramática de spawns, layout da área inicial, baús, portas & chaves, ferramentas e casa inicial." },
+  { id: "mundo-andares", title: "Mundo — Sistema de Andares", file: "../design/mundo/SISTEMA-ANDARES.md",
+    desc: "Z-levels estilo Tibia: andares empilhados, buracos vazados, escada/corda/pá/tocha, cavernas escuras, faseamento." },
   { id: "lore", title: "Lore & História", file: "../DESIGN-LORE.md",
     desc: "Linha do tempo do mundo: a Chegada, o Primeiro Mago, a Guerra do Submundo, raças e os 5 continentes." },
-  { id: "itens", title: "Itens & Equipamento", file: "../DESIGN-ITENS.md",
-    desc: "Slots de equipamento (modelo Tibia), raridades, instância+ledger, loot e economia (doc do M2)." },
+  { id: "itens", title: "Itens — Hub", file: "../DESIGN-ITENS.md",
+    desc: "O hub de itens: decisões-mãe, slots (modelo Tibia), raridades, instância+ledger e estudo de referência." },
+  { id: "itens-equipamento", title: "Itens — Equipamento", file: "../design/itens/EQUIPAMENTO.md",
+    desc: "Roster de tipos de mão, modelos de peça, famílias temáticas, kit de nascimento/rito e os catálogos T1/T2." },
+  { id: "itens-consumiveis", title: "Itens — Consumíveis", file: "../design/itens/CONSUMIVEIS.md",
+    desc: "Comida & cozinha (fome = portão do regen), poções (luxo de emergência) e ferramentas." },
+  { id: "itens-economia", title: "Itens — Economia", file: "../design/itens/ECONOMIA.md",
+    desc: "Loot & gold, preços e sinks (1º passe T1 calibrado) e a discussão de economia acoplada ao PvP." },
   { id: "visual", title: "Design Visual & UI", file: "../DESIGN-VISUAL.md",
     desc: "Direção de arte, layout de tela, tokens de UI e feedback de combate." },
   { id: "quests-fatia1", title: "Quests — Fatia ① (Alvorada)", file: "../design/fatia-1-alvorada/QUESTS.md",
@@ -269,14 +285,20 @@ async function loadAll() {
 }
 
 function buildDb() {
+  // Bestiário pós-split (jun/2026): tiers/matriz vivem no hub, famílias no
+  // sub-doc — o parser é sequencial, então concatenamos os dois textos.
   const best = state.docs.get("bestiario");
-  if (best?.md) dbData.bestiario = parseBestiary(best.md);
+  const fams = state.docs.get("bestiario-familias");
+  if (best?.md || fams?.md) {
+    dbData.bestiario = parseBestiary(`${best?.md ?? ""}\n${fams?.md ?? ""}`);
+  }
   const evo = state.docs.get("progressao");
   if (evo?.md) {
     dbData.skills = parseSkills(evo.md);
     dbData.classes = parseClasses(evo.md);
   }
-  const it = state.docs.get("itens");
+  // Catálogos/roster de itens vivem no sub-doc EQUIPAMENTO.md (split jun/2026).
+  const it = state.docs.get("itens-equipamento");
   if (it?.md) dbData.itens = parseItems(it.md);
   const qs = state.docs.get("quests-fatia1");
   if (qs?.md) dbData.quests = parseQuests(qs.md);

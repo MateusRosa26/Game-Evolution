@@ -29,14 +29,20 @@ export interface ClassGrowth {
   hpPerLevel: number;
   /** Mana máx adicionada por nível. */
   manaPerLevel: number;
+  /**
+   * Capacidade de carga (cap) adicionada por nível — AUTOMÁTICA por classe
+   * (modelo Tibia: knight > rogue > priest > mage; o cap cresce sozinho com o
+   * nível, sem o jogador escolher). Força dá um BÔNUS por cima (ver maxCarry).
+   */
+  capPerLevel: number;
 }
 
 /** Crescimento por classe. ✏️ placeholder — calibrar no M2. */
 export const CLASS_GROWTH: Record<PlayerClass, ClassGrowth> = {
-  knight: { hpPerLevel: 15, manaPerLevel: 2 }, // ✏️ placeholder — calibrar no M2
-  mage: { hpPerLevel: 5, manaPerLevel: 12 }, // ✏️ placeholder — calibrar no M2
-  rogue: { hpPerLevel: 9, manaPerLevel: 5 }, // ✏️ placeholder — calibrar no M2
-  priest: { hpPerLevel: 7, manaPerLevel: 10 }, // ✏️ placeholder — calibrar no M2
+  knight: { hpPerLevel: 15, manaPerLevel: 2, capPerLevel: 25 }, // ✏️ placeholder — calibrar
+  mage: { hpPerLevel: 5, manaPerLevel: 12, capPerLevel: 10 }, // ✏️ placeholder — calibrar
+  rogue: { hpPerLevel: 9, manaPerLevel: 5, capPerLevel: 18 }, // ✏️ placeholder — calibrar
+  priest: { hpPerLevel: 7, manaPerLevel: 10, capPerLevel: 12 }, // ✏️ placeholder — calibrar
 };
 
 /** Atributos iniciais por classe (nível 1). ✏️ placeholder — calibrar no M2. */
@@ -48,8 +54,14 @@ export const CLASS_BASE_ATTRIBUTES: Record<PlayerClass, Attributes> = {
   priest: { strength: 4, dexterity: 5, intelligence: 6, vitality: 5, spirit: 8 },
 };
 
-/** Pontos de atributo livres concedidos por level up. ✏️ placeholder — calibrar no M2. */
-export const STAT_POINTS_PER_LEVEL = 3; // ✏️ placeholder — calibrar no M2
+/**
+ * Pontos de atributo livres concedidos por level up.
+ * CALIBRADO E CONFIRMADO (criador, bateria M1.3 2026-06-05): 4 pts com custo RO
+ * puro (faixa 10) = zero levels sem subida de stat no jogo normal até o lvl 25
+ * (sensação de progresso), e o all-in continua estéril (one-shot do auto só
+ * chega quando o rato já não paga XP). 5 pts reabriria o breakpoint aos 76min.
+ */
+export const STAT_POINTS_PER_LEVEL = 4;
 
 // ─────────────────────────────────────────────────────────────────────────
 //  Custo de ponto de atributo (crescente por faixa — estilo Ragnarok Online)
@@ -60,7 +72,8 @@ export const STAT_POINTS_PER_LEVEL = 3; // ✏️ placeholder — calibrar no M2
  * (decidido — estilo Ragnarok Online): subir um atributo já alto custa mais
  * pontos, por faixa"). Objeto mutável de calibração — o harness do Balancista
  * testa variantes mutando-o (mesmo padrão de CLASS_GROWTH).
- * ✏️ faixas/números calibrados na bateria M1.2 (2026-06-05).
+ * CALIBRADO E CONFIRMADO (criador, bateria M1.2 2026-06-05): RO puro —
+ * valores 1–10 custam 2, 11–20 custam 3, 21–30 custam 4...
  */
 export const STAT_COST = {
   /** Largura da faixa: a cada `bandSize` valores, o custo sobe +1. */
@@ -105,6 +118,29 @@ export function maxHp(attrs: Attributes, cls: PlayerClass, level: number): numbe
 export function maxMana(attrs: Attributes, cls: PlayerClass, level: number): number {
   const growth = CLASS_GROWTH[cls].manaPerLevel * (level - 1);
   return Math.floor(BASE_MANA + attrs.intelligence * MANA_PER_INTELLIGENCE + growth);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Capacidade de carga (cap) — DESIGN-EVOLUCAO.md (Força → capacidade de carga)
+// ─────────────────────────────────────────────────────────────────────────
+
+// Cap = base + crescimento AUTOMÁTICO por classe/nível (motor, estilo Tibia) +
+// bônus de Força (perk, não imposto). MESMO padrão do HP/mana (atributo +
+// CLASS_GROWTH por nível) — decidido jun/2026 após notar que amarrar cap só à
+// Força (stat de ESCOLHA) não dava o crescimento-por-nível automático do Tibia.
+// Escala-Tibia (pesos: espada 35, placa ~120). ✏️ números Balancista.
+const BASE_CARRY = 200; // ✏️ base de nível 1
+const CARRY_PER_STRENGTH = 5; // ✏️ bônus pequeno de Força (não é o motor)
+
+/**
+ * Capacidade de carga máxima (cap). Híbrido: `base + Força×k +
+ * capPerLevel[classe]×(nível−1)`. A classe/nível é o motor automático (Tibia:
+ * knight > rogue > priest > mage); a Força investida dá um bônus por cima —
+ * exatamente como Vitalidade soma HP além do crescimento de classe.
+ */
+export function maxCarry(attrs: Attributes, cls: PlayerClass, level: number): number {
+  const classGrowth = CLASS_GROWTH[cls].capPerLevel * (level - 1);
+  return Math.floor(BASE_CARRY + attrs.strength * CARRY_PER_STRENGTH + classGrowth);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -164,6 +164,7 @@ export class CharacterPanel {
     this.summaryText.text =
       `Nível ${p.level}\n` +
       `XP ${xpInto} / ${xpNeeded}\n` +
+      `Cap ${p.cap.current} / ${p.cap.max}\n` +
       `Pontos livres: ${p.freeStatPoints}`;
     if (this.container.visible) this.layout();
   }
@@ -174,7 +175,7 @@ export class CharacterPanel {
   }
 
   private layout(): void {
-    const rowsTop = HEADER_H + 46; // header + bloco de resumo
+    const rowsTop = HEADER_H + 58; // header + bloco de resumo (Nível/XP/Cap/Pontos)
     const panelH = rowsTop + ATTRIBUTE_KEYS.length * ROW_H + PAD;
     // posição do usuário (drag) ou default: centralizado, encostado à esquerda
     const x = this.userPos?.x ?? PANEL_X;

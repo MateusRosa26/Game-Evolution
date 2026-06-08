@@ -33,10 +33,10 @@ Além da leitura dos docs, a wiki tem views estruturadas com **filtros e ordena�
 
 **Os dados são parseados dos próprios `.md`** (zero duplicação — os docs continuam sendo a fonte única da verdade). Os parsers em `db.js` dependem da estrutura dos documentos:
 
-- Bestiário: headings de família `## N. Nome (T1–T3) — tagline`, tabelas com colunas `Criatura | Tier | Comportamento | Ataques | Notas`, tabela de tiers (seção "Tiers") e "Matriz de fraquezas".
+- Bestiário (split jun/2026 — `buildDb` concatena `DESIGN-BESTIARIO.md` (hub: Tiers + Matriz) com `design/bestiario/FAMILIAS.md` (famílias)): headings de família `## N. Nome (T1–T3) — tagline`, tabelas com colunas `Criatura | Tier | Comportamento | Ataques | Notas`, tabela de tiers (seção "Tiers") e "Matriz de fraquezas".
 - Skills: blocos `#### Nome (Classe)` sob `### Skills comuns` / `### Kit inicial`, bullets `- **Campo:** valor`, mutações em lista numerada; tabela do `### Roster planejado`.
 - Classes: blocos `### Nome` sob `## Classes`, bullets de Fantasia/Kit/Atributos/Lentes e Caminhos numerados; tabela de atributos.
-- Itens: tabelas sob `## Tabela de itens — T<N>` (grupos por `###`) e roster sob `## Tipos de item de mão`.
+- Itens (`design/itens/EQUIPAMENTO.md` — split jun/2026, hub em `DESIGN-ITENS.md`): tabelas sob `## Tabela de itens — T<N>` (grupos por `###`, coluna `Números` opcional) e roster sob `## Tipos de item de mão`.
 - Quests (`design/fatia-1-alvorada/QUESTS.md`): tabela do `## Índice` (colunas `# | Quest | Camada | Área | Nível | NPC | Destrava`) + seções `### Q<n>. Nome / *EN*` e `### R<n>. … — rito do <Classe>` com bullets `- **Campo:** valor`.
 
 Se mudar a estrutura nos `.md`, ajustar os parsers correspondentes em `db.js`.

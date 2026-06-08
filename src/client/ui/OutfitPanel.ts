@@ -2,6 +2,8 @@ import { Container, FederatedPointerEvent, Graphics, Text } from "pixi.js";
 import {
   OUTFIT_COLORS,
   OUTFIT_PART_BY_ID,
+  OUTFIT_PARTS,
+  OUTFIT_SETS,
   partsForSlot,
   structuredCloneOutfit,
   type OutfitSlot,
@@ -48,6 +50,8 @@ export class OutfitPanel {
   private headerText: Text;
   private hintText: Text;
   private rows: Record<OutfitSlot, SlotRow>;
+  /** Linha "Classe" — cicla o SET completo (o corpo segue o torso). */
+  private setRow!: SlotRow;
   private colorGrid = new Graphics();
   private outfit: OutfitState | null = null;
   private wardrobe: string[] = [];
@@ -89,6 +93,42 @@ export class OutfitPanel {
     });
     this.hintText.resolution = 3;
     this.container.addChild(this.hintText);
+
+    // linha CLASSE (corpo inteiro): mesma anatomia visual das linhas de slot
+    {
+      const label = new Text({
+        text: "Classe",
+        style: { fontFamily: "monospace", fontSize: 9, fontWeight: "bold", fill: hex(PAL.levelGold), stroke: { color: 0x10141c, width: 2 } },
+      });
+      label.resolution = 3;
+      label.anchor.set(0, 0.5);
+      const partName = new Text({
+        text: "—",
+        style: { fontFamily: "monospace", fontSize: 8, fontWeight: "bold", fill: hex(PAL.attrValue), stroke: { color: 0x10141c, width: 2 } },
+      });
+      partName.resolution = 3;
+      partName.anchor.set(0.5, 0.5);
+      const mkArrow = (dir: -1 | 1): [Graphics, Text] => {
+        const g = new Graphics();
+        g.eventMode = "static";
+        g.cursor = "pointer";
+        g.on("pointertap", () => this.cycleSet(dir));
+        const t = new Text({
+          text: dir < 0 ? "<" : ">",
+          style: { fontFamily: "monospace", fontSize: 11, fontWeight: "bold", fill: 0xeef4e6 },
+        });
+        t.resolution = 3;
+        t.anchor.set(0.5, 0.5);
+        t.eventMode = "none";
+        return [g, t];
+      };
+      const [prev, prevText] = mkArrow(-1);
+      const [next, nextText] = mkArrow(1);
+      const hitArea = new Graphics();
+      hitArea.eventMode = "none";
+      this.container.addChild(hitArea, label, partName, prev, prevText, next, nextText);
+      this.setRow = { label, partName, prev, prevText, next, nextText, hitArea };
+    }
 
     this.rows = {} as Record<OutfitSlot, SlotRow>;
     for (const slot of SLOTS) {
@@ -182,6 +222,27 @@ export class OutfitPanel {
     if (this.container.visible) this.layout();
   }
 
+  /** Sets cuja trinca completa o jogador possui. */
+  private ownedSets(): string[] {
+    return Object.keys(OUTFIT_SETS).filter((set) => {
+      const parts = OUTFIT_PARTS.filter((q) => q.set === set);
+      return parts.length >= 3 && parts.every((q) => this.wardrobe.includes(q.id));
+    });
+  }
+
+  /** Cicla o SET inteiro — troca de classe visual (o corpo segue o torso). */
+  private cycleSet(dir: -1 | 1): void {
+    if (!this.outfit) return;
+    const sets = this.ownedSets();
+    if (sets.length === 0) return;
+    const curSet = OUTFIT_PART_BY_ID[this.outfit.torso.part]?.set ?? "";
+    const next = sets[(sets.indexOf(curSet) + dir + sets.length) % sets.length];
+    const bySlot = (slot: OutfitSlot) => OUTFIT_PARTS.find((q) => q.set === next && q.slot === slot)!.id;
+    const o = structuredCloneOutfit(this.outfit);
+    for (const slot of SLOTS) o[slot] = { part: bySlot(slot), color: o[slot].color };
+    this.onSetOutfit(o);
+  }
+
   /** Cicla a peça do slot entre as POSSUÍDAS (apresentação; a sim revalida). */
   private cyclePart(slot: OutfitSlot, dir: -1 | 1): void {
     if (!this.outfit) return;
@@ -202,7 +263,7 @@ export class OutfitPanel {
   }
 
   private layout(): void {
-    const rowsTop = HEADER_H + 20;
+    const rowsTop = HEADER_H + 20 + ROW_H; // linha Classe ocupa a primeira
     const gridRows = Math.ceil(OUTFIT_COLORS.length / GRID_COLS);
     const gridH = gridRows * (SW + SW_GAP);
     const gridTop = rowsTop + SLOTS.length * ROW_H + 10;
@@ -213,7 +274,7 @@ export class OutfitPanel {
     this.container.position.set(x, y);
 
     this.bg.clear();
-    this.bg.roundRect(0, 0, PANEL_W, panelH, 7).fill({ color: hex(PAL.panelBg), alpha: 0.95 });
+    this.bg.roundRect(0, 0, PANEL_W, panelH, 7).fill({ color: hex(PAL.panelBg), alpha: 1 });
     this.bg.roundRect(0, 0, PANEL_W, panelH, 7).stroke({ color: hex(PAL.panelBorder), width: 2 });
     this.bg.roundRect(0, 0, PANEL_W, HEADER_H, 7).fill(hex(PAL.panelHeader));
     this.bg
@@ -223,6 +284,23 @@ export class OutfitPanel {
 
     this.headerText.position.set(PAD, HEADER_H / 2);
     this.hintText.position.set(PAD, HEADER_H + 4);
+
+    // ── linha CLASSE ──
+    {
+      const cy = HEADER_H + 20 + ROW_H / 2;
+      const row = this.setRow;
+      row.label.position.set(PAD, cy);
+      const arrow = 16;
+      const prevX = 86;
+      const nextX = PANEL_W - PAD - arrow;
+      this.drawArrow(row.prev, prevX, cy - arrow / 2, arrow);
+      this.drawArrow(row.next, nextX, cy - arrow / 2, arrow);
+      row.prevText.position.set(prevX + arrow / 2, cy);
+      row.nextText.position.set(nextX + arrow / 2, cy);
+      const curSet = this.outfit ? OUTFIT_PART_BY_ID[this.outfit.torso.part]?.set : undefined;
+      row.partName.text = curSet ? (OUTFIT_SETS[curSet] ?? curSet) : "—";
+      row.partName.position.set((prevX + arrow + nextX) / 2, cy);
+    }
 
     for (let i = 0; i < SLOTS.length; i++) {
       const slot = SLOTS[i];

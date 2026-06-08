@@ -305,38 +305,195 @@ function makeRock(seed: number): Texture {
   return p.texture();
 }
 
-function makeWall(seed: number): Texture {
-  const rng = mulberry32(seed);
+/**
+ * Muralha AUTOTILE (estilo Tibia). 16 peças indexadas por máscara de vizinhos
+ * que TAMBÉM são muro: bit N=1, E=2, S=4, W=8.
+ *
+ * Modelo: a parede sempre desenha o TOPO (superfície vista de cima); a FACE
+ * frontal só aparece quando NÃO há muro ao sul (senão ela fica oculta pelo muro
+ * da frente). Assim uma coluna vertical mostra topos empilhados e a face só na
+ * base; um run horizontal mostra topo+face contínuos. Caps de contorno onde não
+ * há vizinho (W/E/N) fecham o fim do muro. Tudo dessaturado e frio (tintável
+ * por cidade depois, via LUT).
+ */
+function makeWallTile(mask: number, seed: number): Texture {
+  const rng = mulberry32(seed + mask * 97 + 1);
   const p = new Px(32, 44);
-  // topo (superfície vista de cima) — claro, pega "luz"
-  p.rect(0, 0, 32, 12, PAL.wallTop);
-  p.rect(0, 0, 32, 2, PAL.wallTopLight);
-  for (let i = 0; i < 16; i++) {
-    p.px(Math.floor(rng() * 32), 2 + Math.floor(rng() * 9), rng() < 0.5 ? PAL.wallTopLight : "#49525f");
-  }
-  // beirada do topo marcada (separa topo da face)
-  p.rect(0, 10, 32, 1, "#1a1e26");
-  p.rect(0, 11, 32, 1, "#0e1117");
-  // face frontal: fileiras de blocos, BEM mais escura que o topo
-  for (let row = 0; row < 4; row++) {
-    const y = 12 + row * 8;
-    const offset = row % 2 === 0 ? 0 : 8;
-    for (let col = -1; col < 3; col++) {
-      const x = col * 16 + offset;
-      const shade = 1 - row * 0.18;
-      const base = Math.floor(44 * shade);
-      p.rect(x + 1, y + 1, 15, 7, `rgb(${base},${base + 6},${base + 15})`);
-      // brilho só no topo de cada bloco, sutil
-      p.rect(x + 1, y + 1, 15, 1, `rgb(${base + 10},${base + 16},${base + 26})`);
-      p.rect(x, y, 16, 1, "#0c0f15");
-      p.rect(x, y, 1, 8, "#0c0f15");
-      // lascas/desgaste por bloco
-      if (rng() < 0.5) p.px(x + 2 + Math.floor(rng() * 12), y + 2 + Math.floor(rng() * 5), "#0c0f15");
+  const N = (mask & 1) !== 0;
+  const E = (mask & 2) !== 0;
+  const S = (mask & 4) !== 0;
+  const W = (mask & 8) !== 0;
+  const OUT = "#10141c";
+
+  // TOPO em pedra cortada (cobble): se há muro ao sul o topo desce até embaixo
+  // (face oculta pelo muro da frente); senão topo fino + face.
+  const topEnd = S ? 44 : 13;
+  p.rect(0, 0, 32, topEnd, "#3b424e"); // argamassa/fundo escuro
+  const TB: [string, string][] = [["#414956", "#525c6a"], ["#485160", "#586473"], ["#3d4450", "#4b5563"]];
+  const JOINT = "#2f3640";
+  for (let ry = -2; ry < topEnd; ry += 7) {
+    const off = ((((ry + 2) / 7) | 0) & 1) === 0 ? 0 : 9;
+    for (let rx = -off; rx < 32; rx += 13) {
+      const [fill, hi] = TB[Math.floor(rng() * TB.length)];
+      const bw = 11 + Math.floor(rng() * 3);
+      const by = ry + 1; if (by >= topEnd) continue;
+      const bh = Math.min(6, topEnd - by);
+      p.rect(rx + 1, by, bw, bh, fill);
+      p.rect(rx + 1, by, bw, 1, hi);
+      if (ry >= 0) p.rect(rx, ry, bw + 2, 1, JOINT);
+      p.rect(rx, by, 1, bh, JOINT);
+      if (bh > 2 && rng() < 0.22) p.px(rx + 2 + Math.floor(rng() * Math.max(1, bw - 2)), by + 1 + Math.floor(rng() * (bh - 1)), JOINT);
     }
   }
-  // base na sombra
-  p.rect(0, 40, 32, 4, "rgba(0,0,0,0.35)");
+  // lip de luz na borda NORTE só se for borda externa
+  if (!N) p.rect(0, 1, 32, 2, PAL.wallTopLight);
+
+  if (!S) {
+    // separação topo → face
+    p.rect(0, 11, 32, 1, "#1a1e26");
+    p.rect(0, 12, 32, 1, "#0e1117");
+    // FACE: 4 fileiras de blocos, bem mais escura que o topo
+    for (let row = 0; row < 4; row++) {
+      const y = 13 + row * 8;
+      const offset = row % 2 === 0 ? 0 : 8;
+      const shade = 1 - row * 0.16;
+      const base = Math.floor(46 * shade);
+      for (let col = -1; col < 3; col++) {
+        const x = col * 16 + offset;
+        p.rect(x + 1, y + 1, 15, 7, `rgb(${base},${base + 6},${base + 15})`);
+        p.rect(x + 1, y + 1, 15, 1, `rgb(${base + 10},${base + 16},${base + 26})`);
+        p.rect(x, y, 16, 1, "#0c0f15");
+        p.rect(x, y, 1, 8, "#0c0f15");
+        if (rng() < 0.5) p.px(x + 2 + Math.floor(rng() * 12), y + 2 + Math.floor(rng() * 5), "#0c0f15");
+      }
+    }
+    p.rect(0, 41, 32, 3, "rgba(0,0,0,0.38)"); // sombra de contato na base
+  }
+
+  // ── NUANCE procedural (quebra a uniformidade; varia por seed/variante) ──
+  // Musgo frio esparso em juntas do topo e/ou face
+  const MOSS = ["#2c3a2b", "#384a36", "#243527"];
+  if (rng() < 0.55) {
+    const spots = 1 + Math.floor(rng() * 3);
+    for (let k = 0; k < spots; k++) {
+      const mx = Math.floor(rng() * 28);
+      const my = Math.floor(rng() * (S ? 38 : 10));
+      const ch = 2 + Math.floor(rng() * 2);
+      const cw = 2 + Math.floor(rng() * 3);
+      for (let dy = 0; dy < ch; dy++) for (let dx = 0; dx < cw; dx++) {
+        if (rng() < 0.7) p.px(mx + dx, my + dy, MOSS[Math.floor(rng() * MOSS.length)]);
+      }
+    }
+  }
+  // Musgo acumulando na base da face (encontro com o chão)
+  if (!S && rng() < 0.7) {
+    for (let x = 0; x < 32; x++) if (rng() < 0.28) p.px(x, 38 + Math.floor(rng() * 3), MOSS[Math.floor(rng() * MOSS.length)]);
+  }
+  // Rachadura ocasional descendo a face
+  if (!S && rng() < 0.35) {
+    let cx = 5 + Math.floor(rng() * 22), cy = 15;
+    const len = 6 + Math.floor(rng() * 8);
+    for (let s = 0; s < len && cy < 42; s++) { p.px(cx, cy, "#0c0f15"); if (rng() < 0.4) p.px(cx + 1, cy, "#0c0f15"); cy++; cx += Math.floor(rng() * 3) - 1; }
+  }
+
+  // CAPS onde não há vizinho — fecham o fim do muro (por cima da nuance)
+  if (!W) { p.rect(0, 0, 1, 44, OUT); p.rect(1, 0, 1, topEnd, "#3a414d"); }
+  if (!E) { p.rect(31, 0, 1, 44, OUT); p.rect(30, 0, 1, topEnd, "#3a414d"); }
+  if (!N) p.rect(0, 0, 32, 1, OUT);
+
   return p.texture();
+}
+
+/** 16 máscaras × 3 variantes (musgo/rachadura/blocos diferentes por seed). */
+function makeWallTiles(): Texture[][] {
+  const out: Texture[][] = [];
+  for (let m = 0; m < 16; m++) out.push([makeWallTile(m, 500), makeWallTile(m, 1500), makeWallTile(m, 2500)]);
+  return out;
+}
+
+/**
+ * Portão da muralha (procedural, casa com makeWallTile): lintel de pedra (mesmo
+ * cobble) + postes de pedra nas laterais + porta de madeira reforçada com ferro.
+ * `wTiles` de largura; anchor bottom como o muro (32×48 por tile).
+ */
+function makeGate(wTiles: number, seed: number): Texture {
+  const rng = mulberry32(seed);
+  const W = wTiles * 32, H = 48;
+  const p = new Px(W, H);
+  const OUT = "#10141c", POST = 9;
+  const TB: [string, string][] = [["#414956", "#525c6a"], ["#485160", "#586473"], ["#3d4450", "#4b5563"]];
+  // LINTEL de pedra no topo (full width)
+  p.rect(0, 0, W, 14, "#3b424e");
+  for (let ry = -2; ry < 14; ry += 7) for (let rx = -((((ry + 2) / 7) | 0) & 1 ? 9 : 0); rx < W; rx += 13) {
+    const [fill, hi] = TB[Math.floor(rng() * TB.length)]; const bw = 11 + Math.floor(rng() * 3); const by = ry + 1; if (by >= 14) continue; const bh = Math.min(6, 14 - by);
+    p.rect(rx + 1, by, bw, bh, fill); p.rect(rx + 1, by, bw, 1, hi); if (ry >= 0) p.rect(rx, ry, bw + 2, 1, "#2f3640"); p.rect(rx, by, 1, bh, "#2f3640");
+  }
+  p.rect(0, 13, W, 1, "#0c0f15");
+  // POSTES de pedra (faces escuras) nas laterais
+  for (const px0 of [0, W - POST]) for (let row = 0; row < 4; row++) {
+    const y = 14 + row * 8, base = Math.floor(46 * (1 - row * 0.16));
+    p.rect(px0, y, POST, 8, `rgb(${base},${base + 6},${base + 15})`);
+    p.rect(px0, y, POST, 1, `rgb(${base + 10},${base + 16},${base + 26})`);
+    p.rect(px0, y, POST, 1, "#0c0f15");
+  }
+  // PORTA de madeira reforçada (entre os postes)
+  const dx0 = POST, dw = W - POST * 2, mid = dx0 + (dw >> 1);
+  p.rect(dx0, 14, dw, H - 14, "#3b2c1f");
+  for (let x = dx0; x < dx0 + dw; x += 5) p.rect(x, 14, 1, H - 14, x % 2 ? "#2a1e14" : "#4c3a29");
+  for (const by of [20, 34]) { p.rect(dx0, by, dw, 3, "#23262d"); for (let x = dx0 + 2; x < dx0 + dw; x += 6) { p.px(x, by, "#3a3f48"); p.px(x, by + 2, "#15171c"); } }
+  p.rect(mid, 14, 1, H - 14, "#1a130c");
+  for (const dxr of [-5, -4, 4, 5]) p.px(mid + dxr, 28, "#23262d");
+  p.rect(0, 14, dx0, 1, "#0c0f15"); p.rect(W - POST, 14, 1, H - 14, "#0c0f15");
+  // contorno e sombra
+  p.rect(0, 0, 1, H, OUT); p.rect(W - 1, 0, 1, H, OUT); p.rect(0, 0, W, 1, OUT); p.rect(0, H - 3, W, 3, "rgba(0,0,0,0.4)");
+  return p.texture();
+}
+
+/**
+ * Parede de ENXAIMEL (taipa + vigas) para casas — autotile, modular. Diferente
+ * da muralha: a casa é um cômodo, então TODA parede mostra a face de taipa
+ * (não só o sul). `feature`: "window" | "door" | null. mask N=1,E=2,S=4,W=8.
+ */
+function makeHouseWallTile(mask: number, seed: number, feature: "window" | "door" | null): Texture {
+  const rng = mulberry32(seed + mask * 31 + 1);
+  const p = new Px(32, 44);
+  const N = (mask & 1) !== 0, W = (mask & 8) !== 0, E = (mask & 2) !== 0;
+  const PLA = [PAL.plasterDark, PAL.plasterBase, PAL.plasterLight];
+  const BEAM = PAL.woodPost, BEAML = PAL.woodPostLight, BEAMD = PAL.trunkDark, OUT = "#10141c";
+  const TOPH = 7;
+  // viga superior fina (frechal visto de cima)
+  p.rect(0, 0, 32, TOPH, BEAM);
+  for (let i = 0; i < 10; i++) p.px(Math.floor(rng() * 32), Math.floor(rng() * TOPH), rng() < 0.5 ? BEAML : BEAMD);
+  if (!N) p.rect(0, 1, 32, 1, BEAML);
+  // FACE de taipa SEMPRE (enquadrada por vigas)
+  for (let y = TOPH; y < 44; y++) for (let x = 0; x < 32; x++) p.px(x, y, PLA[Math.floor(rng() * PLA.length)]);
+  p.rect(0, TOPH, 32, 3, BEAM); p.rect(0, TOPH, 32, 1, BEAML);
+  p.rect(0, 40, 32, 4, BEAM); p.rect(0, 40, 32, 1, BEAMD);
+  for (const sx of [0, 14, 29]) { p.rect(sx, TOPH, 3, 44 - TOPH, BEAM); p.rect(sx, TOPH, 1, 44 - TOPH, BEAML); }
+  if (feature === "window") {
+    p.rect(9, 16, 14, 16, "#1a2026"); p.rect(9, 16, 14, 1, "#0d1116");
+    p.rect(8, 15, 16, 1, BEAM); p.rect(8, 32, 16, 1, BEAM); p.rect(8, 15, 1, 18, BEAM); p.rect(23, 15, 1, 18, BEAM);
+    p.rect(15, 16, 1, 16, BEAM); p.rect(9, 23, 14, 1, BEAM);
+    p.px(11, 18, "#39505e"); p.px(12, 18, "#39505e"); p.px(18, 18, "#39505e");
+  } else if (feature === "door") {
+    p.rect(9, 12, 14, 32, BEAM);
+    for (let x = 10; x < 23; x += 3) p.rect(x, 13, 1, 30, x % 2 ? BEAMD : BEAML);
+    p.rect(9, 20, 14, 2, BEAMD); p.rect(9, 34, 14, 2, BEAMD);
+    p.px(20, 29, "#caa64a"); p.px(20, 30, "#8d7330");
+  }
+  p.rect(0, 38, 32, 2, "rgba(0,0,0,0.18)");
+  p.rect(0, 41, 32, 3, "rgba(0,0,0,0.35)");
+  if (!W) { p.rect(0, 0, 2, 44, BEAMD); p.rect(0, 0, 1, 44, OUT); }
+  if (!E) { p.rect(30, 0, 2, 44, BEAMD); p.rect(31, 0, 1, 44, OUT); }
+  if (!N) p.rect(0, 0, 32, 1, OUT);
+  return p.texture();
+}
+
+/** 16 máscaras × 3 variantes de parede de enxaimel (sem feature). */
+function makeHouseWalls(): Texture[][] {
+  const out: Texture[][] = [];
+  for (let m = 0; m < 16; m++) out.push([makeHouseWallTile(m, 700, null), makeHouseWallTile(m, 1700, null), makeHouseWallTile(m, 2700, null)]);
+  return out;
 }
 
 function makeTorchFrames(): Texture[] {
@@ -559,7 +716,15 @@ export interface SpriteLibrary {
   swamp: Texture[];
   trees: Texture[];
   rocks: Texture[];
-  wall: Texture;
+  /** Muralha autotile: 16 máscaras (N=1,E=2,S=4,W=8) × variantes de nuance. */
+  walls: Texture[][];
+  /** Portão da muralha (3 tiles de largura), anchor bottom. */
+  gate: Texture;
+  /** Parede de enxaimel das casas: 16 máscaras × variantes (face pra dentro). */
+  houseWalls: Texture[][];
+  /** Variantes de parede de enxaimel com porta / janela (segmento horizontal E|W). */
+  houseDoor: Texture;
+  houseWindow: Texture;
   torchFrames: Texture[];
   // Personagem: texturas vêm do compositor de OUTFITS (assets/outfit/compose.ts)
   rat: Record<Facing, Texture[]>;
@@ -581,7 +746,11 @@ export function createSprites(): SpriteLibrary {
     // Árvores: PixelLab (curadoria) quando carregadas; fallback procedural.
     trees: PIXELLAB.trees.length > 0 ? PIXELLAB.trees : [makeTree(101), makeTree(202), makeTree(303)],
     rocks: [makeRock(401), makeRock(402)],
-    wall: makeWall(500),
+    walls: makeWallTiles(),
+    gate: makeGate(3, 909),
+    houseWalls: makeHouseWalls(),
+    houseDoor: makeHouseWallTile(0b1010, 700, "door"), // segmento E|W (parede reta)
+    houseWindow: makeHouseWallTile(0b1010, 700, "window"),
     torchFrames: makeTorchFrames(),
     rat: makeRatTextures(),
     light: makeLightTexture(),

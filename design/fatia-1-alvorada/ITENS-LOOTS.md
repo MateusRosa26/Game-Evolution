@@ -1,6 +1,6 @@
 # Fatia ① Alvorada — Itens, Loots & Comércio
 
-> Especificação de conteúdo da fatia (consome: `DESIGN-ITENS.md` §Loot & gold, §Poções, §Ferramentas · `DESIGN-MUNDO.md` §Comércio especializado · `DESIGN-BESTIARIO.md`). Números de drop rate/preço = ✏️ Balancista (na sim). **NPCs batizados** (jun/2026 — elenco em `NPCS.md`); nomes de item = working titles PT (✏️ pares EN com o catálogo).
+> Especificação de conteúdo da fatia (consome: `DESIGN-ITENS.md` §Loot & gold, §Poções, §Ferramentas · `design/mundo/SISTEMA-NPCS.md` §Comércio especializado · `DESIGN-BESTIARIO.md`). Números de drop rate/preço = ✏️ Balancista (na sim). **NPCs batizados** (jun/2026 — elenco em `NPCS.md`); nomes de item = working titles PT (✏️ pares EN com o catálogo).
 
 ## Princípios aplicados (decididos pelo criador)
 
@@ -81,7 +81,7 @@ A fome é o portão do regen; a fatia ① introduz o sistema inteiro em pequena 
 | Vara de pesca | ✏️ EM AVALIAÇÃO | (só se a mecânica de pesca for aprovada) | — |
 | Facão | — | **fatia ③** (mato fechado rumo a Brumal) | apresentado como portão visível |
 
-- O cenário (6 ferramentas; picareta cortada) vive em `DESIGN-MUNDO.md` §Ferramentas. **Efeitos são temporários**: mato rebrota, buraco se fecha (✏️ timers — balancista/sistemas).
+- O cenário (6 ferramentas; picareta cortada) vive em `design/mundo/EXPLORACAO.md` §Ferramentas. **Efeitos são temporários**: mato rebrota, buraco se fecha (✏️ timers — balancista/sistemas).
 - Kit antes da primeira dungeon = decisão de mochila (peso/slots ✏️ DESIGN-ITENS).
 
 ## Régua de economia do early (alvos p/ Balancista)

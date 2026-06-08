@@ -18,10 +18,17 @@ const KEY_DIRS: Record<string, "up" | "down" | "left" | "right"> = {
 export class Keyboard {
   private pressed = new Set<string>();
   private lastDir: Dir8 | null = null;
+  /** Enquanto true (chat digitando), o WASD fica suspenso. */
+  private suspended = () => false;
+
+  setSuspendGate(fn: () => boolean): void {
+    this.suspended = fn;
+  }
 
   constructor(private onDirChange: (dir: Dir8 | null) => void) {
     window.addEventListener("keydown", (ev) => {
       if (!KEY_DIRS[ev.code]) return;
+      if (this.suspended()) return;
       ev.preventDefault();
       if (ev.repeat) return;
       this.pressed.add(ev.code);

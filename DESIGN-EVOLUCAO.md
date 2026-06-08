@@ -6,7 +6,7 @@
 
 | Camada | O que é | Caráter |
 |---|---|---|
-| **Sólida** (o jogo) | Level/XP, stats, skills compradas em NPCs, equipamento/loot | Previsível, clara, satisfatória por si só. **100% da progressão necessária vive aqui.** |
+| **Sólida** (o jogo) | Level/XP, stats, skills adquiridas pelo mundo (NPCs/drops/quests), equipamento/loot | Previsível, clara, satisfatória por si só. **100% da progressão necessária vive aqui.** |
 | **Emergente** (o tempero) | Marcas, Mutações, Caminhos — evolução por atitude | Oculta, brutal, opcional. Prestígio + poder bônus. |
 
 **Regra de ouro do balance:** nenhum conteúdo é balanceado assumindo que o jogador tem Marcas. A camada emergente é a assinatura do jogo, mas quem nunca desbloquear nada dela ainda joga um RPG completo e gostoso. Sem grind obrigatório de sistema (nada de treinar shielding AFK estilo Tibia — isso não é jogo, é espera).
@@ -17,11 +17,11 @@
 |---|---|
 | Filosofia | Duas camadas: **sólida** (progressão completa) + **emergente** (tempero oculto, nunca requisito) |
 | Stats | 5 atributos (For/Des/Int/Vit/Esp), **pontos no level up** + crescimento automático por classe. Sem skill-by-use |
-| Custo de pontos | **Crescente por faixa** (estilo Ragnarok Online): o efeito do ponto nunca muda, o custo sobe ✏️ faixas. Extremo é possível, só caro |
+| Custo de pontos | **Crescente por faixa** (estilo Ragnarok Online): o efeito do ponto nunca muda, o custo sobe. **Faixas calibradas (bateria M1.2, jun/2026): valores 1–10 custam 2 pontos, 11–20 custam 3, 21–30 custam 4...** Extremo é possível, só caro |
 | Mitigação | **Simétrica e 100% de itens**: defesa física e resist. mágica são stats de equipamento — atributos dão potência/recursos (ver `DESIGN-ITENS.md`) |
 | Crítico | **Sem roll passivo** — crítico só existe como efeito explícito de skills/Mutações/Caminhos, multiplicador padrão ×2 ✏️ |
 | Respec | 1 reset de stats grátis por char; extras restritos (futuro: feature paga). Marcas nunca resetam |
-| Skills | **Compradas em NPCs** (classe + nível + gold), tiers de acesso. Sem árvore de pontos; único upgrade = Mutação |
+| Skills | **Adquiridas pelo mundo, nunca dadas** — **sem kit inicial** (ninguém nasce com skill; rito dá só a arma). Fontes espalhadas: **NPC / drop de mob / NPC+drop / quest** (raríssimas). Classless sem acesso (classe = ingresso). **Gate de aprendizado = atributo + nível, não a classe** (modelo *gems* do PoE — anda com o custo-crescente). **Gate de uso = cooldown** (Apogea); mana secundária. Exceções trancadas: **assinatura** de classe + **sagrado** (Priest). Sem árvore de pontos; único upgrade = Mutação |
 | Classes | **Knight / Mage / Rogue / Priest**, base fixa + especialização emergente. Sem subclasses escolhíveis. **Classe é adquirida no mundo, não na criação (jun/2026)**: nasce **sem classe**, spawn aleatório em cidade inicial; rito no NPC da classe = **quest boba + gold simbólico**, entrega a arma do kit. Condutas de Caminho contam **da aquisição da classe** |
 | Monge | Não é classe — é **Caminho emergente do Priest** (conduta *Mão Vazia*) |
 | Visibilidade | Condições ocultas; hint vaga aos **~50%**; nunca contador exato; unlock é um momento screenshotável |
@@ -29,6 +29,7 @@
 | Permanência | **Marcas, Mutações e Caminhos nunca se perdem** — nem por morte, respec ou quebra de conduta pós-aquisição. Monge que equipa arma continua Monge |
 | Níveis de Marca | Marca tem **1–3 níveis** (depende da marca): subir nível = repetição contínua; **evoluir/alterar** = só evento canônico raro (boss mundial, PvP extremo). A Marca é o **ego** do item |
 | Ritmo / Morte | Progressão **difícil**, curva **exponencial** (ref. Apogea: cada nível ≈ 2× o anterior; rápido até ~8, depois cada level é projeto). Morte perde **% da XP total** (ref. 10% ✏️) — **pode deslevelar**; punição cresce com o personagem. Itens **nunca perdidos em PvE**. Exceção única: contexto PvP escolhido (flag/zona) tem perda de loot — esqueleto em `DESIGN.md` ✏️ |
+| Escala de números | **Tudo baixo (decidido — criador, jun/2026)**: dano/Def/gold/drops em números pequenos estilo Tibia old-school (dano de um dígito no T1, gold contado em moedas, up lento). Razão técnica (bateria M1.2): dano estável + mobs de HP baixo = o jogo é **contagem de golpes** — em escala baixa, ±1 é sentido e legível; inflação numérica destrói isso. Régua para TODO número novo do Balancista |
 | Mutações | Nomeadas e qualitativas (não ranks); o **perfil de uso** decide qual mutação nasce; 2–4 por skill, autorais |
 | Thresholds | Brutais: ordem de 10–20k repetições / condutas por dezenas de níveis (números ✏️ calibrar com combate real) |
 | Proveniência | Contadores de item vivem na **instância** (ledger); progresso viaja com o item em trade/drop |
@@ -42,9 +43,9 @@ Pendências em **Aberto / a decidir** no fim do documento.
 
 ## Sistema de Stats
 
-Level up concede **pontos de atributo** para distribuir (3/nível ✏️ calibrar) + ganhos automáticos da classe (HP/Mana base). Melhorar o char é decisão ativa e imediata — sem grind de proficiência por uso.
+Level up concede **pontos de atributo** para distribuir (**4/nível — calibrado e confirmado, bateria M1.3 jun/2026**: com o custo por faixa, 4 pts garante ≥1 subida de stat em todo level até atributo 41+ — nenhum "level vazio" na escala do MVP; 3 pts deixava levels sem progresso visível e 5 pts reabria a degeneração do all-in) + ganhos automáticos da classe (HP/Mana base). Melhorar o char é decisão ativa e imediata — sem grind de proficiência por uso.
 
-**Custo crescente (decidido — estilo Ragnarok Online):** subir um atributo já alto custa mais pontos, por faixa (✏️ faixas/números). O **efeito de cada ponto nunca muda** (+X HP é sempre +X HP) — a camada sólida continua previsível e clara; build extrema é possível, só cara. (Rejeitados: linear puro — degenera como Diablo 2; retorno decrescente — ilegível como Dark Souls.)
+**Custo crescente (decidido — estilo Ragnarok Online):** subir um atributo já alto custa mais pontos, por faixa. **Faixas calibradas e confirmadas (bateria M1.2, jun/2026):** custo = `floor((valor−1)/10) + 2` — valores 1–10 custam 2 pontos, 11–20 custam 3, e assim por diante (`formulas.statPointCost`). Na sim, fechou a degeneração do all-in STR medida na bateria M1 (one-shot de auto nunca chega em 1h de farm). O **efeito de cada ponto nunca muda** (+X HP é sempre +X HP) — a camada sólida continua previsível e clara; build extrema é possível, só cara. (Rejeitados: linear puro — degenera como Diablo 2; retorno decrescente — ilegível como Dark Souls.)
 
 **Divisão de papéis (decidido):** atributos dão **potência e recursos**; itens dão **mitigação**:
 
@@ -75,7 +76,7 @@ ITENS     → defesa física, resistência mágica, resists elementais (DESIGN-I
 | Vel. de ataque | cooldown da arma − Des×k (com piso) | Destreza |
 | Esquiva | Des×k % (com teto) | Destreza |
 | Regen HP / mana | base + atributo×k por tick | Vitalidade / Espírito |
-| Capacidade de carga | ✏️ a implementar | Força |
+| Capacidade de carga (cap) | **implementado jun/2026, escala-Tibia, HÍBRIDO** — `base + Força×k + capPerLevel[classe]×(nível−1)` (mesmo padrão do HP: atributo + crescimento de classe). **Cresce automático por classe/nível** (Tibia: Knight 25 > Rogue 18 > Priest 12 > Mage 10), Força dá **bônus** (perk, não imposto). Pesos escala-Tibia (espada 35, placa ~120); enforcement modelo Tibia (só bloqueia trazer peso novo); cap no painel C. ✏️ números Balancista. Estudo: `docs/reports/2026-06-08-peso-cap-estudo.md` | Força (+ classe/nível) |
 
 - **Crítico (decidido): não existe roll passivo de atributo.** Crítico é efeito explícito concedido por skills, Mutações e Caminhos (*Riposte*, *Sombra Sem Nome*…), com multiplicador padrão do sistema (×2 ✏️). Sem variância invisível no combate core — crítico é evento desenhado, não moeda aleatória.
 - **Esquiva é assimétrica (decidido): mobs não esquivam.** Esquiva é derivado exclusivo de jogador — o dano do jogador é sempre legível (sem "errou" frustrante no grind). Sem stat de acerto no jogo (modelo Tibia).
@@ -89,13 +90,19 @@ ITENS     → defesa física, resistência mágica, resists elementais (DESIGN-I
 
 ## Aquisição de Skills (sem árvore de pontos)
 
-Skills são **compradas em NPCs treinadores**, com restrições — não existe skill point nem árvore de talentos clicável:
+Skills são **adquiridas pelo mundo, nunca dadas** — não existe skill point, árvore clicável, **nem kit inicial**. **Nenhum personagem começa com skill alguma** (o rito de classe entrega só a *arma*; combate de level 1 é auto-attack). A primeira skill já é uma pequena jornada: achar a fonte. (decidido jun/2026)
 
-- **Requisitos por skill:** classe + nível mínimo + ✏️ stats mínimos + custo em gold.
-- **Tiers de acesso:** Básicas (NPC de toda cidade) → Intermediárias (NPCs específicos/cidades distantes) → Avançadas (quests, drops de boss, NPCs secretos) ✏️.
-- Gold vira sink relevante da economia (importante pro online).
-- **A "árvore" de uma skill é a vida dela:** comprou → usou → (perfil de uso extremo) → **Mutação**. A mutação é a coroa oculta — única forma de upgrade da skill, e por isso especial.
-- **Nenhuma skill é automática (decidido jun/2026):** nem no nascimento (não há classe ao nascer), nem no rito de classe, nem por level up — **todas compradas**. As básicas custam quase nada (funcionalmente grátis; o *ato* de ir ao treinador é a didática). Level é **requisito**, nunca entregador.
+- **Requisito de aprendizado:** atributo + nível mínimo (ver *Modelo de gating*) — define quem PODE aprender. A **fonte** define ONDE se aprende. Não há "skill básica grátis": toda skill custou exploração, gold, um drop ou uma quest.
+- **Fontes de aquisição (espalhadas pelo mundo — nunca um balcão central):**
+  - **NPC** — treinador vende a skill; treinadores **espalhados** por cidades/POIs. Achar o NPC certo é jogar bem (pilar 4).
+  - **Drop de mob** — tomo/pergaminho que ensina a skill ao usar. Raridade ∝ opacidade (pilar 3): skill drop-only rara é troféu.
+  - **NPC + drop** — vende **e** dropa (as mais comuns, redundância de propósito).
+  - **Quest** — **pouquíssimas**; recompensa de quest — a camada de prêmio mais alto.
+- A fonte concreta de cada skill (qual NPC/mob/quest, onde no mapa) é **decisão de world-design**, registrada nas specs de fatia (`design/fatia-1-alvorada/` — NPCS/ITENS-LOOTS) ✏️.
+- Gold (compradas) e raridade de drop são **sinks/incentivos** da economia; uma skill que você não acha vira meta de exploração ou item de mercado (online).
+- **A "árvore" de uma skill é a vida dela:** adquiriu → usou → (perfil de uso extremo) → **Mutação** — a coroa oculta, única forma de upgrade.
+- **Nada é automático:** nem no nascimento, nem no rito de classe, nem por level up. Level é **requisito**, nunca entregador.
+- **Mecânica do tomo (decidido jun/2026):** o tomo/pergaminho é um **item tradeable e guardável** — possuir e negociar **não** têm gate. **Aprender** (consome o tomo, skill é permanente) exige o requisito de atributo+nível; sem requisito, **guarda no inventário/depósito** até poder. Aprendeu → consumido; tomo de skill que você já sabe vale só pra **vender/trocar**. Validação do aprendizado roda na sim (anti-cheat). Consequência: existe **mercado de tomos** (a skill que você não acha, você compra de outro jogador — a raridade vira preço, não muro).
 - **Traits/árvore de passivas (estilo Apogea): avaliados e REJEITADOS (jun/2026)** — competiriam com Marcas/Caminhos pela especialização e violam "sem árvore de pontos". A escolha contínua mora nos pontos de atributo (custo crescente); se parecer rasa no playtest, calibra-se números, não se adiciona sistema.
 
 ## Outras formas de melhorar o char
@@ -289,7 +296,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Knight
 - **Fantasia:** a muralha — aguenta o que ninguém aguenta e devolve em aço.
-- **Kit do rito de classe:** escolha de arma — **espada × machado × maça** — **+ escudo de madeira**. A escolha semeia a lente de Marca (kills por tipo de arma) no primeiro minuto. (*Golpe Forte* = primeira compra — nenhuma skill vem de graça.)
+- **Kit do rito de classe:** escolha de arma — **espada × machado × maça** — **+ escudo de madeira**. A escolha semeia a lente de Marca (kills por tipo de arma) no primeiro minuto. (Rito dá só a arma — **nenhuma skill**; *Golpe Forte* é a primeira a buscar pelo mundo.)
 - **Atributos-chave:** Força, Vitalidade
 - **Lentes de rastreamento:** kills **por tipo de arma** (espada/machado/maça), kills por família de criatura **com a arma equipada**, golpes **bloqueados com escudo**, dano **absorvido**, kills em HP baixo.
 - **Caminhos típicos:**
@@ -300,7 +307,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Mage
 - **Fantasia:** o canal bruto dos elementos — frágil, devastador, obcecado.
-- **Kit do rito de classe:** cajado 2H, escolha **fogo × gelo** — a primeira declaração elemental (alimenta *Senhor dos Extremos*/*Coração de Cinzas*). (*Bola de Fogo*/*Lança de Gelo* = primeiras compras.)
+- **Kit do rito de classe:** cajado 2H, escolha **fogo × gelo** — a primeira declaração elemental (alimenta *Senhor dos Extremos*/*Coração de Cinzas*). (Rito dá só o cajado; *Bola de Fogo*/*Lança de Gelo* = primeiras a buscar.)
 - **Atributos-chave:** Inteligência (dano/mana), Vitalidade (sobreviver)
 - **Lentes de rastreamento:** dano **por elemento**, perfil de **distância** dos casts, **combos** elementais (alvo congelado recebendo fogo etc.), % do dano total vindo de magia.
 - **Caminhos típicos:**
@@ -311,7 +318,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Rogue
 - **Fantasia:** a lâmina que você não viu — posição, timing e veneno.
-- **Kit do rito de classe:** escolha **adaga × arco** (uma arma — a segunda adaga do dual wield é a primeira meta de compra). (*Apunhalar* = primeira compra.)
+- **Kit do rito de classe:** escolha **adaga × arco** (uma arma — a segunda adaga do dual wield é uma meta de loot/compra). (Rito dá só a arma; *Apunhalar* = primeira skill a buscar.)
 - **Atributos-chave:** Destreza (dano/esquiva/vel. ataque), Vitalidade
 - **Lentes de rastreamento:** kills **pelas costas**, kills **à noite**, combates vencidos **sem tomar dano**, kills com alvo **envenenado**, kills com golpe final em alvo com HP cheio (one-shot de abertura).
 - **Caminhos típicos:**
@@ -322,7 +329,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ### Priest
 - **Fantasia:** o canal do sagrado — sustenta os vivos, apaga os profanos.
-- **Kit do rito de classe:** escolha **cetro × luva** — a luva é oferecida **sem comentário algum do NPC**: o hint silencioso do Monge (quem a escolhe começa *Mão Vazia* limpa desde a ordenação). (*Luz Sagrada* + *Curar Ferimentos* = primeiras compras.)
+- **Kit do rito de classe:** escolha **cetro × luva** — a luva é oferecida **sem comentário algum do NPC**: o hint silencioso do Monge (quem a escolhe começa *Mão Vazia* limpa desde a ordenação). (Rito dá só a arma; *Luz Sagrada* + *Curar Ferimentos* = primeiras a buscar.)
 - **Atributos-chave:** Espírito (cura/regen de mana), Inteligência (dano sagrado)
 - **Lentes de rastreamento:** **cura total realizada**, kills vs mortos-vivos/demônios **com dano sagrado**, dano tomado **no lugar de aliados** (online), conduta de **nunca equipar arma**, conduta de pacifismo.
 - **Caminhos típicos:**
@@ -338,7 +345,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 ```
 ### <Nome da classe>
 - Fantasia: <uma frase>
-- Kit inicial: <arma/skills lvl 1>
+- Arma do rito: <arma; SEM skills — nada é dado>
 - Atributos-chave: <>
 - Lentes de rastreamento: <quais contadores ela destrava — ex: guerreiro rastreia por arma, mago por elemento>
 - Caminhos típicos (3–5 que esperamos que emerjam): <>
@@ -346,15 +353,99 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 
 ## Magias e Skills
 
-Toda skill nasce **já preparada para o sistema**: com tags e contadores definidos no design, não adicionados depois. Aquisição: NPCs treinadores (ver Camada Sólida). Números de dano/custo/cooldown são ✏️ até o M1 dar a régua.
+Toda skill nasce **já preparada para o sistema**: com tags e contadores definidos no design, não adicionados depois. **Aquisição espalhada pelo mundo** — NPCs, drops de mob, quests; **sem kit inicial, nada dado** (ver *Aquisição de Skills* na Camada Sólida; placement concreto de cada uma é world-design, ✏️ na fatia). Números de dano/custo/cooldown são ✏️ até o M1 dar a régua. **Gate de uso = cooldown** (modelo Apogea); mana é custo secundário (decidido jun/2026) — combate é rotação de ferramentas, não spam.
 
 **Auto-attack** não é skill: é o ataque básico contínuo da arma equipada (estilo Tibia). Não muta — mas alimenta as **Marcas de item** (todo kill por auto-attack conta no ledger da arma).
 
-**Duas categorias de skill:**
-- **Comuns** — compráveis por **qualquer classe** em NPCs básicos. Garantem que toda classe tenha mobilidade, sustain mínimo e opção à distância. Também mutam.
-- **Únicas** — restritas à classe. São a identidade do kit.
+### Modelo de gating — por requisito, não por classe (decidido jun/2026)
 
-### Skills comuns (todas as classes)
+A lista de skills é **uma só, organizada por requisito** — não existe "skills do Mage" vs "skills do Knight". O que você pode comprar é gateado por **atributo + nível** (+ gold), **não pela classe** (modelo *gems* do Path of Exile).
+
+**Racional:** anda de mãos dadas com o **custo-crescente de atributos** — um híbrido (Knight que bomba Int pra lançar fogo) é possível, mas **naturalmente caro** (medíocre nos dois, porque cada atributo encarece por faixa), então o balance se resolve sozinho. E serve o **pilar 6**: a "subclasse" *spellblade*/*battlemage* **emerge da distribuição de pontos**, não de um menu — coerente com "sem subclasses escolhíveis".
+
+| O que a **classe** ainda decide | O que o **atributo** decide |
+|---|---|
+| Ingresso (classless **não** treina nada) · lente de Marca · crescimento base · arma do rito · magias **assinatura** | **Quais** skills você pode comprar (atributo + nível mínimo) |
+
+**Mapa de afinidade (qual atributo gateia o quê):**
+
+| Atributo | Gateia |
+|---|---|
+| **Força** | marciais ofensivas (golpes, charge) |
+| **Vitalidade** | defensivas / controle de tank (Knight escolhe a perna: For ou Vit) |
+| **Destreza** | adaga/precisão, veneno, mobilidade furtiva, conjurar munição |
+| **Inteligência** | elemental (fogo/gelo/terra/raio/morte), arcano, controle mágico |
+| **Espírito** | potência de cura e luz (todos conjuram; Esp manda na força) |
+
+**Exceções (trancadas, ignoram o atributo):**
+- **Magias assinatura de classe** — o núcleo identitário (rito + capstones T3). Só aquela classe compra.
+- **Sagrado** — trancado no **Priest**: fé é *ordenação*, não atributo. Esp alto cura forte, mas o dano sagrado anti-profano é do ordenado.
+
+**Taxonomia (substitui "Comuns vs Únicas"):** **Universais** (aprendíveis por qualquer classe, gate baixo/nenhum) · **Por afinidade** (a maioria, gate por atributo) · **Assinatura de classe** (trancadas). *(Eixo ortogonal: a **fonte** — NPC/drop/quest — é independente do requisito; ver Camada Sólida.)*
+
+### Lista de skills por requisito
+
+> Índice mestre (M1 + T2). Slots ✏️ ainda em aberto (criador decide). Fichas detalhadas logo abaixo. (Tier M1 = primeira leva desenhada, **não** "kit inicial" — nada é dado; ver fontes na Camada Sólida.)
+
+| Requisito | Skill | Arquétipo | Uma linha | Tier |
+|---|---|---|---|---|
+| Universal (escala Esp) | **Cura** (*exura*) | cura/sustain | cura mágica instantânea, spammável | M1 |
+| Universal | **Luz** | utilidade/exploração | ilumina ao redor por Xs | M1 |
+| Universal | *Disparada* | mobilidade | burst de velocidade | M1 |
+| Universal | *Primeiros Socorros* | sustain (sem mana) | cura canalizada não-mágica | M1 |
+| Universal | *Arremesso* | dano/distância | projétil físico fraco (pull/finisher) | M1 |
+| For + lvl | *Golpe Forte* | dano melee | burst com a arma equipada | M1 |
+| For + lvl | *Investida* | mobilidade+controle | charge até o alvo + atordoamento | T1 |
+| For + lvl | *Redemoinho* | dano AoE | golpe ao redor de si | T2 |
+| Vit + lvl | *Grito de Guerra* | controle/taunt | força agro em área (tank) | T1 |
+| Vit + lvl | **Baluarte** ✏️ | defesa ativa | janela de redução de dano / bloqueio | T1 ✏️ |
+| For/Vit | (Knight 5º ✏️) | sustain ou cone | ✏️ a decidir | ✏️ |
+| Des + lvl | *Apunhalar* | dano melee posicional | backstab (~2× pelas costas) | M1 |
+| Des + lvl | *Lâmina Envenenada* | buff/DoT | ataques aplicam veneno por Xs | T1 |
+| Des + lvl | **Conjurar Flechas** | utilidade/recurso | mana alta → flechas temporárias (alivia o sink de gold do arqueiro) | T1 |
+| Des + lvl | **Furtividade** ✏️ | utilidade/mobilidade | esgueirar breve, garante uma abertura de backstab | T1 ✏️ |
+| Des + lvl | (Rogue 5º ✏️) | controle/utilidade | armadilha no chão **ou** farejar/marcar alvo | ✏️ |
+| Int + lvl | *Bola de Fogo* | dano (fogo + DoT) | projétil que queima | M1 |
+| Int + lvl | *Lança de Gelo* | dano + controle (gelo) | linha perfurante + lentidão | M1 |
+| Int + lvl | *Muralha* | controle/utilidade | bloqueia um corredor (jogada-de-veterano) | T1 |
+| Int + lvl | *Barreira Arcana* | defesa | mana absorve dano no lugar do HP | T1 |
+| Int + lvl | (Mage 5º ✏️) | utilidade ou 3º elemento | blink curto **ou** raio (beam) | ✏️ |
+| Int + lvl | *Onda de Chamas* | dano (fogo, wave) | cone estilo Tibia | T2 |
+| Int + lvl | *Nevasca* | controle (gelo, campo) | área contínua de gelo no chão | T2 |
+| Int + lvl | *Terra / Raio / Morte* | dano/controle | demais elementos do leque do mago | T2 |
+| Esp + lvl | **Purificar** ✏️ | sustain/cleanse | cura veneno e debuffs | T1 ✏️ |
+| **Assinatura Priest** (sagrado) | *Luz Sagrada* | dano sagrado | smite anti-profano (nuke solo vs undead) | M1 |
+| **Assinatura Priest** (sagrado) | *Curar Ferimentos* | cura grande | cura forte self/aliado | M1 |
+| **Assinatura Priest** | *Escudo Sagrado* | defesa | barreira em si/aliado | T1 |
+| **Assinatura Priest** | *Consagrar* | zona/controle | área sagrada no chão (dano a profanos) | T1 |
+| **Assinatura Priest** | *Punhos da Fé* | melee desarmado sagrado | porta de entrada do Caminho Monge | T2 |
+
+### Universais (qualquer classe — gate baixo/nenhum)
+
+#### Cura (estilo *exura*) — ✏️ nome (Loremaster)
+- **Tipo:** cura instantânea (self / aliado)
+- **Arquétipo:** sustain
+- **Requisito:** universal (gate baixo) · **escala com Espírito** — todos conjuram, o Priest cura muito mais
+- **Custo / cooldown:** mana baixa / curto — a cura *spammável* do dia a dia
+- **Distinção das vizinhas:** *Primeiros Socorros* = canalizada, **sem mana**, cancela ao tomar hit; **esta** = mágica, **instantânea**, custa mana; *Curar Ferimentos* = a cura grande (assinatura Priest). O eixo é **mecanismo**, não degrau de número.
+- **Perfis rastreados:** self vs aliado · HP no momento do uso · em combate vs fora
+- **Mutações:**
+  1. maioria em HP crítico → **Reflexo Vital** — cura muito maior quando quase morto
+  2. maioria fora de combate → **Recuperação** — deixa um regen leve após o cast
+  3. maioria em aliados → **Mãos Generosas** — pinga um pouco no caster / salta para aliado próximo
+
+#### Luz (estilo *utevo lux*) — ✏️ nome
+- **Tipo:** utilidade
+- **Arquétipo:** exploração
+- **Requisito:** universal (gate nenhum)
+- **Custo / cooldown:** baixos
+- **Efeito base:** emite luz ao redor do caster por Xs ✏️
+- **Por que importa:** escuridão vira recurso de verdade (pilar 1/4) — caverna escura é perigo legível e a luz é a ferramenta. Cria tensão com os Caminhos noturnos do Rogue (*Filho da Noite* **abre mão** da luz).
+- **Perfis rastreados:** tempo em escuridão · exploração vs combate
+- **Mutações:**
+  1. muito uso em escuridão prolongada → **Luz Duradoura** — raio e duração maiores
+  2. maioria em combate → **Lampejo** — ao conjurar, breve cegueira em inimigos adjacentes
+
 
 #### Disparada
 - **Tipo:** utilidade (burst de velocidade por ~2s ✏️)
@@ -383,11 +474,13 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
   1. maioria em alvos fugindo → **Caçador** — aplica slow
   2. maioria como golpe final → **Pontaria Cruel** — dano enorme vs alvos < 15% HP
 
-✏️ _mais comuns a definir (provocar? foco/meditação?)_
+✏️ _mais universais a definir — candidato: **Foco/Meditação** (regen de mana canalizado fora de combate). "Provocar" saiu daqui: virou **Grito de Guerra** (Vit, taunt em área)._
 
-### Kit inicial — as 6 skills únicas do M1
+### Fichas detalhadas — primeiras skills (M1)
 
-#### Golpe Forte (Knight)
+> **Não é "kit inicial"** — ninguém começa com elas; são só as primeiras desenhadas. Requisito no modelo de gating acima: sagrado (*Luz Sagrada*, *Curar Ferimentos*) = assinatura Priest; o resto = atributo + nível (Golpe Forte→For, Bola/Lança→Int, Apunhalar→Des). Fonte (NPC/drop/quest) ✏️ na fatia.
+
+#### Golpe Forte (For)
 - **Tipo:** melee ativo (alvo selecionado)
 - **Elemento/tags:** físico, arma
 - **Custo / cooldown:** ✏️ mana baixa / ~6s
@@ -398,7 +491,7 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
   2. maioria logo após bloquear → **Riposte** — após bloqueio, próximo Golpe Forte é instantâneo e crítico
   3. maioria como golpe final → **Lâmina do Fim** — dano massivo vs alvos abaixo de 20% HP
 
-#### Bola de Fogo (Mage)
+#### Bola de Fogo (Int)
 - **Tipo:** projétil
 - **Elemento/tags:** fogo, queimadura (DoT)
 - **Custo / cooldown:** ✏️
@@ -409,7 +502,7 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
   2. maioria à queima-roupa → **Eclosão Ígnea** — explosão centrada no caster, empurra inimigos
   3. maioria em alvos já queimando → **Fogo Voraz** — reacende e espalha a queimadura em área
 
-#### Lança de Gelo (Mage)
+#### Lança de Gelo (Int)
 - **Tipo:** projétil perfurante (linha)
 - **Elemento/tags:** gelo, lentidão
 - **Custo / cooldown:** ✏️
@@ -420,7 +513,7 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
   2. maioria atravessando 2+ alvos → **Geada Perfurante** — perfura tudo na linha, slow maior por alvo atravessado
   3. maioria com inimigo adjacente (defensivo) → **Muralha de Inverno** — congela brevemente inimigos ao redor do caster
 
-#### Apunhalar (Rogue)
+#### Apunhalar (Des)
 - **Tipo:** melee posicional
 - **Elemento/tags:** físico, posicional
 - **Custo / cooldown:** ✏️
@@ -430,6 +523,17 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
   1. maioria pelas costas → **Hemorragia** — abre ferida que sangra (DoT físico forte)
   2. maioria como abertura (alvo com HP cheio) → **Golpe Súbito** — dano enorme no primeiro golpe do combate
   3. maioria em alvos envenenados → **Lâmina Suja** — espalha e potencializa o veneno no alvo
+
+#### Conjurar Flechas (estilo *exevo con*)
+- **Tipo:** conjuração
+- **Arquétipo:** utilidade / recurso
+- **Requisito:** Des + lvl ✏️ (afinidade arqueiro)
+- **Custo / cooldown:** **mana alta** / médio — o custo de mana é o "preço" da munição
+- **Efeito base:** cria uma pilha de **flechas temporárias** (expiram em Xs ou ao deslogar ✏️). Função econômica: **alivia o sink de gold do arqueiro** sem zerá-lo (mana ≠ infinito; comprar flecha ainda vale quando se quer poupar mana). Não é dano — é logística.
+- **Perfis rastreados:** flechas conjuradas vs compradas · % da munição gasta que veio de conjuração
+- **Mutações:**
+  1. uso quase total via conjuração (raramente compra) → **Aljava Infinita** — rende mais flechas por cast / custo de mana menor
+  2. ✏️ maioria conjurada sob pressão (em combate, mana baixa) → **Flecha de Emergência** — conjura instantâneo um punhado, cooldown próprio
 
 #### Luz Sagrada (Priest)
 - **Tipo:** projétil/smite
@@ -454,31 +558,21 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
   2. maioria em self com HP < 20% → **Último Suspiro** — cura muito mais forte quando quase morto
   3. maioria em combate → **Prece de Guerra** — curar emite pulso de dano sagrado em profanos adjacentes
 
-### Roster planejado — tier intermediário (✏️ fichas completas no M3)
+### Roster T1/T2 — fichas completas no M3
 
-| Classe | Skill | Uma linha |
-|---|---|---|
-| Knight | *Investida* | charge até o alvo, breve atordoamento |
-| Knight | *Grito de Guerra* | provoca/força agro em área (tank de grupo no online) |
-| Knight | *Redemoinho* | golpe em área ao redor de si |
-| Mage | *Onda de Chamas* | wave cônica estilo Tibia |
-| Mage | *Nevasca* | área contínua de gelo no chão |
-| Mage | *Barreira Arcana* | escudo que consome mana no lugar de HP |
-| Rogue | *Passo das Sombras* | reposiciona instantaneamente atrás do alvo |
-| Rogue | *Lâmina Envenenada* | buff: ataques aplicam veneno por Xs |
-| Rogue | *Leque de Facas* | cone de projéteis curto |
-| Priest | *Escudo Sagrado* | barreira em si/aliado |
-| Priest | *Consagrar* | área sagrada no chão (dano a profanos, ✏️ cura aliados?) |
-| Priest | *Punhos da Fé* | melee **desarmado** sagrado — a porta de entrada do Caminho Monge |
+> O índice completo (M1 + T1 + T2, com requisito de cada uma) vive na **Lista de skills por requisito** acima. As T1/T2 já listadas lá ganham ficha detalhada no M3.
+>
+> **Removidas (jun/2026):** *Passo das Sombras* (sobrepunha o Apunhalar — blink-pras-costas vs backstab eram a mesma jogada) e *Leque de Facas* (kit do Rogue já tinha dano demais; deu lugar a recurso/furtividade).
 
 **Template para novas skills:**
 
 ```
 ### <Nome>
-- Classe(s): <ou "comum">
 - Tipo: <projétil / área / wave (estilo Tibia) / buff / cura / melee / utilidade>
+- Arquétipo: <dano / controle / defesa / sustain / mobilidade / utilidade-recurso>
 - Elemento/tags: <fogo, gelo, sagrado… — alimentam Caminhos de estilo>
-- Requisitos de compra: <classe, nível, gold, NPC/tier de acesso>
+- Requisito: <universal | atributo + nível (For/Vit/Des/Int/Esp) | assinatura de classe>
+- Fonte: <NPC (espalhado) | drop de mob (tomo) | NPC+drop | quest> — placement concreto ✏️ na fatia
 - Custo / cooldown: <>
 - Efeito base: <>
 - Perfis de uso rastreados: <distância, alvo queimando, HP do caster…>
@@ -500,6 +594,10 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
 
 ## Aberto / a decidir ✏️
 
+- [ ] **Slots de skill abertos** (decidir antes das fichas T1): **Knight 5º** (sustain ou cone frontal — Baluarte já proposto p/ defesa); **Mage 5º** (utilidade tipo blink/teleporte **ou** já abrir um 3º elemento como beam de raio); **Rogue 4º/5º** (Furtividade proposta; 5º = armadilha **ou** farejar/marcar alvo)
+- [ ] **Fonte de cada skill** (qual é NPC / drop-only / NPC+drop / quest, e ONDE no mapa) — world-design, nas specs de fatia (`design/fatia-1-alvorada/` NPCS/ITENS-LOOTS)
+- [ ] **Quais magias são "assinatura" trancada** além do sagrado (cada classe mantém 1–2 identitárias?) vs tudo o mais por atributo — confirmar a lista
+- [ ] **Limite de uso do kit híbrido**: nº de slots na skill bar + custo de mana/cooldown como freio (Balancista) — garantir que "todo mundo aprende tudo se tiver atributo" não vire bag-of-everything
 - [ ] Números reais de thresholds (calibrar com tempo médio de kill/uso quando o combate existir) — inclui thresholds dos níveis II/III de Marca
 - [ ] Quebrar conduta **antes** de adquirir: perde a chance para sempre (NetHack) ou só zera o progresso? (pós-aquisição já decidido: permanente)
 - [ ] Mutação substitui ou convive com a skill original? (proposta: substitui)
@@ -513,6 +611,10 @@ Toda skill nasce **já preparada para o sistema**: com tags e contadores definid
 
 ### Decididos recentemente (histórico)
 
+- ✅ **Sem kit inicial — nenhuma skill é dada** (jun/2026): rito dá só a arma; aquisição **espalhada pelo mundo** (NPC / drop de mob / NPC+drop / quest raríssima). Skill vira loot/descoberta (pilares 1/3/4).
+- ✅ **Tomo de skill = tradeable + guardável** (jun/2026): possuir/negociar sem gate; aprender (consome, permanente) exige atributo+nível; sem requisito, guarda até poder. Cria mercado de tomos.
+- ✅ **Skills gateadas por requisito (atributo + nível), não por classe** (jun/2026, modelo PoE-gems) — anda com o custo-crescente; assinatura de classe + sagrado (Priest) são as exceções trancadas. Gate de uso = cooldown (Apogea), mana secundária.
+- ✅ Universais novas: **Cura** (*exura*, escala Esp) e **Luz** (exploração) — qualquer classe. Rogue ganhou **Conjurar Flechas** (mitiga gold do arqueiro); saíram *Passo das Sombras* e *Leque de Facas*.
 - ✅ Custo de pontos crescente por faixa (RO-style); efeito do ponto constante
 - ✅ Mitigação 100% de itens (defesa física + resist. mágica) — Espírito perdeu resist. mágica
 - ✅ Crítico sem roll passivo — só efeito explícito (skills/Mutações/Caminhos), ×2 padrão ✏️

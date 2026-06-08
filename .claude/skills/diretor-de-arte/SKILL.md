@@ -55,7 +55,7 @@ Você é o diretor de arte do projeto. Função tripla: **gerar** (PixelLab API 
 **Exibição SEMPRE 1:1; escala fracionária (`scale.set(0.66)` etc.) é PROIBIDA** — mistura tamanhos de pixel na mesma cena (*mixels*). Escala só inteira (2× boss temporário) e raríssima.
 
 - **Canvas padrão de criatura: 64×64** (e o /rotate só aceita 16/32/64/128). A **figura** dentro do canvas é desenhada no tamanho natural da criatura — tamanho relativo vem do DESENHO, não de escala de render (modelo Tibia). Sprites menores herdados (40/48) são padded a 64 sem resample.
-- **Tabela de figuras** (✏️ criador; "escala mob × player MUITO bem pensada" é exigência dele): rato ~28 · morcego ~36 (asas) · goblin ~40 · char/humano ~46 · lobo ~46 compr. · javali ~50 · orc ~52 · troll ~58 · boss/dragão 64+ ou multi-tile 96–128.
+- **Guia de proporções** (pesquisa Tibia/Apogea, aprovado jun/2026; "escala mob × player MUITO bem pensada" é exigência do criador): **char = ~48px de figura (1.5 tile, estilo Apogea) = 1.0**. Critter 0.5–0.6 · voador pequeno 0.7–0.8 · humanoide pequeno 0.9–1.0 · besta média 0.9–1.1 · elite/named 1.2–1.5 · boss 2.0+ (multi-tile 96–128). Toda criatura nova declara a categoria ANTES de gerar; mock de escala 1:1 com os vivos aprovados antes de integrar.
 - Objetos altos: árvores 64×96 (futuro 128 se o cenário "crescer"). Tiles 32×32.
 - Exceção transitória ÚNICA: knight 64@0.66 até a regen 1:1 (task da fase outfit).
 - **Antes de integrar qualquer criatura nova: mock de escala 1:1 com os vivos já aprovados lado a lado** → aprovação do criador.
@@ -64,6 +64,23 @@ Você é o diretor de arte do projeto. Função tripla: **gerar** (PixelLab API 
 
 - `src/client/assets/img/` (APROVADOS): `chars/<nome>/` · `mobs/<nome>/` · `scenery/` · `tiles/`. Frames: `s0..s3, n0..n3, e0..e3` (W = flip de E no client), máscaras `mask_<dir><frame>.png`. Cada mob terá 8+ imagens (walk + attack + skills) — 1 pasta por criatura SEMPRE.
 - `design/pixellab-candidatos/` (STAGING, gitignored): `mobs/<nome>/` (com `gen/` para saída bruta da API) · `chars/` · `style-kit/` (refs de geração: knight1, rato-v2, árvore) · `tiles/`. **Limpar candidatos reprovados após cada curadoria** — só o aprovado fica.
+
+### 🧍 METODOLOGIA DE PERSONAGEM (travada jun/2026 — após a semana de retrabalho do knight)
+
+**Lições pagas caro:** animação custom por texto re-inventa por direção (lança ao contrário, brilhos) — NUNCA usar; trocar de método a cada defeito multiplica bugs — re-rolar o MESMO método; construir em cima de base não-auditada contamina tudo (o walk antigo tinha 1.171 cores de ruído); "gerar personagem" não é tarefa recorrente.
+
+**A receita única (não desviar):**
+1. **Estático canônico aprovado** (curadoria do criador) — paleta limpa (~90 cores), virado pro SUL. É a fonte da verdade eterna.
+2. `create-character-v3` com o estático como `reference_image` (1 gen = 8 rotações).
+3. **QA das 8 rotações NO OLHO** — o v3 rotula direção errado às vezes; classificar e remapear ANTES de animar.
+4. Walk: `/characters/animations` template `walking-4-frames` nas direções visuais S/E/N (W = flip no client). Direção ruim = **re-rolar o MESMO template** (foi seed), não trocar de método.
+5. **Palette-snap** de cada frame pras cores do estático canônico (mata ruído de AA deterministicamente) + recorte 64 com janela fixa por direção (âncora no pé).
+6. **QA por frame individual** antes de integrar — nenhum artefato vira base de outro sem passar no olho.
+7. **Congelar**: corpo aprovado nunca mais é re-gerado. Peças/dye em cima (paper-doll); skins = corpos novos pela mesma receita.
+
+**Ataques e skills = APRESENTAÇÃO POR CÓDIGO** (lunge ~100ms + flash de hit + partícula/projétil — modelo Tibia): esqueleto humanoide do PixelLab não tem ataque com arma, e custom é loteria. Template de ataque só onde o esqueleto tem (ex.: jump-attack de quadrúpede).
+
+**Peças (paper-doll)**: inpaint **EM TIRA** (4 frames concatenados 256×64 + máscara em tira, 1 chamada/direção — consistência entre frames por construção; inpaint = 0 gens). Peça de cabeça: medir se é estática+offset antes de gerar por frame. Fabricar via script determinístico (`tools/paperdoll-gen.mjs`), criador aprova contact sheet.
 
 ### O mecanismo de coerência (a regra mais importante)
 
@@ -79,11 +96,11 @@ Você é o diretor de arte do projeto. Função tripla: **gerar** (PixelLab API 
 | Categoria | Endpoint | Nota |
 |---|---|---|
 | Candidato estático (qualquer coisa) | `POST /generate-with-style-v2` | style_images = aprovados; barato; é o que vai pra curadoria |
-| Char/mob aprovado → direções | `POST /create-character-with-4-directions` (ou `-v3` p/ 8) | `template_id` animal ('dog','cat','bear'…) p/ quadrúpedes; async → poll `/background-jobs/{id}`; export `/characters/{id}/zip` |
-| Animação (walk/attack/idle) | `POST /characters/animations` · `/animate-with-text-v3` | só DEPOIS da curadoria aprovar o estático |
+| Char/mob aprovado → direções | `POST /create-character-v3` (1 gen = 8 rotações; ref SUL obrigatória — `/rotate` antes se preciso, só 16/32/64/128px) | `template_id`: mannequin / dog / cat / bear / horse / lion; async → poll `/background-jobs/{id}`; export `/characters/{id}/zip` |
+| Animação (walk/attack/idle) | `POST /characters/animations` — template (~2 gens/direção) ou v3 custom via `action_description` (~1-2/dir) | só do APROVADO; gerar S,N,E (W = flip). ⚠️ v3 RÓTULA direções errado às vezes — classificar as 8 rotações NO OLHO e remapear; walk de quadrúpede = `walk-4-frames`, mannequin = `walking-4-frames`; mannequin NÃO tem ataque com arma → v3 custom ("thrusting spear attack"); identificar animação no zip via `GET /characters/{id}` (animation_type + group_id[:8] = sufixo da pasta `animating-*`) |
 | Objetos de mapa (baú, carrinho, poço…) | `POST /map-objects` | `background_image` = screenshot do mapa p/ style matching in-loco |
 | Tilesets com transição | `POST /create-tileset` (async) | lower/upper terrain + `transition_size` — MUITO melhor que tile solto; Wang-style |
-| Troca de peça de outfit | `POST /transfer-outfit-v2` | substitui o plano antigo de inpaint manual por zonas |
+| Peças de outfit (paper-doll) | `POST /inpaint` — **CUSTO 0 gens no plano!** | motor VALIDADO jun/2026: zona fixa por corpo (`candidatos/chars/zones/`) + inpaint por frame (corpo congelado fora da zona) → peça = conteúdo da zona no resultado (não só o diff!) → camada tintável por LUT de luminância, sem vazar, sem piscar. Guarda-roupa cresce DE GRAÇA. Tint por máscara no sprite inteiro: MORTO (não reativar) |
 | UI | `POST /generate-ui-v2` | usar com parcimônia — UI do jogo é clean/procedural por decisão |
 
 ### Fluxo completo (nenhum passo é pulável)

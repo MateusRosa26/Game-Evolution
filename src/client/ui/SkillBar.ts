@@ -1,6 +1,7 @@
 import { Container, Graphics, Text } from "pixi.js";
 import type { KnownSkillState } from "../../shared/protocol";
 import { skillMeta } from "./skillMeta";
+import { UI } from "./theme";
 
 /**
  * Barra de skills (estilo Tibia/MMO, embaixo-centro). Um slot por skill
@@ -138,8 +139,9 @@ export class SkillBar {
     const count = Math.min(this.skills.length, MAX_SLOTS);
     const totalW = count > 0 ? count * SLOT + (count - 1) * GAP : 0;
     const startX = Math.round((this.screenW - totalW) / 2);
-    // logo acima da margem inferior, sem cobrir o painel de HP/MP à esquerda
-    const y = this.screenH - SLOT - 14;
+    // Empilhada DIRETAMENTE acima do bloco central de HP/MP (reserva ~76px),
+    // formando um único cluster centralizado (estilo Apogea).
+    const y = this.screenH - SLOT - 76;
 
     for (let i = 0; i < MAX_SLOTS; i++) {
       const slot = this.slots[i];
@@ -154,10 +156,10 @@ export class SkillBar {
       const meta = skillMeta(ks.id);
 
       slot.bg.clear();
-      slot.bg.roundRect(0, 0, SLOT, SLOT, 5).fill({ color: 0x12151d, alpha: 0.92 });
+      slot.bg.roundRect(0, 0, SLOT, SLOT, 5).fill({ color: UI.slotBgItem, alpha: 0.96 });
       // faixa de cor da skill no topo (identidade visual)
       slot.bg.roundRect(0, 0, SLOT, 6, 5).fill({ color: meta.color, alpha: 0.85 });
-      slot.bg.roundRect(0, 0, SLOT, SLOT, 5).stroke({ color: 0x3a4254, width: 1.5 });
+      slot.bg.roundRect(0, 0, SLOT, SLOT, 5).stroke({ color: UI.slotBorderItem, width: 1 });
 
       slot.glyph.text = meta.glyph;
       slot.glyph.style.fill = meta.color;

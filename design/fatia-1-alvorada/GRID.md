@@ -129,7 +129,7 @@ Linhas tracejadas do v4. Saem dos 4 portões:
 | **Beco dos Ladinos** | Cais | entrada `(52,38)`; esconderijo `(54,40)`✏️ | Vincente "Gralha" — R3 (Rogue): "terceira pedra contando da sarjeta" |
 | **Armazéns** | Cais | `(50,46)` | flavor; ✏️ |
 | **Balsa (FECHADA)** | Cais, à água | `(58,48)` | promessa macro: Pontal na outra margem; gancho Q4 |
-| **Casa inicial (tutorial)** | Baixa ✏️ | `(28,46)` ✏️ | **nascimento** (`DESIGN-MUNDO.md` §casa inicial): NPC-guia + containers domésticos (Gibão Roto, Botas Surradas, Espada Cega, Sacola de Pano) + 1ª chave abre a porta de saída |
+| **Casa inicial (tutorial)** | Baixa ✏️ | `(28,46)` ✏️ | **nascimento** (`design/mundo/EXPLORACAO.md` §casa inicial): NPC-guia + containers domésticos (Gibão Roto, Botas Surradas, Espada Cega, Sacola de Pano) + 1ª chave abre a porta de saída |
 
 ### 3.4 Hortas e feira (forrageio leve / flavor)
 - **Hortas** junto ao portão Sul: `[16..24]×[50..56]` — forrageio (morangos/colheita, `ITENS-LOOTS.md` §comida).
@@ -163,7 +163,7 @@ cy  +----+----+----+----+----+----+----+----+
 
 ## 4. NPCs da fatia (nome · papel · posição)
 
-> Elenco de `QUESTS.md` + `ITENS-LOOTS.md`. Posições em **coord-cidade** salvo indicação. Distribuição: cluster de utilidade na Baixa, sussurradores/compradores espalhados (`DESIGN-MUNDO.md` §distribuição urbana). Nomes batizados pelo Loremaster (jun/2026).
+> Elenco de `QUESTS.md` + `ITENS-LOOTS.md`. Posições em **coord-cidade** salvo indicação. Distribuição: cluster de utilidade na Baixa, sussurradores/compradores espalhados (`design/mundo/SISTEMA-NPCS.md` §distribuição urbana). Nomes batizados pelo Loremaster (jun/2026).
 
 | NPC | Papel | Distrito | Posição ✏️ | Quests / comércio |
 |---|---|---|---|---|

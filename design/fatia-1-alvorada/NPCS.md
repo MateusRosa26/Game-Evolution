@@ -1,6 +1,6 @@
 # Fatia ① Alvorada — Elenco de NPCs
 
-> Batismo aprovado pelo criador (Loremaster, jun/2026). **Nomes próprios = invariantes** (iguais em EN/PT), seguindo a regra revisada de DESIGN-MUNDO: **base universal** (fácil pra qualquer língua — Abel, Marco, Gabriel, Silas, Nina…) **+ tempero lusófono seletivo** na velha guarda (Bartolo, Amaro, Bento, Duarte, Telmo…). Critério: um americano lê em voz alta sem travar. Este elenco é o **piloto da regra** (~⅓ luso / ⅔ universal). Papéis conforme `DESIGN-MUNDO.md` §NPCs. Vozes = rascunho de intenção (✏️ falas finais com as fichas completas). Fichas completas (keywords secretas, rumores por camada) = próxima leva, junto do grid.
+> Batismo aprovado pelo criador (Loremaster, jun/2026). **Nomes próprios = invariantes** (iguais em EN/PT), seguindo a regra revisada de DESIGN-MUNDO: **base universal** (fácil pra qualquer língua — Abel, Marco, Gabriel, Silas, Nina…) **+ tempero lusófono seletivo** na velha guarda (Bartolo, Amaro, Bento, Duarte, Telmo…). Critério: um americano lê em voz alta sem travar. Este elenco é o **piloto da regra** (~⅓ luso / ⅔ universal). Papéis conforme `design/mundo/SISTEMA-NPCS.md` §NPCs. Vozes = rascunho de intenção (✏️ falas finais com as fichas completas). Fichas completas (keywords secretas, rumores por camada) = próxima leva, junto do grid.
 
 ## O elenco
 

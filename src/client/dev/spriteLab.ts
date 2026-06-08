@@ -7,6 +7,8 @@
 import { Application, Container, Sprite, Text, TextureStyle, type Texture } from "pixi.js";
 import { OUTFIT_COLORS, OUTFIT_PARTS, OUTFIT_SETS } from "../../shared/outfits";
 import { outfitTextures } from "../assets/outfit/compose";
+import { paperdollTextures } from "../assets/outfit/paperdoll";
+import { loadPixellabAssets, PIXELLAB } from "../assets/pixellab";
 import { createSprites } from "../assets/sprites";
 
 TextureStyle.defaultOptions.scaleMode = "nearest";
@@ -27,9 +29,10 @@ function setOutfit(set: string, colors: { head: number; torso: number; legs: num
 
 async function main() {
   const app = new Application();
-  await app.init({ width: 1340, height: 2400, background: 0x0a0c10 });
+  await app.init({ width: 1340, height: 7200, background: 0x0a0c10 });
   document.body.appendChild(app.canvas);
 
+  await loadPixellabAssets();
   const sprites = createSprites();
   const root = new Container();
   app.stage.addChild(root);
@@ -46,9 +49,12 @@ async function main() {
         bgSprite.width = CELL / 2;
         bgSprite.height = CELL / 2;
         tile.addChild(bgSprite);
-        const spr = new Sprite(textures[facing][f]);
-        spr.scale.set(SCALE / 2);
-        spr.position.set(CELL / 4 - 16 * (SCALE / 2) / 2, CELL / 4 - 16 * (SCALE / 2) / 2);
+        const tex = textures[facing][f];
+        const spr = new Sprite(tex);
+        // Escala inteira que caiba na célula (procedural 32 → 4x; PixelLab 64 → 2x)
+        const sc = Math.max(1, Math.floor((CELL / 2 - 8) / Math.max(tex.width, tex.height)));
+        spr.scale.set(sc);
+        spr.position.set((CELL / 2 - tex.width * sc) / 2, CELL / 2 - tex.height * sc - 2);
         tile.addChild(spr);
         tile.position.set(8 + col * (CELL / 2 + 6), 40 + rowIndex * (CELL / 2 + 52));
         root.addChild(tile);
@@ -78,7 +84,19 @@ async function main() {
     const weapon = set === "knight" || set === "ouro" || set === "vigilia" ? "espada_curta" : null;
     row(`SET: ${OUTFIT_SETS[set]}`, outfitTextures(setOutfit(set, colors), weapon));
   }
-  row("RATO LANHOSO (referência)", sprites.rat);
+  // PAPER-DOLL: corpo base + peças tintadas pela cor do set (o sistema real do jogo)
+  for (const [set, colors] of Object.entries(setColors)) {
+    row(`PAPER-DOLL: ${OUTFIT_SETS[set]}`, paperdollTextures(setOutfit(set, colors)));
+  }
+  if (PIXELLAB.knightAttack) row("CHAR ATTACK (base)", PIXELLAB.knightAttack);
+
+  row("RATO LANHOSO (procedural/fallback)", sprites.rat);
+  // Mobs PixelLab (norma 1:1) — walk + attack de tudo que o loader descobriu
+  for (const [species, textures] of Object.entries(PIXELLAB.mobs)) {
+    row(`MOB: ${species}`, textures);
+    const atk = PIXELLAB.mobAttacks[species];
+    if (atk) row(`MOB: ${species} — ATTACK`, atk);
+  }
 
   // Vitrine de recolor: o MESMO peitoral knight em 8 cores da grade
   const showcaseY = 40 + rowIndex * (CELL / 2 + 52);

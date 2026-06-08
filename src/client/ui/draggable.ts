@@ -10,6 +10,9 @@ export function makeDraggable(
   container: Container,
   headerH: number,
   onMoved: (x: number, y: number) => void,
+  /** Opcional: além de estar no header, o ponto local precisa passar nisto
+   *  (ex.: chat arrasta só na área vazia à direita das abas). */
+  canStart?: (local: { x: number; y: number }) => boolean,
 ): void {
   let dragging = false;
   let offX = 0;
@@ -19,6 +22,7 @@ export function makeDraggable(
   container.on("pointerdown", (e: FederatedPointerEvent) => {
     const local = container.toLocal(e.global);
     if (local.y > headerH) return; // só a barra de título arrasta
+    if (canStart && !canStart(local)) return; // ex.: não arrastar sobre as abas
     dragging = true;
     offX = e.global.x - container.position.x;
     offY = e.global.y - container.position.y;

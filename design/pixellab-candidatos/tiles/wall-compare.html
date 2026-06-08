@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf8">
+<title>Muralha — procedural vs material PixelLab</title>
+<style>
+  body { background:#1a1d24; color:#cdd3dc; font:14px system-ui; margin:24px; }
+  .row { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; }
+  figure { margin:0; background:#22262e; padding:12px; border-radius:8px; }
+  figcaption { margin-bottom:8px; font-size:13px; color:#9aa3af; }
+  img { image-rendering:pixelated; width:640px; display:block; border:1px solid #333; }
+  .heroes img { width:200px; }
+  h2 { margin:24px 0 8px; }
+</style>
+<h1>Muralha — comparação (Ctrl+F5 pra furar cache)</h1>
+<div class="row">
+  <figure>
+    <figcaption><b>A) Procedural</b> — cobble desenhado por código (0 créditos, tinta de graça)</figcaption>
+    <img src="wall-fort.png?v=2">
+  </figure>
+  <figure>
+    <figcaption><b>B) Material PixelLab v1</b> — granito pequeno (uniforme/grid)</figcaption>
+    <img src="wall-stone.png?v=2">
+  </figure>
+  <figure>
+    <figcaption><b>B2) Material PixelLab v2</b> — ashlar grande (busy/repetitivo)</figcaption>
+    <img src="wall-stone-v2.png?v=2">
+  </figure>
+</div>
+
+<h2>Peças-herói PixelLab (avulsas, não tileáveis)</h2>
+<div class="row heroes">
+  <figure><figcaption>portão</figcaption><img src="../structures/muralha/cand-03.png"></figure>
+  <figure><figcaption>torre</figcaption><img src="../structures/muralha/cand-02.png"></figure>
+  <figure><figcaption>desmoronado</figcaption><img src="../structures/muralha/cand-01.png"></figure>
+  <figure><figcaption>bloco+tocha</figcaption><img src="../structures/muralha/cand-00.png"></figure>
+</div>

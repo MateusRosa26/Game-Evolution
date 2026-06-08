@@ -52,6 +52,11 @@ export const PAL = {
   wallBlock: "#3f4754",
   wallJoint: "#1f242d",
 
+  // Enxaimel (casas) — taipa quente dessaturada (vigas reusam woodPost/trunkDark)
+  plasterDark: "#8f836b",
+  plasterBase: "#9c9077",
+  plasterLight: "#a99d82",
+
   // Tocha / fogo
   woodPost: "#3b2c1f",
   woodPostLight: "#4c3a29",
@@ -132,11 +137,13 @@ export const PAL = {
   xpShine: "#e8cf6a", // brilho superior da barra de XP
   levelGold: "#e8cf6a", // texto/level dourado
   badgePulse: "#ffd95a", // badge de pontos livres (pulsa)
-  panelBg: "#12151d", // fundo do painel de personagem
-  panelBorder: "#3a4254", // borda do painel
-  panelHeader: "#1c212c", // faixa de título do painel
-  attrLabel: "#cfc8b4", // rótulo de atributo
-  attrValue: "#e8e4d8", // valor de atributo
+  panelBg: "#141821", // fundo de painel (carvão frio translúcido — estilo Apogea)
+  panelBorder: "#3a4150", // borda fina e discreta (define sem berrar)
+  panelHeader: "#1d2330", // faixa de título (levemente acima do corpo)
+  panelSlot: "#0e121b", // slot vazio (afundado, escuro)
+  panelSlotBorder: "#2c3545", // borda de slot
+  attrLabel: "#9aa3b6", // rótulo (cinza-azulado claro)
+  attrValue: "#f0ece0", // valor (off-white quente)
   btnPlus: "#2e5f38", // botão "+" (verde-musgo)
   btnPlusLight: "#3f7d4a", // topo/brilho do botão "+"
   btnPlusHover: "#4a9156", // botão "+" sob o mouse

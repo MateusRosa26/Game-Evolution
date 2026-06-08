@@ -47,6 +47,8 @@ export interface CreatureTemplate {
   baseStepMs: number;
   /** Respawn após morte, em ticks (20 ticks/s). */
   respawnTicks: number;
+  /** Loot de gold do cadáver (✏️ itens por família/tier — ECONOMIA.md). */
+  loot?: { goldMin: number; goldMax: number };
 }
 
 /**
@@ -68,6 +70,7 @@ export const RATO_LANHOSO: CreatureTemplate = {
   aggroRadius: 6,
   baseStepMs: 220, // ligeiramente mais rápido que o jogador (260)
   respawnTicks: 200, // ~10s
+  loot: { goldMin: 0, goldMax: 1 }, // economia passe 1 (jun/2026): rato 0–1, média ~0,4
 };
 
 /** Registro de templates por espécie — ponto único de lookup. */

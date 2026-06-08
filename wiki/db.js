@@ -47,6 +47,12 @@ const FAMILY_COLORS = {
 const TIER_COLORS = { T1: "#58c878", T2: "#b8c84b", T3: "#ff8c3a", T4: "#e05a4a", T5: "#b04ad8" };
 
 const CLASS_COLORS = { Knight: "#9fb0c8", Mage: "#5a8ae0", Rogue: "#58c878", Priest: "#ffd86a", Comum: "#c8a84b" };
+// Skills são gateadas por requisito (atributo), não por classe — cores por afinidade.
+const REQ_COLORS = {
+  Universal: "#c8a84b", Força: "#d08a6a", Vitalidade: "#9fb0c8",
+  Destreza: "#58c878", Inteligência: "#5a8ae0", Espírito: "#7ad0c0", Sagrado: "#ffd86a",
+};
+const REQS = ["Universal", "Força", "Vitalidade", "Destreza", "Inteligência", "Espírito", "Sagrado"];
 
 // cores por tipo de dano (mesma tabela do DESIGN-VISUAL.md)
 const ELEMENT_COLORS = [
@@ -185,11 +191,28 @@ function parseMutation(raw) {
   return { cond: "", name: "", effect: raw };
 }
 
+// nome de skill cru → nome limpo (tira *, ✏️, "(estilo …)"/"(Class)" e "— nota …")
+const cleanSkillName = (s) =>
+  s.replace(/\*/g, "").replace(/✏️/g, "").replace(/\s*—.*$/, "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+// célula "Requisito" do índice mestre → bucket de afinidade
+function normReq(raw) {
+  const r = raw.toLowerCase();
+  if (/assinatura|sagrad/.test(r)) return "Sagrado";
+  if (/universal/.test(r)) return "Universal";
+  if (/\bdes\b/.test(r)) return "Destreza";
+  if (/\bint\b/.test(r)) return "Inteligência";
+  if (/\besp\b/.test(r)) return "Espírito";
+  if (/\bvit\b/.test(r)) return "Vitalidade";
+  if (/\bfor\b/.test(r)) return "Força";
+  return "—";
+}
+
 export function parseSkills(md) {
   const lines = md.split(/\r?\n/);
   const detailed = [];
-  const planned = [];
-  let group = null; // "comum" | "kit" | "roster" | null
+  const reqByName = {}; // nome(lower) → { name, req, arquetipo, oneLiner, tier }
+  let mode = null;      // "list" | "universal" | "kit" | null
   let cur = null;
   let inMut = false;
   let inFence = false;
@@ -197,39 +220,54 @@ export function parseSkills(md) {
   for (const l of lines) {
     if (/^```/.test(l)) { inFence = !inFence; continue; }
     if (inFence) continue;
-    if (/^## /.test(l)) { group = null; cur = null; continue; }
+    if (/^## /.test(l)) { mode = null; cur = null; continue; }
 
     const h3 = l.match(/^### (.*)$/);
     if (h3) {
       cur = null;
       inMut = false;
-      if (/^Skills comuns/i.test(h3[1])) group = "comum";
-      else if (/^Kit inicial/i.test(h3[1])) group = "kit";
-      else if (/^Roster/i.test(h3[1])) group = "roster";
-      else group = null;
+      const t = h3[1];
+      if (/lista de skills por requisito/i.test(t)) mode = "list";
+      else if (/universais/i.test(t)) mode = "universal";
+      else if (/primeiras skills|kit inicial/i.test(t)) mode = "kit";
+      else mode = null;
       continue;
     }
 
-    if (group === "roster") {
-      // "| Knight | *Investida* | charge até o alvo, breve atordoamento |"
+    // índice mestre: nome → requisito / arquétipo / one-liner / tier
+    if (mode === "list") {
       if (/^\s*\|/.test(l) && !isSep(l)) {
         const cells = splitRow(l);
-        if (cells.length >= 3 && cells[0] !== "Classe") {
-          planned.push({
-            name: cells[1].replace(/\*/g, ""),
-            class: cells[0],
-            oneLiner: cells[2],
-            group: "planejada",
-          });
+        if (cells.length >= 5 && cells[0] !== "Requisito") {
+          const name = cleanSkillName(cells[1]);
+          if (name) {
+            reqByName[name.toLowerCase()] = {
+              name,
+              req: normReq(cells[0]),
+              arquetipo: cells[2].trim(),
+              oneLiner: cells[3].trim(),
+              tier: cells[4].replace(/✏️/g, "").trim(),
+            };
+          }
         }
       }
       continue;
     }
-    if (group !== "comum" && group !== "kit") continue;
 
-    const h4 = l.match(/^#### (.+?)(?:\s+\(([^)]+)\))?\s*$/);
+    if (mode !== "universal" && mode !== "kit") continue;
+
+    const h4 = l.match(/^#### (.+?)\s*$/);
     if (h4) {
-      cur = { name: h4[1].trim(), class: h4[2]?.trim() ?? "Comum", group, fields: {}, mutations: [] };
+      const name = cleanSkillName(h4[1]);
+      const meta = reqByName[name.toLowerCase()] ?? {};
+      cur = {
+        name,
+        class: meta.req ?? (mode === "universal" ? "Universal" : "—"),
+        arquetipo: meta.arquetipo ?? "",
+        group: mode,
+        fields: {},
+        mutations: [],
+      };
       detailed.push(cur);
       inMut = false;
       continue;
@@ -247,6 +285,7 @@ export function parseSkills(md) {
         /custo/i.test(label) ? "custo" :
         /efeito/i.test(label) ? "efeito" :
         /perfis/i.test(label) ? "perfis" :
+        /requisito/i.test(label) ? "requisito" :
         /nota/i.test(label) ? "nota" : null;
       if (key) cur.fields[key] = bullet[2].trim();
       continue;
@@ -255,6 +294,12 @@ export function parseSkills(md) {
     const num = l.match(/^\s+\d+\.\s+(.*)$/);
     if (num && inMut) cur.mutations.push(parseMutation(num[1].trim()));
   }
+
+  // planejadas = entradas do índice em T1/T2 que ainda não têm ficha detalhada
+  const detNames = new Set(detailed.map((d) => d.name.toLowerCase()));
+  const planned = Object.entries(reqByName)
+    .filter(([key, m]) => /^t\d/i.test(m.tier) && !detNames.has(key))
+    .map(([, m]) => ({ name: m.name, class: m.req, oneLiner: m.oneLiner, group: "planejada" }));
 
   return { detailed, planned };
 }
@@ -403,6 +448,8 @@ export function parseItems(md) {
       tipo: (row["Tipo"] ?? row["Slot"] ?? "").replace(/\*\*/g, ""),
       fonte: row["Fonte"] ?? col(row, "aquisição") ?? fonteImplicita,
       bonus: col(row, "bônus", "bonus"),
+      // coluna "Números" (dano @cadência / Def / faixa fixa) — decididos jun/2026
+      nums: col(row, "números", "numeros"),
       nota: row["Nota"] ?? col(row, "leitura") ?? col(row, "constela") ?? row["Papel"] ?? "",
     });
     const it = items[items.length - 1];
@@ -729,10 +776,9 @@ function creatureTable(list, data) {
 // ---------------- Skills & Magias ----------------
 
 function renderSkills($doc, data) {
-  const CLASSES = ["Comum", "Knight", "Mage", "Rogue", "Priest"];
   const GROUPS = [
     ["kit", "Kit inicial (M1)"],
-    ["comum", "Comuns (todas as classes)"],
+    ["universal", "Universais (todas as classes)"],
     ["planejada", "Planejadas (M3)"],
   ];
   const total = data.detailed.length + data.planned.length;
@@ -740,13 +786,13 @@ function renderSkills($doc, data) {
     <header class="db-header">
       <h1>✨ Skills & Magias</h1>
       <p class="db-sub"><strong>${data.detailed.length} skills</strong> com ficha completa + <strong>${data.planned.length} planejadas</strong> (M3).
-        Compradas em NPCs (classe + nível + gold); uso extremo gera <strong>Mutações</strong> — a única forma de upgrade.
+Adquiridas pelo mundo (NPCs espalhados, drops de mob, quests) — <strong>sem kit inicial</strong>. Aprendizado gateado por <strong>atributo + nível</strong> (não por classe — sagrado/assinatura trancados). Uso extremo gera <strong>Mutações</strong> — a única forma de upgrade.
         Fonte: <a href="#/progressao">DESIGN-EVOLUCAO.md</a></p>
     </header>
     <div class="db-toolbar">
       <input class="db-search" type="search" placeholder="Filtrar por nome, efeito, mutação…" value="${esc(sState.q)}" />
-      <div class="filter-row"><span class="filter-label">Classe</span><div class="chips">
-        ${CLASSES.map((c) => chip("classes", c, c === "Comum" ? "Comum (todas)" : c, sState.classes.has(c), CLASS_COLORS[c])).join("")}
+      <div class="filter-row"><span class="filter-label">Requisito</span><div class="chips">
+        ${REQS.map((c) => chip("classes", c, c, sState.classes.has(c), REQ_COLORS[c])).join("")}
       </div></div>
       <div class="filter-row"><span class="filter-label">Grupo</span><div class="chips">
         ${GROUPS.map(([k, label]) => chip("groups", k, label, sState.groups.has(k))).join("")}
@@ -783,9 +829,9 @@ function sRenderBody($doc, data, total) {
   const list = sFiltered(data);
   $doc.querySelector(".db-count").textContent = `${list.length} de ${total} skills`;
   const SECTIONS = [
-    ["kit", "Kit inicial — as 6 skills únicas do M1", "restritas à classe; a identidade do kit"],
-    ["comum", "Skills comuns — todas as classes", "compráveis por qualquer classe em NPCs básicos; também mutam"],
-    ["planejada", "Roster planejado — tier intermediário", "fichas completas no M3"],
+    ["kit", "Kit inicial M1", "fichas detalhadas; gate por atributo (sagrado = assinatura Priest)"],
+    ["universal", "Universais — kit de sobrevivência", "qualquer classe; gate baixo/nenhum"],
+    ["planejada", "Roster T1/T2", "fichas completas no M3"],
   ];
   const html = SECTIONS.map(([g, title, sub]) => {
     const items = list.filter((s) => s.group === g);
@@ -801,13 +847,13 @@ function sRenderBody($doc, data, total) {
 }
 
 function skillCard(s) {
-  const cc = CLASS_COLORS[s.class] ?? "#c8a84b";
+  const cc = REQ_COLORS[s.class] ?? "#c8a84b";
   const f = s.fields;
   const tags = (f.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean);
   return `<article class="skill-card" style="--cc:${cc}">
     <div class="sc-top">
       <h3>${esc(s.name)}</h3>
-      <span class="class-badge">${esc(s.class === "Comum" ? "Comum · todas" : s.class)}</span>
+      <span class="class-badge">${esc(s.class === "Universal" ? "Universal · todos" : s.class)}</span>
     </div>
     <div class="cc-meta">
       ${f.tipo ? `<span class="sc-tipo">${fmt(f.tipo)}</span>` : ""}
@@ -828,7 +874,7 @@ function skillCard(s) {
 }
 
 function plannedCard(s) {
-  const cc = CLASS_COLORS[s.class] ?? "#c8a84b";
+  const cc = REQ_COLORS[s.class] ?? "#c8a84b";
   return `<article class="skill-card planned" style="--cc:${cc}">
     <div class="sc-top">
       <h3>${esc(s.name)}</h3>
@@ -871,8 +917,8 @@ function renderItems($doc, data) {
     <header class="db-header">
       <h1>🎒 Itens & Equipamento</h1>
       <p class="db-sub"><strong>${data.items.length} itens</strong> nos catálogos por tier + <strong>${data.roster.length} tipos de item de mão</strong>.
-        Matriz esparsa (modelo Tibia): cada tier estreia poucas combinações; bônus só em peças do mundo. Números ✏️ Balancista.
-        Fonte: <a href="#/itens">DESIGN-ITENS.md</a></p>
+        Matriz esparsa (modelo Tibia): cada tier estreia poucas combinações; bônus só em peças do mundo. Números T1 decididos (jun/2026); T2 ✏️.
+        Fonte: <a href="#/itens-equipamento">design/itens/EQUIPAMENTO.md</a> · hub: <a href="#/itens">DESIGN-ITENS.md</a></p>
     </header>
     <div class="db-toolbar">
       <input class="db-search" type="search" placeholder="Filtrar por nome, bônus, fonte…" value="${esc(iState.q)}" />
@@ -919,7 +965,7 @@ function iRenderBody($doc, data) {
     if (iState.tiers.size && !iState.tiers.has(i.tier)) return false;
     if (iState.cats.size && !iState.cats.has(i.cat)) return false;
     if (q) {
-      const hay = `${i.name} ${i.en} ${i.tipo} ${i.fonte} ${i.bonus} ${i.nota}`.toLowerCase();
+      const hay = `${i.name} ${i.en} ${i.tipo} ${i.fonte} ${i.bonus} ${i.nums} ${i.nota}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -932,7 +978,7 @@ function iRenderBody($doc, data) {
 
   $doc.querySelector("#db-body").innerHTML = !list.length ? emptyMsg() : `
     <table class="db-table"><thead><tr>
-      <th>Item</th><th>EN</th><th>Tier</th><th>Categoria</th><th>Tipo/Slot</th><th>Fonte</th><th>Bônus / Nota</th>
+      <th>Item</th><th>EN</th><th>Tier</th><th>Categoria</th><th>Tipo/Slot</th><th>Números</th><th>Fonte</th><th>Bônus / Nota</th>
     </tr></thead><tbody>
     ${list.map((i) => {
       const ec = elementColor(i.name + " " + i.bonus);
@@ -942,6 +988,7 @@ function iRenderBody($doc, data) {
       <td><span class="tier-badge" style="--tc:${TIER_COLORS[i.tier] ?? "#8890a0"}">${esc(i.tier)}</span></td>
       <td>${esc(i.cat)}</td>
       <td>${fmt(i.tipo)}</td>
+      <td>${fmt(i.nums)}</td>
       <td>${fmt(i.fonte)}</td>
       <td class="dim">${fmt([i.bonus, i.nota].filter(Boolean).join(" — "))}</td>
     </tr>`; }).join("")}

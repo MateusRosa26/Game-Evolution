@@ -15,6 +15,9 @@ export {
   markSlotsForRarity,
   STARTER_WEAPON_BY_CLASS,
   FISTS_TEMPLATE_ID,
+  GOLD_WEIGHT_PER_COIN,
+  GOLD_WEIGHT_CAP_COINS,
+  goldWeight,
 } from "./templates";
 
 export { type ItemInstance, ItemRegistry } from "./instances";

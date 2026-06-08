@@ -81,6 +81,23 @@ const BUILDINGS: Building[] = [
 type Spot = { id: string; rect: [number, number, number, number]; spawns: [number, number, string][] };
 const SPOTS: Spot[] = [
   {
+    // PLACEHOLDER da Q1 até o mapa do PORÃO (multi-mapa) existir: ratos logo
+    // fora do portão sul (fora da safe zone), ao alcance do Bartolo. ✏️ remover
+    // quando o porão entrar — os ratos passam a viver lá dentro.
+    id: "Porao (placeholder Q1 — fora do portao S)",
+    rect: [114, 139, 126, 147],
+    spawns: [
+      [118, 141, "rato_lanhoso"],
+      [121, 141, "rato_lanhoso"],
+      [116, 143, "rato_lanhoso"],
+      [123, 143, "rato_lanhoso"],
+      [119, 145, "rato_lanhoso"],
+      [122, 145, "rato_lanhoso"],
+      [117, 146, "rato_lanhoso"],
+      [124, 146, "rato_lanhoso"],
+    ],
+  },
+  {
     id: "S1 Planícies (T1)",
     rect: [10, 60, 70, 200],
     spawns: [
@@ -512,12 +529,35 @@ export function generateAlvoradaMap(): MapData {
   // Spawn DENTRO da casa inicial (Rosa, containers domésticos — sistema vem depois)
   const spawn = { x: 128, y: 124 }; // cidade (28,44), acima da porta (28,46)
   torch(126, 122, 6); // lareira da casa — ninguém nasce no breu
-  // Zona segura = cidade intramuros (interior do anel da muralha)
-  const safeZones: MapRect[] = [
-    { x: WALL.x0 + 1, y: WALL.y0 + 1, w: WALL.x1 - WALL.x0 - 1, h: WALL.y1 - WALL.y0 - 1 },
-  ];
+  // Zona segura = SÓ interiores específicos (decidido jun/2026): templo, depot,
+  // casas de player ✏️, barco ✏️. A cidade NÃO é mais toda segura — combate na rua.
+  // Interior = retângulo do edifício menos a parede (rect+1 .. rect-1).
+  const safeBuildings = ["Templo (Gabriel — R4)", "Depot (banco/armazém)", "Casa inicial (Rosa — nascimento)"];
+  const safeZones: MapRect[] = [];
+  for (const b of BUILDINGS) {
+    if (!safeBuildings.includes(b.name)) continue;
+    const [x0, y0] = city(b.rect[0], b.rect[1]);
+    const [x1, y1] = city(b.rect[2], b.rect[3]);
+    safeZones.push({ x: x0 + 1, y: y0 + 1, w: x1 - x0 - 1, h: y1 - y0 - 1 });
+  }
 
-  return { width: W, height: H, tiles, lights, decor, monsters, safeZones, passZones: [], spawn };
+  // NPCs da fatia (elenco NPCS.md — só os necessários pra quest implementada).
+  // Bartolo: Estalagem do Vau, atrás do balcão — city(20,39) → local (120,119).
+  const npcSpawns = [{ npcId: "bartolo", name: "Bartolo", x: 120, y: 119 }];
+
+  return {
+    id: "alvorada",
+    width: W,
+    height: H,
+    tiles,
+    lights,
+    decor,
+    monsters,
+    safeZones,
+    passZones: [],
+    spawn,
+    npcSpawns,
+  };
 }
 
 // ─────────────────────────── helpers de pintura ───────────────────────────
