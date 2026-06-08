@@ -893,7 +893,8 @@ export function createSprites(): SpriteLibrary {
     walls: makeWallTiles(),
     // Esgoto: tileset PixelLab aprovado (jun/2026) quando carregado; fallback procedural.
     sewerFloor: wangFloorVariants("esgoto-chao") ?? [makeDungeonFloor(801, SEWER_FLOOR_PAL), makeDungeonFloor(802, SEWER_FLOOR_PAL), makeDungeonFloor(803, SEWER_FLOOR_PAL)],
-    caveFloor: [makeDungeonFloor(811, CAVE_FLOOR_PAL), makeDungeonFloor(812, CAVE_FLOOR_PAL), makeDungeonFloor(813, CAVE_FLOOR_PAL)],
+    // Caverna: tileset PixelLab ancorado (v3, jun/2026) quando carregado; fallback procedural.
+    caveFloor: wangFloorVariants("caverna-chao") ?? [makeDungeonFloor(811, CAVE_FLOOR_PAL), makeDungeonFloor(812, CAVE_FLOOR_PAL), makeDungeonFloor(813, CAVE_FLOOR_PAL)],
     sewageFrames: makeMurkyWaterFrames(SEWAGE_PAL),
     deepWaterFrames: makeMurkyWaterFrames(DEEPWATER_PAL),
     sewerWalls: makeDungeonWallTiles(820, SEWER_WALL_PAL),

@@ -40,19 +40,21 @@ const SPECS = {
     text_guidance_scale: 8,
     seed: 17,
   },
-  // Chão de caverna v2: re-roll — base TAMBÉM é rocha (v1 saiu chapada com rabisco
-  // repetido); ambos lower/upper = rocha quebrada natural; tile_strength baixo
-  // quebra a repetição óbvia; negativos fortes contra símbolos/motivo.
+  // Chão de caverna v3: ANCORADO na terra do grass-dirt (marrom coerente, já
+  // tileável) + prompt de rocha da v1 (que deu a boa rocha quebrada) +
+  // tile_strength 0.6 pra quebrar a repetição do rabisco da v1.
   "caverna-chao": {
     lower_description:
-      "top-down floor entirely of broken natural cavern rock seen from directly above, jagged uneven grey-brown stone rubble and cracked bedrock filling the whole tile, deep dark crevices between the rocks, scattered loose pebbles, rough organic chaotic rocky surface everywhere, seamless, dark medieval fantasy, flat top view, no perspective, no flat smooth ground, no symbols, no letters, no runes, no repeating motif, no bricks, no grid",
+      "top-down floor of a natural underground cavern seen from directly above, rough uneven bare rock and packed earth, cold dark grey-brown stone with cracks scattered loose pebbles and rubble, organic irregular natural surface, seamless, dark medieval fantasy, flat top view, no perspective, no bricks, no tiles, no straight lines, no grid",
     upper_description:
-      "top-down floor entirely of broken natural cavern rock seen from directly above, lit jagged grey-brown stone with bright highlights on raised rock edges and dark shadowed crevices, scattered rubble and pebbles, rough organic chaotic rocky surface everywhere, seamless, dark medieval fantasy, flat top view, no perspective, no flat smooth ground, no symbols, no runes, no repeating motif, no bricks, no grid",
-    transition_description: "natural chaotic mix of darker and lighter broken cavern rock and rubble",
+      "top-down floor of a natural underground cavern seen from directly above, rough lit rock and packed earth with subtle highlights on raised stone and dark crevices, scattered rubble and pebbles, organic irregular natural surface, seamless, dark medieval fantasy, flat top view, no perspective, no bricks, no grid, no straight lines",
+    transition_description: "natural irregular mix of bare rock and packed dirt with scattered pebbles and rubble",
     transition_size: 0,
-    text_guidance_scale: 7,
-    tile_strength: 0.5,
-    seed: 53,
+    text_guidance_scale: 8,
+    tile_strength: 0.6,
+    seed: 71,
+    lower_reference_image: img("src/client/assets/img/tiles/grass-dirt/wang-1111.png"),
+    upper_reference_image: img("src/client/assets/img/tiles/grass-dirt/wang-1111.png"),
   },
   // v2 do topo do muro: blocos GRANDES de cantaria (ashlar), musgo, mais contraste,
   // menos rigidez de grid (tile_strength baixo) — atacar o "grid pequeno uniforme".
