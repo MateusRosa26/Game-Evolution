@@ -21,3 +21,19 @@ export function hash2D(x: number, y: number, seed = 0): number {
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
+
+/**
+ * Value noise suave (bilinear + smoothstep) em [0,1). Determinístico. Para
+ * agrupamento ORGÂNICO na geração de mapa — bosques com clareiras em vez de
+ * scatter uniforme. `freq` = 1/tamanho-da-célula (freq menor = manchas maiores).
+ */
+export function valueNoise(x: number, y: number, freq: number, seed = 0): number {
+  const gx = x * freq, gy = y * freq;
+  const x0 = Math.floor(gx), y0 = Math.floor(gy);
+  const fx = gx - x0, fy = gy - y0;
+  const s = (t: number) => t * t * (3 - 2 * t);
+  const u = s(fx), w = s(fy);
+  const v00 = hash2D(x0, y0, seed), v10 = hash2D(x0 + 1, y0, seed);
+  const v01 = hash2D(x0, y0 + 1, seed), v11 = hash2D(x0 + 1, y0 + 1, seed);
+  return (v00 * (1 - u) + v10 * u) * (1 - w) + (v01 * (1 - u) + v11 * u) * w;
+}

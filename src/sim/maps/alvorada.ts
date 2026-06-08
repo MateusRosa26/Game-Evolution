@@ -1,6 +1,6 @@
 import { TileId, type FloorLayer, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect } from "../../shared/types";
 import { CREATURES } from "../bestiary";
-import { mulberry32 } from "../rng";
+import { mulberry32, valueNoise } from "../rng";
 
 /**
  * Fatia ① — Alvorada (overworld 340×340).
@@ -250,11 +250,21 @@ export function generateAlvoradaMap(): MapData {
   const treeAt = (x: number, y: number) => {
     if (get(x, y) === TileId.Grass) set(x, y, TileId.Tree);
   };
+  // COMPOSIÇÃO (alavanca #5): árvores se AGRUPAM em bosques com clareiras em vez
+  // de scatter uniforme. grove() ~0.15 na clareira, ~1.9 no miolo do bosque —
+  // multiplica a densidade-alvo de cada zona (mantém o gradiente de perigo, só
+  // dá ritmo: bosque fechado → clareira → bosque). 2 oitavas: manchas grandes
+  // (células ~9 tiles) moduladas por textura fina.
+  const grove = (x: number, y: number): number => {
+    const n = valueNoise(x, y, 1 / 9, 31) * 0.66 + valueNoise(x, y, 1 / 4, 47) * 0.34;
+    const f = Math.max(0, Math.min(1, (n - 0.4) / 0.3));
+    return 0.15 + 1.75 * (f * f * (3 - 2 * f));
+  };
   for (let y = 0; y < 130; y++) {
     for (let x = 165; x < W; x++) {
       // densidade cresce pro NE profundo (longe da cidade)
       const depth = Math.min(1, (x - 165) / 120 + (60 - Math.min(y, 60)) / 120);
-      if (rng() < 0.06 + depth * 0.3) treeAt(x, y);
+      if (rng() < (0.06 + depth * 0.3) * grove(x, y)) treeAt(x, y);
     }
   }
   // Bordas: paliçada natural de árvores (3 tiles), exceto onde estrada sai.
@@ -264,23 +274,28 @@ export function generateAlvoradaMap(): MapData {
       if (e < 3 && rng() < (e === 0 ? 1 : e === 1 ? 0.7 : 0.35)) treeAt(x, y);
     }
   }
-  // Planícies O: capim aberto com árvores raras + pedras
+  // Planícies O: capim ABERTO (identidade do distrito) — bosquetes raros de
+  // árvore nos miolos de grove + afloramentos de pedra pontilhando as clareiras.
   for (let y = 40; y < 300; y++) {
     for (let x = 4; x < 100; x++) {
+      const g = grove(x, y);
       const r = rng();
-      if (r < 0.012) treeAt(x, y);
-      else if (r < 0.016 && get(x, y) === TileId.Grass) set(x, y, TileId.Rock);
+      if (r < 0.013 * g) treeAt(x, y);
+      else if (g < 0.5 && r < 0.013 * g + 0.006 && get(x, y) === TileId.Grass)
+        set(x, y, TileId.Rock); // pedras nas clareiras abertas, não no meio da mata
     }
   }
-  // Mata leve no sul (entre cidade e pântano) + Matagal dos Javalis mais denso
+  // Mata leve no sul (entre cidade e pântano) — agrupada em bosques/clareiras.
   for (let y = 200; y < 306; y++) {
     for (let x = 100; x < 328; x++) {
-      if (rng() < 0.05) treeAt(x, y);
+      if (rng() < 0.05 * grove(x, y)) treeAt(x, y);
     }
   }
+  // Matagal dos Javalis: bosque FECHADO (claustrofóbico, S10) — mantém denso
+  // (mín. 0.75× do grove) mas com respiros internos, não parede uniforme.
   for (let y = 230; y <= 270; y++) {
     for (let x = 235; x <= 275; x++) {
-      if (rng() < 0.1) treeAt(x, y); // S10: bosque fechado de javali
+      if (rng() < 0.1 * Math.max(0.75, grove(x, y))) treeAt(x, y);
     }
   }
 
