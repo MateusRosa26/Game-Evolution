@@ -310,12 +310,20 @@ function makeMurkyWaterFrames(pal: MurkyPal): Texture[] {
 
 // Autotile 16-máscaras parametrizado (mesmo contrato de máscara do makeWallTile:
 // N=1,E=2,S=4,W=8; topo sempre, face só quando !S, caps onde não há vizinho).
+/** hex "#rrggbb" → [r,g,b]. Usado p/ derivar gradiente de luz da paleta. */
+function hexRgb(h: string): [number, number, number] {
+  return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+}
+
+// Parede de subsolo DIMENSIONAL (mesma tese da muralha: face alta 32×54, luz
+// direcional topo-claro→base-escura derivada da paleta, AO, sombra de contato).
 function makeDungeonWallTile(mask: number, seed: number, pal: DWallPal): Texture {
   const rng = mulberry32(seed + mask * 97 + 1);
-  const p = new Px(32, 44);
+  const p = new Px(32, WALL_H);
   const N = (mask & 1) !== 0, E = (mask & 2) !== 0, S = (mask & 4) !== 0, W = (mask & 8) !== 0;
-  const OUT = "#10141c";
-  const topEnd = S ? 44 : 13;
+  const OUT = "#070a0f";
+  const topEnd = S ? WALL_H : WALL_TOP_H;
+  // TOPO
   p.rect(0, 0, 32, topEnd, pal.joint);
   for (let ry = -2; ry < topEnd; ry += 7) {
     const off = ((((ry + 2) / 7) | 0) & 1) === 0 ? 0 : 9;
@@ -331,30 +339,47 @@ function makeDungeonWallTile(mask: number, seed: number, pal: DWallPal): Texture
   }
   if (!N) p.rect(0, 1, 32, 2, pal.topHi);
   if (!S) {
-    p.rect(0, 11, 32, 1, pal.faceDark);
-    p.rect(0, 12, 32, 1, OUT);
-    for (let row = 0; row < 4; row++) {
-      const y = 13 + row * 8;
-      const offset = row % 2 === 0 ? 0 : 8;
-      for (let col = -1; col < 3; col++) {
-        const x = col * 16 + offset;
-        p.rect(x + 1, y + 1, 15, 7, row < 2 ? pal.face : pal.faceDark);
-        p.rect(x + 1, y + 1, 15, 1, pal.faceHi);
-        p.rect(x, y, 16, 1, OUT);
-        p.rect(x, y, 1, 8, OUT);
-        if (rng() < 0.4) p.px(x + 2 + Math.floor(rng() * 12), y + 2 + Math.floor(rng() * 5), OUT);
+    p.rect(0, WALL_TOP_H - 2, 32, 1, pal.faceDark);
+    p.rect(0, WALL_TOP_H - 1, 32, 1, OUT);
+    // FACE dimensional: gradiente de faceHi (claro, topo) → quase preto (base).
+    const [fr, fg, fb] = hexRgb(pal.faceHi);
+    const faceTop = WALL_TOP_H, faceBot = WALL_H - 1, faceH = faceBot - faceTop;
+    let y = faceTop, courseIdx = 0;
+    while (y < faceBot) {
+      const rowH = 8 + (rng() < 0.4 ? 1 : 0);
+      const yb = Math.min(rowH, faceBot - y);
+      const k = 1 - 0.9 * ((y - faceTop) / faceH); // 1 (topo) → 0.1 (base)
+      const offset = courseIdx % 2 === 0 ? 0 : 7;
+      let x = -offset;
+      while (x < 32) {
+        const bw = 9 + Math.floor(rng() * 6);
+        const v = k * (0.85 + rng() * 0.3);
+        const R = Math.max(3, Math.floor(fr * v)), G = Math.max(4, Math.floor(fg * v)), B = Math.max(7, Math.floor(fb * v));
+        const col = (a: number) => `rgb(${Math.max(0, R + a - 3)},${Math.max(0, G + a)},${Math.max(0, B + a + 6)})`;
+        p.rect(x + 1, y + 1, bw - 1, yb - 1, col(0));
+        p.rect(x + 1, y + 1, bw - 1, 1, col(14));        // aresta lit
+        p.rect(x + 1, y + yb - 1, bw - 1, 1, col(-8));    // AO na base do bloco
+        p.rect(x, y, 1, yb, OUT);
+        p.rect(x, y, bw, 1, OUT);
+        for (let d = 0; d < 2 + (rng() * 3 | 0); d++) {
+          const px = x + 2 + (rng() * Math.max(1, bw - 3) | 0), py = y + 2 + (rng() * Math.max(1, yb - 3) | 0);
+          p.px(px, py, rng() < 0.5 ? col(-6) : col(8));
+        }
+        x += bw;
       }
+      y += rowH; courseIdx++;
     }
-    p.rect(0, 41, 32, 3, "rgba(0,0,0,0.38)");
+    p.rect(0, WALL_H - 3, 32, 3, "rgba(0,0,0,0.45)");
+    p.rect(0, WALL_H - 1, 32, 1, "rgba(0,0,0,0.30)");
   }
-  // nuance de identidade (musgo do esgoto / ocre da alvenaria antiga / terra da caverna)
+  // nuance de identidade (musgo do esgoto / ocre da alvenaria antiga / caverna)
   if (rng() < 0.5) {
     const ax = Math.floor(rng() * 28);
-    const ay = Math.floor(rng() * (S ? 38 : 10));
+    const ay = S ? Math.floor(rng() * 46) : WALL_TOP_H + Math.floor(rng() * (WALL_H - WALL_TOP_H - 4));
     for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) if (rng() < 0.6) p.px(ax + dx, ay + dy, pal.accent);
   }
-  if (!W) { p.rect(0, 0, 1, 44, OUT); p.rect(1, 0, 1, topEnd, pal.joint); }
-  if (!E) { p.rect(31, 0, 1, 44, OUT); p.rect(30, 0, 1, topEnd, pal.joint); }
+  if (!W) { p.rect(0, 0, 1, WALL_H, OUT); p.rect(1, 0, 1, topEnd, pal.joint); }
+  if (!E) { p.rect(31, 0, 1, WALL_H, OUT); p.rect(30, 0, 1, topEnd, pal.joint); }
   if (!N) p.rect(0, 0, 32, 1, OUT);
   return p.texture();
 }
