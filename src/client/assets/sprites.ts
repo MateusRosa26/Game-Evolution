@@ -91,31 +91,29 @@ function makeGrass(seed: number, flowers: boolean): Texture {
   const rng = mulberry32(seed);
   const p = new Px(32, 32);
   p.fill(PAL.grassBase);
-  // manchas orgânicas suaves (2x2 / 3x2) em tons próximos — textura sem "chuvisco"
+  // 1. mottling fino (textura de valor sem virar grid — manchas GRANDES por-tile
+  // expõem a repetição das 4 variantes, então a variação grande fica pro chunk).
   for (let i = 0; i < 26; i++) {
-    const x = Math.floor(rng() * 31);
-    const y = Math.floor(rng() * 31);
+    const x = Math.floor(rng() * 31), y = Math.floor(rng() * 31);
     const c = rng() < 0.55 ? PAL.grassDark : PAL.grassMid;
     p.rect(x, y, rng() < 0.5 ? 2 : 3, rng() < 0.6 ? 2 : 1, c);
   }
-  // pontos de respiro (poucos)
-  for (let i = 0; i < 14; i++) {
-    p.px(Math.floor(rng() * 32), Math.floor(rng() * 32), rng() < 0.7 ? PAL.grassMid : PAL.grassDark);
-  }
-  // tufos de capim discretos
-  for (let i = 0; i < 5; i++) {
-    const x = 2 + Math.floor(rng() * 28);
-    const y = 2 + Math.floor(rng() * 28);
-    p.px(x, y, PAL.grassLight);
-    p.px(x, y + 1, PAL.grassMid);
-    if (rng() < 0.4) p.px(x + 1, y, PAL.grassLight);
+  // 2. tufos de capim em CLUSTER com volume (sombra na base, ponta iluminada)
+  for (let i = 0; i < 7; i++) {
+    const bx = 2 + Math.floor(rng() * 28), by = 4 + Math.floor(rng() * 25);
+    p.px(bx, by + 1, PAL.grassDark);                 // sombra de contato do tufo
+    const n = 2 + Math.floor(rng() * 3);
+    for (let b = 0; b < n; b++) {
+      const x = bx + Math.floor(rng() * 4) - 1, h = 2 + Math.floor(rng() * 2);
+      for (let s = 0; s < h; s++) p.px(x, by - s, s === h - 1 ? PAL.grassBlade : PAL.grassMid);
+    }
+    p.px(bx + 1, by - 1 - Math.floor(rng() * 2), PAL.grassLight); // ponta pegando luz
   }
   if (flowers) {
     for (let i = 0; i < 3; i++) {
-      const x = 3 + Math.floor(rng() * 26);
-      const y = 3 + Math.floor(rng() * 26);
-      p.px(x, y, rng() < 0.5 ? PAL.flowerGold : PAL.flowerWhite);
+      const x = 3 + Math.floor(rng() * 26), y = 3 + Math.floor(rng() * 26);
       p.px(x, y + 1, PAL.grassDark);
+      p.px(x, y, rng() < 0.5 ? PAL.flowerGold : PAL.flowerWhite);
     }
   }
   return p.texture();
@@ -125,17 +123,21 @@ function makeDirt(seed: number): Texture {
   const rng = mulberry32(seed);
   const p = new Px(32, 32);
   p.fill(PAL.dirtBase);
-  for (let i = 0; i < 110; i++) {
-    const x = Math.floor(rng() * 32);
-    const y = Math.floor(rng() * 32);
-    const r = rng();
-    p.px(x, y, r < 0.4 ? PAL.dirtDark : r < 0.8 ? PAL.dirtMid : PAL.dirtLight);
+  // VOLUME: manchas grandes de valor (terra batida irregular — buracos e cristas)
+  for (let i = 0; i < 5; i++) {
+    const c = rng() < 0.5 ? PAL.dirtDark : PAL.dirtMid;
+    p.blob(rng() * 32, rng() * 32, 5 + rng() * 6, c, rng, 2.6);
   }
-  // pedrinhas
-  for (let i = 0; i < 6; i++) {
-    const x = 2 + Math.floor(rng() * 27);
-    const y = 2 + Math.floor(rng() * 27);
+  // granulado fino
+  for (let i = 0; i < 70; i++) {
+    const x = Math.floor(rng() * 32), y = Math.floor(rng() * 32), r = rng();
+    p.px(x, y, r < 0.45 ? PAL.dirtDark : r < 0.8 ? PAL.dirtMid : PAL.dirtLight);
+  }
+  // pedrinhas e torrões com volume (luz no topo, sombra na base)
+  for (let i = 0; i < 7; i++) {
+    const x = 2 + Math.floor(rng() * 27), y = 2 + Math.floor(rng() * 27);
     p.rect(x, y, 2, 1, PAL.dirtStone);
+    p.px(x, y, PAL.dirtLight);
     p.px(x, y + 1, PAL.dirtDark);
   }
   return p.texture();
