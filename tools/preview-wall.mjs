@@ -175,4 +175,9 @@ for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
 const gate = makeGate(3, 909);
 scene.blit(gate, 7 * 32, (FH - 1) * 32 - 48);
 writeFileSync("/tmp/wall-fort.png", png(scene.scaledTo(3)));
-console.log("ok → /tmp/wall-masks.png e /tmp/wall-fort.png");
+
+// Referência de PEDRA CINZA da muralha (topo cheio, mask 15 = sem face/caps) —
+// 32×32 p/ ancorar geração de tiles de subsolo (coerência com a cidade).
+const ref = new Buf(32, 32); ref.blit(makeWallTile(15, 700), 0, 0);
+writeFileSync("design/pixellab-candidatos/tiles/muralha-ref.png", png(ref));
+console.log("ok → /tmp/wall-masks.png, /tmp/wall-fort.png e design/.../muralha-ref.png");

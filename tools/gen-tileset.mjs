@@ -28,17 +28,50 @@ const img = (path) => ({ __ref: path });
 
 const SPECS = {
   // ── SUBSOLO / ESGOTOS (SISTEMA-ANDARES) — substituem os placeholders procedurais ──
-  // Chão de esgoto: pedra úmida e fria vista de cima (modelo do muro-topo: lower/
-  // upper = 2 variações → tile seamless com nuance). É a SONDA de custo do lote.
+  // Chão de esgoto v4 — ORGÂNICO de verdade (v3 ancorado na muralha ficou tijolo).
+  // Terra batida + pedras quebradas espalhadas, SEM grade; ancorado na CAVERNA
+  // (orgânica) pra herdar a irregularidade — e barato (âncora).
   "esgoto-chao": {
     lower_description:
-      "top-down floor of an ancient underground stone sewer seen from directly above, wet dark cold grey-green flagstones with deep shadowed joints, slick damp worn stone, patches of dark moss and grime, seamless, dark medieval fantasy, flat top view, no perspective, no bricks pattern, organic worn stone",
+      "top-down tile of an old worn dungeon floor seen from directly straight above, packed dark grey dirt and grime with scattered broken irregular grey stones, rubble and pebbles of different sizes pressed unevenly into the ground, cracks and patches of dark moss, chaotic natural worn organic surface, NOT bricks, NOT a grid, NOT flagstones in rows, detailed dithered pixel art, high contrast, dark medieval dungeon, flat top view, no perspective, textured not smooth, no green",
     upper_description:
-      "top-down floor of an ancient underground stone sewer seen from directly above, lit damp grey-green flagstones with a faint wet sheen on the block tops and dark mossy joints, slick worn stone, seamless, dark medieval fantasy, flat top view, no perspective",
-    transition_description: "irregular mix of darker grimy and lighter damp flagstones with patches of moss",
+      "top-down tile of an old worn dungeon floor seen from straight above, packed dark grey dirt with scattered lit broken stones and rubble of varied sizes and dark shadowed gaps, chaotic worn organic surface, NOT bricks, NOT a grid, detailed dithered pixel art, high contrast, dark medieval dungeon, flat top view, no perspective, textured not smooth, no green",
+    transition_description: "chaotic organic mix of packed grey dirt, scattered broken stones, rubble and grime",
+    transition_size: 0,
+    text_guidance_scale: 6,
+    tile_strength: 0.5,
+    seed: 121,
+    lower_reference_image: img("design/pixellab-candidatos/tiles/cave-grey-ref.png"),
+    upper_reference_image: img("design/pixellab-candidatos/tiles/cave-grey-ref.png"),
+  },
+  // Parede de esgoto — MATERIAL de pedra cinza escuro irregular (junta preta,
+  // musgo), ancorado na muralha da cidade (coerência + controle de custo).
+  "esgoto-parede": {
+    lower_description:
+      "top-down view of a rough dark grey stone dungeon wall surface seen from directly above, irregular cold grey granite blocks of varied sizes laid as rough heavy masonry with deep black mortar gaps, mossy weathered cracked cut stone, not a neat grid, detailed hand-crafted pixel art with dithering and strong dark shadow in the joints, high contrast, dark medieval dungeon wall, flat top view, no perspective, textured not smooth, no green, no brown",
+    upper_description:
+      "top-down view of a rough dark grey stone dungeon wall surface seen from above, irregular lit cold grey granite blocks with highlights on the stone and deep black mossy mortar gaps, weathered cracked cut stone, detailed dithered pixel art, high contrast, dark medieval dungeon wall, flat top view, no perspective, textured not smooth, no green",
+    transition_description: "rough irregular mix of mossy weathered and bare dark grey wall stones with deep black joints",
     transition_size: 0,
     text_guidance_scale: 8,
-    seed: 17,
+    tile_strength: 0.6,
+    seed: 105,
+    lower_reference_image: img("design/pixellab-candidatos/tiles/muralha-ref.png"),
+    upper_reference_image: img("design/pixellab-candidatos/tiles/muralha-ref.png"),
+  },
+  // Água servida — ESCURA e suja (verde-preto), nunca verde-néon. Animada por código.
+  "esgoto-agua": {
+    lower_description:
+      "top-down tile of dark murky stagnant sewer water seen from directly straight above, deep desaturated greenish-black filthy water with a faint dim oily sheen and bits of floating grime and scum, very dark and dirty, detailed pixel art with subtle dithering, dark medieval dungeon, flat top view, no perspective, no bright colors, no neon, not smooth, dark",
+    upper_description:
+      "top-down tile of dark murky stagnant sewer water seen from straight above, deep greenish-black filthy water with faint dim reflections and gentle ripples on the dirty surface, very dark, detailed dithered pixel art, dark medieval dungeon, flat top view, no perspective, no bright colors, dark",
+    transition_description: "subtle gentle ripples and scum in dark filthy greenish-black water",
+    transition_size: 0,
+    text_guidance_scale: 7,
+    tile_strength: 0.45,
+    seed: 94,
+    lower_reference_image: img("design/pixellab-candidatos/tiles/muralha-ref.png"),
+    upper_reference_image: img("design/pixellab-candidatos/tiles/muralha-ref.png"),
   },
   // Chão de caverna v3: ANCORADO na terra do grass-dirt (marrom coerente, já
   // tileável) + prompt de rocha da v1 (que deu a boa rocha quebrada) +
