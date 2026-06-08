@@ -9,9 +9,10 @@
  *
  * Slots são alvos/origens de drag & drop (ItemDnD). Apresentação pura.
  */
-import { Container, FederatedPointerEvent, Graphics, Text } from "pixi.js";
+import { Container, FederatedPointerEvent, Graphics, Sprite, Text } from "pixi.js";
 import type { EntityState, EquipSlot, ItemRef } from "../../shared/protocol";
 import { hex, PAL } from "../assets/palette";
+import { PIXELLAB } from "../assets/pixellab";
 import { makeDraggable } from "./draggable";
 import type { ItemDnD } from "./dnd";
 import { panelFrame, slot } from "./theme";
@@ -116,8 +117,18 @@ export class EquipPanel {
       const item = equip[cellDef.slot];
       const cell = new Graphics();
       slot(cell, 0, 0, SLOT, !!item);
-      // Silhueta do tipo do slot (sem texto): cinza se vazio, "vestida" se ocupado.
-      drawEquipIcon(cell, cellDef.slot, SLOT / 2, SLOT / 2, item ? SLOT_ICON_FILLED : SLOT_ICON_EMPTY);
+      // Sprite real do item equipado quando houver arte; senão a silhueta do tipo
+      // do slot (cinza se vazio, "vestida" se ocupado).
+      const tex = item ? PIXELLAB.items[item.templateId] : undefined;
+      if (tex) {
+        const spr = new Sprite(tex);
+        spr.anchor.set(0.5);
+        spr.position.set(SLOT / 2, SLOT / 2);
+        spr.eventMode = "none";
+        cell.addChild(spr);
+      } else {
+        drawEquipIcon(cell, cellDef.slot, SLOT / 2, SLOT / 2, item ? SLOT_ICON_FILLED : SLOT_ICON_EMPTY);
+      }
       cell.position.set(sx, sy);
       this.slotLayer.addChild(cell);
 

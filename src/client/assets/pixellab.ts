@@ -66,6 +66,13 @@ export const PIXELLAB: {
    * O dual-grid no WorldRenderer escolhe a tile pelos 4 cantos.
    */
   wang: Record<string, Record<string, Texture>>;
+  /**
+   * SPRITES DE ITEM (jun/2026): 1 PNG ~32px por item, img/items/<id>.png.
+   * Chave = templateId do sim (arquivo usa '-', templateId usa '_' → convertido
+   * no load). UI (ContainerWindow/EquipPanel) desenha por templateId; ausência =
+   * fallback procedural (label/silhueta).
+   */
+  items: Record<string, Texture>;
 } = {
   trees: [],
   swampTrees: [],
@@ -78,6 +85,7 @@ export const PIXELLAB: {
   knightPieces: {},
   knightPiecesAtk: {},
   wang: {},
+  items: {},
 };
 
 /** Espécies que voam: o client desenha levemente acima do chão (charme barato). */
@@ -103,6 +111,12 @@ const KNIGHT_ATTACK_URLS = import.meta.glob("./img/chars/knight/attack/*.png", {
 }) as Record<string, string>;
 // Wang tilesets (chão com transição) — img/tiles/<par>/wang-NWNESWSE.png
 const WANG_URLS = import.meta.glob("./img/tiles/*/*.png", {
+  eager: true,
+  query: "?url",
+  import: "default",
+}) as Record<string, string>;
+// Sprites de item (1 PNG por item) — img/items/<id>.png
+const ITEM_URLS = import.meta.glob("./img/items/*.png", {
   eager: true,
   query: "?url",
   import: "default",
@@ -263,4 +277,12 @@ export async function loadPixellabAssets(): Promise<void> {
     entries.forEach((e, i) => (set[e.code] = texes[i]));
     PIXELLAB.wang[pair] = set;
   }
+
+  // Itens: img/items/<id>.png → PIXELLAB.items[templateId] (arquivo '-' → '_')
+  const itemEntries = Object.entries(ITEM_URLS);
+  const itemTexes = await Promise.all(itemEntries.map(([, url]) => Assets.load<Texture>(url)));
+  itemEntries.forEach(([path], i) => {
+    const m = path.match(/img\/items\/(.+)\.png$/);
+    if (m) PIXELLAB.items[m[1].replace(/-/g, "_")] = itemTexes[i];
+  });
 }

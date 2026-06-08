@@ -6,9 +6,10 @@
  * gold = moeda com a quantia (clique = saquear). Drag & drop via ItemDnD.
  * Apresentação pura: tudo vira comando pra sim.
  */
-import { Container, FederatedPointerEvent, Graphics, Text } from "pixi.js";
+import { Container, FederatedPointerEvent, Graphics, Sprite, Text } from "pixi.js";
 import type { ContainerView, ItemRef } from "../../shared/protocol";
 import { hex, PAL } from "../assets/palette";
+import { PIXELLAB } from "../assets/pixellab";
 import { makeDraggable } from "./draggable";
 import type { ItemDnD } from "./dnd";
 import { panelFrame, slot } from "./theme";
@@ -130,23 +131,34 @@ export class ContainerWindow {
       const item = v.items.find((it) => it.slot === i);
       const gold = v.goldPiles.find((g) => g.slot === i);
       if (item) {
-        const label = new Text({
-          text: item.name.slice(0, 2).toUpperCase(),
-          style: { fontFamily: "monospace", fontSize: 11, fontWeight: "bold", fill: 0xe8e4d8 },
-        });
-        label.resolution = 3;
-        label.anchor.set(0.5);
-        label.position.set(SLOT / 2, SLOT / 2 - 4);
-        const name = new Text({
-          text: item.name.length > 7 ? item.name.slice(0, 7) + "…" : item.name,
-          style: { fontFamily: "monospace", fontSize: 5, fill: hex(PAL.attrLabel) },
-        });
-        name.resolution = 3;
-        name.anchor.set(0.5);
-        name.position.set(SLOT / 2, SLOT - 7);
-        label.eventMode = "none";
-        name.eventMode = "none";
-        cell.addChild(label, name);
+        // sprite real do item (img/items/<id>.png) quando existir; senão o
+        // placeholder de iniciais + nome (itens ainda sem arte aprovada).
+        const tex = PIXELLAB.items[item.templateId];
+        if (tex) {
+          const spr = new Sprite(tex);
+          spr.anchor.set(0.5);
+          spr.position.set(SLOT / 2, SLOT / 2);
+          spr.eventMode = "none";
+          cell.addChild(spr);
+        } else {
+          const label = new Text({
+            text: item.name.slice(0, 2).toUpperCase(),
+            style: { fontFamily: "monospace", fontSize: 11, fontWeight: "bold", fill: 0xe8e4d8 },
+          });
+          label.resolution = 3;
+          label.anchor.set(0.5);
+          label.position.set(SLOT / 2, SLOT / 2 - 4);
+          const name = new Text({
+            text: item.name.length > 7 ? item.name.slice(0, 7) + "…" : item.name,
+            style: { fontFamily: "monospace", fontSize: 5, fill: hex(PAL.attrLabel) },
+          });
+          name.resolution = 3;
+          name.anchor.set(0.5);
+          name.position.set(SLOT / 2, SLOT - 7);
+          label.eventMode = "none";
+          name.eventMode = "none";
+          cell.addChild(label, name);
+        }
         cell.eventMode = "static";
         cell.cursor = "grab";
         cell.on("pointerdown", (ev: FederatedPointerEvent) => {
