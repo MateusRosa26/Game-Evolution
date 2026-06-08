@@ -11,15 +11,15 @@ const TORCH_FRAME_MS = 140;
 const CHUNK_TILES = 16;
 
 /**
- * Nível de terreno por tile (dual-grid Wang). Maior = "mais por cima":
- * grama < terra. Stone/água/bridge/swamp seguem o caminho de tile único
- * (terreno -1) e contam como grama para os cantos da transição.
- * ✏️ terra↔pedra entra quando o tileset de pedra for gerado.
+ * Nível de terreno por tile (dual-grid Wang). Maior = "mais por cima" (vaza no
+ * mais baixo): grama < terra < pedra. Água/bridge/swamp/wall seguem o caminho de
+ * tile único (terreno -1) e contam como grama (nível baixo) para os cantos.
  */
 function terrainLevel(tile: TileId): number {
+  if (tile === TileId.StoneFloor) return 2;
   if (tile === TileId.Dirt) return 1;
   if (tile === TileId.Grass) return 0;
-  return -1; // stone/water/bridge/swamp/wall → tile único (conta como grama p/ canto)
+  return -1; // água/bridge/swamp/wall → tile único (conta como baixo p/ canto)
 }
 
 /**
@@ -135,10 +135,13 @@ export class WorldRenderer {
             for (let tx = 0; tx <= tilesW; tx++) {
               const x = cx * CHUNK_TILES + tx;
               const y = cy * CHUNK_TILES + ty;
-              const nw = this.terrainAt(map, x - 1, y - 1) >= 1 ? 1 : 0;
-              const ne = this.terrainAt(map, x, y - 1) >= 1 ? 1 : 0;
-              const sw = this.terrainAt(map, x - 1, y) >= 1 ? 1 : 0;
-              const se = this.terrainAt(map, x, y) >= 1 ? 1 : 0;
+              // === 1 (terra exata): pedra (nível 2) NÃO conta como terra aqui,
+              // senão a terra apareceria em volta da pedra. A pedra entra no
+              // passo próprio abaixo.
+              const nw = this.terrainAt(map, x - 1, y - 1) === 1 ? 1 : 0;
+              const ne = this.terrainAt(map, x, y - 1) === 1 ? 1 : 0;
+              const sw = this.terrainAt(map, x - 1, y) === 1 ? 1 : 0;
+              const se = this.terrainAt(map, x, y) === 1 ? 1 : 0;
               const codeStr = `${nw}${ne}${sw}${se}`;
               if (codeStr === "0000") continue; // grama pura: base aparece
               const tex = wang[codeStr];
@@ -148,6 +151,25 @@ export class WorldRenderer {
               sp.position.set(tx * TILE_SIZE - TILE_SIZE / 2, ty * TILE_SIZE - TILE_SIZE / 2);
               scratch.addChild(sp);
             }
+          }
+        }
+
+        // 2b. CAMADA PEDRA (dual-grid procedural): StoneFloor (nível 2) transborda
+        // sobre grama/terra. Mesmo offset meio-tile; código de cantos numérico.
+        const stoneWang = this.sprites.stoneTransition;
+        for (let ty = 0; ty <= tilesH; ty++) {
+          for (let tx = 0; tx <= tilesW; tx++) {
+            const x = cx * CHUNK_TILES + tx;
+            const y = cy * CHUNK_TILES + ty;
+            const nw = this.terrainAt(map, x - 1, y - 1) >= 2 ? 1 : 0;
+            const ne = this.terrainAt(map, x, y - 1) >= 2 ? 2 : 0;
+            const sw = this.terrainAt(map, x - 1, y) >= 2 ? 4 : 0;
+            const se = this.terrainAt(map, x, y) >= 2 ? 8 : 0;
+            const code = nw | ne | sw | se;
+            if (code === 0 || code === 15) continue; // sem borda (puro grama/terra ou pura pedra)
+            const sp = new Sprite(stoneWang[code]);
+            sp.position.set(tx * TILE_SIZE - TILE_SIZE / 2, ty * TILE_SIZE - TILE_SIZE / 2);
+            scratch.addChild(sp);
           }
         }
 

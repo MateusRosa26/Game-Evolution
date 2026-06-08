@@ -974,6 +974,44 @@ function makeTileCursor(): Texture {
 
 /** Sombra elíptica para entidades. */
 /**
+ * Transição DUAL-GRID procedural de StoneFloor (alavanca #4): 16 tiles indexados
+ * por código de cantos (nw|ne<<1|sw<<2|se<<3). A pedra (terreno "alto") transborda
+ * organicamente sobre grama/terra (base) — banda de pedra straddling a fronteira,
+ * com linha de contato escura (AO) e sombrinha no terreno baixo. Deep-high e
+ * deep-low ficam transparentes (a base cobble/grama aparece). Custo zero (sem
+ * PixelLab); coerente com a tese "terreno mais alto vaza no mais baixo".
+ */
+function makeStoneTransition(seed: number): Texture[] {
+  const out: Texture[] = [];
+  const nz = (x: number, y: number): number => {
+    let h = (x * 374761393 + y * 668265263 + seed * 362437) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  for (let code = 0; code < 16; code++) {
+    const nw = code & 1, ne = (code >> 1) & 1, sw = (code >> 2) & 1, se = (code >> 3) & 1;
+    const p = new Px(32, 32);
+    if (nw + ne + sw + se === 0 || nw + ne + sw + se === 4) { out.push(p.texture()); continue; }
+    for (let py = 0; py < 32; py++) {
+      for (let px = 0; px < 32; px++) {
+        const u = px / 31, v = py / 31;
+        const b = nw * (1 - u) * (1 - v) + ne * u * (1 - v) + sw * (1 - u) * v + se * u * v;
+        const t = b + (nz(px >> 1, py >> 1) - 0.5) * 0.30; // jitter em clusters 2px
+        if (t > 0.46 && b < 0.84) {
+          const r = nz(px, py);
+          p.px(px, py, r < 0.2 ? PAL.stoneMid : r > 0.82 ? PAL.stoneLight : PAL.stoneBase);
+          if (t < 0.56) p.px(px, py, PAL.stoneDark); // contato/AO na borda externa
+        } else if (t > 0.3 && t <= 0.46) {
+          p.px(px, py, "rgba(10,14,20,0.28)"); // sombra da pedra no terreno baixo
+        }
+      }
+    }
+    out.push(p.texture());
+  }
+  return out;
+}
+
+/**
  * Sombra de contato SUAVE e FRIA (constituição: sombra puxa pro azul). Gradiente
  * radial achatado em elipse, alpha caindo a zero na borda → vaza pro chão vizinho
  * sem corte duro. Textura única; cada consumidor define width/height conforme o
@@ -1041,6 +1079,8 @@ export interface SpriteLibrary {
   shadow: Texture;
   /** Decais espalhados no chão (baked no chunk): grama/terra/pedra. */
   scatter: { grass: Texture[]; dirt: Texture[]; stone: Texture[] };
+  /** Transição dual-grid de StoneFloor sobre grama/terra: 16 códigos de canto. */
+  stoneTransition: Texture[];
 }
 
 /**
@@ -1089,5 +1129,6 @@ export function createSprites(): SpriteLibrary {
     targetMarker: makeTargetMarker(),
     shadow: makeShadow(),
     scatter: makeScatterDecals(),
+    stoneTransition: makeStoneTransition(404),
   };
 }
