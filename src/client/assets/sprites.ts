@@ -143,31 +143,47 @@ function makeDirt(seed: number): Texture {
 
 function makeStoneFloor(seed: number): Texture {
   const p = new Px(32, 32);
-  p.fill("#1f232a"); // argamassa escura funda (gaps entre as pedras)
-  // Cobblestone ORGÂNICO: pedras ~8px arredondadas, running bond, cada uma com
-  // VOLUME (luz no topo, sombra na base). Tom por posição (mod) → tileável.
-  const TONES = [PAL.stoneMid, PAL.stoneBase, "#474e5a", "#3c424d", "#515866"];
-  for (let row = 0; row < 4; row++) {
-    const oy = row * 8;
-    const off = (row & 1) ? 4 : 0;
-    for (let col = -1; col < 5; col++) {
-      const x = col * 8 + off;
-      const cmod = (((col % 4) + 4) % 4);
-      const tr = mulberry32(seed * 31 + row * 97 + cmod * 13);
-      const base = TONES[Math.floor(tr() * TONES.length)];
-      // corpo arredondado (cantos cortados) 8×8
-      p.rect(x + 1, oy + 1, 6, 6, base);
-      p.rect(x + 2, oy, 4, 1, base); p.rect(x + 2, oy + 7, 4, 1, base);
-      p.rect(x, oy + 2, 1, 4, base); p.rect(x + 7, oy + 2, 1, 4, base);
-      // VOLUME: aresta lit no topo, sombra funda na base, AO lateral
-      p.rect(x + 2, oy, 4, 1, PAL.stoneLight);
-      p.rect(x + 1, oy + 1, 5, 1, "#5a626f");
-      p.rect(x + 2, oy + 7, 4, 1, "#15181e");
-      p.rect(x + 1, oy + 6, 5, 1, "#2a2f38");
-      p.px(x, oy + 2, "#15181e"); p.px(x + 7, oy + 5, "#15181e");
-      // desgaste/dithering interno
-      if (tr() < 0.5) p.px(x + 2 + Math.floor(tr() * 3), oy + 2 + Math.floor(tr() * 3), tr() < 0.5 ? PAL.stoneLight : "#333943");
+  const rng = mulberry32(seed);
+  const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
+  const mossC = ["#2c3a2b", "#384a36", "#243527"];
+  p.fill("#1a1e25"); // argamassa funda nos gaps
+  // Cobblestone ORGÂNICO e variado: pedras de larguras/alturas diferentes, cada
+  // uma com volume + cor própria + weathering. Tom por rng → as 3 variantes da
+  // praça ficam distintas (menos repetitivo).
+  let y = 0;
+  while (y < 32) {
+    const rowH = 7 + Math.floor(rng() * 4);
+    const bh = Math.min(rowH, 32 - y);
+    let x = -Math.floor(rng() * 8);
+    while (x < 32) {
+      const bw = 6 + Math.floor(rng() * 11);
+      const v = 0.78 + rng() * 0.46;           // tom mais CLARO que antes (praça)
+      const warm = rng() < 0.25 ? 5 : 0;
+      const R = cb(70 * v + warm), G = cb(74 * v + warm * 0.4), B = cb(84 * v + 4);
+      const body = `rgb(${R},${G},${B})`;
+      const lit = `rgb(${cb(R + 24)},${cb(G + 25)},${cb(B + 26)})`;
+      const shad = `rgb(${cb(R - 13)},${cb(G - 12)},${cb(B - 10)})`;
+      const ao = `rgb(${cb(R - 24)},${cb(G - 23)},${cb(B - 19)})`;
+      // corpo arredondado
+      p.rect(x + 1, y + 1, bw - 1, bh - 1, body);
+      p.rect(x + 2, y, Math.max(1, bw - 3), 1, body);
+      p.rect(x + 2, y + bh - 1, Math.max(1, bw - 3), 1, body);
+      // VOLUME: aresta lit no topo-esq, sombra na base/direita
+      p.rect(x + 1, y + 1, bw - 1, 1, lit);
+      p.rect(x + 1, y + 1, 1, bh - 1, lit);
+      p.rect(x + 1, y + bh - 1, bw - 1, 1, ao);
+      p.rect(x + bw - 1, y + 1, 1, bh - 1, shad);
+      p.rect(x, y, 1, bh, "#0e1116");           // junta
+      p.rect(x, y, bw, 1, "#0e1116");
+      // weathering por pedra
+      const w = rng();
+      if (w < 0.2 && bw > 6) { let cx = x + 2 + (rng() * (bw - 3) | 0), cy = y + 1; for (let s = 0; s < bh - 1; s++) { p.px(cx, cy, ao); cy++; cx += (rng() * 3 | 0) - 1; } }
+      else if (w < 0.38) p.px(x + 2 + (rng() * Math.max(1, bw - 4) | 0), y + 2 + (rng() * Math.max(1, bh - 3) | 0), lit);
+      if (rng() < 0.12) { const mx = x + 1 + (rng() * Math.max(1, bw - 3) | 0), my = y + 1 + (rng() * Math.max(1, bh - 3) | 0); for (let d = 0; d < 2; d++) p.px(mx + (rng() * 2 | 0), my + (rng() * 2 | 0), mossC[rng() * mossC.length | 0]); }
+      for (let d = 0; d < 2; d++) p.px(x + 2 + (rng() * Math.max(1, bw - 3) | 0), y + 2 + (rng() * Math.max(1, bh - 3) | 0), rng() < 0.5 ? shad : lit);
+      x += bw;
     }
+    y += rowH;
   }
   return p.texture();
 }
@@ -498,61 +514,65 @@ function makeWallTile(mask: number, seed: number): Texture {
   if (!N) p.rect(0, 1, 32, 2, PAL.wallTopLight);
 
   if (!S) {
-    // separação topo → face (AO do topo projetada sobre a face)
+    // separação topo → face
     p.rect(0, WALL_TOP_H - 2, 32, 1, "#161a21");
     p.rect(0, WALL_TOP_H - 1, 32, 1, "#0a0d12");
     const faceTop = WALL_TOP_H, faceBot = WALL_H - 1, faceH = faceBot - faceTop;
     const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
-    const mossC = ["#2c3a2b", "#384a36", "#243527", "#33442f"];
-    p.rect(0, faceTop, 32, faceH, "#10141a"); // argamassa profunda nos gaps
-    let y = faceTop, courseIdx = 0;
-    while (y < faceBot) {
-      const rowH = 7 + Math.floor(rng() * 4); // alturas VARIADAS (7-10)
-      const yb = Math.min(rowH, faceBot - y);
-      const dark = 1 - 0.62 * ((y - faceTop) / faceH); // escurecimento direcional suave
-      let x = -Math.floor(rng() * 7);
-      while (x < 32) {
-        const bw = 6 + Math.floor(rng() * 13); // larguras MUITO variadas (6-18)
-        // cor base por pedra COM variação forte (clara/escura, fria, p/ algumas quentes)
-        const v = (0.6 + rng() * 0.55) * dark;
-        const warm = rng() < 0.28 ? 5 : 0;
-        const R = cb(62 * v + warm), G = cb(66 * v + warm * 0.4), B = cb(78 * v + 5);
-        const body = `rgb(${R},${G},${B})`;
-        const lit = `rgb(${cb(R + 26)},${cb(G + 27)},${cb(B + 28)})`;
-        const shad = `rgb(${cb(R - 17)},${cb(G - 16)},${cb(B - 13)})`;
-        const ao = `rgb(${cb(R - 28)},${cb(G - 27)},${cb(B - 23)})`;
-        // corpo + VOLUME por pedra (luz topo-esq, sombra base-dir = arredondado)
-        p.rect(x + 1, y + 1, bw - 1, yb - 1, body);
-        p.rect(x + 1, y + 1, bw - 1, 1, lit);        // aresta superior lit
-        p.rect(x + 1, y + 1, 1, yb - 1, lit);        // aresta esquerda lit
-        p.rect(x + 1, y + yb - 1, bw - 1, 1, ao);    // base AO
-        p.rect(x + bw - 1, y + 1, 1, yb - 1, shad);  // direita em sombra
-        p.rect(x, y, 1, yb, "#090c11");              // junta vertical
-        p.rect(x, y, bw, 1, "#090c11");              // junta horizontal
-        // WEATHERING por pedra (varia): rachadura, lasca, mancha, musgo
-        const w = rng();
-        if (w < 0.24 && bw > 6) { // rachadura descendo a pedra
-          let cx = x + 2 + Math.floor(rng() * (bw - 3)), cy = y + 1;
-          for (let s = 0; s < yb - 1; s++) { p.px(cx, cy, ao); if (rng() < 0.35) p.px(cx + 1, cy, shad); cy++; cx += (rng() * 3 | 0) - 1; }
-        } else if (w < 0.42) { // lasca clara (desgaste)
-          p.px(x + 2 + (rng() * Math.max(1, bw - 4) | 0), y + 2 + (rng() * Math.max(1, yb - 3) | 0), lit);
-        } else if (w < 0.55) { // mancha escura
-          const sx = x + 2 + (rng() * Math.max(1, bw - 4) | 0), sy = y + 2 + (rng() * Math.max(1, yb - 4) | 0);
-          p.rect(sx, sy, 1 + (rng() * 2 | 0), 1 + (rng() * 2 | 0), ao);
-        }
-        if (rng() < 0.16) { // musgo acumulado
-          const mx = x + 1 + (rng() * Math.max(1, bw - 3) | 0), my = y + Math.max(1, yb - 3) + (rng() * 2 | 0);
-          for (let d = 0; d < 3; d++) if (rng() < 0.6) p.px(mx + (rng() * 2 | 0), my + (rng() * 2 | 0) - 1, mossC[rng() * mossC.length | 0]);
-        }
-        // grit/dithering
-        for (let d = 0; d < 2 + (rng() * 2 | 0); d++) {
-          const gx = x + 2 + (rng() * Math.max(1, bw - 3) | 0), gy = y + 2 + (rng() * Math.max(1, yb - 3) | 0);
-          p.px(gx, gy, rng() < 0.5 ? shad : lit);
-        }
-        x += bw;
+    // PEDRAS ORGÂNICAS (Voronoi): sementes em running-bond jittered → células
+    // irregulares que se ENCAIXAM (não grade/LEGO). Cada pedra: topo com luz,
+    // juntas escuras nos vãos, corpo com tom próprio + gradiente direcional.
+    const seeds: { x: number; y: number; tone: number; warm: number }[] = [];
+    const srows = Math.round(faceH / 9) + 1;
+    for (let r = -1; r <= srows; r++) {
+      for (let c = -1; c <= 4; c++) {
+        seeds.push({
+          x: c * 8 + ((r & 1) ? 4 : 0) + (rng() * 6 - 3),
+          y: faceTop + r * 9 + (rng() * 5 - 2.5),
+          tone: 0.64 + rng() * 0.46,
+          warm: rng() < 0.26 ? 5 : 0,
+        });
       }
-      y += rowH; courseIdx++;
     }
+    const cellOf = (px: number, py: number): number => {
+      let best = 0, bd = 1e9;
+      for (let i = 0; i < seeds.length; i++) {
+        const dx = px - seeds[i].x, dy = (py - seeds[i].y) * 1.18; // achata → pedras mais largas
+        const d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = i; }
+      }
+      return best;
+    };
+    const cmap = new Int16Array(32 * faceH);
+    for (let yy = 0; yy < faceH; yy++) for (let xx = 0; xx < 32; xx++) cmap[yy * 32 + xx] = cellOf(xx, faceTop + yy);
+    for (let yy = 0; yy < faceH; yy++) {
+      const py = faceTop + yy;
+      const t = yy / faceH;
+      for (let xx = 0; xx < 32; xx++) {
+        const id = cmap[yy * 32 + xx];
+        const s = seeds[id];
+        const v = s.tone * (1 - 0.5 * t); // gradiente direcional (volume)
+        const R = cb(60 * v + s.warm), G = cb(64 * v + s.warm * 0.4), B = cb(76 * v + 5);
+        const up = yy > 0 ? cmap[(yy - 1) * 32 + xx] : -1;
+        const dn = yy < faceH - 1 ? cmap[(yy + 1) * 32 + xx] : id;
+        const lf = xx > 0 ? cmap[yy * 32 + xx - 1] : id;
+        const rt = xx < 31 ? cmap[yy * 32 + xx + 1] : id;
+        let col: string;
+        if (up !== id) col = `rgb(${cb(R + 27)},${cb(G + 28)},${cb(B + 29)})`;     // topo da pedra = LUZ
+        else if (dn !== id || lf !== id || rt !== id) col = "#0a0d12";              // junta = mortar escuro
+        else if (rng() < 0.09) col = `rgb(${cb(R - 9)},${cb(G - 8)},${cb(B - 6)})`;  // grit sutil
+        else col = `rgb(${R},${G},${B})`;
+        p.px(xx, py, col);
+      }
+    }
+    // weathering ESPARSO e limpo: poucas rachaduras + musgo acumulando na base
+    const mossC = ["#2c3a2b", "#384a36", "#243527"];
+    for (let k = 0; k < 2; k++) if (rng() < 0.55) {
+      let cx = 4 + (rng() * 24 | 0), cy = faceTop + 3;
+      const len = 8 + (rng() * 14 | 0);
+      for (let s = 0; s < len && cy < faceBot - 1; s++) { p.px(cx, cy, "#080b10"); cy++; cx += (rng() * 3 | 0) - 1; }
+    }
+    for (let x = 0; x < 32; x++) if (rng() < 0.2) p.px(x, faceBot - 1 - (rng() * 2 | 0), mossC[rng() * mossC.length | 0]);
     p.rect(0, WALL_H - 3, 32, 3, "rgba(0,0,0,0.5)"); // sombra de contato funda
     p.rect(0, WALL_H - 1, 32, 1, "rgba(0,0,0,0.35)");
   }
