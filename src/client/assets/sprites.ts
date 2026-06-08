@@ -142,33 +142,32 @@ function makeDirt(seed: number): Texture {
 }
 
 function makeStoneFloor(seed: number): Texture {
-  const rng = mulberry32(seed);
   const p = new Px(32, 32);
-  p.fill(PAL.stoneBase);
-  // lajotas 16x16 em "running bond"
-  for (let row = 0; row < 2; row++) {
-    const offset = row % 2 === 0 ? 0 : 8;
-    for (let col = -1; col < 3; col++) {
-      const x = col * 16 + offset;
-      const y = row * 16;
-      // variação de tom por lajota (mais contraste entre peças)
-      const tone = rng();
-      if (tone < 0.3) p.rect(x + 1, y + 1, 15, 15, PAL.stoneMid);
-      else if (tone < 0.5) p.rect(x + 1, y + 1, 15, 15, "#3d434e");
-      else if (tone > 0.82) p.rect(x + 1, y + 1, 15, 15, "#4c5360");
-      // junta + highlight superior
-      p.rect(x, y, 16, 1, PAL.stoneDark);
-      p.rect(x, y, 1, 16, PAL.stoneDark);
-      p.rect(x + 1, y + 1, 14, 1, PAL.stoneLight);
-      // canto inferior na sombra (profundidade)
-      p.rect(x + 1, y + 15, 15, 1, "#373d47");
+  p.fill("#1f232a"); // argamassa escura funda (gaps entre as pedras)
+  // Cobblestone ORGÂNICO: pedras ~8px arredondadas, running bond, cada uma com
+  // VOLUME (luz no topo, sombra na base). Tom por posição (mod) → tileável.
+  const TONES = [PAL.stoneMid, PAL.stoneBase, "#474e5a", "#3c424d", "#515866"];
+  for (let row = 0; row < 4; row++) {
+    const oy = row * 8;
+    const off = (row & 1) ? 4 : 0;
+    for (let col = -1; col < 5; col++) {
+      const x = col * 8 + off;
+      const cmod = (((col % 4) + 4) % 4);
+      const tr = mulberry32(seed * 31 + row * 97 + cmod * 13);
+      const base = TONES[Math.floor(tr() * TONES.length)];
+      // corpo arredondado (cantos cortados) 8×8
+      p.rect(x + 1, oy + 1, 6, 6, base);
+      p.rect(x + 2, oy, 4, 1, base); p.rect(x + 2, oy + 7, 4, 1, base);
+      p.rect(x, oy + 2, 1, 4, base); p.rect(x + 7, oy + 2, 1, 4, base);
+      // VOLUME: aresta lit no topo, sombra funda na base, AO lateral
+      p.rect(x + 2, oy, 4, 1, PAL.stoneLight);
+      p.rect(x + 1, oy + 1, 5, 1, "#5a626f");
+      p.rect(x + 2, oy + 7, 4, 1, "#15181e");
+      p.rect(x + 1, oy + 6, 5, 1, "#2a2f38");
+      p.px(x, oy + 2, "#15181e"); p.px(x + 7, oy + 5, "#15181e");
+      // desgaste/dithering interno
+      if (tr() < 0.5) p.px(x + 2 + Math.floor(tr() * 3), oy + 2 + Math.floor(tr() * 3), tr() < 0.5 ? PAL.stoneLight : "#333943");
     }
-  }
-  // rachaduras e desgaste
-  for (let i = 0; i < 14; i++) {
-    const x = Math.floor(rng() * 32);
-    const y = Math.floor(rng() * 32);
-    p.px(x, y, rng() < 0.5 ? PAL.stoneCrack : PAL.stoneLight);
   }
   return p.texture();
 }
