@@ -27,6 +27,12 @@ export interface SimEntity {
   /** Família canônica (criaturas) — null para player/npc. */
   family: CreatureFamily | null;
   pos: Vec2;
+  /**
+   * ANDAR (z-level) em que a entidade está — SISTEMA-ANDARES.md. `pos` é 2D
+   * dentro deste andar; colisão/pathfinding/aggro operam só dentro do mesmo z.
+   * Overworld = `baseZ` (0); subsolo z<0. Transição só por portal (escada/etc.).
+   */
+  z: number;
   facing: Facing;
   /** ms (tempo lógico) a partir do qual pode dar o próximo passo. */
   nextMoveAt: number;

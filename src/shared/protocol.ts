@@ -142,6 +142,9 @@ export interface EntityState {
   species: string | null;
   /** Tile lógico atual. */
   pos: Vec2;
+  /** Andar (z-level) — SISTEMA-ANDARES.md. O client renderiza só o andar do
+   *  próprio jogador e filtra entidades por este z. Overworld = 0; subsolo < 0. */
+  z: number;
   facing: Facing;
   /** Duração do passo atual em ms — o cliente usa para animar a transição. */
   stepMs: number;
@@ -306,6 +309,8 @@ export interface EquippedItemView {
 export interface CorpseView {
   id: number;
   pos: Vec2;
+  /** Andar (z-level) do cadáver — client só mostra os do andar atual. */
+  z: number;
   /** Espécie do morto (client escolhe o sprite do corpo). */
   species: string | null;
   name: string;

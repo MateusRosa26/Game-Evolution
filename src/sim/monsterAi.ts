@@ -32,7 +32,8 @@ function nearestPlayerInAggro(world: World, monster: SimEntity, players: SimEnti
   let best: SimEntity | null = null;
   let bestDist = Infinity;
   for (const p of players) {
-    if (p.dead || world.isSafeZone(p.pos.x, p.pos.y)) continue;
+    // Aggro é POR ANDAR (SISTEMA-ANDARES §4): mob só vê quem está no mesmo z.
+    if (p.dead || p.z !== monster.z || world.isSafeZone(p.pos.x, p.pos.y, monster.z)) continue;
     const d = chebyshev(monster.pos, p.pos);
     if (d <= monster.aggroRadius && d < bestDist) {
       bestDist = d;
@@ -62,8 +63,9 @@ export function updateChaser(
   if (
     !target ||
     target.dead ||
+    target.z !== monster.z || // alvo trocou de andar → solta (mob não persegue cross-floor)
     chebyshev(monster.pos, target.pos) > monster.aggroRadius + AGGRO_DROP_GRACE_TILES ||
-    world.isSafeZone(target.pos.x, target.pos.y) // alvo entrou em zona segura → solta
+    world.isSafeZone(target.pos.x, target.pos.y, monster.z) // alvo entrou em zona segura → solta
   ) {
     target = nearestPlayerInAggro(world, monster, players) ?? undefined;
     monster.targetId = target ? target.id : null;
@@ -105,7 +107,7 @@ export function updateChaser(
   // O tile do alvo nunca é filtrado pelo isBlocked (regra do findPath) — o
   // path chega até ele e o último passo é descartado: mobs CERCAM o alvo em
   // tiles livres em vez de empilhar atrás do primeiro que chegou.
-  const path = findPath(world, monster.pos, target.pos, { isBlocked });
+  const path = findPath(world, monster.pos, target.pos, { isBlocked, z: monster.z });
   if (path && path.length > 0) {
     // Não pisa em cima do alvo: descarta o último passo (o tile do jogador).
     const goal = path[path.length - 1];

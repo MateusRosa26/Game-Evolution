@@ -356,7 +356,18 @@ export class Game {
   }
 
   private onSnapshot(snap: Snapshot): void {
-    this.entityRenderer?.apply(snap);
+    // ANDAR do jogador: tudo que se vê/interage é filtrado por z (SISTEMA-ANDARES
+    // §8 — você só recebe/enxerga entidades do seu andar). O render de TILES do
+    // andar ativo entra na Fase 1 (junto do layout dos esgotos); por ora o filtro
+    // de entidades já torna a sim z-aware observável.
+    const me = snap.entities.find((e) => e.id === this.playerId) ?? null;
+    const pz = me?.z ?? 0;
+    const viewSnap: Snapshot = {
+      ...snap,
+      entities: snap.entities.filter((e) => e.z === pz),
+      corpses: snap.corpses.filter((c) => c.z === pz),
+    };
+    this.entityRenderer?.apply(viewSnap);
     // Camada emergente (DESIGN-EVOLUCAO.md §"Visibilidade"): hint/unlock chegam
     // como eventos one-shot SEM progresso numérico. O toast só ENCENA o evento
     // (sussurro no hint, momento épico no unlock) — ZERO regra de jogo aqui.
@@ -376,8 +387,8 @@ export class Game {
         }
       }
     }
-    this.lastEntities = snap.entities;
-    this.playerState = snap.entities.find((e) => e.id === this.playerId) ?? null;
+    this.lastEntities = viewSnap.entities;
+    this.playerState = me;
     // talk pendente: chegou perto do NPC clicado → conversa e limpa
     if (this.pendingTalkNpcId != null && this.playerState) {
       const npc = snap.entities.find((e) => e.id === this.pendingTalkNpcId);
@@ -427,7 +438,7 @@ export class Game {
       this.minimap.update(this.playerState.pos.x, this.playerState.pos.y);
       this.syncContainerWindows(this.playerState.containers ?? []);
     }
-    this.lastCorpses = snap.corpses;
+    this.lastCorpses = viewSnap.corpses;
     this.entityRenderer?.setCorpses(snap.corpses);
   }
 

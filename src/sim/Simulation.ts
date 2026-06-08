@@ -74,6 +74,8 @@ import { World } from "./World";
 interface PendingRespawn {
   template: CreatureTemplate;
   pos: Vec2;
+  /** Andar do mob morto — respawna no mesmo z. */
+  z: number;
   atTick: number;
 }
 
@@ -95,7 +97,7 @@ export class Simulation {
   /** Containers (mochilas/cadáveres) — DESIGN-ITENS onda 1. */
   readonly containers = new ContainerRegistry();
   /** Cadáveres saqueáveis no chão (decaem). */
-  private corpses: { id: number; containerId: number; pos: Vec2; species: string | null; name: string; decayAtTick: number }[] = [];
+  private corpses: { id: number; containerId: number; pos: Vec2; z: number; species: string | null; name: string; decayAtTick: number }[] = [];
   private nextCorpseId = 1;
   /** RNG da sim (loot etc.) — seedado e determinístico. */
   private lootRng: Rng = mulberry32(0xa1f0);
@@ -132,14 +134,15 @@ export class Simulation {
    */
   private occupancy = new Map<number, number>();
 
-  private tileKey(x: number, y: number): number {
-    return y * this.world.width + x;
+  /** Chave de ocupação ÚNICA por (x,y,z) — andares empilham sem colidir. */
+  private tileKey(x: number, y: number, z: number): number {
+    return z * this.world.width * this.world.height + y * this.world.width + x;
   }
 
   private rebuildOccupancy(): void {
     this.occupancy.clear();
     for (const e of this.entities.values()) {
-      if (!e.dead) this.occupancy.set(this.tileKey(e.pos.x, e.pos.y), e.id);
+      if (!e.dead) this.occupancy.set(this.tileKey(e.pos.x, e.pos.y, e.z), e.id);
     }
   }
 
@@ -151,10 +154,11 @@ export class Simulation {
    * viva bloqueia.
    */
   private canEnter(mover: SimEntity, x: number, y: number): boolean {
-    if (!this.world.isWalkable(x, y)) return false;
-    if (this.world.isSafeZone(x, y)) return mover.kind !== "monster";
-    if (this.world.isPassZone(x, y)) return true;
-    const occ = this.occupancy.get(this.tileKey(x, y));
+    const z = mover.z;
+    if (!this.world.isWalkable(x, y, z)) return false;
+    if (this.world.isSafeZone(x, y, z)) return mover.kind !== "monster";
+    if (this.world.isPassZone(x, y, z)) return true;
+    const occ = this.occupancy.get(this.tileKey(x, y, z));
     return occ == null || occ === mover.id;
   }
 
@@ -163,12 +167,27 @@ export class Simulation {
     return (x, y) => !this.canEnter(mover, x, y);
   }
 
-  /** Move `e` para (x,y) mantendo o índice de ocupação coerente. */
+  /** Move `e` para (x,y) NO MESMO ANDAR, mantendo a ocupação coerente. */
   private moveTo(e: SimEntity, x: number, y: number): void {
-    const fromKey = this.tileKey(e.pos.x, e.pos.y);
+    const fromKey = this.tileKey(e.pos.x, e.pos.y, e.z);
     if (this.occupancy.get(fromKey) === e.id) this.occupancy.delete(fromKey);
     e.pos = { x, y };
-    this.occupancy.set(this.tileKey(x, y), e.id);
+    this.occupancy.set(this.tileKey(x, y, e.z), e.id);
+  }
+
+  /**
+   * Transição ENTRE ANDARES por portal (escada/caverna/buraco) — corte de cena.
+   * Atualiza ocupação saindo do andar de origem e entrando no destino (x,y,z).
+   * SISTEMA-ANDARES §4: resolvida na sim ao pisar no portal.
+   */
+  private transition(e: SimEntity, to: { x: number; y: number; z: number }): void {
+    const fromKey = this.tileKey(e.pos.x, e.pos.y, e.z);
+    if (this.occupancy.get(fromKey) === e.id) this.occupancy.delete(fromKey);
+    e.pos = { x: to.x, y: to.y };
+    e.z = to.z;
+    // intenção de caminho é por-andar: ao trocar de andar, cancela o auto-walk.
+    e.intent = null;
+    this.occupancy.set(this.tileKey(to.x, to.y, to.z), e.id);
   }
 
   constructor(map: MapData) {
@@ -219,6 +238,7 @@ export class Simulation {
       species: null,
       family: null,
       pos: { x: spawn.x, y: spawn.y },
+      z: this.world.baseZ, // nasce no overworld
       facing: "s",
       nextMoveAt: 0,
       stepMs: BASE_WALK_MS,
@@ -269,7 +289,7 @@ export class Simulation {
     const sp = this.nearestFree(entity, entity.pos);
     entity.pos = { x: sp.x, y: sp.y };
     entity.spawnPos = { x: sp.x, y: sp.y };
-    this.occupancy.set(this.tileKey(sp.x, sp.y), id);
+    this.occupancy.set(this.tileKey(sp.x, sp.y, entity.z), id);
     this.progressions.set(id, prog);
     syncMaxResources(entity, prog, true); // preenche HP/Mana ao máximo derivado
     this.recomputePlayerDerived(entity, prog); // dano/cooldown de auto-attack
@@ -304,8 +324,8 @@ export class Simulation {
 
   removeEntity(id: number): void {
     const e = this.entities.get(id);
-    if (e && this.occupancy.get(this.tileKey(e.pos.x, e.pos.y)) === id) {
-      this.occupancy.delete(this.tileKey(e.pos.x, e.pos.y));
+    if (e && this.occupancy.get(this.tileKey(e.pos.x, e.pos.y, e.z)) === id) {
+      this.occupancy.delete(this.tileKey(e.pos.x, e.pos.y, e.z));
     }
     this.entities.delete(id);
     this.playerIds.delete(id);
@@ -338,7 +358,7 @@ export class Simulation {
     }
   }
 
-  private spawnMonster(template: CreatureTemplate, pos: Vec2): number {
+  private spawnMonster(template: CreatureTemplate, pos: Vec2, z: number = this.world.baseZ): number {
     const id = this.nextId++;
     this.entities.set(id, {
       id,
@@ -347,6 +367,7 @@ export class Simulation {
       species: template.species,
       family: template.family,
       pos: { x: pos.x, y: pos.y },
+      z, // andar do spawn (overworld por padrão; subsolo quando o layout pedir)
       facing: "s",
       nextMoveAt: 0,
       stepMs: template.baseStepMs,
@@ -381,7 +402,7 @@ export class Simulation {
       openContainers: new Set(),
       backpackContainerId: null,
     });
-    this.occupancy.set(this.tileKey(pos.x, pos.y), id);
+    this.occupancy.set(this.tileKey(pos.x, pos.y, z), id);
     return id;
   }
 
@@ -396,6 +417,7 @@ export class Simulation {
         species: null,
         family: null,
         pos: { x: n.x, y: n.y },
+        z: this.world.baseZ, // NPCs no overworld (NPC de subsolo: layout futuro)
         facing: "s",
         nextMoveAt: 0,
         stepMs: BASE_WALK_MS,
@@ -428,7 +450,7 @@ export class Simulation {
         openContainers: new Set(),
         backpackContainerId: null,
       });
-      this.occupancy.set(this.tileKey(n.x, n.y), id);
+      this.occupancy.set(this.tileKey(n.x, n.y, this.world.baseZ), id);
     }
   }
 
@@ -453,7 +475,7 @@ export class Simulation {
     for (const e of this.entities.values()) {
       if (!e.activeDialogue) continue;
       const npc = this.entities.get(e.activeDialogue.npcEntityId);
-      if (!npc || npc.dead || chebyshev(e.pos, npc.pos) > 3) e.activeDialogue = null;
+      if (!npc || npc.dead || npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) e.activeDialogue = null;
     }
   }
 
@@ -465,9 +487,9 @@ export class Simulation {
         e.intent = cmd.dir ? { kind: "dir", dir: cmd.dir } : null;
         break;
       case "walkTo": {
-        const goal = nearestWalkable(this.world, { x: Math.round(cmd.x), y: Math.round(cmd.y) });
+        const goal = nearestWalkable(this.world, { x: Math.round(cmd.x), y: Math.round(cmd.y) }, 3, e.z);
         if (!goal) break;
-        const path = findPath(this.world, e.pos, goal, { isBlocked: this.blockedFor(e) });
+        const path = findPath(this.world, e.pos, goal, { isBlocked: this.blockedFor(e), z: e.z });
         if (path && path.length > 0) e.intent = { kind: "path", path, goal };
         break;
       }
@@ -477,8 +499,8 @@ export class Simulation {
           break;
         }
         const target = this.entities.get(cmd.entityId);
-        // Só alveja monstros vivos existentes.
-        e.targetId = target && target.kind === "monster" && !target.dead ? cmd.entityId : null;
+        // Só alveja monstros vivos existentes NO MESMO ANDAR.
+        e.targetId = target && target.kind === "monster" && !target.dead && target.z === e.z ? cmd.entityId : null;
         break;
       }
       case "allocateStatPoint": {
@@ -512,7 +534,7 @@ export class Simulation {
         if (e.kind !== "player") break;
         const npc = this.entities.get(cmd.npcId);
         if (!npc || npc.kind !== "npc" || !npc.npcKey) break;
-        if (chebyshev(e.pos, npc.pos) > 3) break; // alcance de conversa
+        if (npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) break; // alcance de conversa (mesmo andar)
         const dlg = DIALOGUES[npc.npcKey];
         if (!dlg) break;
         e.activeDialogue = { npcEntityId: npc.id, view: dlg.root(e.quests) };
@@ -669,10 +691,12 @@ export class Simulation {
       if (!prog) continue;
       // Zona segura: skill OFENSIVA não sai de dentro (cura pode — padrão PZ).
       const def = SKILLS[req.skillId];
-      if (def && def.targeting !== "healTarget" && this.world.isSafeZone(caster.pos.x, caster.pos.y)) {
+      if (def && def.targeting !== "healTarget" && this.world.isSafeZone(caster.pos.x, caster.pos.y, caster.z)) {
         continue;
       }
-      const target = req.targetId != null ? this.entities.get(req.targetId) ?? null : null;
+      // Alvo só vale no MESMO ANDAR do caster (skill não atravessa andar).
+      const rawTarget = req.targetId != null ? this.entities.get(req.targetId) ?? null : null;
+      const target = rawTarget && rawTarget.z === caster.z ? rawTarget : null;
       const skillCtx: SkillCastCtx = {
         ...ctx,
         prog,
@@ -680,7 +704,8 @@ export class Simulation {
         weaponBase: this.weaponStatsOf(caster).baseDamage,
         // Instância da arma p/ atribuir dano/kill de skill física ao ledger.
         weaponSource: this.weaponSourceOf(caster),
-        enemiesInWorld: [...this.entities.values()],
+        // AoE/linha só atinge entidades do andar do caster.
+        enemiesInWorld: [...this.entities.values()].filter((en) => en.z === caster.z),
       };
       castSkill(skillCtx, caster, req.skillId, target);
     }
@@ -769,10 +794,10 @@ export class Simulation {
     if (player.dead || player.targetId == null) return;
     // Zona segura é zona SEM combate: não se ataca de dentro dela (a IA já é
     // cega para quem está dentro — atacar de lá seria abuso de mão única).
-    if (this.world.isSafeZone(player.pos.x, player.pos.y)) return;
+    if (this.world.isSafeZone(player.pos.x, player.pos.y, player.z)) return;
     const target = this.entities.get(player.targetId);
-    if (!target || target.kind !== "monster" || target.dead) {
-      player.targetId = null;
+    if (!target || target.kind !== "monster" || target.dead || target.z !== player.z) {
+      player.targetId = null; // alvo morto/inexistente ou em outro andar
       return;
     }
     if (chebyshev(player.pos, target.pos) > MELEE_RANGE) return; // fora de alcance
@@ -794,7 +819,7 @@ export class Simulation {
   private containerAccessible(e: SimEntity, containerId: number): boolean {
     if (e.backpackContainerId === containerId) return true;
     const corpse = this.corpses.find((c) => c.containerId === containerId);
-    return !!corpse && chebyshev(e.pos, corpse.pos) <= 2;
+    return !!corpse && corpse.z === e.z && chebyshev(e.pos, corpse.pos) <= 2;
   }
 
   /** Peso TOTAL que o jogador carrega: equipamento + bolso (itens + ouro).
@@ -1035,6 +1060,7 @@ export class Simulation {
             id: this.nextCorpseId++,
             containerId: c.id,
             pos: { x: e.pos.x, y: e.pos.y },
+            z: e.z,
             species: e.species,
             name: c.name,
             decayAtTick: this.tickCount + 3600, // ~3min (✏️ DESIGN-ITENS)
@@ -1044,6 +1070,7 @@ export class Simulation {
           this.respawns.push({
             template,
             pos: { x: e.spawnPos.x, y: e.spawnPos.y },
+            z: e.z,
             atTick: this.tickCount + template.respawnTicks,
           });
         }
@@ -1063,10 +1090,10 @@ export class Simulation {
           // Ponto de spawn ocupado (alguém parado nele) → adia 1s em vez de
           // spawnar empilhado. Zona segura também adia: mob não nasce nela.
           const free =
-            this.world.isWalkable(r.pos.x, r.pos.y) &&
-            !this.world.isSafeZone(r.pos.x, r.pos.y) &&
-            !this.occupancy.has(this.tileKey(r.pos.x, r.pos.y));
-          if (free) this.spawnMonster(r.template, r.pos);
+            this.world.isWalkable(r.pos.x, r.pos.y, r.z) &&
+            !this.world.isSafeZone(r.pos.x, r.pos.y, r.z) &&
+            !this.occupancy.has(this.tileKey(r.pos.x, r.pos.y, r.z));
+          if (free) this.spawnMonster(r.template, r.pos, r.z);
           else remaining.push({ ...r, atTick: this.tickCount + 20 });
         } else {
           remaining.push(r);
@@ -1098,13 +1125,18 @@ export class Simulation {
     const dir = dirFromDelta(next.x - e.pos.x, next.y - e.pos.y);
     if (!dir) {
       // Path dessincronizado (não deveria acontecer) — recalcula.
-      const path = findPath(this.world, e.pos, e.intent.goal, { isBlocked: this.blockedFor(e) });
+      const path = findPath(this.world, e.pos, e.intent.goal, { isBlocked: this.blockedFor(e), z: e.z });
       e.intent = path && path.length > 0 ? { kind: "path", path, goal: e.intent.goal } : null;
       return;
     }
     if (this.tryStep(e, dir, now)) {
-      e.intent.path.shift();
-      if (e.intent.path.length === 0) e.intent = null;
+      // Se o passo caiu num portal, `tryStep` transicionou de andar e JÁ zerou
+      // o intent (auto-walk não atravessa andar) — o path antigo é de outro
+      // andar; não mexer nele.
+      if (e.intent?.kind === "path") {
+        e.intent.path.shift();
+        if (e.intent.path.length === 0) e.intent = null;
+      }
     } else if (e.intent.path.length === 1) {
       // O único passo restante é o tile-objetivo, ocupado por alguém parado
       // nele: chegou "o mais perto possível" — para, em vez de re-pathear
@@ -1112,7 +1144,7 @@ export class Simulation {
       e.intent = null;
     } else {
       // Bloqueio dinâmico (outra criatura entrou no tile) — recalcula por volta.
-      const path = findPath(this.world, e.pos, e.intent.goal, { isBlocked: this.blockedFor(e) });
+      const path = findPath(this.world, e.pos, e.intent.goal, { isBlocked: this.blockedFor(e), z: e.z });
       e.intent = path && path.length > 0 ? { kind: "path", path, goal: e.intent.goal } : null;
     }
   }
@@ -1143,6 +1175,13 @@ export class Simulation {
     e.stepMs = this.quantizeToTickMs(e.baseStepMs * (isDiagonal(dir) ? DIAGONAL_FACTOR : 1));
     e.nextMoveAt = now + e.stepMs;
     e.justMoved = true;
+    // Portal ao pisar (só players no MVP — monstros não trocam de andar). A
+    // checagem fica AQUI (no passo andado); a chegada via `transition` não
+    // re-dispara, então escada bidirecional não fica em loop. SISTEMA-ANDARES §3.
+    if (e.kind === "player") {
+      const portal = this.world.portalAt(nx, ny, e.z);
+      if (portal?.to) this.transition(e, portal.to);
+    }
     return true;
   }
 
@@ -1204,6 +1243,7 @@ export class Simulation {
         name: e.name,
         species: e.species,
         pos: { x: e.pos.x, y: e.pos.y },
+        z: e.z,
         facing: e.facing,
         stepMs: e.stepMs,
         moving: e.justMoved,
@@ -1293,6 +1333,7 @@ export class Simulation {
       corpses: this.corpses.map((c) => ({
         id: c.containerId, // o client abre por containerId — id único que importa
         pos: { x: c.pos.x, y: c.pos.y },
+        z: c.z,
         species: c.species,
         name: c.name,
       })),
