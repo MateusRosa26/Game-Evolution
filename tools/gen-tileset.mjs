@@ -27,6 +27,33 @@ const SHARED = {
 const img = (path) => ({ __ref: path });
 
 const SPECS = {
+  // ── SUBSOLO / ESGOTOS (SISTEMA-ANDARES) — substituem os placeholders procedurais ──
+  // Chão de esgoto: pedra úmida e fria vista de cima (modelo do muro-topo: lower/
+  // upper = 2 variações → tile seamless com nuance). É a SONDA de custo do lote.
+  "esgoto-chao": {
+    lower_description:
+      "top-down floor of an ancient underground stone sewer seen from directly above, wet dark cold grey-green flagstones with deep shadowed joints, slick damp worn stone, patches of dark moss and grime, seamless, dark medieval fantasy, flat top view, no perspective, no bricks pattern, organic worn stone",
+    upper_description:
+      "top-down floor of an ancient underground stone sewer seen from directly above, lit damp grey-green flagstones with a faint wet sheen on the block tops and dark mossy joints, slick worn stone, seamless, dark medieval fantasy, flat top view, no perspective",
+    transition_description: "irregular mix of darker grimy and lighter damp flagstones with patches of moss",
+    transition_size: 0,
+    text_guidance_scale: 8,
+    seed: 17,
+  },
+  // Chão de caverna v2: re-roll — base TAMBÉM é rocha (v1 saiu chapada com rabisco
+  // repetido); ambos lower/upper = rocha quebrada natural; tile_strength baixo
+  // quebra a repetição óbvia; negativos fortes contra símbolos/motivo.
+  "caverna-chao": {
+    lower_description:
+      "top-down floor entirely of broken natural cavern rock seen from directly above, jagged uneven grey-brown stone rubble and cracked bedrock filling the whole tile, deep dark crevices between the rocks, scattered loose pebbles, rough organic chaotic rocky surface everywhere, seamless, dark medieval fantasy, flat top view, no perspective, no flat smooth ground, no symbols, no letters, no runes, no repeating motif, no bricks, no grid",
+    upper_description:
+      "top-down floor entirely of broken natural cavern rock seen from directly above, lit jagged grey-brown stone with bright highlights on raised rock edges and dark shadowed crevices, scattered rubble and pebbles, rough organic chaotic rocky surface everywhere, seamless, dark medieval fantasy, flat top view, no perspective, no flat smooth ground, no symbols, no runes, no repeating motif, no bricks, no grid",
+    transition_description: "natural chaotic mix of darker and lighter broken cavern rock and rubble",
+    transition_size: 0,
+    text_guidance_scale: 7,
+    tile_strength: 0.5,
+    seed: 53,
+  },
   // v2 do topo do muro: blocos GRANDES de cantaria (ashlar), musgo, mais contraste,
   // menos rigidez de grid (tile_strength baixo) — atacar o "grid pequeno uniforme".
   "muro-topo-v2": {

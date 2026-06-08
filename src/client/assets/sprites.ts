@@ -865,6 +865,19 @@ export interface SpriteLibrary {
   shadow: Texture;
 }
 
+/**
+ * Variantes de chão PLANO a partir de um tileset Wang do PixelLab (par `pair`):
+ * usa as tiles puras (0000/1111) + algumas mistas como variação espalhada (musgo
+ * etc.). Null se o tileset não foi carregado → o chamador cai no procedural.
+ * (A transição Wang dual-grid de subsolo entra na Fase 1 do render, junto do layout.)
+ */
+function wangFloorVariants(pair: string): Texture[] | null {
+  const set = PIXELLAB.wang[pair];
+  if (!set) return null;
+  const tex = ["0000", "1111", "0011", "1100", "0110", "1001"].map((c) => set[c]).filter(Boolean);
+  return tex.length ? tex : null;
+}
+
 export function createSprites(): SpriteLibrary {
   return {
     grass: [makeGrass(11, false), makeGrass(22, false), makeGrass(33, false), makeGrass(44, false)],
@@ -878,7 +891,8 @@ export function createSprites(): SpriteLibrary {
     trees: PIXELLAB.trees.length > 0 ? PIXELLAB.trees : [makeTree(101), makeTree(202), makeTree(303)],
     rocks: [makeRock(401), makeRock(402)],
     walls: makeWallTiles(),
-    sewerFloor: [makeDungeonFloor(801, SEWER_FLOOR_PAL), makeDungeonFloor(802, SEWER_FLOOR_PAL), makeDungeonFloor(803, SEWER_FLOOR_PAL)],
+    // Esgoto: tileset PixelLab aprovado (jun/2026) quando carregado; fallback procedural.
+    sewerFloor: wangFloorVariants("esgoto-chao") ?? [makeDungeonFloor(801, SEWER_FLOOR_PAL), makeDungeonFloor(802, SEWER_FLOOR_PAL), makeDungeonFloor(803, SEWER_FLOOR_PAL)],
     caveFloor: [makeDungeonFloor(811, CAVE_FLOOR_PAL), makeDungeonFloor(812, CAVE_FLOOR_PAL), makeDungeonFloor(813, CAVE_FLOOR_PAL)],
     sewageFrames: makeMurkyWaterFrames(SEWAGE_PAL),
     deepWaterFrames: makeMurkyWaterFrames(DEEPWATER_PAL),
