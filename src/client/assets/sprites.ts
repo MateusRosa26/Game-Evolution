@@ -253,6 +253,128 @@ function makeWaterFrames(): Texture[] {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Subsolo / dungeon — PLACEHOLDERS procedurais (SISTEMA-ANDARES.md).
+// Travam o contrato de TileId; a arte final vem do PixelLab (create-tileset)
+// sem mudar os IDs. Reaproveitam a lógica de chão/água/autotile da cidade,
+// só parametrizando a paleta — distintos e legíveis, não finais.
+// ──────────────────────────────────────────────────────────────────────
+
+interface FloorPal { base: string; mid: string; dark: string; light: string; crack: string; }
+interface MurkyPal { base: string; mid: string; dark: string; light: string; foam: string; }
+interface DWallPal { top: string; topHi: string; joint: string; face: string; faceHi: string; faceDark: string; accent: string; }
+
+// Chão em lajota "running bond" parametrizado (mesma estrutura do makeStoneFloor).
+function makeDungeonFloor(seed: number, pal: FloorPal): Texture {
+  const rng = mulberry32(seed);
+  const p = new Px(32, 32);
+  p.fill(pal.base);
+  for (let row = 0; row < 2; row++) {
+    const offset = row % 2 === 0 ? 0 : 8;
+    for (let col = -1; col < 3; col++) {
+      const x = col * 16 + offset;
+      const y = row * 16;
+      const tone = rng();
+      if (tone < 0.35) p.rect(x + 1, y + 1, 15, 15, pal.mid);
+      else if (tone > 0.85) p.rect(x + 1, y + 1, 15, 15, pal.light);
+      p.rect(x, y, 16, 1, pal.dark);
+      p.rect(x, y, 1, 16, pal.dark);
+      p.rect(x + 1, y + 1, 14, 1, pal.light);
+      p.rect(x + 1, y + 15, 15, 1, pal.dark);
+    }
+  }
+  for (let i = 0; i < 16; i++) p.px(Math.floor(rng() * 32), Math.floor(rng() * 32), rng() < 0.5 ? pal.crack : pal.light);
+  return p.texture();
+}
+
+// Água "suja" animada parametrizada (mesma onda do makeWaterFrames, cores próprias).
+function makeMurkyWaterFrames(pal: MurkyPal): Texture[] {
+  const frames: Texture[] = [];
+  for (let f = 0; f < 3; f++) {
+    const p = new Px(32, 32);
+    p.fill(pal.base);
+    for (let y = 0; y < 32; y++) {
+      for (let x = 0; x < 32; x++) {
+        const w1 = Math.sin((x + y * 2.7 + f * 3.4) * 0.55);
+        const w2 = Math.sin((x * 0.8 - y * 1.3 - f * 2.6) * 0.4);
+        if (w1 > 0.82) p.px(x, y, pal.mid);
+        if (w1 > 0.96) p.px(x, y, pal.light);
+        if (w2 > 0.93 && w1 > 0.4) p.px(x, y, pal.dark);
+      }
+    }
+    const rng = mulberry32(1300 + f);
+    for (let i = 0; i < 3; i++) p.rect(2 + Math.floor(rng() * 27), 2 + Math.floor(rng() * 27), 2, 1, pal.foam);
+    frames.push(p.texture());
+  }
+  return frames;
+}
+
+// Autotile 16-máscaras parametrizado (mesmo contrato de máscara do makeWallTile:
+// N=1,E=2,S=4,W=8; topo sempre, face só quando !S, caps onde não há vizinho).
+function makeDungeonWallTile(mask: number, seed: number, pal: DWallPal): Texture {
+  const rng = mulberry32(seed + mask * 97 + 1);
+  const p = new Px(32, 44);
+  const N = (mask & 1) !== 0, E = (mask & 2) !== 0, S = (mask & 4) !== 0, W = (mask & 8) !== 0;
+  const OUT = "#10141c";
+  const topEnd = S ? 44 : 13;
+  p.rect(0, 0, 32, topEnd, pal.joint);
+  for (let ry = -2; ry < topEnd; ry += 7) {
+    const off = ((((ry + 2) / 7) | 0) & 1) === 0 ? 0 : 9;
+    for (let rx = -off; rx < 32; rx += 13) {
+      const by = ry + 1; if (by >= topEnd) continue;
+      const bh = Math.min(6, topEnd - by);
+      const bw = 11 + Math.floor(rng() * 3);
+      p.rect(rx + 1, by, bw, bh, rng() < 0.3 ? pal.top : pal.topHi);
+      p.rect(rx + 1, by, bw, 1, pal.topHi);
+      if (ry >= 0) p.rect(rx, ry, bw + 2, 1, pal.joint);
+      p.rect(rx, by, 1, bh, pal.joint);
+    }
+  }
+  if (!N) p.rect(0, 1, 32, 2, pal.topHi);
+  if (!S) {
+    p.rect(0, 11, 32, 1, pal.faceDark);
+    p.rect(0, 12, 32, 1, OUT);
+    for (let row = 0; row < 4; row++) {
+      const y = 13 + row * 8;
+      const offset = row % 2 === 0 ? 0 : 8;
+      for (let col = -1; col < 3; col++) {
+        const x = col * 16 + offset;
+        p.rect(x + 1, y + 1, 15, 7, row < 2 ? pal.face : pal.faceDark);
+        p.rect(x + 1, y + 1, 15, 1, pal.faceHi);
+        p.rect(x, y, 16, 1, OUT);
+        p.rect(x, y, 1, 8, OUT);
+        if (rng() < 0.4) p.px(x + 2 + Math.floor(rng() * 12), y + 2 + Math.floor(rng() * 5), OUT);
+      }
+    }
+    p.rect(0, 41, 32, 3, "rgba(0,0,0,0.38)");
+  }
+  // nuance de identidade (musgo do esgoto / ocre da alvenaria antiga / terra da caverna)
+  if (rng() < 0.5) {
+    const ax = Math.floor(rng() * 28);
+    const ay = Math.floor(rng() * (S ? 38 : 10));
+    for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) if (rng() < 0.6) p.px(ax + dx, ay + dy, pal.accent);
+  }
+  if (!W) { p.rect(0, 0, 1, 44, OUT); p.rect(1, 0, 1, topEnd, pal.joint); }
+  if (!E) { p.rect(31, 0, 1, 44, OUT); p.rect(30, 0, 1, topEnd, pal.joint); }
+  if (!N) p.rect(0, 0, 32, 1, OUT);
+  return p.texture();
+}
+
+function makeDungeonWallTiles(seed: number, pal: DWallPal): Texture[][] {
+  const out: Texture[][] = [];
+  for (let m = 0; m < 16; m++) out.push([makeDungeonWallTile(m, seed, pal), makeDungeonWallTile(m, seed + 1000, pal)]);
+  return out;
+}
+
+// Paletas de placeholder (frias/dessaturadas; identidades distintas p/ leitura de layout).
+const SEWER_FLOOR_PAL: FloorPal = { base: "#2b3431", mid: "#36423e", dark: "#1a211f", light: "#46544f", crack: "#222b28" };
+const CAVE_FLOOR_PAL: FloorPal = { base: "#352f28", mid: "#413a30", dark: "#1f1b15", light: "#4d4536", crack: "#261f17" };
+const SEWAGE_PAL: MurkyPal = { base: "#313722", mid: "#424a2e", dark: "#20251a", light: "#525a38", foam: "#67714a" };
+const DEEPWATER_PAL: MurkyPal = { base: "#131e29", mid: "#1c2c3a", dark: "#0a1018", light: "#284058", foam: "#34526b" };
+const SEWER_WALL_PAL: DWallPal = { top: "#3a4642", topHi: "#4a5a54", joint: "#232c29", face: "#2a332f", faceHi: "#3a4641", faceDark: "#1c2320", accent: "#38502f" };
+const OLD_MASONRY_PAL: DWallPal = { top: "#4a463a", topHi: "#5c5746", joint: "#2c281f", face: "#3a372e", faceHi: "#4a463a", faceDark: "#25221b", accent: "#6a6450" };
+const CAVE_WALL_PAL: DWallPal = { top: "#3d362c", topHi: "#4c4435", joint: "#221d16", face: "#2e2a22", faceHi: "#3d362c", faceDark: "#1d1913", accent: "#4a3f2c" };
+
+// ──────────────────────────────────────────────────────────────────────
 // Objetos do mundo
 // ──────────────────────────────────────────────────────────────────────
 
@@ -718,6 +840,15 @@ export interface SpriteLibrary {
   rocks: Texture[];
   /** Muralha autotile: 16 máscaras (N=1,E=2,S=4,W=8) × variantes de nuance. */
   walls: Texture[][];
+  // ── Subsolo (placeholders; PixelLab depois) — SISTEMA-ANDARES.md ──
+  sewerFloor: Texture[];
+  caveFloor: Texture[];
+  sewageFrames: Texture[];
+  deepWaterFrames: Texture[];
+  /** Paredes de subsolo: 16 máscaras × variantes (mesmo contrato da muralha). */
+  sewerWalls: Texture[][];
+  oldMasonryWalls: Texture[][];
+  caveWalls: Texture[][];
   /** Portão da muralha (3 tiles de largura), anchor bottom. */
   gate: Texture;
   /** Parede de enxaimel das casas: 16 máscaras × variantes (face pra dentro). */
@@ -747,6 +878,13 @@ export function createSprites(): SpriteLibrary {
     trees: PIXELLAB.trees.length > 0 ? PIXELLAB.trees : [makeTree(101), makeTree(202), makeTree(303)],
     rocks: [makeRock(401), makeRock(402)],
     walls: makeWallTiles(),
+    sewerFloor: [makeDungeonFloor(801, SEWER_FLOOR_PAL), makeDungeonFloor(802, SEWER_FLOOR_PAL), makeDungeonFloor(803, SEWER_FLOOR_PAL)],
+    caveFloor: [makeDungeonFloor(811, CAVE_FLOOR_PAL), makeDungeonFloor(812, CAVE_FLOOR_PAL), makeDungeonFloor(813, CAVE_FLOOR_PAL)],
+    sewageFrames: makeMurkyWaterFrames(SEWAGE_PAL),
+    deepWaterFrames: makeMurkyWaterFrames(DEEPWATER_PAL),
+    sewerWalls: makeDungeonWallTiles(820, SEWER_WALL_PAL),
+    oldMasonryWalls: makeDungeonWallTiles(830, OLD_MASONRY_PAL),
+    caveWalls: makeDungeonWallTiles(840, CAVE_WALL_PAL),
     gate: makeGate(3, 909),
     houseWalls: makeHouseWalls(),
     houseDoor: makeHouseWallTile(0b1010, 700, "door"), // segmento E|W (parede reta)

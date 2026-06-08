@@ -147,6 +147,23 @@ export enum TileId {
   Bridge = 7,
   /** Pântano — andável; telegrafia de borda mole (GRID §6). */
   Swamp = 8,
+
+  // ── Subsolo / dungeon (z<0) — SISTEMA-ANDARES.md. Arte = placeholder
+  // procedural; PixelLab (create-tileset) substitui sem mudar estes IDs. ──
+  /** Chão de esgoto: alvenaria úmida, andável (A1). */
+  SewerFloor = 9,
+  /** Chão de caverna: rocha áspera, andável (A2/A3). */
+  CaveFloor = 10,
+  /** Água servida RASA — andável (vadeável); canal do esgoto (A1/A3). */
+  Sewage = 11,
+  /** Água FUNDA — IMPASSÁVEL (obriga rotear pelas margens; custo de fuga). */
+  DeepWater = 12,
+  /** Parede de tijolo do esgoto — autotile 16-máscaras (A1). */
+  SewerWall = 13,
+  /** Alvenaria antiga, "mais velha que a cidade" — autotile (A2, mistério). */
+  OldMasonryWall = 14,
+  /** Rocha de caverna — autotile (A2/A3). */
+  CaveWall = 15,
 }
 
 export const WALKABLE: Record<TileId, boolean> = {
@@ -159,6 +176,13 @@ export const WALKABLE: Record<TileId, boolean> = {
   [TileId.Wall]: false,
   [TileId.Bridge]: true,
   [TileId.Swamp]: true,
+  [TileId.SewerFloor]: true,
+  [TileId.CaveFloor]: true,
+  [TileId.Sewage]: true,
+  [TileId.DeepWater]: false,
+  [TileId.SewerWall]: false,
+  [TileId.OldMasonryWall]: false,
+  [TileId.CaveWall]: false,
 };
 
 /** Fonte de luz estática do mapa (posição em tiles). */

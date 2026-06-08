@@ -1,4 +1,4 @@
-import { Container, RenderTexture, Sprite, type Renderer } from "pixi.js";
+import { Container, RenderTexture, Sprite, type Renderer, type Texture } from "pixi.js";
 import { hash2D } from "../../sim/rng";
 import { TILE_SIZE } from "../../shared/constants";
 import { TileId, type MapData } from "../../shared/types";
@@ -32,7 +32,7 @@ export class WorldRenderer {
   /** Compartilhada com as entidades — tudo aqui é y-sorted. */
   readonly objects = new Container();
 
-  private waterSprites: Sprite[] = [];
+  private waterSprites: { sp: Sprite; frames: Texture[] }[] = [];
   private torchSprites: Sprite[] = [];
   private waterClock = 0;
   private torchClock = 0;
@@ -65,6 +65,18 @@ export class WorldRenderer {
         return s.bridge[Math.floor(h * s.bridge.length)];
       case TileId.Swamp:
         return s.swamp[Math.floor(h * s.swamp.length)];
+      case TileId.SewerFloor:
+      // paredes de alvenaria assentam sobre chão de esgoto (base do chunk)
+      case TileId.SewerWall:
+      case TileId.OldMasonryWall:
+        return s.sewerFloor[Math.floor(h * s.sewerFloor.length)];
+      case TileId.CaveFloor:
+      case TileId.CaveWall:
+        return s.caveFloor[Math.floor(h * s.caveFloor.length)];
+      case TileId.Sewage:
+        return s.sewageFrames[0];
+      case TileId.DeepWater:
+        return s.deepWaterFrames[0];
       default: {
         const flower = hash2D(x, y, 99) < 0.06;
         return flower
@@ -143,36 +155,51 @@ export class WorldRenderer {
       }
     }
 
-    // água animada: sprites individuais por cima do chão estático
+    // água animada: sprites individuais por cima do chão estático. Overworld +
+    // esgoto raso/fundo — cada tile puxa seu próprio frame-set.
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
-        if (map.tiles[y * map.width + x] !== TileId.Water) continue;
-        const w = new Sprite(this.sprites.waterFrames[0]);
+        const t = map.tiles[y * map.width + x];
+        const frames =
+          t === TileId.Water ? this.sprites.waterFrames :
+          t === TileId.Sewage ? this.sprites.sewageFrames :
+          t === TileId.DeepWater ? this.sprites.deepWaterFrames : null;
+        if (!frames) continue;
+        const w = new Sprite(frames[0]);
         w.position.set(x * TILE_SIZE, y * TILE_SIZE);
         this.ground.addChild(w);
-        this.waterSprites.push(w);
+        this.waterSprites.push({ sp: w, frames });
       }
     }
   }
 
   private buildObjects(map: MapData): void {
     const s = this.sprites;
-    const isWall = (x: number, y: number): boolean =>
+    // Conjuntos de parede autotile (cidade + subsolo). Cada parede conecta só
+    // com vizinhos do MESMO tipo (sem costura entre tijolo/rocha/muralha).
+    const wallSets: Partial<Record<TileId, Texture[][]>> = {
+      [TileId.Wall]: s.walls,
+      [TileId.SewerWall]: s.sewerWalls,
+      [TileId.OldMasonryWall]: s.oldMasonryWalls,
+      [TileId.CaveWall]: s.caveWalls,
+    };
+    const sameWall = (x: number, y: number, t: TileId): boolean =>
       x >= 0 && y >= 0 && x < map.width && y < map.height &&
-      map.tiles[y * map.width + x] === TileId.Wall;
+      map.tiles[y * map.width + x] === t;
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
         const tile = map.tiles[y * map.width + x];
         const h = hash2D(x, y);
         let tex = null;
+        const wallSet = wallSets[tile];
         if (tile === TileId.Tree) tex = s.trees[Math.floor(h * s.trees.length)];
         else if (tile === TileId.Rock) tex = s.rocks[Math.floor(h * s.rocks.length)];
-        else if (tile === TileId.Wall) {
-          // autotile por vizinhos que também são muro: N=1, E=2, S=4, W=8
+        else if (wallSet) {
+          // autotile por vizinhos do mesmo tipo de parede: N=1, E=2, S=4, W=8
           const mask =
-            (isWall(x, y - 1) ? 1 : 0) | (isWall(x + 1, y) ? 2 : 0) |
-            (isWall(x, y + 1) ? 4 : 0) | (isWall(x - 1, y) ? 8 : 0);
-          const variants = s.walls[mask];
+            (sameWall(x, y - 1, tile) ? 1 : 0) | (sameWall(x + 1, y, tile) ? 2 : 0) |
+            (sameWall(x, y + 1, tile) ? 4 : 0) | (sameWall(x - 1, y, tile) ? 8 : 0);
+          const variants = wallSet[mask];
           tex = variants[Math.floor(h * variants.length)];
         }
         if (!tex) continue;
@@ -202,8 +229,7 @@ export class WorldRenderer {
     if (this.waterClock >= WATER_FRAME_MS) {
       this.waterClock -= WATER_FRAME_MS;
       this.waterFrame = (this.waterFrame + 1) % this.sprites.waterFrames.length;
-      const tex = this.sprites.waterFrames[this.waterFrame];
-      for (const w of this.waterSprites) w.texture = tex;
+      for (const w of this.waterSprites) w.sp.texture = w.frames[this.waterFrame % w.frames.length];
     }
     this.torchClock += deltaMS;
     if (this.torchClock >= TORCH_FRAME_MS) {
