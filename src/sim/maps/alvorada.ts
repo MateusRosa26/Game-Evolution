@@ -1,4 +1,4 @@
-import { TileId, type MapData, type MapDecor, type MapLight, type MapMonster, type MapRect } from "../../shared/types";
+import { TileId, type FloorLayer, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect } from "../../shared/types";
 import { CREATURES } from "../bestiary";
 import { mulberry32 } from "../rng";
 
@@ -557,8 +557,53 @@ export function generateAlvoradaMap(): MapData {
     passZones: [],
     spawn,
     npcSpawns,
+    portals: ALVORADA_PORTALS,
+    floors: [buildSewerA1()],
   };
 }
+
+// ─────────────────────────── esgotos (z-levels) ───────────────────────────
+
+/**
+ * Esgoto A1 (z=-1) — PRIMEIRO CORTE da Fase 1 de andares (SISTEMA-ANDARES).
+ * Galeria de pedra úmida sob a cidade: câmara com canal de água servida (rasa,
+ * vadeável), poça funda (hazard impassável), pilar de alvenaria antiga
+ * (mistério do A2 antecipado) e a escada de volta à grelha da praça. Ratos T1.
+ * ✏️ layout de primeiro corte — refinar com GRID §7 (5 bocas, A2/A3, baú lacrado).
+ */
+const A1_OX = 112, A1_OY = 94, A1_W = 40, A1_H = 36;
+function buildSewerA1(): FloorLayer {
+  const t: TileId[] = new Array(A1_W * A1_H).fill(TileId.SewerWall);
+  const lset = (lx: number, ly: number, tile: TileId) => {
+    if (lx >= 0 && ly >= 0 && lx < A1_W && ly < A1_H) t[ly * A1_W + lx] = tile;
+  };
+  // câmara: chão de esgoto com borda de 2 tiles de parede
+  for (let ly = 2; ly < A1_H - 2; ly++) for (let lx = 2; lx < A1_W - 2; lx++) lset(lx, ly, TileId.SewerFloor);
+  // canal de água servida (rasa, vadeável) cruzando o meio
+  for (let lx = 2; lx < A1_W - 2; lx++) { lset(lx, 17, TileId.Sewage); lset(lx, 18, TileId.Sewage); }
+  // poça funda (impassável — custo de fuga / arrepio)
+  for (let ly = 24; ly <= 27; ly++) for (let lx = 28; lx <= 31; lx++) lset(lx, ly, TileId.DeepWater);
+  // pilares de alvenaria antiga (telegrafa o A2)
+  lset(8, 8, TileId.OldMasonryWall); lset(9, 8, TileId.OldMasonryWall); lset(30, 30, TileId.OldMasonryWall);
+  const wx = (lx: number) => A1_OX + lx, wy = (ly: number) => A1_OY + ly;
+  return {
+    z: -1, ox: A1_OX, oy: A1_OY, width: A1_W, height: A1_H,
+    tiles: t,
+    lights: [], decor: [],
+    monsters: [
+      { x: wx(12), y: wy(8), species: "rato_lanhoso" },
+      { x: wx(26), y: wy(10), species: "rato_lanhoso" },
+      { x: wx(14), y: wy(28), species: "rato_lanhoso" },
+    ],
+    // escada de volta: pisar em (130,110) sobe pra grelha da praça (138,118)
+    portals: [{ x: wx(18), y: wy(16), kind: "stairs", to: { x: 138, y: 118, z: 0 } }],
+    openings: [],
+    ambient: 0x0a0e14, // breu do subsolo
+  };
+}
+
+/** Grelha de esgoto na praça (z=0) → desce pro A1. 1ª das 5 bocas (✏️ +4). */
+const ALVORADA_PORTALS: MapPortal[] = [{ x: 138, y: 118, kind: "cave", to: { x: 130, y: 110, z: -1 } }];
 
 // ─────────────────────────── helpers de pintura ───────────────────────────
 

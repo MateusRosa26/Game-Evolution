@@ -356,6 +356,13 @@ export class Simulation {
       const template = CREATURES[m.species];
       if (template) this.spawnMonster(template, { x: m.x, y: m.y });
     }
+    // Spawns por ANDAR (z<0): cada FloorLayer traz seus mobs em coords de mundo.
+    for (const f of this.world.map.floors ?? []) {
+      for (const m of f.monsters) {
+        const template = CREATURES[m.species];
+        if (template) this.spawnMonster(template, { x: m.x, y: m.y }, f.z);
+      }
+    }
   }
 
   private spawnMonster(template: CreatureTemplate, pos: Vec2, z: number = this.world.baseZ): number {
