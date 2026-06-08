@@ -1,5 +1,5 @@
 import { Texture } from "pixi.js";
-import { mulberry32, type Rng } from "../../sim/rng";
+import { hash2D, mulberry32, type Rng } from "../../sim/rng";
 import type { Facing } from "../../shared/types";
 import { PAL } from "./palette";
 import { PIXELLAB } from "./pixellab";
@@ -221,49 +221,55 @@ function makeScatterDecals(): { grass: Texture[]; dirt: Texture[]; stone: Textur
   };
 }
 
+// Cor-base da LAJOTA (neutra-quente) — exportada p/ a transição casar com o piso.
+const FLAG_RGB = { r: 86, g: 83, b: 80 };
+
 function makeStoneFloor(seed: number): Texture {
   const p = new Px(32, 32);
-  const rng = mulberry32(seed);
   const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
-  const mossC = ["#2c3a2b", "#384a36", "#243527"];
-  p.fill("#1a1e25"); // argamassa funda nos gaps
-  // Cobblestone ORGÂNICO e variado: pedras de larguras/alturas diferentes, cada
-  // uma com volume + cor própria + weathering. Tom por rng → as 3 variantes da
-  // praça ficam distintas (menos repetitivo).
-  let y = 0;
-  while (y < 32) {
-    const rowH = 7 + Math.floor(rng() * 4);
-    const bh = Math.min(rowH, 32 - y);
-    let x = -Math.floor(rng() * 8);
-    while (x < 32) {
-      const bw = 6 + Math.floor(rng() * 11);
-      const v = 0.78 + rng() * 0.46;           // tom mais CLARO que antes (praça)
-      const warm = rng() < 0.25 ? 5 : 0;
-      const R = cb(70 * v + warm), G = cb(74 * v + warm * 0.4), B = cb(84 * v + 4);
+  const JOINT = "#0e1116";
+  p.fill(JOINT); // argamassa FUNDA nas juntas — é o principal sinal de 3D
+  // LAJOTA grande em running-bond: calma e LEGÍVEL (distinta da muralha "busy"),
+  // tom NEUTRO-quente (vs o azul FRIO da parede) → chão e muro se SEPARAM, que
+  // era o defeito do cobble antigo. Tom por flag via hash2D na identidade x%32 →
+  // o tile fecha seamless. Bevel forte (luz NO) dá volume de pavimento.
+  const FW = 16, RH = 8, fw = FW - 1, fh = RH - 1;
+  for (let row = 0; row < 4; row++) {
+    const y = row * RH;
+    const offset = row % 2 ? FW / 2 : 0;
+    for (let col = -1; col <= 2; col++) {
+      const x = col * FW + offset;
+      const fx = ((x % 32) + 32) % 32; // identidade da flag p/ seamless no wrap
+      const tone = 0.8 + hash2D(fx, row, seed) * 0.44;
+      const warm = hash2D(fx, row, seed + 7) < 0.35 ? 7 : 0;
+      const R = cb(FLAG_RGB.r * tone + warm), G = cb(FLAG_RGB.g * tone + warm * 0.5), B = cb(FLAG_RGB.b * tone);
       const body = `rgb(${R},${G},${B})`;
-      const lit = `rgb(${cb(R + 24)},${cb(G + 25)},${cb(B + 26)})`;
-      const shad = `rgb(${cb(R - 13)},${cb(G - 12)},${cb(B - 10)})`;
-      const ao = `rgb(${cb(R - 24)},${cb(G - 23)},${cb(B - 19)})`;
-      // corpo arredondado
-      p.rect(x + 1, y + 1, bw - 1, bh - 1, body);
-      p.rect(x + 2, y, Math.max(1, bw - 3), 1, body);
-      p.rect(x + 2, y + bh - 1, Math.max(1, bw - 3), 1, body);
-      // VOLUME: aresta lit no topo-esq, sombra na base/direita
-      p.rect(x + 1, y + 1, bw - 1, 1, lit);
-      p.rect(x + 1, y + 1, 1, bh - 1, lit);
-      p.rect(x + 1, y + bh - 1, bw - 1, 1, ao);
-      p.rect(x + bw - 1, y + 1, 1, bh - 1, shad);
-      p.rect(x, y, 1, bh, "#0e1116");           // junta
-      p.rect(x, y, bw, 1, "#0e1116");
-      // weathering por pedra
-      const w = rng();
-      if (w < 0.2 && bw > 6) { let cx = x + 2 + (rng() * (bw - 3) | 0), cy = y + 1; for (let s = 0; s < bh - 1; s++) { p.px(cx, cy, ao); cy++; cx += (rng() * 3 | 0) - 1; } }
-      else if (w < 0.38) p.px(x + 2 + (rng() * Math.max(1, bw - 4) | 0), y + 2 + (rng() * Math.max(1, bh - 3) | 0), lit);
-      if (rng() < 0.12) { const mx = x + 1 + (rng() * Math.max(1, bw - 3) | 0), my = y + 1 + (rng() * Math.max(1, bh - 3) | 0); for (let d = 0; d < 2; d++) p.px(mx + (rng() * 2 | 0), my + (rng() * 2 | 0), mossC[rng() * mossC.length | 0]); }
-      for (let d = 0; d < 2; d++) p.px(x + 2 + (rng() * Math.max(1, bw - 3) | 0), y + 2 + (rng() * Math.max(1, bh - 3) | 0), rng() < 0.5 ? shad : lit);
-      x += bw;
+      const lit = `rgb(${cb(R + 26)},${cb(G + 26)},${cb(B + 27)})`;
+      const shad = `rgb(${cb(R - 18)},${cb(G - 17)},${cb(B - 16)})`;
+      p.rect(x, y, fw, fh, body);
+      p.rect(x, y, fw, 1, lit);             // topo iluminado
+      p.rect(x, y, 1, fh, lit);             // esquerda iluminada
+      p.rect(x, y + fh - 1, fw, 1, shad);   // base sombreada
+      p.rect(x + fw - 1, y, 1, fh, shad);   // direita sombreada
+      // granulado interno sutil (textura sem virar ruído)
+      if (hash2D(fx, row, seed + 13) < 0.5) {
+        const sx = x + 3 + (hash2D(fx, row, seed + 14) * (fw - 5) | 0);
+        const sy = y + 2 + (hash2D(fx, row, seed + 15) * (fh - 3) | 0);
+        p.px(sx, sy, shad); p.px(sx + 1, sy, body);
+      }
+      // rachadura RARA e DISCRETA (linha curta quase reta — não rabisco)
+      if (hash2D(fx, row, seed + 21) < 0.1) {
+        const cx0 = x + 4 + (hash2D(fx, row, seed + 22) * (fw - 7) | 0);
+        const len = 3 + (hash2D(fx, row, seed + 24) * 2 | 0);
+        let cxp = cx0, cyp = y + 2;
+        for (let s = 0; s < len; s++) { p.px(cxp, cyp, shad); cyp++; if (hash2D(fx, cyp, seed + 23) < 0.33) cxp += 1; }
+      }
+      // musgo MUITO raro, na junta de baixo (acúmulo de canto)
+      if (hash2D(fx, row, seed + 31) < 0.06) {
+        const mx = x + 1 + (hash2D(fx, row, seed + 32) * (fw - 3) | 0);
+        p.px(mx, y + fh - 1, "#2c3a2b");
+      }
     }
-    y += rowH;
   }
   return p.texture();
 }
@@ -999,8 +1005,10 @@ function makeStoneTransition(seed: number): Texture[] {
         const t = b + (nz(px >> 1, py >> 1) - 0.5) * 0.30; // jitter em clusters 2px
         if (t > 0.46 && b < 0.84) {
           const r = nz(px, py);
-          p.px(px, py, r < 0.2 ? PAL.stoneMid : r > 0.82 ? PAL.stoneLight : PAL.stoneBase);
-          if (t < 0.56) p.px(px, py, PAL.stoneDark); // contato/AO na borda externa
+          const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
+          const k = r < 0.2 ? 26 : r > 0.82 ? -16 : 0; // lit / shad / body — casa com a lajota
+          p.px(px, py, `rgb(${cb(FLAG_RGB.r + k)},${cb(FLAG_RGB.g + k)},${cb(FLAG_RGB.b + k)})`);
+          if (t < 0.56) p.px(px, py, "#1a1c1f"); // contato/AO na borda externa (junta)
         } else if (t > 0.3 && t <= 0.46) {
           p.px(px, py, "rgba(10,14,20,0.28)"); // sombra da pedra no terreno baixo
         }
