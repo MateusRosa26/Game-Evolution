@@ -438,21 +438,24 @@ function makeRock(seed: number): Texture {
  * há vizinho (W/E/N) fecham o fim do muro. Tudo dessaturado e frio (tintável
  * por cidade depois, via LUT).
  */
+// Altura do tile de muro (32×54): face ALTA pra dar volume (estilo Apogea/Tibia).
+const WALL_H = 54;
+const WALL_TOP_H = 14; // espessura do topo visto de cima
 function makeWallTile(mask: number, seed: number): Texture {
   const rng = mulberry32(seed + mask * 97 + 1);
-  const p = new Px(32, 44);
+  const p = new Px(32, WALL_H);
   const N = (mask & 1) !== 0;
   const E = (mask & 2) !== 0;
   const S = (mask & 4) !== 0;
   const W = (mask & 8) !== 0;
-  const OUT = "#10141c";
+  const OUT = "#080b10";
 
   // TOPO em pedra cortada (cobble): se há muro ao sul o topo desce até embaixo
-  // (face oculta pelo muro da frente); senão topo fino + face.
-  const topEnd = S ? 44 : 13;
-  p.rect(0, 0, 32, topEnd, "#3b424e"); // argamassa/fundo escuro
-  const TB: [string, string][] = [["#414956", "#525c6a"], ["#485160", "#586473"], ["#3d4450", "#4b5563"]];
-  const JOINT = "#2f3640";
+  // (face oculta pelo muro da frente); senão topo fino + face ALTA.
+  const topEnd = S ? WALL_H : WALL_TOP_H;
+  p.rect(0, 0, 32, topEnd, "#39414d"); // argamassa/fundo escuro
+  const TB: [string, string][] = [["#454f5d", "#5a6676"], ["#4c5868", "#606d7e"], ["#404a58", "#525e6e"]];
+  const JOINT = "#262c34";
   for (let ry = -2; ry < topEnd; ry += 7) {
     const off = ((((ry + 2) / 7) | 0) & 1) === 0 ? 0 : 9;
     for (let rx = -off; rx < 32; rx += 13) {
@@ -467,60 +470,72 @@ function makeWallTile(mask: number, seed: number): Texture {
       if (bh > 2 && rng() < 0.22) p.px(rx + 2 + Math.floor(rng() * Math.max(1, bw - 2)), by + 1 + Math.floor(rng() * (bh - 1)), JOINT);
     }
   }
-  // lip de luz na borda NORTE só se for borda externa
+  // lip de luz na borda NORTE só se for borda externa (topo pega a luz)
   if (!N) p.rect(0, 1, 32, 2, PAL.wallTopLight);
 
   if (!S) {
-    // separação topo → face
-    p.rect(0, 11, 32, 1, "#1a1e26");
-    p.rect(0, 12, 32, 1, "#0e1117");
-    // FACE: 4 fileiras de blocos, bem mais escura que o topo
-    for (let row = 0; row < 4; row++) {
-      const y = 13 + row * 8;
-      const offset = row % 2 === 0 ? 0 : 8;
-      const shade = 1 - row * 0.16;
-      const base = Math.floor(46 * shade);
-      for (let col = -1; col < 3; col++) {
-        const x = col * 16 + offset;
-        p.rect(x + 1, y + 1, 15, 7, `rgb(${base},${base + 6},${base + 15})`);
-        p.rect(x + 1, y + 1, 15, 1, `rgb(${base + 10},${base + 16},${base + 26})`);
-        p.rect(x, y, 16, 1, "#0c0f15");
-        p.rect(x, y, 1, 8, "#0c0f15");
-        if (rng() < 0.5) p.px(x + 2 + Math.floor(rng() * 12), y + 2 + Math.floor(rng() * 5), "#0c0f15");
+    // separação topo → face (sombra projetada do topo sobre a face = AO no alto)
+    p.rect(0, WALL_TOP_H - 2, 32, 1, "#171b22");
+    p.rect(0, WALL_TOP_H - 1, 32, 1, "#0b0e13");
+    // FACE em fiadas de cantaria com LUZ DIRECIONAL dramática: alto da face
+    // recebe luz (logo abaixo do topo) e ESCURECE até quase preto na base —
+    // é isso que dá VOLUME de parede alta. Blocos de larguras orgânicas.
+    const faceTop = WALL_TOP_H, faceBot = WALL_H - 1;
+    const faceH = faceBot - faceTop;
+    let y = faceTop;
+    let courseIdx = 0;
+    while (y < faceBot) {
+      const rowH = 8 + (rng() < 0.4 ? 1 : 0);
+      const yb = Math.min(rowH, faceBot - y);
+      // gradiente vertical: t=0 no alto (claro) → t=1 na base (escuro)
+      const t = (y - faceTop) / faceH;
+      const lum = 58 - 50 * t; // 58 → 8 (quase preto na base)
+      const offset = courseIdx % 2 === 0 ? 0 : 7;
+      let x = -offset;
+      while (x < 32) {
+        const bw = 9 + Math.floor(rng() * 6); // blocos de tamanhos VARIADOS (orgânico)
+        const v = lum * (0.86 + rng() * 0.28); // variação por bloco
+        const base = Math.max(5, Math.floor(v));
+        const col = (a: number) => `rgb(${Math.max(0, base + a - 4)},${Math.max(0, base + a)},${Math.max(0, base + a + 8)})`; // frio
+        p.rect(x + 1, y + 1, bw - 1, yb - 1, col(0));
+        p.rect(x + 1, y + 1, bw - 1, 1, col(11));          // aresta lit no topo do bloco
+        p.rect(x + 1, y + yb - 1, bw - 1, 1, col(-7));      // base do bloco em sombra (AO)
+        p.rect(x, y, 1, yb, "#0a0d13");                     // junta vertical (esquerda)
+        p.rect(x, y, bw, 1, "#0a0d13");                     // junta horizontal (topo)
+        // textura/dithering interno
+        for (let d = 0; d < 2 + (rng() * 3 | 0); d++) {
+          const px = x + 2 + (rng() * Math.max(1, bw - 3) | 0), py = y + 2 + (rng() * Math.max(1, yb - 3) | 0);
+          p.px(px, py, rng() < 0.5 ? col(-5) : col(6));
+        }
+        x += bw;
       }
+      y += rowH; courseIdx++;
     }
-    p.rect(0, 41, 32, 3, "rgba(0,0,0,0.38)"); // sombra de contato na base
+    // sombra de contato funda na base (encontro com o chão)
+    p.rect(0, WALL_H - 3, 32, 3, "rgba(0,0,0,0.45)");
+    p.rect(0, WALL_H - 1, 32, 1, "rgba(0,0,0,0.30)");
   }
 
-  // ── NUANCE procedural (quebra a uniformidade; varia por seed/variante) ──
-  // Musgo frio esparso em juntas do topo e/ou face
+  // ── NUANCE: musgo frio (junta do topo e base da face) + rachadura ──
   const MOSS = ["#2c3a2b", "#384a36", "#243527"];
-  if (rng() < 0.55) {
+  if (rng() < 0.5) {
     const spots = 1 + Math.floor(rng() * 3);
     for (let k = 0; k < spots; k++) {
       const mx = Math.floor(rng() * 28);
-      const my = Math.floor(rng() * (S ? 38 : 10));
-      const ch = 2 + Math.floor(rng() * 2);
-      const cw = 2 + Math.floor(rng() * 3);
-      for (let dy = 0; dy < ch; dy++) for (let dx = 0; dx < cw; dx++) {
-        if (rng() < 0.7) p.px(mx + dx, my + dy, MOSS[Math.floor(rng() * MOSS.length)]);
-      }
+      const my = S ? Math.floor(rng() * 38) : WALL_TOP_H + 2 + Math.floor(rng() * (WALL_H - WALL_TOP_H - 6));
+      const ch = 2 + Math.floor(rng() * 2), cw = 2 + Math.floor(rng() * 3);
+      for (let dy = 0; dy < ch; dy++) for (let dx = 0; dx < cw; dx++) if (rng() < 0.6) p.px(mx + dx, my + dy, MOSS[Math.floor(rng() * MOSS.length)]);
     }
   }
-  // Musgo acumulando na base da face (encontro com o chão)
-  if (!S && rng() < 0.7) {
-    for (let x = 0; x < 32; x++) if (rng() < 0.28) p.px(x, 38 + Math.floor(rng() * 3), MOSS[Math.floor(rng() * MOSS.length)]);
-  }
-  // Rachadura ocasional descendo a face
-  if (!S && rng() < 0.35) {
-    let cx = 5 + Math.floor(rng() * 22), cy = 15;
-    const len = 6 + Math.floor(rng() * 8);
-    for (let s = 0; s < len && cy < 42; s++) { p.px(cx, cy, "#0c0f15"); if (rng() < 0.4) p.px(cx + 1, cy, "#0c0f15"); cy++; cx += Math.floor(rng() * 3) - 1; }
+  if (!S && rng() < 0.4) { // rachadura descendo a face
+    let cx = 5 + Math.floor(rng() * 22), cy = WALL_TOP_H + 2;
+    const len = 8 + Math.floor(rng() * 12);
+    for (let s = 0; s < len && cy < WALL_H - 3; s++) { p.px(cx, cy, "#070a0f"); if (rng() < 0.4) p.px(cx + 1, cy, "#070a0f"); cy++; cx += Math.floor(rng() * 3) - 1; }
   }
 
-  // CAPS onde não há vizinho — fecham o fim do muro (por cima da nuance)
-  if (!W) { p.rect(0, 0, 1, 44, OUT); p.rect(1, 0, 1, topEnd, "#3a414d"); }
-  if (!E) { p.rect(31, 0, 1, 44, OUT); p.rect(30, 0, 1, topEnd, "#3a414d"); }
+  // CAPS onde não há vizinho — fecham o fim do muro
+  if (!W) { p.rect(0, 0, 1, WALL_H, OUT); p.rect(1, 0, 1, topEnd, "#39414d"); }
+  if (!E) { p.rect(31, 0, 1, WALL_H, OUT); p.rect(30, 0, 1, topEnd, "#39414d"); }
   if (!N) p.rect(0, 0, 32, 1, OUT);
 
   return p.texture();
