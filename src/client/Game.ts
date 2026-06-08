@@ -298,6 +298,7 @@ export class Game {
   private buildWorld(map: MapData): void {
     this.worldRenderer = new WorldRenderer(this.sprites, map, this.app.renderer);
     this.worldContainer.addChild(this.worldRenderer.ground);
+    this.worldContainer.addChild(this.worldRenderer.shadows);
     this.worldContainer.addChild(this.tileCursor);
     this.worldContainer.addChild(this.worldRenderer.objects);
     this.app.stage.addChild(this.worldContainer);
@@ -306,7 +307,7 @@ export class Game {
 
     this.lighting = new Lighting(this.sprites, this.app.screen.width, this.app.screen.height);
     this.lighting.setMapLights(map.lights);
-    // [TESTE] this.app.stage.addChild(this.lighting.overlay);
+    this.app.stage.addChild(this.lighting.overlay);
     this.app.stage.addChild(this.uiLayer); // UI acima da luz
 
     this.uiLayer.addChild(this.hud.container);

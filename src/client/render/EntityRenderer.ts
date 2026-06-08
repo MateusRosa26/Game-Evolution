@@ -582,7 +582,9 @@ export class EntityRenderer {
 
     const shadow = new Sprite(this.sprites.shadow);
     shadow.anchor.set(0.5, 0.5);
-    shadow.position.set(0, -3);
+    shadow.width = 28;
+    shadow.height = 13;
+    shadow.position.set(1, -2);
     container.addChild(shadow);
 
     const sprite = new Sprite(textures[e.facing][0]);

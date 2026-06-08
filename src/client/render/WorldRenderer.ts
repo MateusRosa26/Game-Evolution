@@ -29,6 +29,12 @@ function terrainLevel(tile: TileId): number {
  */
 export class WorldRenderer {
   readonly ground = new Container();
+  /**
+   * Sombras de contato dos objetos estáticos. Camada PLANA entre o chão e os
+   * objetos: toda sombra pinga no chão (e vaza pros tiles vizinhos) por baixo de
+   * tudo. É a alavanca #1 de profundidade — objeto sem sombra "flutua".
+   */
+  readonly shadows = new Container();
   /** Compartilhada com as entidades — tudo aqui é y-sorted. */
   readonly objects = new Container();
 
@@ -145,6 +151,33 @@ export class WorldRenderer {
           }
         }
 
+        // 3. SCATTER (alavanca #2): decais espalhados e baked → o chão nunca
+        // fica pelado. Determinístico por tile (mesmo seed → mesma cena).
+        const scatter = this.sprites.scatter;
+        for (let ty = 0; ty < tilesH; ty++) {
+          for (let tx = 0; tx < tilesW; tx++) {
+            const x = cx * CHUNK_TILES + tx;
+            const y = cy * CHUNK_TILES + ty;
+            const tile = map.tiles[y * map.width + x];
+            const set =
+              tile === TileId.Grass ? scatter.grass :
+              tile === TileId.Dirt ? scatter.dirt :
+              tile === TileId.StoneFloor ? scatter.stone : null;
+            if (!set) continue;
+            const density = tile === TileId.Grass ? 0.5 : tile === TileId.Dirt ? 0.42 : 0.3;
+            if (hash2D(x, y, 31) >= density) continue;
+            const count = hash2D(x, y, 32) < 0.22 ? 2 : 1;
+            for (let k = 0; k < count; k++) {
+              const dec = set[Math.floor(hash2D(x, y, 40 + k) * set.length)];
+              const ox = Math.floor(hash2D(x, y, 50 + k) * Math.max(1, TILE_SIZE - dec.width));
+              const oy = Math.floor(hash2D(x, y, 60 + k) * Math.max(1, TILE_SIZE - dec.height));
+              const sp = new Sprite(dec);
+              sp.position.set(tx * TILE_SIZE + ox, ty * TILE_SIZE + oy);
+              scratch.addChild(sp);
+            }
+          }
+        }
+
         const rt = RenderTexture.create({ width: tilesW * TILE_SIZE, height: tilesH * TILE_SIZE });
         renderer.render({ container: scratch, target: rt, clear: true });
         scratch.destroy({ children: true });
@@ -192,20 +225,28 @@ export class WorldRenderer {
         const h = hash2D(x, y);
         let tex = null;
         const wallSet = wallSets[tile];
-        if (tile === TileId.Tree) tex = s.trees[Math.floor(h * s.trees.length)];
-        else if (tile === TileId.Rock) tex = s.rocks[Math.floor(h * s.rocks.length)];
-        else if (wallSet) {
+        const cx = (x + 0.5) * TILE_SIZE;
+        const baseY = (y + 1) * TILE_SIZE;
+        if (tile === TileId.Tree) {
+          tex = s.trees[Math.floor(h * s.trees.length)];
+          this.addShadow(cx + 4, baseY - 2, 54, 22); // copa larga + leve offset (luz NO)
+        } else if (tile === TileId.Rock) {
+          tex = s.rocks[Math.floor(h * s.rocks.length)];
+          this.addShadow(cx + 2, baseY - 3, 26, 11);
+        } else if (wallSet) {
           // autotile por vizinhos do mesmo tipo de parede: N=1, E=2, S=4, W=8
           const mask =
             (sameWall(x, y - 1, tile) ? 1 : 0) | (sameWall(x + 1, y, tile) ? 2 : 0) |
             (sameWall(x, y + 1, tile) ? 4 : 0) | (sameWall(x - 1, y, tile) ? 8 : 0);
           const variants = wallSet[mask];
           tex = variants[Math.floor(h * variants.length)];
+          // face visível (sem muro ao sul) → pinga sombra/AO no tile de baixo
+          if ((mask & 4) === 0) this.addShadow(cx + 4, baseY + 5, 34, 14);
         }
         if (!tex) continue;
         const obj = new Sprite(tex);
         obj.anchor.set(0.5, 1);
-        obj.position.set((x + 0.5) * TILE_SIZE, (y + 1) * TILE_SIZE);
+        obj.position.set(cx, baseY);
         obj.zIndex = obj.position.y;
         this.objects.addChild(obj);
       }
@@ -219,8 +260,19 @@ export class WorldRenderer {
         torch.zIndex = torch.position.y;
         this.objects.addChild(torch);
         this.torchSprites.push(torch);
+        this.addShadow((d.x + 0.5) * TILE_SIZE + 2, (d.y + 1) * TILE_SIZE - 2, 18, 8);
       }
     }
+  }
+
+  /** Adiciona uma sombra de contato suave na camada plana, abaixo dos objetos. */
+  private addShadow(cx: number, cy: number, w: number, h: number): void {
+    const sh = new Sprite(this.sprites.shadow);
+    sh.anchor.set(0.5, 0.5);
+    sh.width = w;
+    sh.height = h;
+    sh.position.set(cx, cy);
+    this.shadows.addChild(sh);
   }
 
   /** Animações de água e tochas. */

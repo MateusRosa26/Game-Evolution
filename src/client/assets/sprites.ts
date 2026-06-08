@@ -141,6 +141,86 @@ function makeDirt(seed: number): Texture {
   return p.texture();
 }
 
+/**
+ * Decais de SCATTER (alavanca #2 de profundidade): peças pequenas espalhadas e
+ * baked no chunk do chão (custo zero em runtime) pra ele nunca ficar pelado —
+ * tufos, pedrinhas, gravetos, flores, rachaduras. Fundo transparente; o
+ * WorldRenderer estampa por tile com offset aleatório e densidade por terreno.
+ */
+function makeScatterDecals(): { grass: Texture[]; dirt: Texture[]; stone: Texture[] } {
+  const make = (w: number, h: number, seed: number, draw: (p: Px, rng: Rng) => void): Texture => {
+    const p = new Px(w, h);
+    draw(p, mulberry32(seed));
+    return p.texture();
+  };
+  // capim: feixe de lâminas curvas saindo da base
+  const tuft = (seed: number) => make(11, 9, seed, (p, rng) => {
+    const n = 4 + Math.floor(rng() * 3);
+    for (let i = 0; i < n; i++) {
+      let x = 1 + Math.floor(rng() * 9);
+      const hgt = 4 + Math.floor(rng() * 4);
+      const lean = Math.floor(rng() * 3) - 1;
+      const col = rng() < 0.45 ? PAL.grassBlade : rng() < 0.55 ? PAL.grassLight : PAL.grassDark;
+      for (let s = 0; s < hgt; s++) {
+        p.px(x, 8 - s, col);
+        if (lean && s > 0 && s % 2 === 0) x += lean;
+      }
+    }
+  });
+  // pedrinha: blob cinza com luz no topo
+  const pebble = (seed: number) => make(6, 5, seed, (p, rng) => {
+    p.ellipse(3, 3, 2 + (rng() < 0.5 ? 0 : 1), 1, PAL.rockBase);
+    p.px(2, 2, PAL.rockTop);
+    p.px(3, 4, PAL.stoneDark);
+  });
+  // graveto: linha marrom com bifurcação
+  const twig = (seed: number) => make(10, 5, seed, (p, rng) => {
+    const y = 2 + Math.floor(rng() * 2);
+    p.rect(1, y, 7, 1, PAL.trunkDark);
+    p.px(8, y, PAL.trunkBase);
+    if (rng() < 0.6) p.px(4 + Math.floor(rng() * 3), y - 1, PAL.trunkDark);
+    p.px(2, y, PAL.trunkLight);
+  });
+  // flor: caule + pétala clara
+  const flower = (seed: number) => make(5, 7, seed, (p, rng) => {
+    p.px(2, 6, PAL.grassDark);
+    p.px(2, 5, PAL.grassBlade);
+    p.px(2, 4, PAL.grassBlade);
+    const c = rng() < 0.5 ? PAL.flowerGold : PAL.flowerWhite;
+    p.px(2, 3, c); p.px(1, 2, c); p.px(3, 2, c); p.px(2, 1, c); p.px(2, 2, PAL.flowerGold);
+  });
+  // trevo: 3 folhinhas
+  const clover = (seed: number) => make(6, 5, seed, (p, rng) => {
+    const c = rng() < 0.5 ? PAL.grassBlade : PAL.grassLight;
+    p.px(2, 2, c); p.px(3, 2, c); p.px(1, 3, c); p.px(4, 3, c); p.px(2, 4, PAL.grassDark);
+  });
+  // rachadura: fenda escura irregular
+  const crack = (dark: string) => (seed: number) => make(11, 6, seed, (p, rng) => {
+    let x = 1, y = 1 + Math.floor(rng() * 3);
+    const len = 6 + Math.floor(rng() * 4);
+    for (let s = 0; s < len; s++) {
+      p.px(x, y, dark);
+      x++;
+      if (rng() < 0.4) y += Math.floor(rng() * 3) - 1;
+      y = Math.max(0, Math.min(5, y));
+    }
+  });
+  // entulho: punhado de cascalho
+  const rubble = (lo: string, hi: string) => (seed: number) => make(8, 6, seed, (p, rng) => {
+    const n = 3 + Math.floor(rng() * 3);
+    for (let i = 0; i < n; i++) {
+      const x = Math.floor(rng() * 7), y = Math.floor(rng() * 5);
+      p.px(x, y, rng() < 0.5 ? lo : hi);
+      if (rng() < 0.4) p.px(x, y + 1, PAL.stoneDark);
+    }
+  });
+  return {
+    grass: [tuft(11), tuft(12), tuft(13), pebble(21), twig(31), flower(41), flower(42), clover(51), clover(52)],
+    dirt: [pebble(22), pebble(23), twig(32), crack("#2e2418")(61), rubble(PAL.dirtStone, PAL.dirtLight)(71), twig(33)],
+    stone: [crack(PAL.stoneCrack)(62), rubble(PAL.stoneDark, PAL.stoneLight)(72), pebble(24)],
+  };
+}
+
 function makeStoneFloor(seed: number): Texture {
   const p = new Px(32, 32);
   const rng = mulberry32(seed);
@@ -421,8 +501,7 @@ const CAVE_WALL_PAL: DWallPal = { top: "#3d362c", topHi: "#4c4435", joint: "#221
 function makeTree(seed: number): Texture {
   const rng = mulberry32(seed);
   const p = new Px(32, 64);
-  // sombra no chão
-  p.ellipse(16, 57, 11, 4, "rgba(0,0,0,0.30)");
+  // (sombra de contato vem da camada `shadows` do WorldRenderer — suave e vaza)
   // tronco
   p.rect(13, 38, 6, 18, PAL.trunkBase);
   p.rect(13, 38, 2, 18, PAL.trunkLight);
@@ -455,7 +534,7 @@ function makeTree(seed: number): Texture {
 function makeRock(seed: number): Texture {
   const rng = mulberry32(seed);
   const p = new Px(32, 32);
-  p.ellipse(16, 27, 9, 3, "rgba(0,0,0,0.30)");
+  // (sombra de contato vem da camada `shadows` do WorldRenderer)
   p.blob(16, 20, 8, PAL.rockBase, rng);
   p.blob(15, 18, 7, PAL.rockMid, rng);
   p.blob(13, 15, 4, PAL.rockTop, rng);
@@ -894,9 +973,30 @@ function makeTileCursor(): Texture {
 }
 
 /** Sombra elíptica para entidades. */
+/**
+ * Sombra de contato SUAVE e FRIA (constituição: sombra puxa pro azul). Gradiente
+ * radial achatado em elipse, alpha caindo a zero na borda → vaza pro chão vizinho
+ * sem corte duro. Textura única; cada consumidor define width/height conforme o
+ * objeto (árvore grande, rocha média, entidade pequena). É a base da profundidade
+ * percebida — objeto que não pinga sombra "flutua".
+ */
 function makeShadow(): Texture {
-  const p = new Px(24, 10);
-  p.ellipse(12, 5, 10, 4, "rgba(0,0,0,0.35)");
+  const w = 96, h = 48;
+  const p = new Px(w, h);
+  const ctx = p.ctx;
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.scale(1, h / w); // achata o círculo → elipse
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, w / 2);
+  g.addColorStop(0, "rgba(6,10,18,0.62)");
+  g.addColorStop(0.5, "rgba(8,12,20,0.42)");
+  g.addColorStop(0.82, "rgba(8,12,20,0.15)");
+  g.addColorStop(1, "rgba(8,12,20,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, w / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
   return p.texture();
 }
 
@@ -939,6 +1039,8 @@ export interface SpriteLibrary {
   tileCursor: Texture;
   targetMarker: Texture;
   shadow: Texture;
+  /** Decais espalhados no chão (baked no chunk): grama/terra/pedra. */
+  scatter: { grass: Texture[]; dirt: Texture[]; stone: Texture[] };
 }
 
 /**
@@ -986,5 +1088,6 @@ export function createSprites(): SpriteLibrary {
     tileCursor: makeTileCursor(),
     targetMarker: makeTargetMarker(),
     shadow: makeShadow(),
+    scatter: makeScatterDecals(),
   };
 }
