@@ -498,46 +498,63 @@ function makeWallTile(mask: number, seed: number): Texture {
   if (!N) p.rect(0, 1, 32, 2, PAL.wallTopLight);
 
   if (!S) {
-    // separação topo → face (sombra projetada do topo sobre a face = AO no alto)
-    p.rect(0, WALL_TOP_H - 2, 32, 1, "#171b22");
-    p.rect(0, WALL_TOP_H - 1, 32, 1, "#0b0e13");
-    // FACE em fiadas de cantaria com LUZ DIRECIONAL dramática: alto da face
-    // recebe luz (logo abaixo do topo) e ESCURECE até quase preto na base —
-    // é isso que dá VOLUME de parede alta. Blocos de larguras orgânicas.
-    const faceTop = WALL_TOP_H, faceBot = WALL_H - 1;
-    const faceH = faceBot - faceTop;
-    let y = faceTop;
-    let courseIdx = 0;
+    // separação topo → face (AO do topo projetada sobre a face)
+    p.rect(0, WALL_TOP_H - 2, 32, 1, "#161a21");
+    p.rect(0, WALL_TOP_H - 1, 32, 1, "#0a0d12");
+    const faceTop = WALL_TOP_H, faceBot = WALL_H - 1, faceH = faceBot - faceTop;
+    const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
+    const mossC = ["#2c3a2b", "#384a36", "#243527", "#33442f"];
+    p.rect(0, faceTop, 32, faceH, "#10141a"); // argamassa profunda nos gaps
+    let y = faceTop, courseIdx = 0;
     while (y < faceBot) {
-      const rowH = 8 + (rng() < 0.4 ? 1 : 0);
+      const rowH = 7 + Math.floor(rng() * 4); // alturas VARIADAS (7-10)
       const yb = Math.min(rowH, faceBot - y);
-      // gradiente vertical: t=0 no alto (claro) → t=1 na base (escuro)
-      const t = (y - faceTop) / faceH;
-      const lum = 58 - 50 * t; // 58 → 8 (quase preto na base)
-      const offset = courseIdx % 2 === 0 ? 0 : 7;
-      let x = -offset;
+      const dark = 1 - 0.62 * ((y - faceTop) / faceH); // escurecimento direcional suave
+      let x = -Math.floor(rng() * 7);
       while (x < 32) {
-        const bw = 9 + Math.floor(rng() * 6); // blocos de tamanhos VARIADOS (orgânico)
-        const v = lum * (0.86 + rng() * 0.28); // variação por bloco
-        const base = Math.max(5, Math.floor(v));
-        const col = (a: number) => `rgb(${Math.max(0, base + a - 4)},${Math.max(0, base + a)},${Math.max(0, base + a + 8)})`; // frio
-        p.rect(x + 1, y + 1, bw - 1, yb - 1, col(0));
-        p.rect(x + 1, y + 1, bw - 1, 1, col(11));          // aresta lit no topo do bloco
-        p.rect(x + 1, y + yb - 1, bw - 1, 1, col(-7));      // base do bloco em sombra (AO)
-        p.rect(x, y, 1, yb, "#0a0d13");                     // junta vertical (esquerda)
-        p.rect(x, y, bw, 1, "#0a0d13");                     // junta horizontal (topo)
-        // textura/dithering interno
-        for (let d = 0; d < 2 + (rng() * 3 | 0); d++) {
-          const px = x + 2 + (rng() * Math.max(1, bw - 3) | 0), py = y + 2 + (rng() * Math.max(1, yb - 3) | 0);
-          p.px(px, py, rng() < 0.5 ? col(-5) : col(6));
+        const bw = 6 + Math.floor(rng() * 13); // larguras MUITO variadas (6-18)
+        // cor base por pedra COM variação forte (clara/escura, fria, p/ algumas quentes)
+        const v = (0.6 + rng() * 0.55) * dark;
+        const warm = rng() < 0.28 ? 5 : 0;
+        const R = cb(62 * v + warm), G = cb(66 * v + warm * 0.4), B = cb(78 * v + 5);
+        const body = `rgb(${R},${G},${B})`;
+        const lit = `rgb(${cb(R + 26)},${cb(G + 27)},${cb(B + 28)})`;
+        const shad = `rgb(${cb(R - 17)},${cb(G - 16)},${cb(B - 13)})`;
+        const ao = `rgb(${cb(R - 28)},${cb(G - 27)},${cb(B - 23)})`;
+        // corpo + VOLUME por pedra (luz topo-esq, sombra base-dir = arredondado)
+        p.rect(x + 1, y + 1, bw - 1, yb - 1, body);
+        p.rect(x + 1, y + 1, bw - 1, 1, lit);        // aresta superior lit
+        p.rect(x + 1, y + 1, 1, yb - 1, lit);        // aresta esquerda lit
+        p.rect(x + 1, y + yb - 1, bw - 1, 1, ao);    // base AO
+        p.rect(x + bw - 1, y + 1, 1, yb - 1, shad);  // direita em sombra
+        p.rect(x, y, 1, yb, "#090c11");              // junta vertical
+        p.rect(x, y, bw, 1, "#090c11");              // junta horizontal
+        // WEATHERING por pedra (varia): rachadura, lasca, mancha, musgo
+        const w = rng();
+        if (w < 0.24 && bw > 6) { // rachadura descendo a pedra
+          let cx = x + 2 + Math.floor(rng() * (bw - 3)), cy = y + 1;
+          for (let s = 0; s < yb - 1; s++) { p.px(cx, cy, ao); if (rng() < 0.35) p.px(cx + 1, cy, shad); cy++; cx += (rng() * 3 | 0) - 1; }
+        } else if (w < 0.42) { // lasca clara (desgaste)
+          p.px(x + 2 + (rng() * Math.max(1, bw - 4) | 0), y + 2 + (rng() * Math.max(1, yb - 3) | 0), lit);
+        } else if (w < 0.55) { // mancha escura
+          const sx = x + 2 + (rng() * Math.max(1, bw - 4) | 0), sy = y + 2 + (rng() * Math.max(1, yb - 4) | 0);
+          p.rect(sx, sy, 1 + (rng() * 2 | 0), 1 + (rng() * 2 | 0), ao);
+        }
+        if (rng() < 0.16) { // musgo acumulado
+          const mx = x + 1 + (rng() * Math.max(1, bw - 3) | 0), my = y + Math.max(1, yb - 3) + (rng() * 2 | 0);
+          for (let d = 0; d < 3; d++) if (rng() < 0.6) p.px(mx + (rng() * 2 | 0), my + (rng() * 2 | 0) - 1, mossC[rng() * mossC.length | 0]);
+        }
+        // grit/dithering
+        for (let d = 0; d < 2 + (rng() * 2 | 0); d++) {
+          const gx = x + 2 + (rng() * Math.max(1, bw - 3) | 0), gy = y + 2 + (rng() * Math.max(1, yb - 3) | 0);
+          p.px(gx, gy, rng() < 0.5 ? shad : lit);
         }
         x += bw;
       }
       y += rowH; courseIdx++;
     }
-    // sombra de contato funda na base (encontro com o chão)
-    p.rect(0, WALL_H - 3, 32, 3, "rgba(0,0,0,0.45)");
-    p.rect(0, WALL_H - 1, 32, 1, "rgba(0,0,0,0.30)");
+    p.rect(0, WALL_H - 3, 32, 3, "rgba(0,0,0,0.5)"); // sombra de contato funda
+    p.rect(0, WALL_H - 1, 32, 1, "rgba(0,0,0,0.35)");
   }
 
   // ── NUANCE: musgo frio (junta do topo e base da face) + rachadura ──
