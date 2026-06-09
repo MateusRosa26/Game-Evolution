@@ -59,12 +59,15 @@ export class WorldRenderer {
     const s = this.sprites;
     const tile = map.tiles[y * map.width + x];
     const h = hash2D(x, y);
+    // Campos 128×128: frame escolhido pela posição de MUNDO (4×4) → chão contínuo
+    // sem repetição por tile (a grade idêntica de antes era a "pedra horrível").
+    const fi = (x & 3) + (y & 3) * 4;
     switch (tile) {
       case TileId.Dirt:
-        return s.dirt[Math.floor(h * s.dirt.length)];
+        return s.dirt[fi];
       case TileId.StoneFloor:
       case TileId.Wall:
-        return s.stoneFloor[Math.floor(h * s.stoneFloor.length)];
+        return s.stoneFloor[fi];
       case TileId.Water:
         return s.waterFrames[0];
       case TileId.Bridge:
@@ -83,12 +86,8 @@ export class WorldRenderer {
         return s.sewageFrames[0];
       case TileId.DeepWater:
         return s.deepWaterFrames[0];
-      default: {
-        const flower = hash2D(x, y, 99) < 0.06;
-        return flower
-          ? s.grassFlowers[Math.floor(h * s.grassFlowers.length)]
-          : s.grass[Math.floor(h * s.grass.length)];
-      }
+      default:
+        return s.grass[fi]; // flores agora vêm do scatter
     }
   }
 
@@ -186,7 +185,7 @@ export class WorldRenderer {
               tile === TileId.Dirt ? scatter.dirt :
               tile === TileId.StoneFloor ? scatter.stone : null;
             if (!set) continue;
-            const density = tile === TileId.Grass ? 0.5 : tile === TileId.Dirt ? 0.42 : 0.3;
+            const density = tile === TileId.Grass ? 0.62 : tile === TileId.Dirt ? 0.42 : 0.3;
             if (hash2D(x, y, 31) >= density) continue;
             const count = hash2D(x, y, 32) < 0.22 ? 2 : 1;
             for (let k = 0; k < count; k++) {

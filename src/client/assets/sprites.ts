@@ -1,4 +1,4 @@
-import { Texture } from "pixi.js";
+import { Rectangle, Texture } from "pixi.js";
 import { hash2D, mulberry32, type Rng } from "../../sim/rng";
 import type { Facing } from "../../shared/types";
 import { PAL } from "./palette";
@@ -87,62 +87,6 @@ export class Px {
 // Terreno
 // ──────────────────────────────────────────────────────────────────────
 
-function makeGrass(seed: number, flowers: boolean): Texture {
-  const rng = mulberry32(seed);
-  const p = new Px(32, 32);
-  p.fill(PAL.grassBase);
-  // 1. mottling fino (textura de valor sem virar grid — manchas GRANDES por-tile
-  // expõem a repetição das 4 variantes, então a variação grande fica pro chunk).
-  for (let i = 0; i < 26; i++) {
-    const x = Math.floor(rng() * 31), y = Math.floor(rng() * 31);
-    const c = rng() < 0.55 ? PAL.grassDark : PAL.grassMid;
-    p.rect(x, y, rng() < 0.5 ? 2 : 3, rng() < 0.6 ? 2 : 1, c);
-  }
-  // 2. tufos de capim em CLUSTER com volume (sombra na base, ponta iluminada)
-  for (let i = 0; i < 7; i++) {
-    const bx = 2 + Math.floor(rng() * 28), by = 4 + Math.floor(rng() * 25);
-    p.px(bx, by + 1, PAL.grassDark);                 // sombra de contato do tufo
-    const n = 2 + Math.floor(rng() * 3);
-    for (let b = 0; b < n; b++) {
-      const x = bx + Math.floor(rng() * 4) - 1, h = 2 + Math.floor(rng() * 2);
-      for (let s = 0; s < h; s++) p.px(x, by - s, s === h - 1 ? PAL.grassBlade : PAL.grassMid);
-    }
-    p.px(bx + 1, by - 1 - Math.floor(rng() * 2), PAL.grassLight); // ponta pegando luz
-  }
-  if (flowers) {
-    for (let i = 0; i < 3; i++) {
-      const x = 3 + Math.floor(rng() * 26), y = 3 + Math.floor(rng() * 26);
-      p.px(x, y + 1, PAL.grassDark);
-      p.px(x, y, rng() < 0.5 ? PAL.flowerGold : PAL.flowerWhite);
-    }
-  }
-  return p.texture();
-}
-
-function makeDirt(seed: number): Texture {
-  const rng = mulberry32(seed);
-  const p = new Px(32, 32);
-  p.fill(PAL.dirtBase);
-  // VOLUME: manchas grandes de valor (terra batida irregular — buracos e cristas)
-  for (let i = 0; i < 5; i++) {
-    const c = rng() < 0.5 ? PAL.dirtDark : PAL.dirtMid;
-    p.blob(rng() * 32, rng() * 32, 5 + rng() * 6, c, rng, 2.6);
-  }
-  // granulado fino
-  for (let i = 0; i < 70; i++) {
-    const x = Math.floor(rng() * 32), y = Math.floor(rng() * 32), r = rng();
-    p.px(x, y, r < 0.45 ? PAL.dirtDark : r < 0.8 ? PAL.dirtMid : PAL.dirtLight);
-  }
-  // pedrinhas e torrões com volume (luz no topo, sombra na base)
-  for (let i = 0; i < 7; i++) {
-    const x = 2 + Math.floor(rng() * 27), y = 2 + Math.floor(rng() * 27);
-    p.rect(x, y, 2, 1, PAL.dirtStone);
-    p.px(x, y, PAL.dirtLight);
-    p.px(x, y + 1, PAL.dirtDark);
-  }
-  return p.texture();
-}
-
 /**
  * Decais de SCATTER (alavanca #2 de profundidade): peças pequenas espalhadas e
  * baked no chunk do chão (custo zero em runtime) pra ele nunca ficar pelado —
@@ -155,16 +99,18 @@ function makeScatterDecals(): { grass: Texture[]; dirt: Texture[]; stone: Textur
     draw(p, mulberry32(seed));
     return p.texture();
   };
-  // capim: feixe de lâminas curvas saindo da base
-  const tuft = (seed: number) => make(11, 9, seed, (p, rng) => {
+  // capim: feixe de lâminas com SOMBRA DE CONTATO na base + PONTAS iluminadas →
+  // o tufo "ergue" do chão flat (o relevo que o criador curtiu).
+  const tuft = (seed: number) => make(11, 10, seed, (p, rng) => {
+    for (let i = 0; i < 5; i++) p.px(2 + Math.floor(rng() * 7), 9, PAL.grassDark); // contato
     const n = 4 + Math.floor(rng() * 3);
     for (let i = 0; i < n; i++) {
       let x = 1 + Math.floor(rng() * 9);
       const hgt = 4 + Math.floor(rng() * 4);
       const lean = Math.floor(rng() * 3) - 1;
-      const col = rng() < 0.45 ? PAL.grassBlade : rng() < 0.55 ? PAL.grassLight : PAL.grassDark;
       for (let s = 0; s < hgt; s++) {
-        p.px(x, 8 - s, col);
+        const c = s === hgt - 1 ? (rng() < 0.5 ? PAL.grassTip : PAL.grassBlade) : s === hgt - 2 ? PAL.grassLight : PAL.grassMid;
+        p.px(x, 8 - s, c);
         if (lean && s > 0 && s % 2 === 0) x += lean;
       }
     }
@@ -223,57 +169,135 @@ function makeScatterDecals(): { grass: Texture[]; dirt: Texture[]; stone: Textur
   };
 }
 
-// Cor-base da LAJOTA (neutra-quente) — exportada p/ a transição casar com o piso.
+// Cor-base da LAJOTA (neutra-quente) — base do campo de pedra e da transição.
 const FLAG_RGB = { r: 86, g: 83, b: 80 };
 
-function makeStoneFloor(seed: number): Texture {
-  const p = new Px(32, 32);
+// ──────────────────────────────────────────────────────────────────────
+// CAMPOS de terreno 128×128 (refactor jun/2026): em vez de tiles 32px prontos
+// que REPETEM idênticos (grade mecânica), geramos um campo grande seamless e o
+// cliente amostra a fatia 32px pela posição do MUNDO → pavimento/turfa CONTÍNUO,
+// sem repetição por tile, com variação de larga escala. O campo fecha em 128px
+// (4 tiles), repetição quase imperceptível sob scatter/luz.
+// ──────────────────────────────────────────────────────────────────────
+const FIELD = 128, FT = FIELD / 32; // 4×4 tiles por campo
+
+/** Fatia o campo em FT×FT frames de 32px (índice = gx + gy*FT). */
+function sliceField(big: Texture): Texture[] {
+  const frames: Texture[] = [];
+  for (let gy = 0; gy < FT; gy++)
+    for (let gx = 0; gx < FT; gx++)
+      frames.push(new Texture({ source: big.source, frame: new Rectangle(gx * 32, gy * 32, 32, 32) }));
+  return frames;
+}
+
+/** Blob com wrap toroidal — fecha seamless na borda do campo. */
+function wrapBlob(p: Px, cx: number, cy: number, r: number, color: string, rng: Rng, rough: number): void {
+  for (let oy = -FIELD; oy <= FIELD; oy += FIELD)
+    for (let ox = -FIELD; ox <= FIELD; ox += FIELD)
+      if (cx + ox > -r - 2 && cx + ox < FIELD + r + 2 && cy + oy > -r - 2 && cy + oy < FIELD + r + 2)
+        p.blob(cx + ox, cy + oy, r, color, rng, rough);
+}
+
+function makeGrassField(seed: number): Texture[] {
+  const rng = mulberry32(seed);
+  const p = new Px(FIELD, FIELD);
+  // chão FLAT e limpo (o criador gostou do flat) — só respiro fino de valor, SEM
+  // manchão grande que vira lamaçal.
+  p.fill(PAL.grassBase);
+  for (let i = 0; i < 300; i++) {
+    const x = rng() * FIELD | 0, y = rng() * FIELD | 0;
+    p.px(x, y, rng() < 0.62 ? PAL.grassDark : PAL.grassMid);
+  }
+  // TUFOS ERGUENDO DO CHÃO — o "3D maneiro": sombra de contato escura na base +
+  // lâminas + PONTA iluminada (pega a luz) → capim levantado sobre o chão flat.
+  const px = (x: number, y: number, c: string) => p.px(((x % FIELD) + FIELD) % FIELD, y, c);
+  for (let i = 0; i < 175; i++) {
+    const bx = rng() * FIELD | 0, by = (rng() * (FIELD - 8) | 0) + 6;
+    // sombra de contato (faz o tufo "subir" do chão)
+    px(bx, by + 1, PAL.grassDark); px(bx + 1, by + 1, PAL.grassDark);
+    const n = 2 + (rng() * 3 | 0);
+    for (let b = 0; b < n; b++) {
+      const x = bx + (rng() * 5 | 0) - 2, h = 2 + (rng() * 2 | 0);
+      for (let s = 0; s < h; s++) px(x, by - s, PAL.grassMid);
+    }
+    // pontas pegando luz (o brilho que dá o relevo) — ponta bem clara POPa
+    px(bx, by - 2 - (rng() * 2 | 0), rng() < 0.5 ? PAL.grassBlade : PAL.grassLight);
+    px(bx + 1, by - 1 - (rng() * 2 | 0), rng() < 0.4 ? PAL.grassTip : PAL.grassLight);
+  }
+  return sliceField(p.texture());
+}
+
+function makeDirtField(seed: number): Texture[] {
+  const rng = mulberry32(seed);
+  const p = new Px(FIELD, FIELD);
+  p.fill(PAL.dirtBase);
+  // manchas grandes de valor (terra batida irregular — cavas e cristas)
+  for (let i = 0; i < 10; i++) wrapBlob(p, rng() * FIELD, rng() * FIELD, 10 + rng() * 14, rng() < 0.5 ? PAL.dirtDark : PAL.dirtMid, rng, 2.8);
+  for (let i = 0; i < 1100; i++) {
+    const x = rng() * FIELD | 0, y = rng() * FIELD | 0, r = rng();
+    p.px(x, y, r < 0.45 ? PAL.dirtDark : r < 0.8 ? PAL.dirtMid : PAL.dirtLight);
+  }
+  for (let i = 0; i < 110; i++) {
+    const x = rng() * (FIELD - 2) | 0, y = rng() * (FIELD - 2) | 0;
+    p.rect(x, y, 2, 1, PAL.dirtStone);
+    p.px(x, y, PAL.dirtLight);
+    p.px(x, y + 1, PAL.dirtDark);
+  }
+  return sliceField(p.texture());
+}
+
+// Piso de pedra = LAJES IRREGULARES encaixadas (Voronoi/crazy-paving), NÃO grade
+// de retângulos (que o criador achou feia). Cada laje: corpo próprio, topo
+// pegando luz, juntas fundas escuras nas outras bordas → encaixe orgânico com
+// volume, estilo dungeon/tavern de referência. Sementes em grade jittered com
+// wrap TOROIDAL → o campo 128 fecha seamless.
+function makeStoneField(seed: number): Texture[] {
+  const p = new Px(FIELD, FIELD);
   const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
-  const JOINT = "#0e1116";
-  p.fill(JOINT); // argamassa FUNDA nas juntas — é o principal sinal de 3D
-  // LAJOTA grande em running-bond: calma e LEGÍVEL (distinta da muralha "busy"),
-  // tom NEUTRO-quente (vs o azul FRIO da parede) → chão e muro se SEPARAM, que
-  // era o defeito do cobble antigo. Tom por flag via hash2D na identidade x%32 →
-  // o tile fecha seamless. Bevel forte (luz NO) dá volume de pavimento.
-  const FW = 16, RH = 8, fw = FW - 1, fh = RH - 1;
-  for (let row = 0; row < 4; row++) {
-    const y = row * RH;
-    const offset = row % 2 ? FW / 2 : 0;
-    for (let col = -1; col <= 2; col++) {
-      const x = col * FW + offset;
-      const fx = ((x % 32) + 32) % 32; // identidade da flag p/ seamless no wrap
-      const tone = 0.8 + hash2D(fx, row, seed) * 0.44;
-      const warm = hash2D(fx, row, seed + 7) < 0.35 ? 7 : 0;
-      const R = cb(FLAG_RGB.r * tone + warm), G = cb(FLAG_RGB.g * tone + warm * 0.5), B = cb(FLAG_RGB.b * tone);
-      const body = `rgb(${R},${G},${B})`;
-      const lit = `rgb(${cb(R + 26)},${cb(G + 26)},${cb(B + 27)})`;
-      const shad = `rgb(${cb(R - 18)},${cb(G - 17)},${cb(B - 16)})`;
-      p.rect(x, y, fw, fh, body);
-      p.rect(x, y, fw, 1, lit);             // topo iluminado
-      p.rect(x, y, 1, fh, lit);             // esquerda iluminada
-      p.rect(x, y + fh - 1, fw, 1, shad);   // base sombreada
-      p.rect(x + fw - 1, y, 1, fh, shad);   // direita sombreada
-      // granulado interno sutil (textura sem virar ruído)
-      if (hash2D(fx, row, seed + 13) < 0.5) {
-        const sx = x + 3 + (hash2D(fx, row, seed + 14) * (fw - 5) | 0);
-        const sy = y + 2 + (hash2D(fx, row, seed + 15) * (fh - 3) | 0);
-        p.px(sx, sy, shad); p.px(sx + 1, sy, body);
-      }
-      // rachadura RARA e DISCRETA (linha curta quase reta — não rabisco)
-      if (hash2D(fx, row, seed + 21) < 0.1) {
-        const cx0 = x + 4 + (hash2D(fx, row, seed + 22) * (fw - 7) | 0);
-        const len = 3 + (hash2D(fx, row, seed + 24) * 2 | 0);
-        let cxp = cx0, cyp = y + 2;
-        for (let s = 0; s < len; s++) { p.px(cxp, cyp, shad); cyp++; if (hash2D(fx, cyp, seed + 23) < 0.33) cxp += 1; }
-      }
-      // musgo MUITO raro, na junta de baixo (acúmulo de canto)
-      if (hash2D(fx, row, seed + 31) < 0.06) {
-        const mx = x + 1 + (hash2D(fx, row, seed + 32) * (fw - 3) | 0);
-        p.px(mx, y + fh - 1, "#2c3a2b");
-      }
+  const JOINT = "#0b0e13";
+  const GS = 16; // espaçamento médio das lajes (px)
+  const cols = Math.round(FIELD / GS), rows = Math.round(FIELD / GS);
+  const seeds: { x: number; y: number; tone: number; warm: number }[] = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      seeds.push({
+        x: (c + 0.5) * (FIELD / cols) + (hash2D(c, r, seed) - 0.5) * GS * 0.9,
+        y: (r + 0.5) * (FIELD / rows) + (hash2D(c, r, seed + 1) - 0.5) * GS * 0.9,
+        tone: 0.76 + hash2D(c, r, seed + 2) * 0.5,
+        warm: hash2D(c, r, seed + 3) < 0.35 ? 8 : 0,
+      });
     }
   }
-  return p.texture();
+  const cellOf = (px: number, py: number): number => {
+    let best = 0, bd = 1e9;
+    for (let i = 0; i < seeds.length; i++) {
+      let dx = Math.abs(px - seeds[i].x); if (dx > FIELD / 2) dx = FIELD - dx; // toroidal
+      let dy = Math.abs(py - seeds[i].y); if (dy > FIELD / 2) dy = FIELD - dy;
+      const d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  };
+  const cm = new Int16Array(FIELD * FIELD);
+  for (let y = 0; y < FIELD; y++) for (let x = 0; x < FIELD; x++) cm[y * FIELD + x] = cellOf(x, y);
+  const at = (x: number, y: number) => cm[((y + FIELD) % FIELD) * FIELD + ((x + FIELD) % FIELD)];
+  for (let y = 0; y < FIELD; y++) {
+    for (let x = 0; x < FIELD; x++) {
+      const id = cm[y * FIELD + x];
+      const s = seeds[id];
+      const R = cb(FLAG_RGB.r * s.tone + s.warm), G = cb(FLAG_RGB.g * s.tone + s.warm * 0.5), B = cb(FLAG_RGB.b * s.tone);
+      const up = at(x, y - 1), dn = at(x, y + 1), lf = at(x - 1, y), rt = at(x + 1, y);
+      let col: string;
+      if ((dn !== id || rt !== id) && (up === id && lf === id)) col = JOINT;            // base/dir = junta funda
+      else if (up !== id || lf !== id) col = `rgb(${cb(R + 30)},${cb(G + 30)},${cb(B + 31)})`; // topo/esq pega luz
+      else if (hash2D(x, y, seed + 9) < 0.07) col = `rgb(${cb(R - 12)},${cb(G - 11)},${cb(B - 9)})`; // grão
+      else col = `rgb(${R},${G},${B})`;
+      // junta dupla (mais funda) onde 2 bordas se cruzam (canto entre lajes)
+      if ((up !== id || lf !== id) && (dn !== id || rt !== id)) col = JOINT;
+      p.px(x, y, col);
+    }
+  }
+  return sliceField(p.texture());
 }
 
 function makeBridge(seed: number): Texture {
@@ -1107,11 +1131,14 @@ function wangFloorVariants(pair: string): Texture[] | null {
 }
 
 export function createSprites(): SpriteLibrary {
+  // Campos 128×128 amostrados por posição de mundo (16 frames cada): chão CONTÍNUO
+  // sem repetição por tile. Flores agora vêm do scatter, não de variante de grama.
+  const grassFrames = makeGrassField(101);
   return {
-    grass: [makeGrass(11, false), makeGrass(22, false), makeGrass(33, false), makeGrass(44, false)],
-    grassFlowers: [makeGrass(55, true), makeGrass(66, true)],
-    dirt: [makeDirt(10), makeDirt(20), makeDirt(30)],
-    stoneFloor: [makeStoneFloor(7), makeStoneFloor(14), makeStoneFloor(21)],
+    grass: grassFrames,
+    grassFlowers: grassFrames,
+    dirt: makeDirtField(202),
+    stoneFloor: makeStoneField(404),
     waterFrames: makeWaterFrames(),
     bridge: [makeBridge(601), makeBridge(602)],
     swamp: [makeSwamp(701), makeSwamp(702), makeSwamp(703)],

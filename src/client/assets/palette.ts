@@ -9,6 +9,7 @@ export const PAL = {
   grassMid: "#31493a",
   grassLight: "#3d5a42",
   grassBlade: "#4a6b4a",
+  grassTip: "#6d8f54", // ponta de tufo pegando luz (mais clara + quente) — relevo do capim
   flowerGold: "#c9b458",
   flowerWhite: "#b8c4cc",
 
