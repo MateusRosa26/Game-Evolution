@@ -1187,7 +1187,13 @@ export class Simulation {
     // re-dispara, então escada bidirecional não fica em loop. SISTEMA-ANDARES §3.
     if (e.kind === "player") {
       const portal = this.world.portalAt(nx, ny, e.z);
-      if (portal?.to) this.transition(e, portal.to);
+      if (portal?.to) {
+        // Escada: desce em QUALQUER passo. Boeiro/buraco: só desce se ESTE tile
+        // era o destino do clique (intent.goal) — andar por cima de passagem NÃO
+        // derruba; tem que clicar no boeiro pra descer (pedido do criador).
+        const clicked = e.intent?.kind === "path" && e.intent.goal.x === nx && e.intent.goal.y === ny;
+        if (portal.kind === "stairs" || clicked) this.transition(e, portal.to);
+      }
     }
     return true;
   }

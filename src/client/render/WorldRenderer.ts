@@ -56,6 +56,18 @@ export class WorldRenderer {
     this.buildGround(map, renderer);
     this.buildObjects(map);
     this.buildRoofs(map);
+    this.buildPortalMarkers(map);
+  }
+
+  /** Marca visualmente as descidas: boeiro/grade nos portais que não são escada. */
+  private buildPortalMarkers(map: MapData): void {
+    for (const portal of map.portals ?? []) {
+      if (portal.kind === "stairs") continue; // escada = pisa; visual próprio depois
+      const sp = new Sprite(this.sprites.manhole);
+      sp.anchor.set(0.5, 0.5);
+      sp.position.set((portal.x + 0.5) * TILE_SIZE, (portal.y + 0.5) * TILE_SIZE);
+      this.shadows.addChild(sp); // camada flat, abaixo das entidades (anda por cima)
+    }
   }
 
   /** Um telhado por edifício, posicionado sobre o footprint (com overhang norte). */

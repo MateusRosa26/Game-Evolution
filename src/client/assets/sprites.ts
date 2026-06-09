@@ -1039,6 +1039,35 @@ function makeTargetMarker(): Texture {
   return p.texture();
 }
 
+/**
+ * BOEIRO (descida pro esgoto): grade de ferro redonda sobre poço escuro —
+ * sinaliza "aqui se desce". Desce ao CLICAR (não ao pisar). Aro com luz NO.
+ */
+function makeManhole(): Texture {
+  const p = new Px(32, 32);
+  const cx = 15.5, cy = 15.5, R = 13;
+  const IRON = "#3b414b", IRON_LO = "#252a31", IRON_HI = "#5b626d", PIT = "#06080c";
+  p.ellipse(cx, cy, R, R, IRON_LO);        // aro externo
+  p.ellipse(cx, cy, R - 1.5, R - 1.5, IRON);
+  p.ellipse(cx, cy, R - 3, R - 3, PIT);    // poço escuro
+  // GRADE: barras de ferro atravessando o poço (topo da barra pega luz)
+  for (let by = -8; by <= 8; by += 4) {
+    const half = Math.round(Math.sqrt(Math.max(0, (R - 3) * (R - 3) - by * by)));
+    const y = Math.round(cy + by);
+    for (let x = Math.round(cx) - half; x <= Math.round(cx) + half; x++) {
+      p.px(x, y, IRON);
+      p.px(x, y - 1, IRON_HI);
+    }
+  }
+  // aro: luz no topo-esq, sombra na base-dir (volume)
+  for (let a = 0; a < 360; a += 5) {
+    const rad = (a * Math.PI) / 180, c = Math.cos(rad), s = Math.sin(rad);
+    p.px(Math.round(cx + c * R), Math.round(cy + s * R), c + s < -0.3 ? IRON_HI : c + s > 0.3 ? "#1a1e24" : IRON_LO);
+  }
+  p.outline(PAL.outline);
+  return p.texture();
+}
+
 /** Gradiente radial para as luzes (branco → transparente, falloff suave). */
 function makeLightTexture(): Texture {
   const size = 256;
@@ -1218,6 +1247,8 @@ export interface SpriteLibrary {
   light: Texture;
   tileCursor: Texture;
   targetMarker: Texture;
+  /** Boeiro/grade da descida pro esgoto. */
+  manhole: Texture;
   shadow: Texture;
   /** Decais espalhados no chão (baked no chunk): grama/terra/pedra. */
   scatter: { grass: Texture[]; dirt: Texture[]; stone: Texture[] };
@@ -1274,6 +1305,7 @@ export function createSprites(): SpriteLibrary {
     light: makeLightTexture(),
     tileCursor: makeTileCursor(),
     targetMarker: makeTargetMarker(),
+    manhole: makeManhole(),
     shadow: makeShadow(),
     scatter: makeScatterDecals(),
     stoneTransition: makeStoneTransition(404),
