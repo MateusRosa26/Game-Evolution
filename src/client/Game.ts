@@ -2,7 +2,7 @@ import { Container, Sprite, type Application } from "pixi.js";
 import { TILE_SIZE } from "../shared/constants";
 import type { ClientTransport, EntityState, Snapshot } from "../shared/protocol";
 import { OUTFIT_PART_BY_ID, OUTFIT_PARTS } from "../shared/outfits";
-import type { MapData } from "../shared/types";
+import { TileId, type MapData } from "../shared/types";
 import { createSprites, type SpriteLibrary } from "./assets/sprites";
 import { Camera } from "./Camera";
 import { EntityRenderer } from "./render/EntityRenderer";
@@ -43,6 +43,31 @@ const SKILL_HOTKEYS: Record<string, number> = {
 };
 
 /**
+ * Monta um MapData renderizável do ANDAR ativo (Fase 1 dos andares): o andar base
+ * (z=0) é o próprio mapa; um subsolo (z<0) vira um mapa do TAMANHO do base com os
+ * tiles do andar estampados na posição de mundo (ox+lx) e Void (breu) no resto.
+ * Assim o WorldRenderer renderiza qualquer andar sem saber de offset.
+ */
+function floorAsMap(base: MapData, z: number): { map: MapData; ambient?: number } {
+  if (z === (base.z ?? 0)) return { map: base };
+  const f = (base.floors ?? []).find((fl) => fl.z === z);
+  if (!f) return { map: base };
+  const tiles: TileId[] = new Array(base.width * base.height).fill(TileId.Void);
+  for (let ly = 0; ly < f.height; ly++) {
+    for (let lx = 0; lx < f.width; lx++) {
+      const wx = f.ox + lx, wy = f.oy + ly;
+      if (wx >= 0 && wy >= 0 && wx < base.width && wy < base.height) {
+        tiles[wy * base.width + wx] = f.tiles[ly * f.width + lx];
+      }
+    }
+  }
+  return {
+    map: { ...base, tiles, decor: f.decor, lights: f.lights, portals: f.portals, buildings: undefined, z: f.z },
+    ambient: f.ambient,
+  };
+}
+
+/**
  * Orquestra o lado do cliente: recebe mensagens do "servidor",
  * renderiza o mundo e envia input. Não contém NENHUMA regra de jogo.
  */
@@ -78,6 +103,9 @@ export class Game {
   /** Camada de UI — SEMPRE acima da iluminação (que é multiply sobre o mundo). */
   private uiLayer = new Container();
   private worldRenderer: WorldRenderer | null = null;
+  /** Mapa base (z=0, com floors) e o andar atualmente renderizado. */
+  private baseMap: MapData | null = null;
+  private renderZ = 0;
   private entityRenderer: EntityRenderer | null = null;
   private lighting: Lighting | null = null;
   private tileCursor: Sprite;
@@ -296,6 +324,8 @@ export class Game {
   }
 
   private buildWorld(map: MapData): void {
+    this.baseMap = map;
+    this.renderZ = map.z ?? 0;
     this.worldRenderer = new WorldRenderer(this.sprites, map, this.app.renderer);
     this.worldContainer.addChild(this.worldRenderer.ground);
     this.worldContainer.addChild(this.worldRenderer.shadows);
@@ -357,6 +387,35 @@ export class Game {
     }
   }
 
+  /**
+   * Troca o ANDAR renderizado (Fase 1): reconstrói o WorldRenderer com os tiles do
+   * andar `z`, recria o EntityRenderer apontando pra nova camada de objetos e
+   * troca a cor ambiente (breu do subsolo). Chamado quando o z do player muda.
+   */
+  private rebuildWorldFor(z: number): void {
+    if (!this.baseMap) return;
+    const { map: fmap, ambient } = floorAsMap(this.baseMap, z);
+    const wc = this.worldContainer;
+    const old = this.worldRenderer;
+    wc.removeChildren(); // tira ground/shadows/tileCursor/objects/roofs (tileCursor é do Game)
+    if (old) {
+      old.ground.destroy({ children: true });
+      old.shadows.destroy({ children: true });
+      old.objects.destroy({ children: true }); // destrói sprites de entidade antigos
+      old.roofs.destroy({ children: true });
+    }
+    this.worldRenderer = new WorldRenderer(this.sprites, fmap, this.app.renderer);
+    wc.addChild(this.worldRenderer.ground);
+    wc.addChild(this.worldRenderer.shadows);
+    wc.addChild(this.tileCursor);
+    wc.addChild(this.worldRenderer.objects);
+    wc.addChild(this.worldRenderer.roofs);
+    this.entityRenderer = new EntityRenderer(this.sprites, this.worldRenderer.objects, this.playerId);
+    this.lighting?.setMapLights(fmap.lights);
+    this.lighting?.setAmbient(ambient);
+    this.renderZ = z;
+  }
+
   private onSnapshot(snap: Snapshot): void {
     // ANDAR do jogador: tudo que se vê/interage é filtrado por z (SISTEMA-ANDARES
     // §8 — você só recebe/enxerga entidades do seu andar). O render de TILES do
@@ -364,6 +423,8 @@ export class Game {
     // de entidades já torna a sim z-aware observável.
     const me = snap.entities.find((e) => e.id === this.playerId) ?? null;
     const pz = me?.z ?? 0;
+    // Mudou de andar → reconstrói o mundo com os tiles do andar ativo (Fase 1).
+    if (pz !== this.renderZ) this.rebuildWorldFor(pz);
     const viewSnap: Snapshot = {
       ...snap,
       entities: snap.entities.filter((e) => e.z === pz),

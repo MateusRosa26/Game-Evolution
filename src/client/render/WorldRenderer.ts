@@ -62,8 +62,8 @@ export class WorldRenderer {
   /** Marca visualmente as descidas: boeiro/grade nos portais que não são escada. */
   private buildPortalMarkers(map: MapData): void {
     for (const portal of map.portals ?? []) {
-      if (portal.kind === "stairs") continue; // escada = pisa; visual próprio depois
-      const sp = new Sprite(this.sprites.manhole);
+      const tex = portal.kind === "stairs" ? this.sprites.stairs : this.sprites.manhole;
+      const sp = new Sprite(tex);
       sp.anchor.set(0.5, 0.5);
       sp.position.set((portal.x + 0.5) * TILE_SIZE, (portal.y + 0.5) * TILE_SIZE);
       this.shadows.addChild(sp); // camada flat, abaixo das entidades (anda por cima)
@@ -100,9 +100,10 @@ export class WorldRenderer {
     }
   }
 
-  private groundTexture(map: MapData, x: number, y: number) {
+  private groundTexture(map: MapData, x: number, y: number): Texture | null {
     const s = this.sprites;
     const tile = map.tiles[y * map.width + x];
+    if (tile === TileId.Void) return null; // fora do footprint do andar = breu
     const h = hash2D(x, y);
     // Campos 128×128: frame escolhido pela posição de MUNDO (4×4) → chão contínuo
     // sem repetição por tile (a grade idêntica de antes era a "pedra horrível").
@@ -165,7 +166,9 @@ export class WorldRenderer {
           for (let tx = 0; tx < tilesW; tx++) {
             const x = cx * CHUNK_TILES + tx;
             const y = cy * CHUNK_TILES + ty;
-            const sp = new Sprite(this.groundTexture(map, x, y));
+            const tex = this.groundTexture(map, x, y);
+            if (!tex) continue; // Void: não desenha nada (breu do fundo)
+            const sp = new Sprite(tex);
             sp.position.set(tx * TILE_SIZE, ty * TILE_SIZE);
             scratch.addChild(sp);
           }
@@ -236,6 +239,9 @@ export class WorldRenderer {
             }
           }
         }
+
+        // chunk 100% Void (andar subsolo fora do footprint) → não gasta RT
+        if (scratch.children.length === 0) { scratch.destroy(); continue; }
 
         const rt = RenderTexture.create({ width: tilesW * TILE_SIZE, height: tilesH * TILE_SIZE });
         renderer.render({ container: scratch, target: rt, clear: true });

@@ -1068,6 +1068,21 @@ function makeManhole(): Texture {
   return p.texture();
 }
 
+/** Escada de pedra descendo pro escuro (degraus recuando). Pisar = desce; clicar = sobe. */
+function makeStairs(): Texture {
+  const p = new Px(32, 32);
+  p.rect(3, 3, 26, 26, "#2a2f37");
+  p.rect(4, 4, 24, 24, "#070a0e"); // poço escuro
+  const steps = ["#5a6270", "#4f5763", "#454c58", "#3a414c", "#30353f"];
+  for (let i = 0; i < steps.length; i++) {
+    const y = 5 + i * 4;
+    p.rect(5, y, 22, 3, steps[i]);
+    p.rect(5, y, 22, 1, "#6c7482"); // aresta de cima do degrau pega luz
+  }
+  p.outline(PAL.outline);
+  return p.texture();
+}
+
 /** Gradiente radial para as luzes (branco → transparente, falloff suave). */
 function makeLightTexture(): Texture {
   const size = 256;
@@ -1249,6 +1264,8 @@ export interface SpriteLibrary {
   targetMarker: Texture;
   /** Boeiro/grade da descida pro esgoto. */
   manhole: Texture;
+  /** Escada (descida/subida entre andares). */
+  stairs: Texture;
   shadow: Texture;
   /** Decais espalhados no chão (baked no chunk): grama/terra/pedra. */
   scatter: { grass: Texture[]; dirt: Texture[]; stone: Texture[] };
@@ -1306,6 +1323,7 @@ export function createSprites(): SpriteLibrary {
     tileCursor: makeTileCursor(),
     targetMarker: makeTargetMarker(),
     manhole: makeManhole(),
+    stairs: makeStairs(),
     shadow: makeShadow(),
     scatter: makeScatterDecals(),
     stoneTransition: makeStoneTransition(404),

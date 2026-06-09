@@ -615,15 +615,16 @@ function buildSewerA1(): FloorLayer {
       { x: wx(26), y: wy(10), species: "rato_lanhoso" },
       { x: wx(14), y: wy(28), species: "rato_lanhoso" },
     ],
-    // escada de volta: pisar em (130,110) sobe pra grelha da praça (138,118)
-    portals: [{ x: wx(18), y: wy(16), kind: "stairs", to: { x: 138, y: 118, z: 0 } }],
+    // escada de volta EXATAMENTE embaixo do boeiro (138,118) → sobe pra praça
+    portals: [{ x: 138, y: 118, kind: "stairs", to: { x: 138, y: 118, z: 0 } }],
     openings: [],
     ambient: 0x0a0e14, // breu do subsolo
   };
 }
 
-/** Grelha de esgoto na praça (z=0) → desce pro A1. 1ª das 5 bocas (✏️ +4). */
-const ALVORADA_PORTALS: MapPortal[] = [{ x: 138, y: 118, kind: "cave", to: { x: 130, y: 110, z: -1 } }];
+/** Boeiro na praça (z=0) → desce DIRETO embaixo pro A1 (mesma coluna). 1ª das 5
+ *  bocas (✏️ +4). Clica pra descer (kind ≠ stairs). */
+const ALVORADA_PORTALS: MapPortal[] = [{ x: 138, y: 118, kind: "hole", to: { x: 138, y: 118, z: -1 } }];
 
 // ─────────────────────────── helpers de pintura ───────────────────────────
 

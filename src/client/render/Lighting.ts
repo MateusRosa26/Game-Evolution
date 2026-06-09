@@ -30,6 +30,9 @@ export class Lighting {
   private lights: LightVisual[] = [];
   private playerLight: LightVisual;
   private time = 0;
+  private ambientColor: number = AMBIENT_COLOR;
+  private lastW = 0;
+  private lastH = 0;
 
   constructor(
     private sprites: SpriteLibrary,
@@ -85,8 +88,16 @@ export class Lighting {
   }
 
   private drawAmbient(width: number, height: number): void {
+    this.lastW = width;
+    this.lastH = height;
     this.ambient.clear();
-    this.ambient.rect(0, 0, width, height).fill(AMBIENT_COLOR);
+    this.ambient.rect(0, 0, width, height).fill(this.ambientColor);
+  }
+
+  /** Cor ambiente do andar ativo (subsolo = breu; undefined volta ao overworld). */
+  setAmbient(color: number | undefined): void {
+    this.ambientColor = color ?? AMBIENT_COLOR;
+    this.drawAmbient(this.lastW, this.lastH);
   }
 
   setPlayerLightPos(worldX: number, worldY: number): void {

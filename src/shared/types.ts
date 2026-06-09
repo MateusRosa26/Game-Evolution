@@ -167,6 +167,9 @@ export enum TileId {
   /** Parede de CASA (enxaimel: madeira + taipa) — textura própria, distinta da
    *  muralha de pedra da cidade. Autotile 16-máscaras (conecta só com casa). */
   HouseWall = 16,
+  /** VOID: fora do footprint de um andar (subsolo) — não renderiza nada (breu do
+   *  fundo aparece). Impassável. Usado só pelo client ao montar o andar ativo. */
+  Void = 17,
 }
 
 export const WALKABLE: Record<TileId, boolean> = {
@@ -187,6 +190,7 @@ export const WALKABLE: Record<TileId, boolean> = {
   [TileId.OldMasonryWall]: false,
   [TileId.CaveWall]: false,
   [TileId.HouseWall]: false,
+  [TileId.Void]: false,
 };
 
 /** Fonte de luz estática do mapa (posição em tiles). */
