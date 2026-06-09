@@ -101,16 +101,18 @@ function makeScatterDecals(): { grass: Texture[]; dirt: Texture[]; stone: Textur
   };
   // capim: feixe de lâminas com SOMBRA DE CONTATO na base + PONTAS iluminadas →
   // o tufo "ergue" do chão flat (o relevo que o criador curtiu).
-  const tuft = (seed: number) => make(11, 10, seed, (p, rng) => {
-    for (let i = 0; i < 5; i++) p.px(2 + Math.floor(rng() * 7), 9, PAL.grassDark); // contato
+  const tuft = (seed: number) => make(11, 11, seed, (p, rng) => {
+    // sombra de contato larga e funda na base (o tufo ergue dela)
+    for (let i = 0; i < 7; i++) p.px(2 + Math.floor(rng() * 7), 10, PAL.grassShade);
+    for (let i = 0; i < 4; i++) p.px(3 + Math.floor(rng() * 5), 9, PAL.grassShade);
     const n = 4 + Math.floor(rng() * 3);
     for (let i = 0; i < n; i++) {
       let x = 1 + Math.floor(rng() * 9);
-      const hgt = 4 + Math.floor(rng() * 4);
+      const hgt = 5 + Math.floor(rng() * 4);
       const lean = Math.floor(rng() * 3) - 1;
       for (let s = 0; s < hgt; s++) {
-        const c = s === hgt - 1 ? (rng() < 0.5 ? PAL.grassTip : PAL.grassBlade) : s === hgt - 2 ? PAL.grassLight : PAL.grassMid;
-        p.px(x, 8 - s, c);
+        const c = s === hgt - 1 ? (rng() < 0.55 ? PAL.grassTip : PAL.grassBlade) : s >= hgt - 3 ? PAL.grassLight : PAL.grassMid;
+        p.px(x, 9 - s, c);
         if (lean && s > 0 && s % 2 === 0) x += lean;
       }
     }
@@ -211,18 +213,19 @@ function makeGrassField(seed: number): Texture[] {
   // TUFOS ERGUENDO DO CHÃO — o "3D maneiro": sombra de contato escura na base +
   // lâminas + PONTA iluminada (pega a luz) → capim levantado sobre o chão flat.
   const px = (x: number, y: number, c: string) => p.px(((x % FIELD) + FIELD) % FIELD, y, c);
-  for (let i = 0; i < 175; i++) {
-    const bx = rng() * FIELD | 0, by = (rng() * (FIELD - 8) | 0) + 6;
-    // sombra de contato (faz o tufo "subir" do chão)
-    px(bx, by + 1, PAL.grassDark); px(bx + 1, by + 1, PAL.grassDark);
-    const n = 2 + (rng() * 3 | 0);
+  for (let i = 0; i < 165; i++) {
+    const bx = rng() * FIELD | 0, by = (rng() * (FIELD - 10) | 0) + 7;
+    // SOMBRA DE CONTATO larga e escura na base → o tufo "sobe" do chão flat
+    for (let d = -1; d <= 2; d++) px(bx + d, by + 1, PAL.grassShade);
+    px(bx, by + 2, PAL.grassShade); px(bx + 1, by + 2, PAL.grassShade);
+    const n = 3 + (rng() * 3 | 0);
     for (let b = 0; b < n; b++) {
-      const x = bx + (rng() * 5 | 0) - 2, h = 2 + (rng() * 2 | 0);
-      for (let s = 0; s < h; s++) px(x, by - s, PAL.grassMid);
+      const x = bx + (rng() * 5 | 0) - 2, h = 3 + (rng() * 3 | 0);
+      for (let s = 0; s < h; s++) px(x, by - s, s >= h - 2 ? PAL.grassBlade : PAL.grassMid);
     }
     // pontas pegando luz (o brilho que dá o relevo) — ponta bem clara POPa
-    px(bx, by - 2 - (rng() * 2 | 0), rng() < 0.5 ? PAL.grassBlade : PAL.grassLight);
-    px(bx + 1, by - 1 - (rng() * 2 | 0), rng() < 0.4 ? PAL.grassTip : PAL.grassLight);
+    px(bx, by - 3 - (rng() * 2 | 0), rng() < 0.6 ? PAL.grassTip : PAL.grassLight);
+    px(bx + 1, by - 2 - (rng() * 2 | 0), PAL.grassLight);
   }
   return sliceField(p.texture());
 }
@@ -254,8 +257,8 @@ function makeDirtField(seed: number): Texture[] {
 function makeStoneField(seed: number): Texture[] {
   const p = new Px(FIELD, FIELD);
   const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
-  const JOINT = "#0b0e13";
-  const GS = 16; // espaçamento médio das lajes (px)
+  const JOINT = "#080a0e";
+  const GS = 24; // espaçamento médio das lajes (px) — lajes GRANDES, leitura calma
   const cols = Math.round(FIELD / GS), rows = Math.round(FIELD / GS);
   const seeds: { x: number; y: number; tone: number; warm: number }[] = [];
   for (let r = 0; r < rows; r++) {
@@ -286,14 +289,23 @@ function makeStoneField(seed: number): Texture[] {
       const id = cm[y * FIELD + x];
       const s = seeds[id];
       const R = cb(FLAG_RGB.r * s.tone + s.warm), G = cb(FLAG_RGB.g * s.tone + s.warm * 0.5), B = cb(FLAG_RGB.b * s.tone);
-      const up = at(x, y - 1), dn = at(x, y + 1), lf = at(x - 1, y), rt = at(x + 1, y);
+      const up = at(x, y - 1) !== id, dn = at(x, y + 1) !== id, lf = at(x - 1, y) !== id, rt = at(x + 1, y) !== id;
+      const edgeTL = up || lf, edgeBR = dn || rt;
+      // VOLUME forte (como a face da parede): lip iluminado no topo-esq, junta
+      // FUNDA na base-dir, e uma sombra interna logo acima da junta (a pedra
+      // "sobe"). Junta dupla no canto onde 2 bordas se cruzam.
       let col: string;
-      if ((dn !== id || rt !== id) && (up === id && lf === id)) col = JOINT;            // base/dir = junta funda
-      else if (up !== id || lf !== id) col = `rgb(${cb(R + 30)},${cb(G + 30)},${cb(B + 31)})`; // topo/esq pega luz
-      else if (hash2D(x, y, seed + 9) < 0.07) col = `rgb(${cb(R - 12)},${cb(G - 11)},${cb(B - 9)})`; // grão
-      else col = `rgb(${R},${G},${B})`;
-      // junta dupla (mais funda) onde 2 bordas se cruzam (canto entre lajes)
-      if ((up !== id || lf !== id) && (dn !== id || rt !== id)) col = JOINT;
+      if (edgeBR) {
+        col = JOINT;
+      } else if (edgeTL) {
+        col = `rgb(${cb(R + 34)},${cb(G + 34)},${cb(B + 35)})`; // lip de luz
+      } else if (at(x + 1, y) !== id || at(x, y + 1) !== id || at(x + 2, y) !== id || at(x, y + 2) !== id) {
+        col = `rgb(${cb(R - 22)},${cb(G - 21)},${cb(B - 18)})`; // sombra interna sob o lip (base-dir)
+      } else if (hash2D(x, y, seed + 9) < 0.06) {
+        col = `rgb(${cb(R - 11)},${cb(G - 10)},${cb(B - 8)})`; // grão sutil
+      } else {
+        col = `rgb(${R},${G},${B})`;
+      }
       p.px(x, y, col);
     }
   }

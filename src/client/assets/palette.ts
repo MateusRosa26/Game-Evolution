@@ -5,6 +5,7 @@
 export const PAL = {
   // Vegetação
   grassBase: "#2b3f31",
+  grassShade: "#1b2a20", // sombra de contato do tufo (mais funda/fria) — faz erguer
   grassDark: "#243527",
   grassMid: "#31493a",
   grassLight: "#3d5a42",
