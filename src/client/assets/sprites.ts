@@ -1181,3 +1181,9 @@ export function createSprites(): SpriteLibrary {
     stoneTransition: makeStoneTransition(404),
   };
 }
+
+// DEV: os sprites são gerados UMA vez no boot (createSprites), então o HMR de
+// módulo do Vite NÃO os regenera — sem isto, editar tile/paleta não muda nada na
+// aba aberta (só num reload manual). Força reload completo quando este arquivo OU
+// a paleta (dependência) mudam.
+if (import.meta.hot) import.meta.hot.accept(() => location.reload());
