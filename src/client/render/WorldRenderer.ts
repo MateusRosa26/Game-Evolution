@@ -2,7 +2,6 @@ import { Container, RenderTexture, Sprite, type Renderer, type Texture } from "p
 import { hash2D } from "../../sim/rng";
 import { TILE_SIZE } from "../../shared/constants";
 import { TileId, type MapData, type MapRect } from "../../shared/types";
-import { PIXELLAB } from "../assets/pixellab";
 import { makeRoof, ROOF_OVERHANG, type SpriteLibrary } from "../assets/sprites";
 
 const WATER_FRAME_MS = 380;
@@ -71,14 +70,19 @@ export class WorldRenderer {
     }
   }
 
-  /** Fade do telhado: some quando o player está dentro do edifício (estilo Tibia). */
+  /**
+   * Fade do telhado por PROXIMIDADE (estilo Tibia): some quando o player está
+   * dentro OU perto do edifício (vê o interior ao se aproximar da porta), volta
+   * sólido quando afasta. Distância Chebyshev até o retângulo (0 = dentro).
+   */
   updateRoofs(playerTileX: number, playerTileY: number, deltaMS: number): void {
     const step = deltaMS / 140;
+    const FADE = 2.2; // tiles de aproximação até sumir
     for (const { sp, rect } of this.roofSprites) {
-      const inside =
-        playerTileX >= rect.x && playerTileX < rect.x + rect.w &&
-        playerTileY >= rect.y && playerTileY < rect.y + rect.h;
-      const target = inside ? 0 : 1;
+      const dx = Math.max(rect.x - playerTileX, playerTileX - (rect.x + rect.w - 1), 0);
+      const dy = Math.max(rect.y - playerTileY, playerTileY - (rect.y + rect.h - 1), 0);
+      const dist = Math.max(dx, dy);
+      const target = Math.max(0, Math.min(1, dist / FADE));
       if (sp.alpha < target) sp.alpha = Math.min(target, sp.alpha + step);
       else if (sp.alpha > target) sp.alpha = Math.max(target, sp.alpha - step);
     }
@@ -137,7 +141,6 @@ export class WorldRenderer {
   private buildGround(map: MapData, renderer: Renderer): void {
     const chunksX = Math.ceil(map.width / CHUNK_TILES);
     const chunksY = Math.ceil(map.height / CHUNK_TILES);
-    const wang = PIXELLAB.wang["grass-dirt"];
 
     for (let cy = 0; cy < chunksY; cy++) {
       for (let cx = 0; cx < chunksX; cx++) {
@@ -156,30 +159,23 @@ export class WorldRenderer {
           }
         }
 
-        // 2. CAMADA TERRA (dual-grid): display-tile no canto sup-esq de cada
-        // célula lê os 4 cantos (cima-esq/cima/esq/aqui). +1 em cada eixo para
-        // cobrir a borda direita/baixo do chunk.
-        if (wang) {
-          for (let ty = 0; ty <= tilesH; ty++) {
-            for (let tx = 0; tx <= tilesW; tx++) {
-              const x = cx * CHUNK_TILES + tx;
-              const y = cy * CHUNK_TILES + ty;
-              // === 1 (terra exata): pedra (nível 2) NÃO conta como terra aqui,
-              // senão a terra apareceria em volta da pedra. A pedra entra no
-              // passo próprio abaixo.
-              const nw = this.terrainAt(map, x - 1, y - 1) === 1 ? 1 : 0;
-              const ne = this.terrainAt(map, x, y - 1) === 1 ? 1 : 0;
-              const sw = this.terrainAt(map, x - 1, y) === 1 ? 1 : 0;
-              const se = this.terrainAt(map, x, y) === 1 ? 1 : 0;
-              const codeStr = `${nw}${ne}${sw}${se}`;
-              if (codeStr === "0000") continue; // grama pura: base aparece
-              const tex = wang[codeStr];
-              if (!tex) continue;
-              const sp = new Sprite(tex);
-              // deslocado meio-tile (o display cobre o cruzamento de 4 células)
-              sp.position.set(tx * TILE_SIZE - TILE_SIZE / 2, ty * TILE_SIZE - TILE_SIZE / 2);
-              scratch.addChild(sp);
-            }
+        // 2. CAMADA TERRA (dual-grid procedural): terra (nível 1) transborda na
+        // grama. Display-tile no canto sup-esq lê os 4 cantos; código numérico.
+        // === 1 (terra exata): pedra (nível 2) NÃO conta aqui (entra no passo 2b).
+        const dirtT = this.sprites.dirtTransition;
+        for (let ty = 0; ty <= tilesH; ty++) {
+          for (let tx = 0; tx <= tilesW; tx++) {
+            const x = cx * CHUNK_TILES + tx;
+            const y = cy * CHUNK_TILES + ty;
+            const nw = this.terrainAt(map, x - 1, y - 1) === 1 ? 1 : 0;
+            const ne = this.terrainAt(map, x, y - 1) === 1 ? 2 : 0;
+            const sw = this.terrainAt(map, x - 1, y) === 1 ? 4 : 0;
+            const se = this.terrainAt(map, x, y) === 1 ? 8 : 0;
+            const code = nw | ne | sw | se;
+            if (code === 0 || code === 15) continue; // grama pura ou terra pura: base aparece
+            const sp = new Sprite(dirtT[code]);
+            sp.position.set(tx * TILE_SIZE - TILE_SIZE / 2, ty * TILE_SIZE - TILE_SIZE / 2);
+            scratch.addChild(sp);
           }
         }
 

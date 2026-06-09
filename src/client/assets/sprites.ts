@@ -1119,6 +1119,41 @@ function makeStoneTransition(seed: number): Texture[] {
 }
 
 /**
+ * Transição GRAMA↔TERRA procedural (substitui o wang PixelLab v4, que destoava
+ * dos campos novos com a borda amarela). Terra (nível 1) transborda na grama com
+ * borda TERROSA escura + sombrinha quente — casa com o campo de terra novo.
+ */
+function makeDirtTransition(seed: number): Texture[] {
+  const out: Texture[] = [];
+  const nz = (x: number, y: number): number => {
+    let h = (x * 374761393 + y * 668265263 + seed * 362437) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  for (let code = 0; code < 16; code++) {
+    const nw = code & 1, ne = (code >> 1) & 1, sw = (code >> 2) & 1, se = (code >> 3) & 1;
+    const p = new Px(32, 32);
+    if (nw + ne + sw + se === 0 || nw + ne + sw + se === 4) { out.push(p.texture()); continue; }
+    for (let py = 0; py < 32; py++) {
+      for (let px = 0; px < 32; px++) {
+        const u = px / 31, v = py / 31;
+        const b = nw * (1 - u) * (1 - v) + ne * u * (1 - v) + sw * (1 - u) * v + se * u * v;
+        const t = b + (nz(px >> 1, py >> 1) - 0.5) * 0.32;
+        if (t > 0.46 && b < 0.85) {
+          const r = nz(px, py);
+          p.px(px, py, r < 0.22 ? PAL.dirtLight : r > 0.8 ? PAL.dirtDark : r < 0.55 ? PAL.dirtBase : PAL.dirtMid);
+          if (t < 0.54) p.px(px, py, PAL.dirtDark); // borda externa = terra escura (não amarelo)
+        } else if (t > 0.3 && t <= 0.46) {
+          p.px(px, py, "rgba(12,9,5,0.22)"); // sombrinha quente da terra na grama
+        }
+      }
+    }
+    out.push(p.texture());
+  }
+  return out;
+}
+
+/**
  * Sombra de contato SUAVE e FRIA (constituição: sombra puxa pro azul). Gradiente
  * radial achatado em elipse, alpha caindo a zero na borda → vaza pro chão vizinho
  * sem corte duro. Textura única; cada consumidor define width/height conforme o
@@ -1188,6 +1223,8 @@ export interface SpriteLibrary {
   scatter: { grass: Texture[]; dirt: Texture[]; stone: Texture[] };
   /** Transição dual-grid de StoneFloor sobre grama/terra: 16 códigos de canto. */
   stoneTransition: Texture[];
+  /** Transição grama↔terra (16 códigos de canto) — procedural, casa com o campo. */
+  dirtTransition: Texture[];
 }
 
 /**
@@ -1240,6 +1277,7 @@ export function createSprites(): SpriteLibrary {
     shadow: makeShadow(),
     scatter: makeScatterDecals(),
     stoneTransition: makeStoneTransition(404),
+    dirtTransition: makeDirtTransition(303),
   };
 }
 
