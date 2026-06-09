@@ -164,6 +164,9 @@ export enum TileId {
   OldMasonryWall = 14,
   /** Rocha de caverna — autotile (A2/A3). */
   CaveWall = 15,
+  /** Parede de CASA (enxaimel: madeira + taipa) — textura própria, distinta da
+   *  muralha de pedra da cidade. Autotile 16-máscaras (conecta só com casa). */
+  HouseWall = 16,
 }
 
 export const WALKABLE: Record<TileId, boolean> = {
@@ -183,6 +186,7 @@ export const WALKABLE: Record<TileId, boolean> = {
   [TileId.SewerWall]: false,
   [TileId.OldMasonryWall]: false,
   [TileId.CaveWall]: false,
+  [TileId.HouseWall]: false,
 };
 
 /** Fonte de luz estática do mapa (posição em tiles). */

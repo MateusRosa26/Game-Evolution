@@ -425,15 +425,15 @@ export function generateAlvoradaMap(): MapData {
     const [x1, y1] = city(cx1, cy1);
     fillRect(set, [x0, y0], [x1, y1], TileId.StoneFloor);
     for (let x = x0; x <= x1; x++) {
-      set(x, y0, TileId.Wall);
-      set(x, y1, TileId.Wall);
+      set(x, y0, TileId.HouseWall);
+      set(x, y1, TileId.HouseWall);
     }
     for (let y = y0; y <= y1; y++) {
-      set(x0, y, TileId.Wall);
-      set(x1, y, TileId.Wall);
+      set(x0, y, TileId.HouseWall);
+      set(x1, y, TileId.HouseWall);
     }
     const [dx, dy] = city(...b.door);
-    set(dx, dy, TileId.StoneFloor); // porta = vão no muro
+    set(dx, dy, TileId.StoneFloor); // porta = vão na parede
     buildings.push({ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 });
   }
 
@@ -497,12 +497,12 @@ export function generateAlvoradaMap(): MapData {
   // Moinho Velho (S12/P22 — landmark sul, corvos/Q12)
   fillRect(set, [56, 246], [64, 254], TileId.StoneFloor);
   for (let x = 56; x <= 64; x++) {
-    set(x, 246, TileId.Wall);
-    set(x, 254, TileId.Wall);
+    set(x, 246, TileId.HouseWall);
+    set(x, 254, TileId.HouseWall);
   }
   for (let y = 246; y <= 254; y++) {
-    set(56, y, TileId.Wall);
-    set(64, y, TileId.Wall);
+    set(56, y, TileId.HouseWall);
+    set(64, y, TileId.HouseWall);
   }
   set(60, 254, TileId.StoneFloor); // porta S
   buildings.push({ x: 56, y: 246, w: 9, h: 9 }); // telhado do moinho
@@ -514,12 +514,12 @@ export function generateAlvoradaMap(): MapData {
   ] as const) {
     fillRect(set, [bx0, by0], [bx1, by1], TileId.StoneFloor);
     for (let x = bx0; x <= bx1; x++) {
-      set(x, by0, TileId.Wall);
-      set(x, by1, TileId.Wall);
+      set(x, by0, TileId.HouseWall);
+      set(x, by1, TileId.HouseWall);
     }
     for (let y = by0; y <= by1; y++) {
-      set(bx0, y, TileId.Wall);
-      set(bx1, y, TileId.Wall);
+      set(bx0, y, TileId.HouseWall);
+      set(bx1, y, TileId.HouseWall);
     }
     set(doorX, by1, TileId.StoneFloor);
     buildings.push({ x: bx0, y: by0, w: bx1 - bx0 + 1, h: by1 - by0 + 1 }); // telhado do celeiro

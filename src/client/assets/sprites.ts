@@ -829,22 +829,38 @@ export const ROOF_OVERHANG = 22;
 export function makeRoof(wTiles: number, hTiles: number, seed: number): Texture {
   const W = wTiles * 32, H = hTiles * 32 + ROOF_OVERHANG;
   const p = new Px(W, H);
-  const rng = mulberry32(seed);
   const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
-  const baseR = 118, baseG = 84, baseB = 66; // telha/madeira gasta, quente
+  const baseR = 122, baseG = 86, baseB = 66; // telha/madeira gasta, quente
   const ridgeY = Math.round(H / 2);
-  for (let y = 0; y < H; y++) {
-    const dY = Math.abs(y - ridgeY) / (H / 2);       // 0 espigão .. 1 beiral
-    // slope FORTE: água de telhado clara perto do espigão, escura no beiral
-    const lumY = 1 - dY * dY * 0.62;
-    const row = y % 6;
-    for (let x = 0; x < W; x++) {
-      const dX = Math.abs(x - W / 2) / (W / 2);
-      let l = lumY * (1 - dX * 0.18);                // escurece pras empenas (E/O)
-      if (row === 5) l *= 0.62;                       // sulco fundo entre fiadas
-      else if (row === 0) l *= 1.16;                  // aresta de cima da telha (pega luz)
-      if (rng() < 0.05) l *= 0.9;                      // weathering
-      p.px(x, y, `rgb(${cb(baseR * l)},${cb(baseG * l)},${cb(baseB * l)})`);
+  const col = (l: number) => `rgb(${cb(baseR * l)},${cb(baseG * l)},${cb(baseB * l)})`;
+  const slopeAt = (y: number) => {
+    const dY = Math.abs(y - ridgeY) / (H / 2);
+    return 1 - dY * dY * 0.6; // água de telhado: clara no espigão, escura no beiral
+  };
+  p.fill(col(0.45)); // fundo escuro (vão entre telhas)
+  // TELHAS INDIVIDUAIS sobrepostas (fiadas com offset tipo tijolo): cada telha
+  // tem aresta de cima iluminada + sombra de sobreposição embaixo + topo
+  // arredondado → lê como telhado, não como tábua corrida.
+  const SW = 11, RH = 6;
+  for (let ry = -RH; ry < H; ry += RH) {
+    const rowIdx = Math.round((ry + RH) / RH);
+    const off = rowIdx % 2 ? (SW / 2) | 0 : 0;
+    const lumY = slopeAt(ry + RH / 2);
+    for (let sx = -SW; sx < W + SW; sx += SW) {
+      const x0 = sx + off;
+      const dX = Math.abs(x0 + SW / 2 - W / 2) / (W / 2);
+      const tone = lumY * (1 - dX * 0.16) * (0.9 + ((hash2D(rowIdx, (sx / SW) | 0, seed) * 0.2)));
+      for (let yy = 0; yy < RH + 1; yy++) {
+        const y = ry + yy; if (y < 0 || y >= H) continue;
+        for (let xx = 1; xx < SW; xx++) {
+          const x = x0 + xx; if (x < 0 || x >= W) continue;
+          let l = tone;
+          if (yy === 0) l *= 1.18;            // aresta de cima da telha (luz)
+          else if (yy >= RH - 1) l *= 0.6;    // sombra da sobreposição da fiada de cima
+          if (xx === SW - 1) l *= 0.7;        // sulco vertical entre telhas
+          p.px(x, y, col(l));
+        }
+      }
     }
   }
   // ESPIGÃO (ridge cap): faixa clara no topo + sombra funda logo abaixo (volume)

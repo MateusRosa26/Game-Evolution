@@ -62,7 +62,9 @@ export class WorldRenderer {
   /** Um telhado por edifício, posicionado sobre o footprint (com overhang norte). */
   private buildRoofs(map: MapData): void {
     for (const b of map.buildings ?? []) {
-      const sp = new Sprite(makeRoof(b.w, b.h, (hash2D(b.x, b.y) * 1e6) | 0));
+      // telhado cobre tudo MENOS a fileira da frente (sul) → a porta/entrada fica
+      // visível de fora (a porta dos prédios fica na parede sul).
+      const sp = new Sprite(makeRoof(b.w, Math.max(1, b.h - 1), (hash2D(b.x, b.y) * 1e6) | 0));
       sp.position.set(b.x * TILE_SIZE, b.y * TILE_SIZE - ROOF_OVERHANG);
       this.roofs.addChild(sp);
       this.roofSprites.push({ sp, rect: b });
@@ -94,6 +96,7 @@ export class WorldRenderer {
         return s.dirt[fi];
       case TileId.StoneFloor:
       case TileId.Wall:
+      case TileId.HouseWall:
         return s.stoneFloor[fi];
       case TileId.Water:
         return s.waterFrames[0];
@@ -263,6 +266,7 @@ export class WorldRenderer {
       [TileId.SewerWall]: s.sewerWalls,
       [TileId.OldMasonryWall]: s.oldMasonryWalls,
       [TileId.CaveWall]: s.caveWalls,
+      [TileId.HouseWall]: s.houseWalls,
     };
     const sameWall = (x: number, y: number, t: TileId): boolean =>
       x >= 0 && y >= 0 && x < map.width && y < map.height &&
