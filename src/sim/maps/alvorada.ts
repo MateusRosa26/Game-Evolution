@@ -417,7 +417,8 @@ export function generateAlvoradaMap(): MapData {
   ];
   for (const st of STREETS) carvePolyline(set, st, 0.8, TileId.Dirt, rng, get);
 
-  // Edifícios (§3.3)
+  // Edifícios (§3.3) — telhado (footprint p/ o cliente roofar/esconder ao entrar)
+  const buildings: MapRect[] = [];
   for (const b of BUILDINGS) {
     const [cx0, cy0, cx1, cy1] = b.rect;
     const [x0, y0] = city(cx0, cy0);
@@ -433,6 +434,7 @@ export function generateAlvoradaMap(): MapData {
     }
     const [dx, dy] = city(...b.door);
     set(dx, dy, TileId.StoneFloor); // porta = vão no muro
+    buildings.push({ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 });
   }
 
   // Santuário de respawn (R4 — §3.3): clareira de pedra ao céu aberto + chama
@@ -503,6 +505,7 @@ export function generateAlvoradaMap(): MapData {
     set(64, y, TileId.Wall);
   }
   set(60, 254, TileId.StoneFloor); // porta S
+  buildings.push({ x: 56, y: 246, w: 9, h: 9 }); // telhado do moinho
   torch(60, 256);
   // Granja (S2/P11): dois celeiros + terreiro
   for (const [bx0, by0, bx1, by1, doorX] of [
@@ -519,6 +522,7 @@ export function generateAlvoradaMap(): MapData {
       set(bx1, y, TileId.Wall);
     }
     set(doorX, by1, TileId.StoneFloor);
+    buildings.push({ x: bx0, y: by0, w: bx1 - bx0 + 1, h: by1 - by0 + 1 }); // telhado do celeiro
   }
   fillRect(set, [30, 92], [44, 96], TileId.Dirt);
 
@@ -570,6 +574,7 @@ export function generateAlvoradaMap(): MapData {
     monsters,
     safeZones,
     passZones: [],
+    buildings,
     spawn,
     npcSpawns,
     portals: ALVORADA_PORTALS,

@@ -1,9 +1,9 @@
 import { Container, RenderTexture, Sprite, type Renderer, type Texture } from "pixi.js";
 import { hash2D } from "../../sim/rng";
 import { TILE_SIZE } from "../../shared/constants";
-import { TileId, type MapData } from "../../shared/types";
+import { TileId, type MapData, type MapRect } from "../../shared/types";
 import { PIXELLAB } from "../assets/pixellab";
-import type { SpriteLibrary } from "../assets/sprites";
+import { makeRoof, ROOF_OVERHANG, type SpriteLibrary } from "../assets/sprites";
 
 const WATER_FRAME_MS = 380;
 const TORCH_FRAME_MS = 140;
@@ -37,7 +37,10 @@ export class WorldRenderer {
   readonly shadows = new Container();
   /** Compartilhada com as entidades — tudo aqui é y-sorted. */
   readonly objects = new Container();
+  /** Telhados dos edifícios — acima de tudo; somem quando o player entra. */
+  readonly roofs = new Container();
 
+  private roofSprites: { sp: Sprite; rect: MapRect }[] = [];
   private waterSprites: { sp: Sprite; frames: Texture[] }[] = [];
   private torchSprites: Sprite[] = [];
   private waterClock = 0;
@@ -53,6 +56,30 @@ export class WorldRenderer {
     this.objects.sortableChildren = true;
     this.buildGround(map, renderer);
     this.buildObjects(map);
+    this.buildRoofs(map);
+  }
+
+  /** Um telhado por edifício, posicionado sobre o footprint (com overhang norte). */
+  private buildRoofs(map: MapData): void {
+    for (const b of map.buildings ?? []) {
+      const sp = new Sprite(makeRoof(b.w, b.h, (hash2D(b.x, b.y) * 1e6) | 0));
+      sp.position.set(b.x * TILE_SIZE, b.y * TILE_SIZE - ROOF_OVERHANG);
+      this.roofs.addChild(sp);
+      this.roofSprites.push({ sp, rect: b });
+    }
+  }
+
+  /** Fade do telhado: some quando o player está dentro do edifício (estilo Tibia). */
+  updateRoofs(playerTileX: number, playerTileY: number, deltaMS: number): void {
+    const step = deltaMS / 140;
+    for (const { sp, rect } of this.roofSprites) {
+      const inside =
+        playerTileX >= rect.x && playerTileX < rect.x + rect.w &&
+        playerTileY >= rect.y && playerTileY < rect.y + rect.h;
+      const target = inside ? 0 : 1;
+      if (sp.alpha < target) sp.alpha = Math.min(target, sp.alpha + step);
+      else if (sp.alpha > target) sp.alpha = Math.max(target, sp.alpha - step);
+    }
   }
 
   private groundTexture(map: MapData, x: number, y: number) {

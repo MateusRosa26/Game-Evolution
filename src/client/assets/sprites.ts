@@ -817,6 +817,51 @@ function makeHouseWalls(): Texture[][] {
   return out;
 }
 
+/** Overhang do telhado em px (cobre os topos da parede norte). */
+export const ROOF_OVERHANG = 22;
+
+/**
+ * TELHADO de edifício (jun/2026): telha gasta dark-medieval, gerado no tamanho
+ * do prédio. Espigão claro no centro + beirais escuros + fiadas de telha + uma
+ * sombra de contato projetada na base. Some quando o player entra (WorldRenderer).
+ * Quente (telha/madeira) pra contrastar com a pedra fria das paredes.
+ */
+export function makeRoof(wTiles: number, hTiles: number, seed: number): Texture {
+  const W = wTiles * 32, H = hTiles * 32 + ROOF_OVERHANG;
+  const p = new Px(W, H);
+  const rng = mulberry32(seed);
+  const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
+  const baseR = 118, baseG = 84, baseB = 66; // telha/madeira gasta, quente
+  const ridgeY = Math.round(H / 2);
+  for (let y = 0; y < H; y++) {
+    const dY = Math.abs(y - ridgeY) / (H / 2);       // 0 espigão .. 1 beiral
+    // slope FORTE: água de telhado clara perto do espigão, escura no beiral
+    const lumY = 1 - dY * dY * 0.62;
+    const row = y % 6;
+    for (let x = 0; x < W; x++) {
+      const dX = Math.abs(x - W / 2) / (W / 2);
+      let l = lumY * (1 - dX * 0.18);                // escurece pras empenas (E/O)
+      if (row === 5) l *= 0.62;                       // sulco fundo entre fiadas
+      else if (row === 0) l *= 1.16;                  // aresta de cima da telha (pega luz)
+      if (rng() < 0.05) l *= 0.9;                      // weathering
+      p.px(x, y, `rgb(${cb(baseR * l)},${cb(baseG * l)},${cb(baseB * l)})`);
+    }
+  }
+  // ESPIGÃO (ridge cap): faixa clara no topo + sombra funda logo abaixo (volume)
+  for (let x = 0; x < W; x++) {
+    p.px(x, ridgeY - 2, `rgb(${cb(baseR * 1.3)},${cb(baseG * 1.25)},${cb(baseB * 1.2)})`);
+    p.px(x, ridgeY - 1, `rgb(${cb(baseR * 1.45)},${cb(baseG * 1.4)},${cb(baseB * 1.32)})`);
+    p.px(x, ridgeY, `rgb(${cb(baseR * 0.5)},${cb(baseG * 0.5)},${cb(baseB * 0.5)})`);
+    if (x % 4 === 0) p.px(x, ridgeY - 1, `rgb(${cb(baseR * 0.9)},${cb(baseG * 0.9)},${cb(baseB * 0.9)})`); // entalhe do cap
+  }
+  // BEIRAIS: borda escura nos 4 lados (trim) + outline
+  for (let x = 0; x < W; x++) { p.px(x, 0, "#160f0b"); p.px(x, H - 1, "#0e0a07"); }
+  for (let y = 0; y < H; y++) { p.px(0, y, "#160f0b"); p.px(W - 1, y, "#160f0b"); }
+  // sombra de contato projetada na base (o beiral da frente sombreia o chão)
+  p.rect(0, H - 3, W, 2, "rgba(0,0,0,0.38)");
+  return p.texture();
+}
+
 function makeTorchFrames(): Texture[] {
   const frames: Texture[] = [];
   for (let f = 0; f < 3; f++) {

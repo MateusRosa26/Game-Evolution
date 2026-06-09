@@ -290,6 +290,12 @@ export interface MapData {
    * IA enxerga, combate vale (≠ zona segura).
    */
   passZones: MapRect[];
+  /**
+   * EDIFÍCIOS com telhado (footprint em tiles, incluindo as paredes). O cliente
+   * desenha um telhado sobre cada um que SOME quando o player entra (estilo
+   * Tibia). Puramente visual — não afeta a simulação.
+   */
+  buildings?: MapRect[];
   spawn: Vec2;
   /** Id estável do mapa (multi-mapa: "alvorada", "porao_estalagem"…). */
   id?: string;

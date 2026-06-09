@@ -301,6 +301,7 @@ export class Game {
     this.worldContainer.addChild(this.worldRenderer.shadows);
     this.worldContainer.addChild(this.tileCursor);
     this.worldContainer.addChild(this.worldRenderer.objects);
+    this.worldContainer.addChild(this.worldRenderer.roofs); // telhados acima de tudo no mundo
     this.app.stage.addChild(this.worldContainer);
 
     this.entityRenderer = new EntityRenderer(this.sprites, this.worldRenderer.objects, this.playerId);
@@ -494,6 +495,11 @@ export class Game {
       this.lighting?.setPlayerLightPos(p.x, p.y);
     }
     this.camera.apply(this.worldContainer, screenW, screenH);
+
+    // telhados: somem quando o player entra no edifício (tile autoritativo)
+    if (this.playerState) {
+      this.worldRenderer?.updateRoofs(this.playerState.pos.x, this.playerState.pos.y, deltaMS);
+    }
 
     // cursor de tile sob o mouse
     if (this.mouse.insideCanvas) {
