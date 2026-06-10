@@ -3,17 +3,21 @@ import type { CombatContext, EventBus } from "./events";
 import type { SimEntity } from "./entity";
 import type { Tier } from "./bestiary";
 import { DEATH_XP_PENALTY } from "./balance";
+import { TICK_MS } from "../shared/constants";
 import {
   CLASS_BASE_ATTRIBUTES,
   STAT_POINTS_PER_LEVEL,
   levelForXp,
-  manaRegenPerTick,
+  manaRegenPerSecond,
   maxHp,
   maxMana,
-  hpRegenPerTick,
+  hpRegenPerSecond,
   statPointCost,
   xpFromKill,
 } from "./formulas";
+
+/** Fração de segundo que um tick representa (regen por-segundo → por-tick). */
+const SECONDS_PER_TICK = TICK_MS / 1000;
 
 /**
  * Camada de progressão (DESIGN-EVOLUCAO.md §"Camada Sólida") — SIM only.
@@ -205,7 +209,7 @@ export function allocateStatPoint(
 export function regenTick(prog: Progression, entity: SimEntity): void {
   if (entity.dead) return;
   if (entity.hp < entity.maxHp) {
-    prog.hpRegenAcc += hpRegenPerTick(prog.attributes);
+    prog.hpRegenAcc += hpRegenPerSecond(prog.attributes) * SECONDS_PER_TICK;
     if (prog.hpRegenAcc >= 1) {
       const whole = Math.floor(prog.hpRegenAcc);
       entity.hp = Math.min(entity.maxHp, entity.hp + whole);
@@ -215,7 +219,7 @@ export function regenTick(prog: Progression, entity: SimEntity): void {
     prog.hpRegenAcc = 0;
   }
   if (entity.mp < entity.maxMp) {
-    prog.manaRegenAcc += manaRegenPerTick(prog.attributes);
+    prog.manaRegenAcc += manaRegenPerSecond(prog.attributes) * SECONDS_PER_TICK;
     if (prog.manaRegenAcc >= 1) {
       const whole = Math.floor(prog.manaRegenAcc);
       entity.mp = Math.min(entity.maxMp, entity.mp + whole);

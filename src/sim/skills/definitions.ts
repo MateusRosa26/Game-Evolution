@@ -28,7 +28,7 @@ export const SKILL_GOLPE_FORTE: SkillDef = {
   damageType: "physical",
   tags: ["fisico", "arma"],
   manaCost: GOLPE_FORTE.manaCost,
-  cooldownTicks: GOLPE_FORTE.cooldownTicks,
+  cooldownMs: GOLPE_FORTE.cooldownMs,
   range: GOLPE_FORTE.range,
   // `power` aqui é a base; o executor multiplica o dano da arma por 1.8× (ficha).
   power: 0,
@@ -44,7 +44,7 @@ export const SKILL_BOLA_DE_FOGO: SkillDef = {
   damageType: "fire",
   tags: ["fogo", "queimadura"],
   manaCost: BOLA_DE_FOGO.manaCost,
-  cooldownTicks: BOLA_DE_FOGO.cooldownTicks,
+  cooldownMs: BOLA_DE_FOGO.cooldownMs,
   range: BOLA_DE_FOGO.range,
   power: BOLA_DE_FOGO.power,
   applyStatus: { kind: "burn" },
@@ -60,7 +60,7 @@ export const SKILL_LANCA_DE_GELO: SkillDef = {
   damageType: "ice",
   tags: ["gelo", "lentidao"],
   manaCost: LANCA_DE_GELO.manaCost,
-  cooldownTicks: LANCA_DE_GELO.cooldownTicks,
+  cooldownMs: LANCA_DE_GELO.cooldownMs,
   range: LANCA_DE_GELO.range,
   power: LANCA_DE_GELO.power,
   applyStatus: { kind: "slow" },
@@ -76,7 +76,7 @@ export const SKILL_APUNHALAR: SkillDef = {
   damageType: "physical",
   tags: ["fisico", "posicional"],
   manaCost: APUNHALAR.manaCost,
-  cooldownTicks: APUNHALAR.cooldownTicks,
+  cooldownMs: APUNHALAR.cooldownMs,
   range: APUNHALAR.range,
   power: APUNHALAR.power,
 };
@@ -91,7 +91,7 @@ export const SKILL_LUZ_SAGRADA: SkillDef = {
   damageType: "holy",
   tags: ["sagrado", "anti-profano"],
   manaCost: LUZ_SAGRADA.manaCost,
-  cooldownTicks: LUZ_SAGRADA.cooldownTicks,
+  cooldownMs: LUZ_SAGRADA.cooldownMs,
   range: LUZ_SAGRADA.range,
   power: LUZ_SAGRADA.power,
 };
@@ -106,7 +106,7 @@ export const SKILL_CURAR_FERIMENTOS: SkillDef = {
   damageType: "holy", // irrelevante p/ cura, mas tipado
   tags: ["sagrado", "cura"],
   manaCost: CURAR_FERIMENTOS.manaCost,
-  cooldownTicks: CURAR_FERIMENTOS.cooldownTicks,
+  cooldownMs: CURAR_FERIMENTOS.cooldownMs,
   range: CURAR_FERIMENTOS.range,
   power: CURAR_FERIMENTOS.power,
 };

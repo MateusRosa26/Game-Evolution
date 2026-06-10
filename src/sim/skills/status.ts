@@ -1,3 +1,4 @@
+import { TICK_MS, msToTicks } from "../../shared/constants";
 import type { DamageType } from "../../shared/types";
 import type { StatusEffectState } from "../../shared/protocol";
 import type { SimEntity } from "../entity";
@@ -38,18 +39,21 @@ export interface StatusEffect {
   skillId: string | null;
 }
 
-/** Parâmetros para aplicar um DoT (burn/poison). */
+/** Parâmetros para aplicar um DoT (burn/poison). Tempos em ms (design). */
 export interface DotParams {
   kind: "burn" | "poison";
   damagePerTick: number;
-  durationTicks: number;
-  tickEveryTicks: number;
+  /** Duração total do DoT, em ms. */
+  durationMs: number;
+  /** Intervalo entre aplicações de dano, em ms. */
+  intervalMs: number;
   damageType: DamageType;
 }
 
-/** Parâmetros para aplicar slow. */
+/** Parâmetros para aplicar slow. Tempos em ms (design). */
 export interface SlowParams {
-  durationTicks: number;
+  /** Duração do slow, em ms. */
+  durationMs: number;
   stepMsMultiplier: number;
 }
 
@@ -64,11 +68,13 @@ export function hasStatus(e: SimEntity, kind: StatusKind): boolean {
  * punido). Mantém o cadenciamento do tique já em curso.
  */
 export function applyDot(e: SimEntity, currentTick: number, source: SimEntity, skillId: string | null, p: DotParams): void {
+  const durationTicks = msToTicks(p.durationMs);
+  const intervalTicks = msToTicks(p.intervalMs);
   const existing = e.status.find((s) => s.kind === p.kind);
   if (existing) {
-    existing.expiresAtTick = currentTick + p.durationTicks;
+    existing.expiresAtTick = currentTick + durationTicks;
     existing.damagePerTick = Math.max(existing.damagePerTick, p.damagePerTick);
-    existing.tickEveryTicks = p.tickEveryTicks;
+    existing.tickEveryTicks = intervalTicks;
     existing.damageType = p.damageType;
     existing.sourceId = source.id;
     existing.skillId = skillId;
@@ -76,10 +82,10 @@ export function applyDot(e: SimEntity, currentTick: number, source: SimEntity, s
   }
   e.status.push({
     kind: p.kind,
-    expiresAtTick: currentTick + p.durationTicks,
+    expiresAtTick: currentTick + durationTicks,
     damagePerTick: p.damagePerTick,
-    tickEveryTicks: p.tickEveryTicks,
-    nextDamageTick: currentTick + p.tickEveryTicks,
+    tickEveryTicks: intervalTicks,
+    nextDamageTick: currentTick + intervalTicks,
     damageType: p.damageType,
     stepMsMultiplier: 1,
     sourceId: source.id,
@@ -92,14 +98,15 @@ export function applyDot(e: SimEntity, currentTick: number, source: SimEntity, s
  * MAIOR multiplicador (slow mais forte vence). Recalcula o stepMs efetivo.
  */
 export function applySlow(e: SimEntity, currentTick: number, p: SlowParams): void {
+  const durationTicks = msToTicks(p.durationMs);
   const existing = e.status.find((s) => s.kind === "slow");
   if (existing) {
-    existing.expiresAtTick = currentTick + p.durationTicks;
+    existing.expiresAtTick = currentTick + durationTicks;
     existing.stepMsMultiplier = Math.max(existing.stepMsMultiplier, p.stepMsMultiplier);
   } else {
     e.status.push({
       kind: "slow",
-      expiresAtTick: currentTick + p.durationTicks,
+      expiresAtTick: currentTick + durationTicks,
       damagePerTick: 0,
       tickEveryTicks: 0,
       nextDamageTick: Number.MAX_SAFE_INTEGER,
@@ -150,6 +157,6 @@ export function tickStatus(ctx: CombatCtx, e: SimEntity): void {
 export function projectStatus(e: SimEntity, currentTick: number): StatusEffectState[] {
   return e.status.map((s) => ({
     kind: s.kind,
-    remainingTicks: Math.max(0, s.expiresAtTick - currentTick),
+    remainingMs: Math.max(0, (s.expiresAtTick - currentTick) * TICK_MS),
   }));
 }

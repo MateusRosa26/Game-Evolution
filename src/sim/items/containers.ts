@@ -82,4 +82,26 @@ export class ContainerRegistry {
     c.slots[i] = { kind: "gold", amount };
     return 0;
   }
+
+  /**
+   * Saca `amount` de ouro do container (debita das pilhas; ≥1 por container).
+   * Retorna true se sacou tudo; false (sem debitar) se não havia ouro suficiente.
+   * Limpa pilhas zeradas. Usado pela compra em loja (gold do bolso → NPC).
+   */
+  withdrawGold(c: Container, amount: number): boolean {
+    if (amount <= 0) return true;
+    if (this.totalGold(c) < amount) return false;
+    let remaining = amount;
+    for (const s of c.slots) {
+      if (s?.kind !== "gold") continue;
+      const take = Math.min(s.amount, remaining);
+      s.amount -= take;
+      remaining -= take;
+      if (remaining <= 0) break;
+    }
+    c.slots.forEach((s, i) => {
+      if (s?.kind === "gold" && s.amount <= 0) c.slots[i] = null;
+    });
+    return true;
+  }
 }

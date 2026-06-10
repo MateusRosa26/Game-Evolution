@@ -1,3 +1,4 @@
+import { msToTicks } from "../../shared/constants";
 import type { SimEntity } from "../entity";
 import { executeSkill, emitSkillUse, type SkillCastCtx } from "./executor";
 import { SKILLS } from "./definitions";
@@ -57,7 +58,7 @@ export function castSkill(
 
   // Atingiu alvo válido → cobra recursos e registra o uso.
   caster.mp -= def.manaCost;
-  caster.skillCooldowns[skillId] = ctx.tick + def.cooldownTicks;
+  caster.skillCooldowns[skillId] = ctx.tick + msToTicks(def.cooldownMs);
   emitSkillUse(ctx, def, caster, target, result);
   return { ok: true, def, targetsHit: result.targets.length };
 }

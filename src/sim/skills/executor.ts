@@ -101,13 +101,13 @@ function applySkillStatus(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, t
     applyDot(target, ctx.tick, caster, def.id, {
       kind: "burn",
       damagePerTick: BOLA_DE_FOGO.burn.damagePerTick,
-      durationTicks: BOLA_DE_FOGO.burn.durationTicks,
-      tickEveryTicks: BOLA_DE_FOGO.burn.tickEveryTicks,
+      durationMs: BOLA_DE_FOGO.burn.durationMs,
+      intervalMs: BOLA_DE_FOGO.burn.intervalMs,
       damageType: "fire",
     });
   } else if (def.applyStatus.kind === "slow") {
     applySlow(target, ctx.tick, {
-      durationTicks: LANCA_DE_GELO.slow.durationTicks,
+      durationMs: LANCA_DE_GELO.slow.durationMs,
       stepMsMultiplier: LANCA_DE_GELO.slow.stepMsMultiplier,
     });
   }

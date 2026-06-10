@@ -6,12 +6,14 @@
 
 export {
   type ItemSlot,
+  type ItemCategory,
   type ItemTag,
   type ItemRarity,
   type WeaponStats,
   type ItemTemplate,
   ITEM_TEMPLATES,
   getItemTemplate,
+  itemCategory,
   markSlotsForRarity,
   STARTER_WEAPON_BY_CLASS,
   FISTS_TEMPLATE_ID,

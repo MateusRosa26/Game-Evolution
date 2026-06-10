@@ -7,16 +7,17 @@
  * (`magicDamage`/`physicalDamage`/`healPower`) é que mandam — aqui só vivem as
  * BASES que essas fórmulas recebem, mais custo/cooldown/duração de status.
  *
- * Convenção: cooldown e durações em TICKS (a sim é tick-based, 20/s — TICK_MS).
- * Custo de mana em pontos de mana. Bases de dano/cura em pontos de HP.
+ * Convenção: cooldown e durações em MILISSEGUNDOS (a sim converte p/ ticks via
+ * `msToTicks` — o tick é só a resolução interna). Custo de mana em pontos de
+ * mana. Bases de dano/cura em pontos de HP.
  */
 
 /** Skill = uma entrada deste mapa de números. Mexa à vontade nos valores. */
 export interface SkillNumbers {
   /** Custo de mana por cast. */
   manaCost: number;
-  /** Cooldown em ticks da sim (20 ticks/s). */
-  cooldownTicks: number;
+  /** Cooldown em ms. */
+  cooldownMs: number;
   /** Base de dano/cura passada à fórmula (magicDamage/physicalDamage/healPower). */
   power: number;
   /** Alcance em tiles (Chebyshev) — projétil/linha/melee. */
@@ -28,7 +29,7 @@ export const GOLPE_FORTE = {
   // calibrado (bateria M1.2, jun/2026): inerte no T1 (provado 6/12/15 idênticos);
   // 12 abre espaço de decisão de burst em correntes contínuas T2+ sem custo presente.
   manaCost: 12,
-  cooldownTicks: 120, // ~6s @20tps — freio real do GF; re-régua na bateria T2 (gap knight×rogue adiado)
+  cooldownMs: 6000, // 6s — freio real do GF; re-régua na bateria T2 (gap knight×rogue adiado)
   /** Multiplicador sobre o dano da ARMA equipada (ficha: ~1.8×). */
   weaponMultiplier: 1.8, // ✏️ placeholder
   range: 1, // melee
@@ -37,35 +38,35 @@ export const GOLPE_FORTE = {
 // ── Bola de Fogo (Mage) — projétil de fogo + queimadura ──
 export const BOLA_DE_FOGO = {
   manaCost: 14, // ✏️ placeholder
-  cooldownTicks: 30, // ✏️ placeholder
+  cooldownMs: 1500, // ✏️ placeholder
   power: 14, // base de dano mágico ✏️ placeholder
   range: 6, // ✏️ placeholder
-  /** Queimadura (DoT) aplicada no alvo. */
-  burn: { damagePerTick: 3, durationTicks: 60, tickEveryTicks: 10 }, // ✏️ placeholder
+  /** Queimadura (DoT): aplica `damagePerTick` a cada `intervalMs`, por `durationMs`. */
+  burn: { damagePerTick: 3, durationMs: 3000, intervalMs: 500 }, // ✏️ placeholder
 } as const;
 
 // ── Lança de Gelo (Mage) — projétil perfurante (linha) + slow ──
 export const LANCA_DE_GELO = {
   manaCost: 16, // ✏️ placeholder
-  cooldownTicks: 40, // ✏️ placeholder
+  cooldownMs: 2000, // ✏️ placeholder
   power: 12, // base de dano mágico ✏️ placeholder
   range: 6, // comprimento da linha ✏️ placeholder
   /** Lentidão aplicada em cada alvo atravessado. */
-  slow: { stepMsMultiplier: 1.5, durationTicks: 60 }, // ✏️ placeholder (+50% stepMs)
+  slow: { stepMsMultiplier: 1.5, durationMs: 3000 }, // ✏️ placeholder (+50% stepMs)
 } as const;
 
 // ── Apunhalar (Rogue) — melee posicional, ~2× pelas costas ──
 export const APUNHALAR = {
   manaCost: 5, // ✏️ placeholder
-  // calibrado (re-check pós-wand, 09/jun): 20t (1s) era SPAM degenerado — o rogue
+  // calibrado (re-check pós-wand, 09/jun): 1000ms era SPAM degenerado — o rogue
   // front-loadava 2 Apunhalares e deletava o Esqueleto on-level em 1,2s (falha o
-  // teste de Sirlin: "vence repetindo um movimento"). 60t (3s) = 1 strike + auto da
+  // teste de Sirlin: "vence repetindo um movimento"). 3000ms = 1 strike + auto da
   // adaga → TTK 2,4s: segue o mais rápido das classes, mas devolve o Apunhalar ao
   // papel de GOLPE POSICIONAL da ficha (vale manobrar pro backstab 2×), não 2º
   // auto-attack. Varredura: a CADÊNCIA é o lever (power quase não move o TTK).
   // ⚠️ TTK-alvo relativo re-checar na bateria de kit completo (com Redemoinho/AoE
   // do Knight). Report: `docs/reports/2026-06-09-recheck-spread-pos-wand.md`.
-  cooldownTicks: 60,
+  cooldownMs: 3000,
   power: 8, // base de dano físico (usa a adaga como base também) ✏️ placeholder
   range: 1, // melee
   /** Multiplicador de dano quando acerta pelas costas (ficha: ~2×). */
@@ -75,7 +76,7 @@ export const APUNHALAR = {
 // ── Luz Sagrada (Priest) — projétil holy, bônus vs profanos ──
 export const LUZ_SAGRADA = {
   manaCost: 12, // ✏️ placeholder
-  cooldownTicks: 30, // ✏️ placeholder
+  cooldownMs: 1500, // ✏️ placeholder
   power: 13, // base de dano mágico (holy) ✏️ placeholder
   range: 6, // ✏️ placeholder
   /** Multiplicador de dano vs famílias profanas (undead/demon) — é o nuke solo. */
@@ -89,7 +90,7 @@ export const LUZ_SAGRADA = {
 // ── Curar Ferimentos (Priest) — cura self/aliado ──
 export const CURAR_FERIMENTOS = {
   manaCost: 10, // ✏️ placeholder
-  cooldownTicks: 30, // ✏️ placeholder
+  cooldownMs: 1500, // ✏️ placeholder
   power: 18, // base de cura ✏️ placeholder
   range: 6, // alcance até o aliado (self = 0) ✏️ placeholder
 } as const;

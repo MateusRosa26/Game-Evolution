@@ -20,6 +20,24 @@ import { WAND_RANGE } from "../balance";
 export type ItemSlot = "weapon" | "shield" | "armor";
 
 /**
+ * Categoria do item — o classificador largo (acima do slot de equipamento).
+ * `weapon`/`shield`/`armor` são EQUIPÁVEIS (têm `slot`); `consumable`/`tool`/
+ * `material` não se equipam. O comércio (NPCs) e o loot operam sobre categorias:
+ * o boticário compra `material` (reagentes), o vendor vende `consumable`/`tool`.
+ *
+ * Efeitos concretos (comida ativa saciedade, poção cura, ferramenta destrava
+ * verbo) são wave M2 — aqui a categoria só dá ao item uma IDENTIDADE de dados
+ * para que ele já exista como vendável/saqueável (✏️ efeitos depois).
+ */
+export type ItemCategory =
+  | "weapon"
+  | "shield"
+  | "armor"
+  | "consumable" // comida, poção (sustain)
+  | "tool" // corda, pá, tocha, faca de esfolar (utilidade/exploração)
+  | "material"; // loot vendável (peles, glândulas, sucata — reagente/troféu)
+
+/**
  * Tags de item (família/arquétipo da arma). Alimentam as "lentes" de rastreamento
  * das classes (Knight rastreia "por tipo de arma" — espada/machado/maça) e os
  * Caminhos de estilo. Strings estáveis (chaves de dados — não traduzir).
@@ -114,8 +132,22 @@ export interface ItemTemplate {
   id: string;
   /** Nome exibível (pt-BR). */
   name: string;
-  slot: ItemSlot;
-  tags: ItemTag[];
+  /**
+   * Categoria larga do item. OPCIONAL por retrocompat: quando ausente, deriva de
+   * `slot` (equipáveis) via `itemCategory`. Itens não-equipáveis (consumível/
+   * ferramenta/material) SETAM `category` e OMITEM `slot`.
+   */
+  category?: ItemCategory;
+  /** Slot de equipamento — só em equipáveis (weapon/shield/armor). */
+  slot?: ItemSlot;
+  /**
+   * Empilhável? (tochas, reagentes, comida comum). Quando `true`, várias unidades
+   * ocupam um slot só. M2 implementa a contagem por slot; aqui é só metadado de
+   * dados (o ouro já empilha por caminho próprio — ver `ContainerRegistry`).
+   */
+  stackable?: boolean;
+  /** Tags de arquétipo de arma (lentes de tracking). Ausente em não-armas. */
+  tags?: ItemTag[];
   rarity: ItemRarity;
   /**
    * PESO do item (unidade de carga; entra no cap = `formulas.maxCarry`). Cria a
@@ -280,6 +312,92 @@ export const PUNHOS: ItemTemplate = {
   weapon: { baseDamage: 2, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false },
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Consumíveis, ferramentas e materiais de loot (fatia ① — ITENS-LOOTS.md)
+//  Estes itens existem como DADOS vendáveis/saqueáveis agora; os EFEITOS
+//  (saciedade da comida, cura da poção, verbo da ferramenta) são wave M2.
+//  Pesos = escala-Tibia aproximada (✏️ Balancista); raridade `common`.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Pão — o saciador barato (mantém o regen ligado). Vendor geral / estalagem. */
+export const PAO: ItemTemplate = {
+  id: "pao",
+  name: "Pão",
+  category: "consumable",
+  stackable: true,
+  weight: 2,
+  rarity: "common",
+};
+
+/** Carne Assada — comida melhor (regen maior por duração). Cozinha/estalagem. */
+export const CARNE_ASSADA: ItemTemplate = {
+  id: "carne_assada",
+  name: "Carne Assada",
+  category: "consumable",
+  stackable: true,
+  weight: 4,
+  rarity: "common",
+};
+
+/** Poção de Vida Pequena — EMERGÊNCIA, luxo no early (≈33min de caça T1, ✏️). */
+export const POCAO_VIDA_PEQUENA: ItemTemplate = {
+  id: "pocao_vida_pequena",
+  name: "Poção de Vida Pequena",
+  category: "consumable",
+  stackable: true,
+  weight: 3,
+  rarity: "common",
+};
+
+/** Corda — ferramenta PERMANENTE (compra única não-trivial). Vendor + baús. */
+export const CORDA: ItemTemplate = {
+  id: "corda",
+  name: "Corda",
+  category: "tool",
+  weight: 15,
+  rarity: "common",
+};
+
+/** Pá — ferramenta PERMANENTE. Vendor + baús iniciais. */
+export const PA: ItemTemplate = {
+  id: "pa",
+  name: "Pá",
+  category: "tool",
+  weight: 20,
+  rarity: "common",
+};
+
+/** Tocha — ferramenta CONSUMÍVEL (queima/stacka). Vendor geral, barata. */
+export const TOCHA: ItemTemplate = {
+  id: "tocha",
+  name: "Tocha",
+  category: "tool",
+  stackable: true,
+  weight: 3,
+  rarity: "common",
+};
+
+/** Faca de Esfolar — destrava o VERBO esfolar (gated pela quest do Amaro, Q7).
+ *  É a ferramenta E o símbolo do trade de peles (ITENS-LOOTS.md). */
+export const FACA_DE_ESFOLAR: ItemTemplate = {
+  id: "faca_de_esfolar",
+  name: "Faca de Esfolar",
+  category: "tool",
+  weight: 8,
+  rarity: "common",
+};
+
+/** Cauda de Rato — troféu/reagente do Rato Lanhoso. Comprada pelo Silas
+ *  (boticário) após a quest dele. Primeiro loot vendável da fatia. */
+export const CAUDA_DE_RATO: ItemTemplate = {
+  id: "cauda_de_rato",
+  name: "Cauda de Rato",
+  category: "material",
+  stackable: true,
+  weight: 1,
+  rarity: "common",
+};
+
 /** Registro de templates por ID — ponto único de lookup. */
 export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [ESPADA_CURTA.id]: ESPADA_CURTA,
@@ -290,11 +408,27 @@ export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [ADAGA.id]: ADAGA,
   [CETRO.id]: CETRO,
   [PUNHOS.id]: PUNHOS,
+  [PAO.id]: PAO,
+  [CARNE_ASSADA.id]: CARNE_ASSADA,
+  [POCAO_VIDA_PEQUENA.id]: POCAO_VIDA_PEQUENA,
+  [CORDA.id]: CORDA,
+  [PA.id]: PA,
+  [TOCHA.id]: TOCHA,
+  [FACA_DE_ESFOLAR.id]: FACA_DE_ESFOLAR,
+  [CAUDA_DE_RATO.id]: CAUDA_DE_RATO,
 };
 
 /** Lookup de template por ID (undefined = desconhecido). */
 export function getItemTemplate(id: string): ItemTemplate | undefined {
   return ITEM_TEMPLATES[id];
+}
+
+/**
+ * Categoria efetiva de um item: usa `category` explícita ou deriva do `slot`
+ * (equipáveis). Fonte única para comércio/loot decidirem "que tipo de item é".
+ */
+export function itemCategory(t: ItemTemplate): ItemCategory {
+  return t.category ?? t.slot ?? "material";
 }
 
 /**

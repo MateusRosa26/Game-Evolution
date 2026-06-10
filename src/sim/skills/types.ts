@@ -53,8 +53,8 @@ export interface SkillDef {
   tags: SkillTag[];
   /** Custo de mana por cast. */
   manaCost: number;
-  /** Cooldown em ticks da sim (20/s). */
-  cooldownTicks: number;
+  /** Cooldown em ms (a sim converte p/ ticks via `msToTicks`). */
+  cooldownMs: number;
   /** Alcance em tiles (Chebyshev). melee = 1, self-heal aceita range 0. */
   range: number;
   /** Base de dano/cura passada à fórmula (✏️ vem de numbers.ts). */

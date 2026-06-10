@@ -12,6 +12,7 @@ import { Keyboard } from "./input/Keyboard";
 import { Mouse } from "./input/Mouse";
 import { Hud } from "./ui/Hud";
 import { DialogueWindow } from "./ui/DialogueWindow";
+import { ShopWindow } from "./ui/ShopWindow";
 import { JournalPanel } from "./ui/JournalPanel";
 import { EquipPanel } from "./ui/EquipPanel";
 import { ContainerWindow } from "./ui/ContainerWindow";
@@ -87,6 +88,11 @@ export class Game {
   private dialogueWin = new DialogueWindow((optionId) =>
     this.transport.send({ type: "dialogueChoice", optionId }),
   );
+  private shopWin = new ShopWindow({
+    buy: (templateId) => this.transport.send({ type: "buyItem", templateId }),
+    sell: (instanceId) => this.transport.send({ type: "sellItem", instanceId }),
+    close: () => this.transport.send({ type: "closeShop" }),
+  });
   private journal = new JournalPanel();
   private tooltip = new Tooltip();
   private equipPanel = new EquipPanel(this.dnd, this.tooltip);
@@ -172,10 +178,12 @@ export class Game {
         else this.transport.send({ type: "openContainer", containerId: bid });
         return;
       }
-      // Esc: fecha diálogo se aberto; senão cancela o alvo (estilo Tibia).
+      // Esc: fecha loja/diálogo se abertos; senão cancela o alvo (estilo Tibia).
       if (ev.code === "Escape") {
         ev.preventDefault();
-        if (this.playerState?.dialogue) {
+        if (this.playerState?.shop) {
+          this.transport.send({ type: "closeShop" });
+        } else if (this.playerState?.dialogue) {
           this.transport.send({ type: "closeDialogue" });
         } else {
           this.transport.send({ type: "selectTarget", entityId: null });
@@ -369,6 +377,7 @@ export class Game {
     this.uiLayer.addChild(this.minimap.container);
     this.uiLayer.addChild(this.equipPanel.container);
     this.uiLayer.addChild(this.dialogueWin.container);
+    this.uiLayer.addChild(this.shopWin.container);
     this.uiLayer.addChild(this.chat.container);
     this.uiLayer.addChild(this.tooltip.container);
     this.uiLayer.addChild(this.dnd.ghostLayer);
@@ -378,6 +387,7 @@ export class Game {
     // Painéis novos precisam das dimensões de tela JÁ no startup (sem isso a
     // janela de diálogo nasce em coordenada negativa = invisível).
     this.dialogueWin.resize(this.app.screen.width, this.app.screen.height);
+    this.shopWin.resize(this.app.screen.width, this.app.screen.height);
     this.journal.resize(this.app.screen.width, this.app.screen.height);
     this.equipPanel.resize(this.app.screen.width, this.app.screen.height);
     this.equipPanel.setState(this.playerState ?? undefined);
@@ -511,6 +521,10 @@ export class Game {
       }
       this.outfitPanel.setState(this.playerState.outfit, this.playerState.wardrobe);
       this.dialogueWin.update(this.playerState.dialogue);
+      // Loja: o bolso vem no snapshot quando há loja aberta (a sim garante).
+      const bpId = this.playerState.backpackContainerId;
+      const backpackView = this.playerState.containers?.find((c) => c.containerId === bpId);
+      this.shopWin.update(this.playerState.shop, backpackView);
       this.journal.setState(this.playerState.quests);
       this.equipPanel.setState(this.playerState);
       this.minimap.update(this.playerState.pos.x, this.playerState.pos.y);
@@ -601,6 +615,7 @@ export class Game {
 
   private onResize(): void {
     this.dialogueWin.resize(this.app.screen.width, this.app.screen.height);
+    this.shopWin.resize(this.app.screen.width, this.app.screen.height);
     this.journal.resize(this.app.screen.width, this.app.screen.height);
     this.equipPanel.resize(this.app.screen.width, this.app.screen.height);
     this.minimap.resize(this.app.screen.width, this.app.screen.height);

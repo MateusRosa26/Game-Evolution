@@ -45,11 +45,54 @@ export interface CreatureTemplate {
   aggroRadius: number;
   /** Duração base do passo, em ms (define a velocidade de perseguição). */
   baseStepMs: number;
-  /** Respawn após morte, em ticks (20 ticks/s). */
-  respawnTicks: number;
-  /** Loot de gold do cadáver (✏️ itens por família/tier — ECONOMIA.md). */
-  loot?: { goldMin: number; goldMax: number };
+  /** Respawn após morte, em ms (a sim converte p/ ticks via `msToTicks`). */
+  respawnMs: number;
+  /** Loot do cadáver: gold (faixa) + itens por chance. */
+  loot?: LootTable;
 }
+
+/**
+ * Uma chance de drop de item no cadáver. `chance` é rolada INDEPENDENTE por item
+ * (RNG de loot da sim). Rates = placeholder ✏️ Balancista (bateria M2, junto da
+ * economia). NOTA: esta é a loot table NORMAL (cai sempre, com ou sem faca) —
+ * esfolar é um VERBO à parte, gated pela Faca de Esfolar (ITENS-LOOTS.md), wave
+ * futura com sua própria lógica anti-jackpot (chance de pele × chance de comida).
+ */
+export interface LootDrop {
+  /** Template do item (ver `items/templates`). */
+  templateId: string;
+  /** Probabilidade 0..1 de cair. */
+  chance: number;
+}
+
+/** Tabela de loot de um cadáver. */
+export interface LootTable {
+  /** Faixa de gold (estilo Tibia — pouco por design). */
+  gold?: { min: number; max: number };
+  /** Drops de item, cada um rolado por sua `chance`. */
+  items?: LootDrop[];
+}
+
+/**
+ * Drop de item — FILOSOFIA (decisão do criador, jun/2026): **gold é padrão,
+ * ITENS são difíceis de dropar.** Mas a `chance` é CONTÍNUA e ESPECÍFICA por
+ * item — NADA de enum de raridade (mata a variabilidade; o Tibia, referência do
+ * projeto, vive de rates esquisitos e específicos que viram conhecimento-loot /
+ * cultura de wiki — pilar 4, e a *matriz esparsa* de EQUIPAMENTO.md: cada item é
+ * um EVENTO). Cada drop ganha seu próprio número tunado.
+ *
+ * DESACOPLAMENTO-CHAVE (decidido): a `chance` controla só a FREQUÊNCIA ("com que
+ * frequência cai / como soa achar"); QUANTO de renda o drop vale é corrigido pelo
+ * **preço de venda** do item (ver `npc/commerce.ts`), não inflando a chance. Por
+ * isso o número de drop pode ser puramente sobre feel — a economia se fecha no preço.
+ *
+ * FAIXAS-GUIA por papel (NÃO-vinculantes — autor escolhe o número específico
+ * dentro, ou FORA quando a matriz esparsa pedir; ✏️ Balancista calibra na M2):
+ *   - troféu recorrente de venda ... ~3–12%
+ *   - reagente / ingrediente ........ ~2–8%
+ *   - gear / peça de mob ............ ~0.3–2%
+ *   - pista / named-bait / Marca .... <0.3%
+ */
 
 /**
  * Rato Lanhoso — família Bestial, T1, Perseguidor. "O primeiro sangue do
@@ -68,9 +111,19 @@ export const RATO_LANHOSO: CreatureTemplate = {
   attackCooldownMs: 1600,
   xp: 15, // calibrado (bateria M1.1, jun/2026): lvl 5 pós-rito ~14min dedicado — loop de upar divertido por si só; o aspiracional é segredo, não meta
   aggroRadius: 6,
-  baseStepMs: 220, // ligeiramente mais rápido que o jogador (260)
-  respawnTicks: 200, // ~10s
-  loot: { goldMin: 0, goldMax: 1 }, // economia passe 1 (jun/2026): rato 0–1, média ~0,4
+  // 200ms = 5 t/s, UM TIER acima do jogador (250ms / 4 t/s): a matilha te alcança,
+  // não dá pra fugir só andando (design: rápido, vem em grupos). Múltiplo de 50 —
+  // a sim quantiza o passo em ticks (`quantizeToTickMs`), então autorado = efetivo.
+  baseStepMs: 200,
+  respawnMs: 10000, // 10s
+  loot: {
+    gold: { min: 0, max: 1 }, // economia passe 1 (jun/2026): rato 0–1, média ~0,4
+    items: [
+      // Cauda de Rato — troféu/reagente; comprada pelo Silas pós-quest dele.
+      // Troféu recorrente (faixa-guia ~3–12%); a renda se ajusta no preço, não na chance.
+      { templateId: "cauda_de_rato", chance: 0.1 }, // ✏️ Balancista (bateria M2)
+    ],
+  },
 };
 
 /**
@@ -102,9 +155,12 @@ export const ESQUELETO: CreatureTemplate = {
   attackCooldownMs: 2000,
   xp: 80,
   aggroRadius: 6,
-  baseStepMs: 280, // mais lento que o jogador (260) — undead arrastado, kitável
-  respawnTicks: 300, // ~15s
-  loot: { goldMin: 1, goldMax: 3 },
+  // 300ms = 3,33 t/s, UM TIER abaixo do jogador (250ms / 4 t/s) — undead arrastado,
+  // kitável (design). Múltiplo de 50 = autorado igual ao efetivo orto (antes 280 já
+  // caía em 300 orto; agora honesto). Diagonal ~450ms (ainda mais kitável de lado).
+  baseStepMs: 300,
+  respawnMs: 15000, // 15s
+  loot: { gold: { min: 1, max: 3 } }, // ✏️ + osso/loot undead quando o item entrar
 };
 
 /** Registro de templates por espécie — ponto único de lookup. */

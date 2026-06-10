@@ -42,6 +42,14 @@ export type ClientCommand =
   | { type: "dialogueChoice"; optionId: string }
   /** Fechar o diálogo ativo (Esc / clicar fora). */
   | { type: "closeDialogue" }
+  /** Abrir a loja de um NPC mercador próximo (a sim monta o sortimento). */
+  | { type: "openShop"; npcId: number }
+  /** Comprar 1 unidade de um item do sortimento da loja aberta. */
+  | { type: "buyItem"; templateId: string }
+  /** Vender uma instância de item do bolso à loja aberta. */
+  | { type: "sellItem"; instanceId: number }
+  /** Fechar a loja aberta (Esc / clicar fora). */
+  | { type: "closeShop" }
   /** Abrir um container (mochila equipada, cadáver próximo, mochila aninhada). */
   | { type: "openContainer"; containerId: number }
   | { type: "closeContainer"; containerId: number }
@@ -102,8 +110,8 @@ export interface PlayerProgressState {
 export interface StatusEffectState {
   /** queimadura (fogo, DoT) / lentidão / veneno (tipado p/ Rogue T2). */
   kind: "burn" | "slow" | "poison";
-  /** Ticks restantes até expirar (×TICK_MS = ms para o client). */
-  remainingTicks: number;
+  /** ms restantes até expirar. */
+  remainingMs: number;
 }
 
 /**
@@ -173,6 +181,8 @@ export interface EntityState {
   backpackContainerId?: number;
   /** Diálogo ativo — SOMENTE o jogador dono (presente enquanto conversa). */
   dialogue?: DialogueViewState;
+  /** Loja ativa — SOMENTE o jogador dono (presente enquanto negocia). */
+  shop?: ShopViewState;
   /** Diário de quests — SOMENTE o jogador dono. */
   quests?: QuestJournalEntry[];
   /**
@@ -331,6 +341,26 @@ export interface DialogueViewState {
   npcName: string;
   text: string;
   options: DialogueOptionView[];
+}
+
+/** Uma linha do sortimento de loja projetada ao client (item + preço). */
+export interface ShopEntryView {
+  templateId: string;
+  name: string;
+  /** Preço em ouro: em `sells` = custo de compra; em `buys` = o que o NPC paga. */
+  price: number;
+}
+
+/**
+ * Loja ativa do jogador — projeção da sim. `sells` = o que o NPC vende ao
+ * jogador; `buys` = o que ele COMPRA (o client cruza com o bolso para listar os
+ * itens vendáveis que o jogador possui). Toda transação é comando → sim valida.
+ */
+export interface ShopViewState {
+  npcId: number;
+  npcName: string;
+  sells: ShopEntryView[];
+  buys: ShopEntryView[];
 }
 
 /**

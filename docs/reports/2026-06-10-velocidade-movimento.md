@@ -41,3 +41,47 @@ Consequências:
   empurra pro tier 200 (5 t/s). Haste (efeito temporário) → 200 ou 150.
 - MIN_STEP_MS piso anti-stack: 150 (6,67 t/s) sugerido — calibrar quando haste
   + bota + buff coexistirem.
+
+## DECISÃO FINAL (criador, 2026-06-10)
+Pesquisa de referência (OSRS vs Tibia) fechou o caminho:
+- **OSRS**: velocidade plana/binária (walk 1 tile/tick, run 2). Level NÃO dá
+  velocidade. Profundidade de PvP = energia + freeze + posição. Agility só mexe
+  na stamina, não no teto. Plano de propósito p/ PvP justo.
+- **Tibia**: speed escala com level (breakpoints de 50ms — MESMO mecanismo da
+  nossa engine!) + boots (+20) + haste (Utani Hur +30%, Charge +90%). Per-level
+  é pequeno; gear/haste são os swings reais.
+
+**Escolhido: base plana + item + magia (+ comida ✏️). SEM MS por nível.**
+Mobilidade vira loot/escolha (Pilar 5/6); anti-Sirlin. Velocidade fica em tiers
+de 50ms ganhos por gear/haste — 250→200 (25%) é visceral e conquistado.
+
+Consequência: o motivo forte p/ tick fino (densidade de breakpoint p/ curva
+por-level) **caiu**. Tick fica em 50ms; mudança de tick fica reservada.
+
+## Refactor de unidades — FEITO (2026-06-10)
+Todo número de tempo virou **ms** (design) com conversão única `msToTicks` na sim:
+- `shared/constants.ts`: + helper `msToTicks(ms)`.
+- skills `numbers.ts`/`types.ts`/`definitions.ts`: `cooldownTicks`→`cooldownMs`
+  (×50); burn `durationTicks`/`tickEveryTicks`→`durationMs`/`intervalMs`; slow
+  `durationTicks`→`durationMs`.
+- `status.ts`: params em ms, converte p/ ticks internos; snapshot `remainingMs`.
+- `protocol.ts`: `StatusEffectState.remainingTicks`→`remainingMs`.
+- `bestiary.ts`: `respawnTicks`→`respawnMs` (×50).
+- `formulas.ts`/`progression.ts`: regen `perTick`→`perSecond` (×20), escalado
+  por `SECONDS_PER_TICK` no `regenTick` → independente da taxa de tick.
+Conversões identity-preserving em TICK_MS=50. Validado: `tsc --noEmit` limpo +
+smoke headless (200 ticks, 200 snapshots, sem erro).
+
+## Revisão do MS dos mobs — FEITO (2026-06-10)
+`baseStepMs` autorado ≠ efetivo (a sim quantiza em 50ms) e os comentários citavam
+um player stale de 260 (é 250). Reautorado em múltiplos de 50 (autorado = efetivo),
+SEM mudar a velocidade ortogonal testada nas baterias:
+
+| Mob | Antes | Orto efet. | Depois | Orto | Diag | Δ |
+|---|---|---|---|---|---|---|
+| Rato Lanhoso | 220 | 200 (5 t/s) | **200** | 200 | 300 | zero (orto+diag idênticos) |
+| Esqueleto | 280 | 300 (3,33 t/s) | **300** | 300 | 450 | orto igual; diag 400→450 (+kitável) |
+
+Tiers vs jogador (250ms / 4 t/s): Rato = 1 tier ACIMA (te alcança, swarm); Esqueleto
+= 1 tier ABAIXO (arrastado, kitável). Regra p/ mobs futuros: autorar `baseStepMs`
+em múltiplo de 50. Validado: tsc limpo.

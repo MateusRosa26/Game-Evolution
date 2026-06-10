@@ -61,12 +61,6 @@ export const PIXELLAB: {
   /** Peças sobre os frames de ATAQUE (atk_<dir><i>.png) — golpe vestido. */
   knightPiecesAtk: Record<string, Record<Facing, Texture[]>>;
   /**
-   * TILESETS Wang por par de terreno (chão com transição, jun/2026):
-   * wang[par][cornerCode] onde cornerCode = "NWNESWSE" (0=lower, 1=upper).
-   * O dual-grid no WorldRenderer escolhe a tile pelos 4 cantos.
-   */
-  wang: Record<string, Record<string, Texture>>;
-  /**
    * SPRITES DE ITEM (jun/2026): 1 PNG ~32px por item, img/items/<id>.png.
    * Chave = templateId do sim (arquivo usa '-', templateId usa '_' → convertido
    * no load). UI (ContainerWindow/EquipPanel) desenha por templateId; ausência =
@@ -84,7 +78,6 @@ export const PIXELLAB: {
   knightAttack: null,
   knightPieces: {},
   knightPiecesAtk: {},
-  wang: {},
   items: {},
 };
 
@@ -105,12 +98,6 @@ const PIECE_FRAME_URLS = import.meta.glob("./img/chars/knight/pieces/*/*.png", {
   import: "default",
 }) as Record<string, string>;
 const KNIGHT_ATTACK_URLS = import.meta.glob("./img/chars/knight/attack/*.png", {
-  eager: true,
-  query: "?url",
-  import: "default",
-}) as Record<string, string>;
-// Wang tilesets (chão com transição) — img/tiles/<par>/wang-NWNESWSE.png
-const WANG_URLS = import.meta.glob("./img/tiles/*/*.png", {
   eager: true,
   query: "?url",
   import: "default",
@@ -260,22 +247,6 @@ export async function loadPixellabAssets(): Promise<void> {
     atkFrames.forEach((f, i) => dirs[f.dir as Facing].push(texes[i]));
     dirs.w = dirs.e.map(flipped);
     if (dirs.s.length && dirs.e.length && dirs.n.length) PIXELLAB.knightAttack = dirs;
-  }
-
-  // Wang tilesets: img/tiles/<par>/wang-<code>.png
-  const wangByPair = new Map<string, { code: string; url: string }[]>();
-  for (const [path, url] of Object.entries(WANG_URLS)) {
-    const mw2 = path.match(/tiles\/([^/]+)\/wang-([01]{4})\.png$/);
-    if (!mw2) continue;
-    const list = wangByPair.get(mw2[1]) ?? [];
-    list.push({ code: mw2[2], url });
-    wangByPair.set(mw2[1], list);
-  }
-  for (const [pair, entries] of wangByPair) {
-    const set: Record<string, Texture> = {};
-    const texes = await Promise.all(entries.map((e) => Assets.load<Texture>(e.url)));
-    entries.forEach((e, i) => (set[e.code] = texes[i]));
-    PIXELLAB.wang[pair] = set;
   }
 
   // Itens: img/items/<id>.png → PIXELLAB.items[templateId] (arquivo '-' → '_')

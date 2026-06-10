@@ -245,28 +245,28 @@ export function dodgeChance(attrs: Attributes): number {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Regeneração (por TICK da sim — 20 ticks/s)
+//  Regeneração (por SEGUNDO — independente da taxa de tick)
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Regen por tick. ✏️ placeholder — calibrar no M2. */
-const HP_REGEN_BASE_PER_TICK = 0.02; // ✏️ placeholder — calibrar no M2
-const HP_REGEN_PER_VITALITY = 0.01; // ✏️ placeholder — calibrar no M2
-const MANA_REGEN_BASE_PER_TICK = 0.02; // ✏️ placeholder — calibrar no M2
-const MANA_REGEN_PER_SPIRIT = 0.015; // ✏️ placeholder — calibrar no M2
+// Regen por segundo. ✏️ placeholder — calibrar no M2. (= valor antigo por tick × 20.)
+const HP_REGEN_BASE_PER_SEC = 0.4; // ✏️ placeholder — calibrar no M2
+const HP_REGEN_PER_VITALITY = 0.2; // ✏️ placeholder — calibrar no M2
+const MANA_REGEN_BASE_PER_SEC = 0.4; // ✏️ placeholder — calibrar no M2
+const MANA_REGEN_PER_SPIRIT = 0.3; // ✏️ placeholder — calibrar no M2
 
 /**
- * Regeneração de HP por TICK (não por segundo). Escala com Vitalidade. Valor
- * fracionário: o acumulador de regen da entidade soma e aplica em inteiros.
+ * Regeneração de HP por SEGUNDO. Escala com Vitalidade. O acumulador de regen
+ * da entidade soma a fração por tick (×TICK_MS/1000) e aplica em inteiros.
  */
-export function hpRegenPerTick(attrs: Attributes): number {
-  return HP_REGEN_BASE_PER_TICK + attrs.vitality * HP_REGEN_PER_VITALITY; // ✏️ placeholder
+export function hpRegenPerSecond(attrs: Attributes): number {
+  return HP_REGEN_BASE_PER_SEC + attrs.vitality * HP_REGEN_PER_VITALITY; // ✏️ placeholder
 }
 
 /**
- * Regeneração de mana por TICK (não por segundo). Escala com Espírito.
+ * Regeneração de mana por SEGUNDO. Escala com Espírito.
  */
-export function manaRegenPerTick(attrs: Attributes): number {
-  return MANA_REGEN_BASE_PER_TICK + attrs.spirit * MANA_REGEN_PER_SPIRIT; // ✏️ placeholder
+export function manaRegenPerSecond(attrs: Attributes): number {
+  return MANA_REGEN_BASE_PER_SEC + attrs.spirit * MANA_REGEN_PER_SPIRIT; // ✏️ placeholder
 }
 
 // ─────────────────────────────────────────────────────────────────────────

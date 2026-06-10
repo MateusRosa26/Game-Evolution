@@ -1,4 +1,4 @@
-import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS } from "../shared/constants";
+import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS, msToTicks } from "../shared/constants";
 import {
   DEFAULT_OUTFIT_BY_CLASS,
   isValidOutfitColor,
@@ -14,7 +14,8 @@ import type {
   Snapshot,
   SnapshotEvent,
 } from "../shared/protocol";
-import type { ClientCommand, ContainerView, EquipSlot, ItemRef, QuestJournalEntry } from "../shared/protocol";
+import type { ClientCommand, ContainerView, EquipSlot, ItemRef, QuestJournalEntry, ShopEntryView } from "../shared/protocol";
+import { COMMERCE, availableSells, availableBuys, type TradeEntry } from "./npc/commerce";
 import {
   DIR_VECTORS,
   dirFromDelta,
@@ -273,6 +274,7 @@ export class Simulation {
       npcKey: null,
       quests: new Map(),
       activeDialogue: null,
+      activeShop: null,
       equipment: {},
       openContainers: new Set(),
       backpackContainerId: null,
@@ -415,6 +417,7 @@ export class Simulation {
       npcKey: null,
       quests: new Map(),
       activeDialogue: null,
+      activeShop: null,
       equipment: {},
       openContainers: new Set(),
       backpackContainerId: null,
@@ -463,6 +466,7 @@ export class Simulation {
         npcKey: n.npcId,
         quests: new Map(),
         activeDialogue: null,
+      activeShop: null,
         equipment: {},
         openContainers: new Set(),
         backpackContainerId: null,
@@ -599,6 +603,12 @@ export class Simulation {
             }
           }
         }
+        // Abrir loja: substitui a janela de diálogo pela de comércio.
+        if (res.effects?.openShop && npc.npcKey && COMMERCE[npc.npcKey]) {
+          e.activeShop = { npcEntityId: npc.id };
+          e.activeDialogue = null;
+          break;
+        }
         if (res.view) {
           e.activeDialogue = { npcEntityId: npc.id, view: res.view };
           this.pendingChat.push({
@@ -612,6 +622,25 @@ export class Simulation {
       }
       case "closeDialogue": {
         e.activeDialogue = null;
+        break;
+      }
+      case "openShop": {
+        if (e.kind !== "player") break;
+        this.openShop(e, cmd.npcId);
+        break;
+      }
+      case "closeShop": {
+        e.activeShop = null;
+        break;
+      }
+      case "buyItem": {
+        if (e.kind !== "player") break;
+        this.buyItem(e, cmd.templateId);
+        break;
+      }
+      case "sellItem": {
+        if (e.kind !== "player") break;
+        this.sellItem(e, cmd.instanceId);
         break;
       }
       case "say": {
@@ -884,6 +913,77 @@ export class Simulation {
     return ref.kind === "equip" || ref.containerId === e.backpackContainerId;
   }
 
+  // ── Comércio (loja de NPC) — toda regra na sim; o client só envia comandos ──
+
+  /** O NPC da loja aberta ainda é válido e está ao alcance? Retorna-o ou null. */
+  private shopNpc(e: SimEntity): SimEntity | null {
+    if (!e.activeShop) return null;
+    const npc = this.entities.get(e.activeShop.npcEntityId);
+    if (!npc || npc.kind !== "npc" || !npc.npcKey || !COMMERCE[npc.npcKey]) return null;
+    if (npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) return null; // mesmo alcance da conversa
+    return npc;
+  }
+
+  /** Abre a loja de um NPC mercador próximo (mesmo alcance/regra do `talk`). */
+  private openShop(e: SimEntity, npcId: number): void {
+    const npc = this.entities.get(npcId);
+    if (!npc || npc.kind !== "npc" || !npc.npcKey || !COMMERCE[npc.npcKey]) return;
+    if (npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) return;
+    e.activeShop = { npcEntityId: npc.id };
+    e.activeDialogue = null; // loja e diálogo são mutuamente exclusivos
+  }
+
+  /** Compra 1 unidade do sortimento: ouro do bolso → instância nova no bolso. */
+  private buyItem(e: SimEntity, templateId: string): void {
+    const npc = this.shopNpc(e);
+    if (!npc || !npc.npcKey) return;
+    const entry = availableSells(npc.npcKey, e.quests).find((s) => s.templateId === templateId);
+    if (!entry) return; // não vende isso (ou ainda travado por quest)
+    const tpl = getItemTemplate(templateId);
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (!tpl || !bp) return;
+    if (this.containers.totalGold(bp) < entry.price) {
+      this.sysMessage(e.id, "Ouro insuficiente.");
+      return;
+    }
+    if (this.containers.freeSlot(bp) < 0) {
+      this.sysMessage(e.id, "Sua mochila está cheia.");
+      return;
+    }
+    // Peso: pagar ouro alivia (com teto de 150), ganhar o item adiciona. Saldo marginal.
+    const cur = this.containers.totalGold(bp);
+    const goldRelief = goldWeight(cur) - goldWeight(cur - entry.price);
+    if (this.carriedWeight(e) - goldRelief + tpl.weight > this.maxCarryOf(e)) {
+      this.sysMessage(e.id, "Pesado demais — sem capacidade de carga.");
+      return;
+    }
+    this.containers.withdrawGold(bp, entry.price);
+    const inst = this.items.create(templateId);
+    this.containers.add(bp, { kind: "item", instanceId: inst.id });
+    this.sysMessage(e.id, `Você comprou ${tpl.name} por ${entry.price} de ouro.`);
+  }
+
+  /** Vende uma instância do bolso à loja: o item some, o ouro entra (funde). */
+  private sellItem(e: SimEntity, instanceId: number): void {
+    const npc = this.shopNpc(e);
+    if (!npc || !npc.npcKey) return;
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (!bp) return;
+    const slot = bp.slots.findIndex((s) => s?.kind === "item" && s.instanceId === instanceId);
+    if (slot < 0) return; // precisa estar no bolso (não equipado, não em cadáver)
+    const inst = this.items.get(instanceId);
+    if (!inst) return;
+    const entry = availableBuys(npc.npcKey, e.quests).find((b) => b.templateId === inst.templateId);
+    if (!entry) {
+      this.sysMessage(e.id, "Ele não compra isso.");
+      return;
+    }
+    bp.slots[slot] = null;
+    this.containers.depositGold(bp, entry.price);
+    const tpl = getItemTemplate(inst.templateId);
+    this.sysMessage(e.id, `Você vendeu ${tpl?.name ?? "item"} por ${entry.price} de ouro.`);
+  }
+
   /** Saque rápido de ouro (shift/alt+clique): move a pilha pro bolso (funde). */
   private lootGold(e: SimEntity, containerId: number, slot: number): void {
     if (!this.containerAccessible(e, containerId)) return;
@@ -1089,9 +1189,19 @@ export class Simulation {
         if (template) {
           const c = this.containers.create(`Corpo de ${template.name}`, 4);
           if (template.loot) {
-            const g = template.loot.goldMin +
-              Math.floor(this.lootRng() * (template.loot.goldMax - template.loot.goldMin + 1));
-            if (g > 0) this.containers.add(c, { kind: "gold", amount: g });
+            const lt = template.loot;
+            if (lt.gold) {
+              const g = lt.gold.min +
+                Math.floor(this.lootRng() * (lt.gold.max - lt.gold.min + 1));
+              if (g > 0) this.containers.add(c, { kind: "gold", amount: g });
+            }
+            // Drops de item: cada um rolado por sua chance (RNG de loot da sim).
+            for (const drop of lt.items ?? []) {
+              if (this.lootRng() < drop.chance) {
+                const inst = this.items.create(drop.templateId);
+                this.containers.add(c, { kind: "item", instanceId: inst.id });
+              }
+            }
           }
           this.corpses.push({
             id: this.nextCorpseId++,
@@ -1108,7 +1218,7 @@ export class Simulation {
             template,
             pos: { x: e.spawnPos.x, y: e.spawnPos.y },
             z: e.z,
-            atTick: this.tickCount + template.respawnTicks,
+            atTick: this.tickCount + msToTicks(template.respawnMs),
           });
         }
         // limpa qualquer jogador que mirava nele
@@ -1345,11 +1455,35 @@ export class Simulation {
           views.push({ containerId: c.id, name: c.name, capacity: c.capacity, items, goldPiles });
         };
         for (const cid of e.openContainers) pushView(cid);
+        // Loja aberta: garante a view do bolso (mesmo sem janela de container
+        // aberta) para o client listar os itens vendáveis que o jogador possui.
+        if (e.activeShop && e.backpackContainerId != null && !e.openContainers.has(e.backpackContainerId)) {
+          pushView(e.backpackContainerId);
+        }
         if (views.length > 0) state.containers = views;
         if (e.activeDialogue) {
           const npc = this.entities.get(e.activeDialogue.npcEntityId);
           if (npc) state.dialogue = dialogueView(npc.id, npc.name, e.activeDialogue.view);
           else e.activeDialogue = null;
+        }
+        if (e.activeShop) {
+          const npc = this.shopNpc(e);
+          if (npc && npc.npcKey) {
+            const toView = (entries: TradeEntry[]): ShopEntryView[] =>
+              entries.map((x) => ({
+                templateId: x.templateId,
+                name: getItemTemplate(x.templateId)?.name ?? x.templateId,
+                price: x.price,
+              }));
+            state.shop = {
+              npcId: npc.id,
+              npcName: npc.name,
+              sells: toView(availableSells(npc.npcKey, e.quests)),
+              buys: toView(availableBuys(npc.npcKey, e.quests)),
+            };
+          } else {
+            e.activeShop = null; // NPC sumiu / saiu de alcance → fecha a loja
+          }
         }
         if (e.quests.size > 0) {
           state.quests = [...e.quests.entries()].map(([qid, st]) => {

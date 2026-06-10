@@ -19,6 +19,8 @@ export interface DialogueChoiceResult {
   effects?: {
     acceptQuest?: string;
     completeQuest?: string;
+    /** Abre a loja deste NPC (se ele tiver sortimento em `COMMERCE`). */
+    openShop?: boolean;
   };
 }
 
@@ -33,6 +35,8 @@ export interface NpcDialogue {
 }
 
 const TCHAU = { id: "bye", label: "Até mais." };
+/** Abre a loja do NPC (efeito openShop). Só em NPCs com sortimento em COMMERCE. */
+const NEGOCIAR = { id: "trade", label: "Quero negociar." };
 
 /** Bartolo — estalajadeiro (Q1 Ratos no Porão). Voz: reclamão afável. */
 const bartolo: NpcDialogue = {
@@ -45,6 +49,7 @@ const bartolo: NpcDialogue = {
           "cheio de ratos, pra minha desgraça. Os malditos roem até as vigas.",
         options: [
           { id: "q1_ask", label: "Posso dar um jeito nos ratos." },
+          NEGOCIAR,
           TCHAU,
         ],
       };
@@ -53,20 +58,20 @@ const bartolo: NpcDialogue = {
       const def = QUESTS.q1_ratos;
       return {
         text: `Ainda ouço os bichos arranhando lá embaixo… (${q1.kills}/${def.kill!.count})`,
-        options: [TCHAU],
+        options: [NEGOCIAR, TCHAU],
       };
     }
     if (q1.stage === "report") {
       return {
         text: "O silêncio lá embaixo… que beleza. Conseguiu mesmo, hein?",
-        options: [{ id: "q1_done", label: "Os ratos já eram." }, TCHAU],
+        options: [{ id: "q1_done", label: "Os ratos já eram." }, NEGOCIAR, TCHAU],
       };
     }
     return {
       text:
         "O porão segue quieto, graças a você. Mas eu disse e repito: eles SOBEM " +
         "de algum lugar. Dá uma olhada no bueiro da praça, se tiver estômago.",
-      options: [TCHAU],
+      options: [NEGOCIAR, TCHAU],
     };
   },
   choose(optionId, _quests) {
@@ -103,6 +108,10 @@ const bartolo: NpcDialogue = {
         },
         effects: { completeQuest: "q1_ratos" },
       };
+    }
+    if (optionId === "trade") {
+      // Fecha a janela de diálogo; a Simulation abre a loja (efeito openShop).
+      return { view: null, effects: { openShop: true } };
     }
     return { view: null };
   },

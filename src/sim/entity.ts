@@ -76,6 +76,13 @@ export interface SimEntity {
     npcEntityId: number;
     view: { text: string; options: { id: string; label: string }[] };
   } | null;
+  /**
+   * Loja aberta: entityId do NPC mercador (players; null = sem). Paralelo ao
+   * diálogo (mutuamente exclusivos — abrir loja fecha o diálogo). O SORTIMENTO
+   * não vive aqui: é remontado a cada snapshot de `COMMERCE` + `quests` (como a
+   * view do diálogo), pra refletir trade destravado por quest sem estado duplo.
+   */
+  activeShop: { npcEntityId: number } | null;
 
   // ── Itens (onda 1 — DESIGN-ITENS) ──
   /** Equipamento: instanceId por slot (11 slots, modelo Tibia). */
