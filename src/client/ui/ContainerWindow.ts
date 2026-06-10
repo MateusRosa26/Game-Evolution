@@ -44,6 +44,7 @@ export class ContainerWindow {
     private send: {
       close: (id: number) => void;
       lootGold: (id: number, slot: number) => void;
+      useItem: (ref: ItemRef) => void;
     },
     private tooltip: Tooltip,
     defaultPos: { x: number; y: number },
@@ -163,6 +164,11 @@ export class ContainerWindow {
         cell.cursor = "grab";
         cell.on("pointerdown", (ev: FederatedPointerEvent) => {
           ev.stopPropagation();
+          // Botão direito = USAR (consumível); a sim ignora item sem efeito de uso.
+          if (ev.button === 2) {
+            this.send.useItem(ref);
+            return;
+          }
           this.dnd.start(ref, item.name, ev.global.x, ev.global.y);
         });
         cell.on("pointerover", () => {

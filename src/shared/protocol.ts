@@ -60,6 +60,13 @@ export type ClientCommand =
   | { type: "moveItem"; from: ItemRef; to: ItemRef }
   /** Saquear gold de um container (clique na pilha). */
   | { type: "lootGold"; containerId: number; slot: number }
+  /**
+   * Usar um consumível que o jogador carrega (comida/poção). `ref` aponta a
+   * instância (slot de bolso). A sim valida posse, lê o efeito do template e
+   * aplica (cura instantânea / saciedade), consumindo 1 unidade. Itens sem
+   * efeito de uso são ignorados.
+   */
+  | { type: "useItem"; ref: ItemRef }
   /** Falar no canal Local (vira balão sobre a cabeça + linha no chat). */
   | { type: "say"; text: string }
   /** DEV/teste: desbloqueia TODAS as peças do catálogo no guarda-roupa. */
@@ -108,8 +115,11 @@ export interface PlayerProgressState {
  * client precisa para mostrar ícone/contador — a mecânica vive na sim.
  */
 export interface StatusEffectState {
-  /** queimadura (fogo, DoT) / lentidão / veneno (tipado p/ Rogue T2). */
-  kind: "burn" | "slow" | "poison";
+  /**
+   * queimadura (fogo, DoT) / lentidão / veneno (tipado p/ Rogue T2) /
+   * "Bem Alimentado" (buff de regen da comida).
+   */
+  kind: "burn" | "slow" | "poison" | "wellFed";
   /** ms restantes até expirar. */
   remainingMs: number;
 }

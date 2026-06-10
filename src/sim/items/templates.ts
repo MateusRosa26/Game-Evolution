@@ -126,6 +126,21 @@ export interface WeaponStats {
   range?: number;
 }
 
+/**
+ * Efeito de USAR um consumível (verbo `useItem`) — DADOS, não código por item
+ * (o handler da sim lê este discriminado e aplica). Forma decidida (designer-de-
+ * sistemas, jun/2026); NÚMEROS são `✏️` placeholder — calibrar Balancista.
+ *
+ *  - `heal`  → poção: cura INSTANTÂNEA (clamp no maxHp) + `exhaustMs` de exausto
+ *              compartilhado entre consumíveis de cura (anti-spam, estilo Tibia).
+ *  - `food`  → comida: aplica/estende o status "Bem Alimentado" que MULTIPLICA o
+ *              regen de HP/mana por `durationMs` (acumula até um teto — ver
+ *              `FOOD_SATIETY_CAP_MS` em status.ts). Sem exausto (o teto regula).
+ */
+export type ConsumeEffect =
+  | { kind: "heal"; hp: number; exhaustMs: number }
+  | { kind: "food"; regenMult: number; durationMs: number };
+
 /** Template declarativo de um item (a parte compartilhada/imutável). */
 export interface ItemTemplate {
   /** ID estável do template (chave de dados — NÃO é o ID da instância). */
@@ -159,6 +174,12 @@ export interface ItemTemplate {
   weight: number;
   /** Stats de arma — presente só quando `slot === "weapon"`. */
   weapon?: WeaponStats;
+  /**
+   * Efeito de usar (consumíveis). Presente só em `category === "consumable"`
+   * com verbo ligado — comida e poção. Ausente = item sem efeito de uso (a
+   * tentativa de `useItem` é ignorada pela sim).
+   */
+  consume?: ConsumeEffect;
 }
 
 /**
@@ -327,6 +348,8 @@ export const PAO: ItemTemplate = {
   stackable: true,
   weight: 2,
   rarity: "common",
+  // Comida barata: saciedade curta. ✏️ mult/duração placeholder — Balancista.
+  consume: { kind: "food", regenMult: 1.5, durationMs: 120_000 },
 };
 
 /** Carne Assada — comida melhor (regen maior por duração). Cozinha/estalagem. */
@@ -337,6 +360,9 @@ export const CARNE_ASSADA: ItemTemplate = {
   stackable: true,
   weight: 4,
   rarity: "common",
+  // Comida melhor: mesma intensidade, MAIS duração que o pão (peso×duração).
+  // ✏️ mult/duração placeholder — Balancista.
+  consume: { kind: "food", regenMult: 1.5, durationMs: 300_000 },
 };
 
 /** Poção de Vida Pequena — EMERGÊNCIA, luxo no early (≈33min de caça T1, ✏️). */
@@ -347,6 +373,9 @@ export const POCAO_VIDA_PEQUENA: ItemTemplate = {
   stackable: true,
   weight: 3,
   rarity: "common",
+  // Cura de EMERGÊNCIA instantânea + exausto curto. ✏️ hp/exhaust placeholder —
+  // Balancista (cura amarra na régua de maxHp/TTK do early).
+  consume: { kind: "heal", hp: 50, exhaustMs: 1000 },
 };
 
 /** Corda — ferramenta PERMANENTE (compra única não-trivial). Vendor + baús. */

@@ -51,6 +51,7 @@ import { DIALOGUES, dialogueView } from "./dialogue";
 import {
   SKILLS,
   STARTER_KITS,
+  applyFood,
   castSkill,
   isKnownSkillId,
   projectStatus,
@@ -258,6 +259,7 @@ export class Simulation {
       nextAttackAt: 0,
       attackDamage: 0,
       attackCooldownMs: 0,
+      nextItemUseAt: 0,
       dead: false,
       // Arma inicial da classe como INSTÂNCIA equipada (preenchido abaixo).
       equippedWeaponId: null,
@@ -403,6 +405,7 @@ export class Simulation {
       attackDamage: template.attackDamage,
       // Quantizado à grade de ticks (mesma razão do stepMs/cooldown do player).
       attackCooldownMs: this.quantizeToTickMs(template.attackCooldownMs),
+      nextItemUseAt: 0,
       dead: false,
       // Mobs usam números do bestiário, sem arma-instância (ledger só p/ players).
       equippedWeaponId: null,
@@ -453,6 +456,7 @@ export class Simulation {
         nextAttackAt: 0,
         attackDamage: 0,
         attackCooldownMs: 0,
+        nextItemUseAt: 0,
         dead: false,
         equippedWeaponId: null,
         outfit: null,
@@ -691,6 +695,11 @@ export class Simulation {
       case "moveItem": {
         if (e.kind !== "player") break;
         this.moveItem(e, cmd.from, cmd.to);
+        break;
+      }
+      case "useItem": {
+        if (e.kind !== "player") break;
+        this.useItem(e, cmd.ref);
         break;
       }
       case "setOutfit": {
@@ -982,6 +991,66 @@ export class Simulation {
     this.containers.depositGold(bp, entry.price);
     const tpl = getItemTemplate(inst.templateId);
     this.sysMessage(e.id, `Você vendeu ${tpl?.name ?? "item"} por ${entry.price} de ouro.`);
+  }
+
+  /**
+   * Usa um consumível que o jogador carrega (comida/poção). Resolve a instância
+   * pelo `ItemRef`, lê o efeito do TEMPLATE (dados, não código por item) e aplica:
+   *  - `heal`: cura instantânea (clamp no maxHp) + exausto compartilhado; não
+   *     consome se HP já cheio (anti-misclick) nem durante o exausto.
+   *  - `food`: aplica/estende "Bem Alimentado" (multiplica o regen por duração).
+   * Consome 1 unidade no sucesso. Item sem efeito de uso = ignorado.
+   */
+  private useItem(e: SimEntity, ref: ItemRef): void {
+    // Resolve a instância carregada + como removê-la (consumir 1) ao usar.
+    let instanceId: number | null = null;
+    let consume: (() => void) | null = null;
+    if (ref.kind === "container") {
+      if (!this.containerAccessible(e, ref.containerId)) return;
+      const c = this.containers.get(ref.containerId);
+      const content = c?.slots[ref.slot];
+      if (!c || !content || content.kind !== "item") return;
+      instanceId = content.instanceId;
+      consume = () => { c.slots[ref.slot] = null; };
+    } else if (ref.kind === "equip") {
+      const id = e.equipment[ref.slot];
+      if (id == null) return;
+      instanceId = id;
+      consume = () => { delete e.equipment[ref.slot]; };
+    }
+    if (instanceId == null || !consume) return;
+    const tpl = getItemTemplate(this.items.get(instanceId)?.templateId ?? "");
+    const effect = tpl?.consume;
+    if (!tpl || !effect) return; // nada de efeito de uso → ignora
+
+    if (effect.kind === "heal") {
+      const now = this.now();
+      if (now < e.nextItemUseAt) {
+        this.sysMessage(e.id, "Você ainda está exausto.");
+        return;
+      }
+      if (e.hp >= e.maxHp) {
+        this.sysMessage(e.id, "Você já está com a vida cheia.");
+        return; // não desperdiça por clique acidental
+      }
+      const before = e.hp;
+      e.hp = Math.min(e.maxHp, e.hp + effect.hp);
+      const healed = e.hp - before;
+      // Feedback de cura (número verde) — mesmo formato do snapshot-event de skill.
+      this.pendingChat.push({
+        kind: "heal", skillId: null, casterId: e.id, targetId: e.id,
+        amount: healed, pos: { x: e.pos.x, y: e.pos.y },
+      });
+      e.nextItemUseAt = now + this.quantizeToTickMs(effect.exhaustMs);
+      consume();
+      this.sysMessage(e.id, `Você usou ${tpl.name}.`);
+      return;
+    }
+
+    // effect.kind === "food": saciedade (buff de regen por duração).
+    applyFood(e, this.tickCount, { regenMult: effect.regenMult, durationMs: effect.durationMs });
+    consume();
+    this.sysMessage(e.id, `Você comeu ${tpl.name}.`);
   }
 
   /** Saque rápido de ouro (shift/alt+clique): move a pilha pro bolso (funde). */

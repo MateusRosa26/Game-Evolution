@@ -12,8 +12,12 @@ export {
   projectStatus,
   recomputeStepMs,
   hasStatus,
+  applyFood,
+  wellFedRegenMult,
+  FOOD_SATIETY_CAP_MS,
   type StatusKind,
   type StatusEffect,
+  type FoodParams,
 } from "./status";
 export type { SkillCastCtx, CastResult } from "./executor";
 

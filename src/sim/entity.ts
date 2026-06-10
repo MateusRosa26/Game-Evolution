@@ -59,6 +59,12 @@ export interface SimEntity {
   attackDamage: number;
   /** Cooldown de ataque, em ms. */
   attackCooldownMs: number;
+  /**
+   * ms (tempo lógico) a partir do qual pode usar de novo um consumível de cura
+   * (exausto compartilhado das poções — anti-spam estilo Tibia). Comida não usa
+   * exausto (o teto de saciedade regula). Só players exercitam isto.
+   */
+  nextItemUseAt: number;
   /** True se está morta (aguardando remoção/respawn neste tick). */
   dead: boolean;
 

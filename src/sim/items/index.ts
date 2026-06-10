@@ -10,6 +10,7 @@ export {
   type ItemTag,
   type ItemRarity,
   type WeaponStats,
+  type ConsumeEffect,
   type ItemTemplate,
   ITEM_TEMPLATES,
   getItemTemplate,

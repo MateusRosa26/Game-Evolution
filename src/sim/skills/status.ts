@@ -14,8 +14,19 @@ import { applyDamage } from "../combat";
  * Determinístico: nada de RNG/timers aqui — só contadores de tick.
  */
 
-/** Categorias de status. `poison` já existe tipado p/ Rogue T2 (Lâmina Envenenada). */
-export type StatusKind = "burn" | "slow" | "poison";
+/**
+ * Categorias de status. `poison` já existe tipado p/ Rogue T2 (Lâmina
+ * Envenenada). `wellFed` ("Bem Alimentado") é o buff de saciedade da comida —
+ * multiplica o regen de HP/mana enquanto ativo (loop de sustain Tibia).
+ */
+export type StatusKind = "burn" | "slow" | "poison" | "wellFed";
+
+/**
+ * Teto de saciedade: comer ACUMULA duração de "Bem Alimentado" só até aqui —
+ * acima disso a comida extra é desperdiçada (não dá pra ficar saciado eterno
+ * empanturrando; sem treadmill de comer). ✏️ placeholder — calibrar Balancista.
+ */
+export const FOOD_SATIETY_CAP_MS = 600_000;
 
 /** Instância de um status ativo numa entidade (estado interno da sim). */
 export interface StatusEffect {
@@ -33,6 +44,8 @@ export interface StatusEffect {
   damageType: DamageType;
   /** ── slow ── multiplicador aplicado ao stepMs base (>1 = mais lento). */
   stepMsMultiplier: number;
+  /** ── wellFed ── multiplicador aplicado ao regen de HP/mana (>1 = mais rápido). */
+  regenMultiplier: number;
   /** ID da entidade que aplicou (atribuição do dano do DoT/kill). */
   sourceId: number;
   /** Skill que originou o status (para o evento kill/damage do DoT). */
@@ -88,6 +101,7 @@ export function applyDot(e: SimEntity, currentTick: number, source: SimEntity, s
     nextDamageTick: currentTick + intervalTicks,
     damageType: p.damageType,
     stepMsMultiplier: 1,
+    regenMultiplier: 1,
     sourceId: source.id,
     skillId,
   });
@@ -112,11 +126,56 @@ export function applySlow(e: SimEntity, currentTick: number, p: SlowParams): voi
       nextDamageTick: Number.MAX_SAFE_INTEGER,
       damageType: "ice",
       stepMsMultiplier: p.stepMsMultiplier,
+      regenMultiplier: 1,
       sourceId: 0,
       skillId: null,
     });
   }
   recomputeStepMs(e);
+}
+
+/** Parâmetros para aplicar/estender "Bem Alimentado" (comida). Tempo em ms. */
+export interface FoodParams {
+  /** Multiplicador do regen de HP/mana enquanto saciado (>1 = mais rápido). */
+  regenMult: number;
+  /** Duração que esta porção adiciona à saciedade, em ms. */
+  durationMs: number;
+}
+
+/**
+ * Aplica/estende "Bem Alimentado". Comer ACUMULA a duração restante até o teto
+ * `FOOD_SATIETY_CAP_MS` (não dá pra empanturrar e ficar saciado eterno — sem
+ * treadmill). Mantém o MAIOR multiplicador ativo (comida melhor não é punida por
+ * comer logo após uma pior). Determinístico — só contadores de tick.
+ */
+export function applyFood(e: SimEntity, currentTick: number, p: FoodParams): void {
+  const capTicks = msToTicks(FOOD_SATIETY_CAP_MS);
+  const addTicks = msToTicks(p.durationMs);
+  const existing = e.status.find((s) => s.kind === "wellFed");
+  if (existing) {
+    const remaining = Math.max(0, existing.expiresAtTick - currentTick);
+    existing.expiresAtTick = currentTick + Math.min(capTicks, remaining + addTicks);
+    existing.regenMultiplier = Math.max(existing.regenMultiplier, p.regenMult);
+    return;
+  }
+  e.status.push({
+    kind: "wellFed",
+    expiresAtTick: currentTick + Math.min(capTicks, addTicks),
+    damagePerTick: 0,
+    tickEveryTicks: 0,
+    nextDamageTick: Number.MAX_SAFE_INTEGER,
+    damageType: "physical",
+    stepMsMultiplier: 1,
+    regenMultiplier: p.regenMult,
+    sourceId: 0,
+    skillId: null,
+  });
+}
+
+/** Multiplicador de regen ativo (status "Bem Alimentado"); 1 se não saciado. */
+export function wellFedRegenMult(e: SimEntity): number {
+  const fed = e.status.find((s) => s.kind === "wellFed");
+  return fed ? fed.regenMultiplier : 1;
 }
 
 /** Recalcula `stepMs` efetivo a partir do baseStepMs e do slow ativo. */

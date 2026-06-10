@@ -551,6 +551,7 @@ export class Game {
           {
             close: (id) => this.transport.send({ type: "closeContainer", containerId: id }),
             lootGold: (id, slot) => this.transport.send({ type: "lootGold", containerId: id, slot }),
+            useItem: (ref) => this.transport.send({ type: "useItem", ref }),
           },
           this.tooltip,
           { x: rightX, y: stackY },

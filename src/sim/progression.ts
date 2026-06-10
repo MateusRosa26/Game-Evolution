@@ -3,6 +3,7 @@ import type { CombatContext, EventBus } from "./events";
 import type { SimEntity } from "./entity";
 import type { Tier } from "./bestiary";
 import { DEATH_XP_PENALTY } from "./balance";
+import { wellFedRegenMult } from "./skills/status";
 import { TICK_MS } from "../shared/constants";
 import {
   CLASS_BASE_ATTRIBUTES,
@@ -204,12 +205,15 @@ export function allocateStatPoint(
 
 /**
  * Regeneração por tick de HP e Mana via fórmulas (acumuladores fracionários).
- * Não regenera entidade morta. Chamado a cada tick para o jogador.
+ * O status "Bem Alimentado" (comida) MULTIPLICA a taxa enquanto saciado — é o
+ * loop de sustain Tibia (comer acelera o regen, não o substitui). Não regenera
+ * entidade morta. Chamado a cada tick para o jogador.
  */
 export function regenTick(prog: Progression, entity: SimEntity): void {
   if (entity.dead) return;
+  const fed = wellFedRegenMult(entity);
   if (entity.hp < entity.maxHp) {
-    prog.hpRegenAcc += hpRegenPerSecond(prog.attributes) * SECONDS_PER_TICK;
+    prog.hpRegenAcc += hpRegenPerSecond(prog.attributes) * fed * SECONDS_PER_TICK;
     if (prog.hpRegenAcc >= 1) {
       const whole = Math.floor(prog.hpRegenAcc);
       entity.hp = Math.min(entity.maxHp, entity.hp + whole);
@@ -219,7 +223,7 @@ export function regenTick(prog: Progression, entity: SimEntity): void {
     prog.hpRegenAcc = 0;
   }
   if (entity.mp < entity.maxMp) {
-    prog.manaRegenAcc += manaRegenPerSecond(prog.attributes) * SECONDS_PER_TICK;
+    prog.manaRegenAcc += manaRegenPerSecond(prog.attributes) * fed * SECONDS_PER_TICK;
     if (prog.manaRegenAcc >= 1) {
       const whole = Math.floor(prog.manaRegenAcc);
       entity.mp = Math.min(entity.maxMp, entity.mp + whole);
