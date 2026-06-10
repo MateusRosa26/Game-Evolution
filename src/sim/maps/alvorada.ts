@@ -547,6 +547,10 @@ export function generateAlvoradaMap(): MapData {
   // ════ 9. Nascimento (§3.3 casa inicial) + zona segura ════
   // Spawn DENTRO da casa inicial (Rosa, containers domésticos — sistema vem depois)
   const spawn = { x: 128, y: 124 }; // cidade (28,44), acima da porta (28,46)
+  // Respawn de MORTE = Santuário do Templo (cidade 16,22, no Alto), separado do
+  // nascimento (GRID §3.3): morrer renasce no santuário, não na casa-tutorial.
+  const [rsx, rsy] = city(16, 22);
+  const respawn = { x: rsx, y: rsy };
   torch(126, 122, 6); // lareira da casa — ninguém nasce no breu
   // Zona segura = SÓ interiores específicos (decidido jun/2026): templo, depot,
   // casas de player ✏️, barco ✏️. A cidade NÃO é mais toda segura — combate na rua.
@@ -576,6 +580,7 @@ export function generateAlvoradaMap(): MapData {
     passZones: [],
     buildings,
     spawn,
+    respawn,
     npcSpawns,
     portals: ALVORADA_PORTALS,
     floors: [buildSewerA1()],
@@ -585,35 +590,83 @@ export function generateAlvoradaMap(): MapData {
 // ─────────────────────────── esgotos (z-levels) ───────────────────────────
 
 /**
- * Esgoto A1 (z=-1) — PRIMEIRO CORTE da Fase 1 de andares (SISTEMA-ANDARES).
- * Galeria de pedra úmida sob a cidade: câmara com canal de água servida (rasa,
- * vadeável), poça funda (hazard impassável), pilar de alvenaria antiga
- * (mistério do A2 antecipado) e a escada de volta à grelha da praça. Ratos T1.
- * ✏️ layout de primeiro corte — refinar com GRID §7 (5 bocas, A2/A3, baú lacrado).
+ * Esgoto A1 (z=-1) — Fase 1 de andares (SISTEMA-ANDARES). Já NÃO é um quadrado: é
+ * uma REDE de galerias de alvenaria úmida sob a cidade, ligadas por uma galeria-
+ * espinha com uma TRINCHEIRA de água servida (rasa, vadeável) correndo no meio:
+ *
+ *   • câmara de ENTRADA (plataforma sob o boeiro) no centro;
+ *   • câmara-SUMP a oeste, onde a trincheira despeja numa POÇA FUNDA (hazard);
+ *   • câmara de RUÍNAS ao norte com pilares de alvenaria antiga (telegrafa o A2);
+ *   • câmara LESTE (fundo do trecho, mobs mais fortes) e galeria SUL;
+ *   • tochas nas paredes (o subsolo é breu — §6) e a escada de volta no boeiro.
+ *
+ * Mobs: ratos nas galerias rasas + 1-2 ESQUELETOS (T2) no fundo (ruínas/leste) —
+ * o tier sobe conforme se afasta da entrada (pilar 3). ✏️ refinar com GRID §7
+ * (5 bocas, A2/A3 por buraco/boca, baú lacrado).
  */
-const A1_OX = 112, A1_OY = 94, A1_W = 40, A1_H = 36;
+const A1_OX = 112, A1_OY = 94, A1_W = 46, A1_H = 40;
 function buildSewerA1(): FloorLayer {
   const t: TileId[] = new Array(A1_W * A1_H).fill(TileId.SewerWall);
   const lset = (lx: number, ly: number, tile: TileId) => {
     if (lx >= 0 && ly >= 0 && lx < A1_W && ly < A1_H) t[ly * A1_W + lx] = tile;
   };
-  // câmara: chão de esgoto com borda de 2 tiles de parede
-  for (let ly = 2; ly < A1_H - 2; ly++) for (let lx = 2; lx < A1_W - 2; lx++) lset(lx, ly, TileId.SewerFloor);
-  // canal de água servida (rasa, vadeável) cruzando o meio
-  for (let lx = 2; lx < A1_W - 2; lx++) { lset(lx, 17, TileId.Sewage); lset(lx, 18, TileId.Sewage); }
-  // poça funda (impassável — custo de fuga / arrepio)
-  for (let ly = 24; ly <= 27; ly++) for (let lx = 28; lx <= 31; lx++) lset(lx, ly, TileId.DeepWater);
-  // pilares de alvenaria antiga (telegrafa o A2)
-  lset(8, 8, TileId.OldMasonryWall); lset(9, 8, TileId.OldMasonryWall); lset(30, 30, TileId.OldMasonryWall);
+  const room = (x0: number, y0: number, x1: number, y1: number, tile: TileId) => {
+    for (let ly = y0; ly <= y1; ly++) for (let lx = x0; lx <= x1; lx++) lset(lx, ly, tile);
+  };
+
+  // ── CÂMARAS (chão de esgoto) ──
+  room(22, 18, 31, 30, TileId.SewerFloor); // A — entrada (plataforma sob o boeiro)
+  room(4, 16, 15, 29, TileId.SewerFloor);  // B — câmara-sump (oeste)
+  room(18, 4, 30, 13, TileId.SewerFloor);  // C — ruínas (norte)
+  room(33, 19, 43, 31, TileId.SewerFloor); // D — câmara leste (fundo)
+  room(17, 31, 29, 37, TileId.SewerFloor); // E — galeria sul
+
+  // ── CORREDORES (3 de largura) ligando as câmaras à espinha ──
+  room(13, 22, 22, 24, TileId.SewerFloor); // espinha oeste  A↔B
+  room(31, 22, 34, 24, TileId.SewerFloor); // espinha leste  A↔D
+  room(24, 13, 26, 18, TileId.SewerFloor); // ligação norte  A↔C
+  room(23, 30, 25, 31, TileId.SewerFloor); // ligação sul    A↔E
+
+  // ── TRINCHEIRA de água servida na espinha (y23), fora das câmaras ──
+  for (let lx = 12; lx <= 21; lx++) lset(lx, 23, TileId.Sewage); // oeste (sump → A)
+  for (let lx = 32; lx <= 41; lx++) lset(lx, 23, TileId.Sewage); // leste (A → D)
+  // POÇA FUNDA: a trincheira oeste despeja no sump da câmara B (impassável)
+  room(6, 20, 11, 26, TileId.DeepWater);
+
+  // ── RUÍNAS de alvenaria antiga (telegrafa o A2) + pilares de galeria ──
+  lset(21, 6, TileId.OldMasonryWall); lset(22, 6, TileId.OldMasonryWall);
+  lset(27, 9, TileId.OldMasonryWall); lset(26, 10, TileId.OldMasonryWall);
+  lset(24, 5, TileId.OldMasonryWall);
+  lset(25, 21, TileId.OldMasonryWall); lset(29, 28, TileId.OldMasonryWall); // pilares na entrada
+
+  lset(26, 24, TileId.SewerFloor); // garante chão sob o boeiro (landing seco)
+
   const wx = (lx: number) => A1_OX + lx, wy = (ly: number) => A1_OY + ly;
+  const decor: MapDecor[] = [];
+  const lights: MapLight[] = [];
+  // tocha de parede: sprite + luz quente trêmula (mesmo padrão da superfície)
+  const torch = (lx: number, ly: number, radius = 5) => {
+    decor.push({ x: wx(lx), y: wy(ly), kind: "torch" });
+    lights.push({ x: wx(lx), y: wy(ly), color: 0xffa14e, radius, intensity: 0.85, flicker: true });
+  };
+  torch(26, 17); // entrada (norte)
+  torch(21, 19); torch(32, 19); // flancos da entrada
+  torch(3, 22, 6); // câmara-sump
+  torch(24, 3, 6); // ruínas
+  torch(44, 25, 6); // câmara leste
+  torch(16, 34); // galeria sul
+
   return {
     z: -1, ox: A1_OX, oy: A1_OY, width: A1_W, height: A1_H,
     tiles: t,
-    lights: [], decor: [],
+    lights, decor,
     monsters: [
-      { x: wx(12), y: wy(8), species: "rato_lanhoso" },
-      { x: wx(26), y: wy(10), species: "rato_lanhoso" },
-      { x: wx(14), y: wy(28), species: "rato_lanhoso" },
+      { x: wx(27), y: wy(20), species: "rato_lanhoso" }, // entrada
+      { x: wx(13), y: wy(18), species: "rato_lanhoso" }, // sump
+      { x: wx(20), y: wy(34), species: "rato_lanhoso" }, // galeria sul
+      { x: wx(37), y: wy(22), species: "rato_lanhoso" }, // espinha leste
+      { x: wx(24), y: wy(9), species: "esqueleto" },     // ruínas (T2 — fundo)
+      { x: wx(40), y: wy(28), species: "esqueleto" },    // câmara leste (T2 — fundo)
     ],
     // escada de volta EXATAMENTE embaixo do boeiro (138,118) → sobe pra praça
     portals: [{ x: 138, y: 118, kind: "stairs", to: { x: 138, y: 118, z: 0 } }],

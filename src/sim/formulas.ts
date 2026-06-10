@@ -152,6 +152,7 @@ const STRENGTH_DAMAGE_FACTOR = 1.0; // ✏️ placeholder — calibrar no M2
 const DEXTERITY_DAGGER_FACTOR = 1.2; // ✏️ placeholder — calibrar no M2 (adagas escalam com Des)
 const INTELLIGENCE_DAMAGE_FACTOR = 1.1; // ✏️ placeholder — calibrar no M2
 const SPIRIT_HEAL_FACTOR = 1.3; // ✏️ placeholder — calibrar no M2
+const SPIRIT_DAMAGE_FACTOR = 1.1; // ofensiva SAGRADA escala Espírito (decidido 09/jun) — ✏️ calibrar
 
 /**
  * Dano físico de uma arma. `weaponBase` é o dano-base da arma (M1: do bestiário
@@ -176,6 +177,29 @@ export function physicalDamage(
  */
 export function magicDamage(attrs: Attributes, spellBase: number): number {
   return Math.floor(spellBase + attrs.intelligence * INTELLIGENCE_DAMAGE_FACTOR); // ✏️ placeholder — calibrar no M2
+}
+
+/**
+ * Dano de uma skill SAGRADA (holy ofensiva — Luz Sagrada, Consagrar…). Escala
+ * com **Espírito**, não Inteligência (decidido 09/jun/2026 — resolve o conflito
+ * do doc a favor do de-classing: o sagrado é gate por Esp+nível e o Priest é o
+ * melhor conjurador sagrado porque seu corpo automático bomba Espírito).
+ * Espelha `magicDamage`, trocando o atributo. Cura segue em `healPower`.
+ */
+export function holyDamage(attrs: Attributes, spellBase: number): number {
+  return Math.floor(spellBase + attrs.spirit * SPIRIT_DAMAGE_FACTOR);
+}
+
+/**
+ * Dano do auto-attack de arma MÁGICA (wand/cetro). NÃO escala com nenhum
+ * atributo: o dano vem da PRÓPRIA arma, numa faixa fixa `[min, max]` (decidido
+ * 09/jun/2026, modelo Tibia — a progressão do tiro básico do caster vem de
+ * comprar wands melhores, como o guerreiro troca de arma). `roll` ∈ [0,1) vem
+ * do RNG seedado da Simulation (mantém esta função pura). Custo de mana por
+ * tiro mora em `WeaponStats.manaCost` (aplicado na Simulation, não aqui).
+ */
+export function wandDamage(min: number, max: number, roll: number): number {
+  return min + Math.floor(roll * (max - min + 1));
 }
 
 /**

@@ -1,7 +1,7 @@
 import type { CreatureFamily, Facing, Vec2 } from "../../shared/types";
 import type { SimEntity } from "../entity";
 import { actorRef, applyDamage, applyHeal, chebyshev, type CombatCtx, type WeaponSource } from "../combat";
-import { magicDamage, physicalDamage, healPower } from "../formulas";
+import { magicDamage, physicalDamage, healPower, holyDamage } from "../formulas";
 import type { Progression } from "../progression";
 import type { SkillDef } from "./types";
 import { SKILLS } from "./definitions";
@@ -130,8 +130,12 @@ function computeDamage(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, targ
     }
     return physicalDamage(ctx.prog.attributes, ctx.weaponBase + def.power);
   }
-  // mágico
-  let dmg = magicDamage(ctx.prog.attributes, def.power);
+  // mágico — ofensiva SAGRADA (damageType "holy") escala ESPÍRITO; demais
+  // elementos escalam Inteligência. (Decidido 09/jun/2026 — o Priest é o melhor
+  // conjurador sagrado porque seu corpo bomba Esp; um Mage Int-pesado faz Luz fraca.)
+  let dmg = def.damageType === "holy"
+    ? holyDamage(ctx.prog.attributes, def.power)
+    : magicDamage(ctx.prog.attributes, def.power);
   if (def.id === "luz_sagrada" && isUnholy(target)) {
     dmg = Math.floor(dmg * LUZ_SAGRADA.unholyMultiplier);
   }

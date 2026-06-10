@@ -1,4 +1,5 @@
 import type { DamageType, PlayerClass } from "../../shared/types";
+import { WAND_RANGE } from "../balance";
 
 /**
  * Templates de item como DADOS, não código (DESIGN-EVOLUCAO.md §"Implicações
@@ -71,13 +72,40 @@ export interface WeaponStats {
    * a `formulas.attackCooldownMs(attrs, base)` (a Destreza reduz). ✏️ calibrar M2.
    */
   baseCooldownMs: number;
-  /** Tipo de dano do auto-attack desta arma (M1: todas físicas). */
+  /** Tipo de dano do auto-attack desta arma (físicas = "physical"; wands = "arcane"). */
   damageType: DamageType;
   /**
    * Auto-attack/skills desta arma escalam com Destreza em vez de Força?
    * (adagas — DESIGN-EVOLUCAO.md §Stats: "dano de adagas/distância" = Destreza).
    */
   usesDexterity: boolean;
+  /**
+   * Arma MÁGICA (wand/cetro)? Quando `true`, o auto-attack:
+   *  - NÃO escala com nenhum atributo (o dano é da PRÓPRIA arma);
+   *  - rola uniformemente na faixa `[damageMin, damageMax]` por tiro;
+   *  - CUSTA `manaCost` de mana por tiro (sem mana = não dispara);
+   *  - tem cadência FIXA (`baseCooldownMs` sem redução por Destreza).
+   * `baseDamage` é IGNORADO no auto quando `magic` é `true`.
+   * (Decidido 09/jun/2026, modelo Tibia. Faixa/custo = placeholder ✏️ Balancista.)
+   */
+  magic?: boolean;
+  /** Dano mínimo do tiro mágico (só `magic`). */
+  damageMin?: number;
+  /** Dano máximo do tiro mágico (só `magic`). */
+  damageMax?: number;
+  /**
+   * Mana gasta por tiro do auto mágico (só `magic`). SOBE COM O TIER da wand
+   * (decidido jun/2026): wand mais forte custa mais mana/tiro — uma wand de tier
+   * alto NÃO se banca só no regen de um mago que não investiu em mana, criando
+   * tensão de stat/gear. Ladder T1→T5 ✏️ Balancista (T1 = 2). Ver EQUIPAMENTO.md.
+   */
+  manaCost?: number;
+  /**
+   * Alcance do auto-attack em tiles (Chebyshev). Ausente = melee (`MELEE_RANGE`,
+   * 1). Wands usam `WAND_RANGE` (ranged, porém < arco). ✏️ arco/besta usam
+   * `BOW_RANGE` quando o projétil for numerado.
+   */
+  range?: number;
 }
 
 /** Template declarativo de um item (a parte compartilhada/imutável). */
@@ -171,9 +199,12 @@ export const CLAVA: ItemTemplate = {
   weapon: { baseDamage: 6, baseCooldownMs: 2100, damageType: "physical", usesDexterity: false },
 };
 
-/** Cajado simples — kit do Mage. PLACEHOLDER: o design pede auto-attack mágico
- *  com dano FIXO em faixa por tier (7–9 no T1, não escala Int — DESIGN-ITENS);
- *  a sim ainda trata como físico. Numerar quando o auto mágico fixo entrar. */
+/** Cajado simples — kit do Mage. Auto-attack MÁGICO: dano FIXO em faixa, não
+ *  escala atributo, custa mana por tiro (modelo Tibia, decidido 09/jun/2026).
+ *  CALIBRADO (bateria wand 09/jun, `docs/reports/2026-06-09-bateria-wand.md`):
+ *  faixa 8–12 / mana 2 / cd 2,2s → auto-only mata o Esqueleto on-level em ~20s
+ *  e sobrevive (resolve o achado #1 ">60s = inútil"); a mana sustenta no regen.
+ *  É o FILLER do mago — a força real mora nas magias (burst). */
 export const CAJADO_SIMPLES: ItemTemplate = {
   id: "cajado_simples",
   name: "Cajado Simples",
@@ -181,7 +212,17 @@ export const CAJADO_SIMPLES: ItemTemplate = {
   slot: "weapon",
   tags: ["cajado"],
   rarity: "common",
-  weapon: { baseDamage: 3, baseCooldownMs: 2200, damageType: "physical", usesDexterity: false },
+  weapon: {
+    baseDamage: 0, // ignorado no auto mágico
+    baseCooldownMs: 2200,
+    damageType: "arcane",
+    usesDexterity: false,
+    magic: true,
+    damageMin: 8, // calibrado (bateria wand 09/jun)
+    damageMax: 12, // calibrado (bateria wand 09/jun)
+    manaCost: 2, // T1 baseline — sobe com o tier da wand (criador 09/jun)
+    range: WAND_RANGE, // ranged, porém < arco
+  },
 };
 
 /** Adaga — kit do Rogue (rito/vendor). A mais rápida do T1 (TTK 1,45s):
@@ -196,7 +237,10 @@ export const ADAGA: ItemTemplate = {
   weapon: { baseDamage: 5, baseCooldownMs: 1600, damageType: "physical", usesDexterity: true },
 };
 
-/** Cetro — kit do Priest. Baixo dano físico (o Priest luta com magia sagrada). */
+/** Cetro — kit do Priest. Auto-attack MÁGICO igual à wand (faixa fixa, sem
+ *  escala de atributo, custa mana); o Priest fecha o dano forte com magia
+ *  sagrada (skills). Mesma faixa do cajado (bateria wand 09/jun) — Priest tem
+ *  Espírito alto, então o regen sustenta o auto com ainda mais folga. */
 export const CETRO: ItemTemplate = {
   id: "cetro",
   name: "Cetro",
@@ -204,7 +248,17 @@ export const CETRO: ItemTemplate = {
   slot: "weapon",
   tags: ["cetro"],
   rarity: "common",
-  weapon: { baseDamage: 3, baseCooldownMs: 2200, damageType: "physical", usesDexterity: false },
+  weapon: {
+    baseDamage: 0, // ignorado no auto mágico
+    baseCooldownMs: 2200,
+    damageType: "arcane",
+    usesDexterity: false,
+    magic: true,
+    damageMin: 8, // calibrado (bateria wand 09/jun)
+    damageMax: 12, // calibrado (bateria wand 09/jun)
+    manaCost: 2, // T1 baseline — sobe com o tier da wand (criador 09/jun)
+    range: WAND_RANGE, // ranged, porém < arco
+  },
 };
 
 /**

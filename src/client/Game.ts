@@ -90,7 +90,7 @@ export class Game {
   private journal = new JournalPanel();
   private tooltip = new Tooltip();
   private equipPanel = new EquipPanel(this.dnd, this.tooltip);
-  private minimap = new Minimap();
+  private minimap!: Minimap;
   /** Janelas de container abertas, por containerId. */
   private containerWins = new Map<number, ContainerWindow>();
   private lastCorpses: Snapshot["corpses"] = [];
@@ -103,6 +103,10 @@ export class Game {
   /** Camada de UI — SEMPRE acima da iluminação (que é multiply sobre o mundo). */
   private uiLayer = new Container();
   private worldRenderer: WorldRenderer | null = null;
+  /** Cache de render por ANDAR (z): construir os chunks de RenderTexture é caro, então
+   *  cada andar é montado UMA vez e depois só alterna visibilidade — troca de andar
+   *  vira O(1) (antes destruía+reconstruía os ~484 chunks da superfície = hitch). */
+  private floorCache = new Map<number, { world: WorldRenderer; entities: EntityRenderer }>();
   /** Mapa base (z=0, com floors) e o andar atualmente renderizado. */
   private baseMap: MapData | null = null;
   private renderZ = 0;
@@ -127,6 +131,8 @@ export class Game {
     private transport: ClientTransport,
   ) {
     this.sprites = createSprites();
+    // Minimapa desenha no GPU (RenderTexture do andar) → precisa do renderer já pronto.
+    this.minimap = new Minimap(this.app.renderer);
 
     this.tileCursor = new Sprite(this.sprites.tileCursor);
     this.tileCursor.alpha = 0.55;
@@ -335,6 +341,7 @@ export class Game {
     this.app.stage.addChild(this.worldContainer);
 
     this.entityRenderer = new EntityRenderer(this.sprites, this.worldRenderer.objects, this.playerId);
+    this.floorCache.set(this.renderZ, { world: this.worldRenderer, entities: this.entityRenderer });
 
     this.lighting = new Lighting(this.sprites, this.app.screen.width, this.app.screen.height);
     this.lighting.setMapLights(map.lights);
@@ -388,31 +395,39 @@ export class Game {
   }
 
   /**
-   * Troca o ANDAR renderizado (Fase 1): reconstrói o WorldRenderer com os tiles do
-   * andar `z`, recria o EntityRenderer apontando pra nova camada de objetos e
-   * troca a cor ambiente (breu do subsolo). Chamado quando o z do player muda.
+   * Troca o ANDAR renderizado (Fase 1) por VISIBILIDADE, não rebuild: destaca os
+   * containers do andar atual do mundo (sem destruir os chunks) e anexa os do andar
+   * `z` — construído UMA vez e cacheado em `floorCache`. Recria só a luz/ambiente e
+   * aponta o EntityRenderer cacheado do andar. Troca vira O(1) (era o hitch da descida/
+   * subida, que destruía+reconstruía centenas de RenderTextures por troca).
    */
   private rebuildWorldFor(z: number): void {
     if (!this.baseMap) return;
     const { map: fmap, ambient } = floorAsMap(this.baseMap, z);
     const wc = this.worldContainer;
-    const old = this.worldRenderer;
-    wc.removeChildren(); // tira ground/shadows/tileCursor/objects/roofs (tileCursor é do Game)
-    if (old) {
-      old.ground.destroy({ children: true });
-      old.shadows.destroy({ children: true });
-      old.objects.destroy({ children: true }); // destrói sprites de entidade antigos
-      old.roofs.destroy({ children: true });
+    // destaca o andar atual (NÃO destrói — fica vivo no cache pra voltar instantâneo)
+    const cur = this.worldRenderer;
+    if (cur) { wc.removeChild(cur.ground, cur.shadows, cur.objects, cur.roofs); }
+    wc.removeChild(this.tileCursor);
+
+    let cached = this.floorCache.get(z);
+    if (!cached) {
+      const world = new WorldRenderer(this.sprites, fmap, this.app.renderer);
+      const entities = new EntityRenderer(this.sprites, world.objects, this.playerId);
+      cached = { world, entities };
+      this.floorCache.set(z, cached);
     }
-    this.worldRenderer = new WorldRenderer(this.sprites, fmap, this.app.renderer);
-    wc.addChild(this.worldRenderer.ground);
-    wc.addChild(this.worldRenderer.shadows);
+    this.worldRenderer = cached.world;
+    this.entityRenderer = cached.entities;
+    wc.addChild(cached.world.ground);
+    wc.addChild(cached.world.shadows);
     wc.addChild(this.tileCursor);
-    wc.addChild(this.worldRenderer.objects);
-    wc.addChild(this.worldRenderer.roofs);
-    this.entityRenderer = new EntityRenderer(this.sprites, this.worldRenderer.objects, this.playerId);
+    wc.addChild(cached.world.objects);
+    wc.addChild(cached.world.roofs);
+
     this.lighting?.setMapLights(fmap.lights);
     this.lighting?.setAmbient(ambient);
+    this.minimap.setMap(fmap); // minimapa segue o andar ativo (névoa por z)
     this.renderZ = z;
   }
 

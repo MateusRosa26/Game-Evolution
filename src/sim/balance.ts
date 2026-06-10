@@ -33,5 +33,19 @@ export const DEATH_XP_PENALTY = 0.1;
 /** Combate geral */
 /** Alcance melee em tiles (Chebyshev: adjacente incl. diagonal = 1). */
 export const MELEE_RANGE = 1;
+
+/**
+ * Alcances das armas À DISTÂNCIA, em tiles (Chebyshev). Decidido (criador,
+ * jun/2026): a **wand É ranged, mas alcança MENOS que o arco** — o caster
+ * cutuca e kita de perto; o arqueiro DOMINA a distância longa (e paga em
+ * munição/gold, não mana). Mantém os dois nichos separados.
+ *
+ * REGRA TRAVADA: `WAND_RANGE < BOW_RANGE`. O arco ainda não foi numerado na sim
+ * (EQUIPAMENTO.md "✏️ numerar com projétil"); quando entrar, seu alcance DEVE
+ * ficar acima de `WAND_RANGE` (alvo recomendado 5). ⚠️ Sem checagem de linha de
+ * visão ainda — alcance é Chebyshev puro; LoS/projétil é wave futura.
+ */
+export const WAND_RANGE = 3; // cajado/cetro
+export const BOW_RANGE = 5; // ✏️ arco/besta (quando numerar o projétil) — DEVE ser > WAND_RANGE
 /** Ticks que um corpo (overlay visual) permanece antes de sumir. 0 = sem corpo. */
 export const CORPSE_TICKS = 0;

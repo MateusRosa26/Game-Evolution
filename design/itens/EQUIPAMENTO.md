@@ -76,6 +76,8 @@ Dano físico tem 3 subtipos: **corte** (espada/machado), **impacto** (maça), **
 - **Wand 1H × Cajado 2H — escolha de loadout do caster.** Wand 1H: dano fixo menor, libera a off-hand (livro/escudo). Cajado 2H: dano fixo maior, ocupa as duas mãos — e **conta para o caminho *Duas Mãos, Nenhuma Dúvida***. O caster participa do mesmo tradeoff de mãos do marcial.
 - **Cetro = a wand do elemento sagrado** (1H, dano fixo holy) — arquétipo e kit inicial do Priest, **sem trava de classe**: como o auto-attack mágico é fixo por tier (não escala com Int/Esp), um Mage com cetro caçando undead é loadout situacional legítimo; a essência de Priest mora nos stats secundários do cetro (+poder de cura). Wands/cajados vêm **por elemento** (cajado de fogo, wand de gelo…) — o auto-attack mágico carrega tipo elemental.
 - **Livro de magia (off-hand): stats variados por livro.** É o "escudo do caster" com personalidade: cada livro dá um pacote autoral (+mana e regen de mana · +resist mágica · +poder de cura…). Escolha de livro = expressão de build; espaço para livros raros memoráveis. Sem fórmula fixa por tier.
+- **Wand/cajado/cetro são RANGED, mas alcançam MENOS que o arco (decidido jun/2026).** O caster cutuca e kita de perto; o **arqueiro domina a distância longa** (e paga em munição/gold, não mana). Regra travada `WAND_RANGE(3) < BOW_RANGE(5)` em `balance.ts`. Parado, o range é quase neutro; seu valor é o **kite** (expressão de habilidade — pilar 7). ⚠️ sem linha de visão ainda (alcance Chebyshev puro; projétil/LoS = wave futura).
+- **Custo de mana do auto mágico SOBE com o tier da wand (decidido jun/2026).** A wand não escala atributo, mas o **custo/tiro cresce por tier** — uma wand de tier alto não se banca só no regen de um mago que não investiu em mana, criando tensão de stat/gear. Ladder (proposta ✏️ Balancista, ancorada no regen ~4,8/janela): **T1 = 2** (travado) · T2 ~3 · T3 ~5 · T4 ~7 · T5 ~9. Report `docs/reports/2026-06-09-bateria-wand.md`.
 
 ### Amarras já decididas (referência)
 
@@ -155,8 +157,8 @@ Leituras de design:
 | Maça | **Clava** | Club | rito/vendor | **6 @2,1s** (identidade no subtipo impacto) |
 | Adaga | **Adaga** | Dagger | rito/vendor (a 2ª no vendor = dual wield) | **5 @1,6s, Des** (a mais rápida: TTK 1,45s) |
 | Arco | **Arco Curto** | Short Bow | rito/vendor | ✏️ perfil rápido — numerar com projétil na sim |
-| Cajado | **Cajado de Fogo** / **Cajado de Gelo** | Fire Staff / Ice Staff | rito (escolha); o outro no vendor | faixa fixa **7–9 @2,1s** ✏️ validar com auto mágico fixo |
-| Cetro | **Cetro** | Scepter | rito/vendor | faixa fixa **6–8 @2,1s** ✏️ idem |
+| Cajado | **Cajado de Fogo** / **Cajado de Gelo** | Fire Staff / Ice Staff | rito (escolha); o outro no vendor | **CALIBRADO**: faixa fixa **8–12 @2,2s, mana 2/tiro, alcance 3** (bateria wand 09/jun). _Código: starter `cajado_simples` genérico (tipo `arcane`); o tipo elemental (fogo/gelo) segue quando os cajados por-elemento forem separados no roster._ |
+| Cetro | **Cetro** | Scepter | rito/vendor | **CALIBRADO**: igual ao cajado — **8–12 @2,2s, mana 2/tiro, alcance 3** (bateria wand 09/jun). _Tipo `arcane` no código (holy quando o roster por-elemento entrar)._ |
 | Luva | **Luvas de Couro** | Leather Gloves | rito (a opção-hint) / vendor | sem dano (luva não é arma — decidido) |
 | Escudo | **Escudo de Madeira** | Wooden Shield | rito Knight / vendor (sem trava) | **Def 0** — escudo T1 paga em BLOQUEIO (ver Vestir abaixo) |
 

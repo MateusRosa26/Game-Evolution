@@ -93,7 +93,7 @@ export class Px {
  * tufos, pedrinhas, gravetos, flores, rachaduras. Fundo transparente; o
  * WorldRenderer estampa por tile com offset aleatório e densidade por terreno.
  */
-function makeScatterDecals(): { grass: Texture[]; dirt: Texture[]; stone: Texture[] } {
+export function makeScatterDecals(): { grass: Texture[]; dirt: Texture[]; stone: Texture[]; sewer: Texture[]; cave: Texture[] } {
   const make = (w: number, h: number, seed: number, draw: (p: Px, rng: Rng) => void): Texture => {
     const p = new Px(w, h);
     draw(p, mulberry32(seed));
@@ -164,10 +164,38 @@ function makeScatterDecals(): { grass: Texture[]; dirt: Texture[]; stone: Textur
       if (rng() < 0.4) p.px(x, y + 1, PAL.stoneDark);
     }
   });
+  // ── decais de SUBSOLO ──────────────────────────────────────────────
+  // limo: mancha de musgo úmido (base verde-escura + brilho), sombra de contato
+  const moss = (seed: number) => make(9, 7, seed, (p, rng) => {
+    p.ellipse(4, 4, 3, 2, "#2c3724"); // sombra/base
+    p.ellipse(4, 3, 3, 2, "#36442b");
+    for (let i = 0; i < 7; i++) p.px(1 + Math.floor(rng() * 7), 1 + Math.floor(rng() * 4), rng() < 0.5 ? "#47592f" : "#3d4d29");
+    p.px(3, 2, "#5a6d3c"); // ponta iluminada
+  });
+  // poça: lâmina d'água parada — escura, reflexo de luz no topo-esq (lê como água)
+  const puddle = (seed: number) => make(15, 10, seed, (p) => {
+    p.ellipse(7, 5, 6, 4, "#161d24"); // água escura
+    p.ellipse(7, 5, 5, 3, "#202c35");
+    p.ellipse(7, 5, 3, 1, "#2b3a45"); // fundo
+    p.rect(4, 3, 3, 1, "#4f6271"); // reflexo de luz na lâmina
+    p.px(5, 4, "#3a4c5a");
+  });
+  // mancha úmida: respingo escuro irregular (alvenaria molhada)
+  const damp = (dark: string) => (seed: number) => make(10, 8, seed, (p, rng) => {
+    for (let i = 0; i < 12; i++) p.px(Math.floor(rng() * 10), Math.floor(rng() * 8), dark);
+  });
+  // mineral: lasca clara que brilha na rocha da caverna
+  const mineral = (seed: number) => make(5, 4, seed, (p, rng) => {
+    p.px(2, 1, "#7c8aa0"); p.px(2, 2, "#9aa6ba"); p.px(1, 2, "#6a7689");
+    if (rng() < 0.5) p.px(3, 2, "#8893a6");
+  });
   return {
     grass: [tuft(11), tuft(12), tuft(13), pebble(21), twig(31), flower(41), flower(42), clover(51), clover(52)],
     dirt: [pebble(22), pebble(23), twig(32), crack("#2e2418")(61), rubble(PAL.dirtStone, PAL.dirtLight)(71), twig(33)],
     stone: [crack(PAL.stoneCrack)(62), rubble(PAL.stoneDark, PAL.stoneLight)(72), pebble(24)],
+    // limo > poça (poça mais rara): musgo repetido pesa a probabilidade pro limo
+    sewer: [moss(81), moss(82), moss(83), damp("#2a3340")(84), puddle(85), pebble(25)],
+    cave: [rubble("#5a5040", "#8a7f68")(86), crack("#1c1710")(87), mineral(88), rubble("#4a4234", "#6e6450")(89)],
   };
 }
 
@@ -312,6 +340,84 @@ function makeStoneField(seed: number): Texture[] {
   return sliceField(p.texture());
 }
 
+// Chão de SUBSOLO (esgoto/caverna): rocha ORGÂNICA mosqueada — lumps arredondados
+// encaixados, NÃO laje retangular (que repetiria igual à pedra da cidade). Mesmo
+// motor Voronoi-toroidal do piso de pedra, mas sombreado como MONTÍCULO: o centro
+// do lump pega luz (topo-esq), recesso fundo entre lumps → rocha úmida e abaulada.
+// Limo (blobs verdes) e poças (brilho úmido) são camadas opcionais por cima — o
+// chão "vivo" do esgoto sem repetir a superfície. Fecha seamless em 128 (toroidal).
+export interface RockOpts {
+  base: { r: number; g: number; b: number };
+  joint: string; // recesso fundo entre lumps
+  pebble: string; // cascalho solto (specks claros)
+  gs: number; // tamanho médio do lump (px) — menor = cobble miúdo
+}
+
+function makeOrganicRockField(seed: number, o: RockOpts): Texture[] {
+  return sliceField(buildRockField(seed, o).texture());
+}
+
+/** Desenha o campo 128×128 de rocha orgânica (separado p/ preview de dev). */
+export function buildRockField(seed: number, o: RockOpts): Px {
+  const rng = mulberry32(seed);
+  const p = new Px(FIELD, FIELD);
+  const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
+  const { r: BR, g: BG, b: BB } = o.base;
+  const cols = Math.round(FIELD / o.gs), rows = Math.round(FIELD / o.gs);
+  const cw = FIELD / cols, ch = FIELD / rows;
+  const seeds: { x: number; y: number; tone: number }[] = [];
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      seeds.push({
+        x: (c + 0.5) * cw + (hash2D(c, r, seed) - 0.5) * cw * 0.92,
+        y: (r + 0.5) * ch + (hash2D(c, r, seed + 1) - 0.5) * ch * 0.92,
+        tone: 0.9 + hash2D(c, r, seed + 2) * 0.16, // variação de valor CALMA (não patchwork)
+      });
+  const half = FIELD / 2;
+  const [JR, JG, JB] = hexRgb(o.joint);
+  const TAU = Math.PI * 2;
+  for (let y = 0; y < FIELD; y++) {
+    for (let x = 0; x < FIELD; x++) {
+      // DOMAIN WARP periódico (seamless): ondula a coord antes do Voronoi → fronteiras
+      // orgânicas, não reta de "crazy-paving". wx depende só de y e wy só de x → fecha em 128.
+      const wx = x + Math.sin((TAU * 3 * y) / FIELD + seed) * 2.4 + Math.sin((TAU * 7 * y) / FIELD) * 1.1;
+      const wy = y + Math.cos((TAU * 3 * x) / FIELD + seed) * 2.4 + Math.cos((TAU * 7 * x) / FIELD) * 1.1;
+      // 1º e 2º vizinhos (distância TOROIDAL) → fronteira = sqrt(d2) − sqrt(d1)
+      let b1 = 1e9, b2 = 1e9, id = 0, sox = 0, soy = 0;
+      for (let i = 0; i < seeds.length; i++) {
+        let dx = wx - seeds[i].x; if (dx > half) dx -= FIELD; else if (dx < -half) dx += FIELD;
+        let dy = wy - seeds[i].y; if (dy > half) dy -= FIELD; else if (dy < -half) dy += FIELD;
+        const d = dx * dx + dy * dy;
+        if (d < b1) { b2 = b1; b1 = d; id = i; sox = dx; soy = dy; }
+        else if (d < b2) { b2 = d; }
+      }
+      const s = seeds[id];
+      const edge = Math.sqrt(b2) - Math.sqrt(b1); // ~0 na fronteira entre lumps
+      // corpo do lump: mid-tone CALMO + volume leve (topo-esq) + grão fino dois-lados —
+      // SEM rim claro (era o que dava cara de cerâmica trincada).
+      const dir = -(sox + soy) * 0.42;
+      const grain = (hash2D(x, y, seed + 7) - 0.5) * 9;
+      let R = BR * s.tone + dir + grain, G = BG * s.tone + dir + grain, B = BB * s.tone + dir + grain;
+      // recesso ESCURO e SUAVE entre os lumps (gradiente p/ a junta, não linha dura) —
+      // é a sombra que arredonda a pedra e dá a leitura "rocha úmida abaulada". Junta
+      // ESTREITA e não-100% inky (t teto 0.85) → grout sutil, pedra miúda.
+      if (edge < 2.6) {
+        const t = (1 - edge / 2.6) * 0.85; // 0..0.85 (não chega ao preto puro)
+        R = R * (1 - t) + JR * t; G = G * (1 - t) + JG * t; B = B * (1 - t) + JB * t;
+      }
+      p.px(x, y, `rgb(${cb(R)},${cb(G)},${cb(B)})`);
+    }
+  }
+  // cascalho solto: specks esparsos (pegam luz / caem na junta) — sem virar grade.
+  // Limo e poças NÃO entram aqui: vêm da camada de SCATTER por tile (makeScatterDecals)
+  // → evitam a repetição em grade que aparecia ao bakear no campo de 128.
+  for (let i = 0; i < 90; i++) {
+    const x = rng() * FIELD | 0, y = rng() * FIELD | 0;
+    p.px(x, y, rng() < 0.5 ? o.pebble : o.joint);
+  }
+  return p;
+}
+
 function makeBridge(seed: number): Texture {
   const rng = mulberry32(seed);
   const p = new Px(32, 32);
@@ -392,56 +498,48 @@ function makeWaterFrames(): Texture[] {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Subsolo / dungeon — PLACEHOLDERS procedurais (SISTEMA-ANDARES.md).
-// Travam o contrato de TileId; a arte final vem do PixelLab (create-tileset)
-// sem mudar os IDs. Reaproveitam a lógica de chão/água/autotile da cidade,
-// só parametrizando a paleta — distintos e legíveis, não finais.
+// Subsolo / dungeon — PROCEDURAL (SISTEMA-ANDARES.md). Chão de rocha orgânica
+// (makeOrganicRockField, abaixo) + água suja + paredes dimensionais. Mesma
+// qualidade de volume do terreno da superfície; tilesets PixelLab descartados
+// (jun/2026) por chaparem e repetirem — o procedural é mais bonito e seamless.
 // ──────────────────────────────────────────────────────────────────────
 
-interface FloorPal { base: string; mid: string; dark: string; light: string; crack: string; }
 interface MurkyPal { base: string; mid: string; dark: string; light: string; foam: string; }
 interface DWallPal { top: string; topHi: string; joint: string; face: string; faceHi: string; faceDark: string; accent: string; }
 
-// Chão em lajota "running bond" parametrizado (mesma estrutura do makeStoneFloor).
-function makeDungeonFloor(seed: number, pal: FloorPal): Texture {
-  const rng = mulberry32(seed);
-  const p = new Px(32, 32);
-  p.fill(pal.base);
-  for (let row = 0; row < 2; row++) {
-    const offset = row % 2 === 0 ? 0 : 8;
-    for (let col = -1; col < 3; col++) {
-      const x = col * 16 + offset;
-      const y = row * 16;
-      const tone = rng();
-      if (tone < 0.35) p.rect(x + 1, y + 1, 15, 15, pal.mid);
-      else if (tone > 0.85) p.rect(x + 1, y + 1, 15, 15, pal.light);
-      p.rect(x, y, 16, 1, pal.dark);
-      p.rect(x, y, 1, 16, pal.dark);
-      p.rect(x + 1, y + 1, 14, 1, pal.light);
-      p.rect(x + 1, y + 15, 15, 1, pal.dark);
-    }
-  }
-  for (let i = 0; i < 16; i++) p.px(Math.floor(rng() * 32), Math.floor(rng() * 32), rng() < 0.5 ? pal.crack : pal.light);
-  return p.texture();
-}
-
-// Água "suja" animada parametrizada (mesma onda do makeWaterFrames, cores próprias).
-function makeMurkyWaterFrames(pal: MurkyPal): Texture[] {
+// Água "suja" animada (esgoto/poça funda). 3 frames (casa com o contador global de
+// água do WorldRenderer). NÃO preenche o tile com onda (vira treliça/tricô): é uma
+// superfície ESCURA quase uniforme + manchas de tom orgânicas (profundidade/escuma)
+// + GLINTS de crista esparsos que derivam com o fluxo + bolhas que sobem. Manchas/
+// glints/bolhas têm posição FIXA (seedada) e só derivam por frame → não tremelicam.
+// Tudo seamless em 32px (wrap toroidal).
+export function makeMurkyWaterFrames(pal: MurkyPal): Texture[] {
+  const NF = 3;
+  // granulado de profundidade: ESTÁTICO e de baixo contraste (mid sobre base) — dá
+  // textura sem manchão; cobertura baixa esconde a repetição do tile de 32px.
+  const grain = Array.from({ length: 40 }, (_, i) => ({ x: (hash2D(i, 0, 74) * 32) | 0, y: (hash2D(i, 1, 74) * 32) | 0 }));
+  // ripples (glints de crista): traços curtos claros que DERIVAM com o fluxo — o que
+  // dá a leitura "água parada brilhando", sem listra/treliça.
+  const ripples = Array.from({ length: 9 }, (_, i) => ({ x: hash2D(i, 0, 73) * 32, y: (hash2D(i, 1, 73) * 32) | 0, len: 2 + ((hash2D(i, 2, 73) * 3) | 0) }));
+  const bubbles = Array.from({ length: 5 }, (_, i) => ({ x: (hash2D(i, 0, 72) * 32) | 0, y: hash2D(i, 1, 72) * 32 }));
   const frames: Texture[] = [];
-  for (let f = 0; f < 3; f++) {
+  for (let f = 0; f < NF; f++) {
     const p = new Px(32, 32);
     p.fill(pal.base);
-    for (let y = 0; y < 32; y++) {
-      for (let x = 0; x < 32; x++) {
-        const w1 = Math.sin((x + y * 2.7 + f * 3.4) * 0.55);
-        const w2 = Math.sin((x * 0.8 - y * 1.3 - f * 2.6) * 0.4);
-        if (w1 > 0.82) p.px(x, y, pal.mid);
-        if (w1 > 0.96) p.px(x, y, pal.light);
-        if (w2 > 0.93 && w1 > 0.4) p.px(x, y, pal.dark);
+    const dx = f * 3; // deriva horizontal do fluxo
+    // 1. granulado sutil (estático) — só mid, baixo contraste
+    for (const g of grain) p.px(g.x, g.y, pal.mid);
+    // 2. ripples: dash claro com sombra logo abaixo (crista pegando luz), derivam
+    for (const rp of ripples) {
+      const rx = ((((rp.x + dx) % 32) + 32) % 32) | 0;
+      for (let k = 0; k < rp.len; k++) {
+        const xx = (rx + k) % 32;
+        p.px(xx, rp.y, pal.light);
+        p.px(xx, (rp.y + 1) % 32, pal.mid);
       }
     }
-    const rng = mulberry32(1300 + f);
-    for (let i = 0; i < 3; i++) p.rect(2 + Math.floor(rng() * 27), 2 + Math.floor(rng() * 27), 2, 1, pal.foam);
+    // 3. bolhas/foam que sobem devagar
+    for (const b of bubbles) p.px(b.x, ((((b.y - f * 2) % 32) + 32) % 32) | 0, pal.foam);
     frames.push(p.texture());
   }
   return frames;
@@ -454,71 +552,92 @@ function hexRgb(h: string): [number, number, number] {
   return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 }
 
-// Parede de subsolo DIMENSIONAL (mesma tese da muralha: face alta 32×54, luz
-// direcional topo-claro→base-escura derivada da paleta, AO, sombra de contato).
-function makeDungeonWallTile(mask: number, seed: number, pal: DWallPal): Texture {
+// Parede de subsolo — pedra ÚMIDA CONTÍNUA (sem grid de tijolos: o criador achou o
+// padrão de blocos forçado). Face mosqueada com volume direcional (topo claro→base),
+// rachaduras GRANDES jagged (a feature visual), musgo CREEPING subindo da base e das
+// fendas (fino/dessaturado, não bolha) e estrias de grime. Referência Tibia/Apogea:
+// muro de masmorra liso, velho e podre. 32×54, ancorado embaixo.
+export function makeDungeonWallTile(mask: number, seed: number, pal: DWallPal): Texture {
   const rng = mulberry32(seed + mask * 97 + 1);
   const p = new Px(32, WALL_H);
+  const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
   const N = (mask & 1) !== 0, E = (mask & 2) !== 0, S = (mask & 4) !== 0, W = (mask & 8) !== 0;
   const OUT = "#070a0f";
   const topEnd = S ? WALL_H : WALL_TOP_H;
-  // TOPO
-  p.rect(0, 0, 32, topEnd, pal.joint);
-  for (let ry = -2; ry < topEnd; ry += 7) {
-    const off = ((((ry + 2) / 7) | 0) & 1) === 0 ? 0 : 9;
-    for (let rx = -off; rx < 32; rx += 13) {
-      const by = ry + 1; if (by >= topEnd) continue;
-      const bh = Math.min(6, topEnd - by);
-      const bw = 11 + Math.floor(rng() * 3);
-      p.rect(rx + 1, by, bw, bh, rng() < 0.3 ? pal.top : pal.topHi);
-      p.rect(rx + 1, by, bw, 1, pal.topHi);
-      if (ry >= 0) p.rect(rx, ry, bw + 2, 1, pal.joint);
-      p.rect(rx, by, 1, bh, pal.joint);
+  const [fr, fg, fb] = hexRgb(pal.faceHi);
+  const [tr, tg, tb] = hexRgb(pal.top);
+  const [mr, mg, mb] = hexRgb(pal.accent); // musgo / líquen / ocre
+
+  // ── TOPO (espessura vista de cima): pedra mosqueada escura, NÃO tijolos ──
+  for (let y = 0; y < topEnd; y++)
+    for (let x = 0; x < 32; x++) {
+      const n = (hash2D(x, y, seed + 3) - 0.5) * 0.28;
+      const v = 0.72 + n;
+      p.px(x, y, `rgb(${cb(tr * v)},${cb(tg * v)},${cb(tb * v)})`);
     }
-  }
-  if (!N) p.rect(0, 1, 32, 2, pal.topHi);
+  if (!N) p.rect(0, 0, 32, 1, pal.topHi); // quina superior pega luz
+
   if (!S) {
-    p.rect(0, WALL_TOP_H - 2, 32, 1, pal.faceDark);
-    p.rect(0, WALL_TOP_H - 1, 32, 1, OUT);
-    // FACE dimensional: gradiente de faceHi (claro, topo) → quase preto (base).
-    const [fr, fg, fb] = hexRgb(pal.faceHi);
     const faceTop = WALL_TOP_H, faceBot = WALL_H - 1, faceH = faceBot - faceTop;
-    let y = faceTop, courseIdx = 0;
-    while (y < faceBot) {
-      const rowH = 8 + (rng() < 0.4 ? 1 : 0);
-      const yb = Math.min(rowH, faceBot - y);
-      const k = 1 - 0.9 * ((y - faceTop) / faceH); // 1 (topo) → 0.1 (base)
-      const offset = courseIdx % 2 === 0 ? 0 : 7;
-      let x = -offset;
-      while (x < 32) {
-        const bw = 9 + Math.floor(rng() * 6);
-        const v = k * (0.85 + rng() * 0.3);
-        const R = Math.max(3, Math.floor(fr * v)), G = Math.max(4, Math.floor(fg * v)), B = Math.max(7, Math.floor(fb * v));
-        const col = (a: number) => `rgb(${Math.max(0, R + a - 3)},${Math.max(0, G + a)},${Math.max(0, B + a + 6)})`;
-        p.rect(x + 1, y + 1, bw - 1, yb - 1, col(0));
-        p.rect(x + 1, y + 1, bw - 1, 1, col(14));        // aresta lit
-        p.rect(x + 1, y + yb - 1, bw - 1, 1, col(-8));    // AO na base do bloco
-        p.rect(x, y, 1, yb, OUT);
-        p.rect(x, y, bw, 1, OUT);
-        for (let d = 0; d < 2 + (rng() * 3 | 0); d++) {
-          const px = x + 2 + (rng() * Math.max(1, bw - 3) | 0), py = y + 2 + (rng() * Math.max(1, yb - 3) | 0);
-          p.px(px, py, rng() < 0.5 ? col(-6) : col(8));
-        }
-        x += bw;
+    p.rect(0, faceTop - 1, 32, 1, OUT); // quina topo→face (sombra dura)
+    const tone = (v: number) => `rgb(${cb(fr * v)},${cb(fg * v)},${cb(fb * v)})`;
+    // 1. PEDRA contínua: gradiente vertical (topo claro→base) + mottle fino+manchão
+    for (let y = faceTop; y < faceBot; y++) {
+      const k = 1 - 0.5 * ((y - faceTop) / faceH); // 1 (topo) → 0.5 (base)
+      for (let x = 0; x < 32; x++) {
+        const n = (hash2D(x, y, seed + 5) - 0.5) * 0.22 + (hash2D(x >> 2, y >> 1, seed + 6) - 0.5) * 0.2;
+        p.px(x, y, tone(Math.max(0.14, k * (0.82 + n))));
       }
-      y += rowH; courseIdx++;
     }
-    p.rect(0, WALL_H - 3, 32, 3, "rgba(0,0,0,0.45)");
+    // 2. RACHADURAS: poucas e GRANDES, jagged, com aresta iluminada (profundidade de fenda)
+    for (let c = 0, nc = 2 + ((rng() * 2) | 0); c < nc; c++) {
+      let cx = 3 + rng() * 26, cy = faceTop + rng() * 5;
+      let dir = (rng() - 0.5) * 0.7;
+      for (let s = 0, steps = (faceH * (0.55 + rng() * 0.45)) | 0; s < steps && cy < faceBot; s++) {
+        const ix = cx | 0, iy = cy | 0;
+        p.px(ix, iy, OUT); // fenda
+        p.px(ix + 1, iy, tone(0.5)); // lip iluminado (lado leste da fenda pega luz)
+        cy += 1; cx = Math.max(1, Math.min(30, cx + dir + (rng() - 0.5) * 0.7));
+        dir = Math.max(-0.9, Math.min(0.9, dir + (rng() - 0.5) * 0.4));
+        if (rng() < 0.07) { // galho
+          let bx = cx, by = cy;
+          for (let b = 0, bl = 3 + ((rng() * 5) | 0); b < bl && by < faceBot; b++) { p.px(bx | 0, by | 0, OUT); bx += rng() < 0.5 ? 0.8 : -0.8; by += 0.6; }
+        }
+      }
+    }
+    // 3. CHIPS: lascas rasas (recesso escuro + lip claro acima) — desgaste pontual
+    for (let i = 0, n = 2 + ((rng() * 3) | 0); i < n; i++) {
+      const w = 3 + ((rng() * 5) | 0), h = 2 + ((rng() * 3) | 0);
+      const x = 1 + ((rng() * (30 - w)) | 0), y = faceTop + 2 + ((rng() * (faceH - h - 3)) | 0);
+      p.rect(x, y, w, h, tone(0.3)); // recesso
+      p.rect(x, y - 1, w, 1, tone(0.72)); // lip lit acima
+    }
+    // 4. MUSGO creeping: colunas finas subindo da base e das fendas, irregulares e
+    //    dessaturadas, mais largas embaixo, com pontas claras. NÃO bolha redonda.
+    for (let i = 0, n = 4 + ((rng() * 4) | 0); i < n; i++) {
+      const baseX = 1 + ((rng() * 30) | 0);
+      const climb = 4 + ((rng() * 11) | 0);
+      for (let s = 0; s < climb; s++) {
+        const y = faceBot - 1 - s;
+        const spread = 1 + (((climb - s) / climb) * 3) | 0; // alarga embaixo
+        for (let dx = -spread; dx <= spread; dx++) {
+          if (rng() < 0.5) continue; // textura esparsa (não preenche)
+          const x = baseX + dx + (rng() < 0.3 ? (rng() < 0.5 ? 1 : -1) : 0);
+          const lit = rng() < 0.28;
+          p.px(x, y, `rgb(${cb(mr + (lit ? 14 : -10))},${cb(mg + (lit ? 18 : -8))},${cb(mb - 8)})`);
+        }
+      }
+    }
+    // 5. GRIME: estrias úmidas escuras escorrendo do topo
+    for (let i = 0; i < 3; i++) {
+      const sx = 2 + ((rng() * 28) | 0);
+      for (let s = 0, sh = 6 + ((rng() * 22) | 0); s < sh && faceTop + s < faceBot; s++) if (rng() < 0.72) p.px(sx, faceTop + s, tone(0.4));
+    }
+    p.rect(0, WALL_H - 3, 32, 3, "rgba(0,0,0,0.45)"); // sombra de contato
     p.rect(0, WALL_H - 1, 32, 1, "rgba(0,0,0,0.30)");
   }
-  // nuance de identidade (musgo do esgoto / ocre da alvenaria antiga / caverna)
-  if (rng() < 0.5) {
-    const ax = Math.floor(rng() * 28);
-    const ay = S ? Math.floor(rng() * 46) : WALL_TOP_H + Math.floor(rng() * (WALL_H - WALL_TOP_H - 4));
-    for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) if (rng() < 0.6) p.px(ax + dx, ay + dy, pal.accent);
-  }
-  if (!W) { p.rect(0, 0, 1, WALL_H, OUT); p.rect(1, 0, 1, topEnd, pal.joint); }
-  if (!E) { p.rect(31, 0, 1, WALL_H, OUT); p.rect(30, 0, 1, topEnd, pal.joint); }
+  if (!W) p.rect(0, 0, 1, WALL_H, OUT);
+  if (!E) p.rect(31, 0, 1, WALL_H, OUT);
   if (!N) p.rect(0, 0, 32, 1, OUT);
   return p.texture();
 }
@@ -529,13 +648,14 @@ function makeDungeonWallTiles(seed: number, pal: DWallPal): Texture[][] {
   return out;
 }
 
-// Paletas de placeholder (frias/dessaturadas; identidades distintas p/ leitura de layout).
-const SEWER_FLOOR_PAL: FloorPal = { base: "#2b3431", mid: "#36423e", dark: "#1a211f", light: "#46544f", crack: "#222b28" };
-const CAVE_FLOOR_PAL: FloorPal = { base: "#352f28", mid: "#413a30", dark: "#1f1b15", light: "#4d4536", crack: "#261f17" };
-const SEWAGE_PAL: MurkyPal = { base: "#313722", mid: "#424a2e", dark: "#20251a", light: "#525a38", foam: "#67714a" };
-const DEEPWATER_PAL: MurkyPal = { base: "#131e29", mid: "#1c2c3a", dark: "#0a1018", light: "#284058", foam: "#34526b" };
-const SEWER_WALL_PAL: DWallPal = { top: "#3a4642", topHi: "#4a5a54", joint: "#232c29", face: "#2a332f", faceHi: "#3a4641", faceDark: "#1c2320", accent: "#38502f" };
-const OLD_MASONRY_PAL: DWallPal = { top: "#4a463a", topHi: "#5c5746", joint: "#2c281f", face: "#3a372e", faceHi: "#4a463a", faceDark: "#25221b", accent: "#6a6450" };
+// Chão de subsolo procedural (makeOrganicRockField): esgoto = slate frio úmido com
+// limo+poças; caverna = rocha quente seca, lumps maiores. Identidades distintas.
+export const SEWER_ROCK: RockOpts = { base: { r: 96, g: 106, b: 120 }, joint: "#232c37", pebble: "#aeb8c6", gs: 10 };
+export const CAVE_ROCK: RockOpts = { base: { r: 78, g: 69, b: 56 }, joint: "#221c14", pebble: "#94886e", gs: 14 };
+export const SEWAGE_PAL: MurkyPal = { base: "#313722", mid: "#424a2e", dark: "#20251a", light: "#525a38", foam: "#67714a" };
+export const DEEPWATER_PAL: MurkyPal = { base: "#131e29", mid: "#1c2c3a", dark: "#0a1018", light: "#284058", foam: "#34526b" };
+export const SEWER_WALL_PAL: DWallPal = { top: "#3a4642", topHi: "#4a5a54", joint: "#232c29", face: "#2a332f", faceHi: "#3a4641", faceDark: "#1c2320", accent: "#38502f" };
+export const OLD_MASONRY_PAL: DWallPal = { top: "#4a463a", topHi: "#5c5746", joint: "#2c281f", face: "#3a372e", faceHi: "#4a463a", faceDark: "#25221b", accent: "#6a6450" };
 const CAVE_WALL_PAL: DWallPal = { top: "#3d362c", topHi: "#4c4435", joint: "#221d16", face: "#2e2a22", faceHi: "#3d362c", faceDark: "#1d1913", accent: "#4a3f2c" };
 
 // ──────────────────────────────────────────────────────────────────────
@@ -1240,7 +1360,7 @@ export interface SpriteLibrary {
   rocks: Texture[];
   /** Muralha autotile: 16 máscaras (N=1,E=2,S=4,W=8) × variantes de nuance. */
   walls: Texture[][];
-  // ── Subsolo (placeholders; PixelLab depois) — SISTEMA-ANDARES.md ──
+  // ── Subsolo (procedural; rocha orgânica + água suja) — SISTEMA-ANDARES.md ──
   sewerFloor: Texture[];
   caveFloor: Texture[];
   sewageFrames: Texture[];
@@ -1267,25 +1387,12 @@ export interface SpriteLibrary {
   /** Escada (descida/subida entre andares). */
   stairs: Texture;
   shadow: Texture;
-  /** Decais espalhados no chão (baked no chunk): grama/terra/pedra. */
-  scatter: { grass: Texture[]; dirt: Texture[]; stone: Texture[] };
+  /** Decais espalhados no chão (baked no chunk): grama/terra/pedra/esgoto/caverna. */
+  scatter: { grass: Texture[]; dirt: Texture[]; stone: Texture[]; sewer: Texture[]; cave: Texture[] };
   /** Transição dual-grid de StoneFloor sobre grama/terra: 16 códigos de canto. */
   stoneTransition: Texture[];
   /** Transição grama↔terra (16 códigos de canto) — procedural, casa com o campo. */
   dirtTransition: Texture[];
-}
-
-/**
- * Variantes de chão PLANO a partir de um tileset Wang do PixelLab (par `pair`):
- * usa as tiles puras (0000/1111) + algumas mistas como variação espalhada (musgo
- * etc.). Null se o tileset não foi carregado → o chamador cai no procedural.
- * (A transição Wang dual-grid de subsolo entra na Fase 1 do render, junto do layout.)
- */
-function wangFloorVariants(pair: string): Texture[] | null {
-  const set = PIXELLAB.wang[pair];
-  if (!set) return null;
-  const tex = ["0000", "1111", "0011", "1100", "0110", "1001"].map((c) => set[c]).filter(Boolean);
-  return tex.length ? tex : null;
 }
 
 export function createSprites(): SpriteLibrary {
@@ -1304,10 +1411,9 @@ export function createSprites(): SpriteLibrary {
     trees: PIXELLAB.trees.length > 0 ? PIXELLAB.trees : [makeTree(101), makeTree(202), makeTree(303)],
     rocks: [makeRock(401), makeRock(402)],
     walls: makeWallTiles(),
-    // Esgoto: tileset PixelLab aprovado (jun/2026) quando carregado; fallback procedural.
-    sewerFloor: wangFloorVariants("esgoto-chao") ?? [makeDungeonFloor(801, SEWER_FLOOR_PAL), makeDungeonFloor(802, SEWER_FLOOR_PAL), makeDungeonFloor(803, SEWER_FLOOR_PAL)],
-    // Caverna: tileset PixelLab ancorado (v3, jun/2026) quando carregado; fallback procedural.
-    caveFloor: wangFloorVariants("caverna-chao") ?? [makeDungeonFloor(811, CAVE_FLOOR_PAL), makeDungeonFloor(812, CAVE_FLOOR_PAL), makeDungeonFloor(813, CAVE_FLOOR_PAL)],
+    // Esgoto/caverna: rocha orgânica procedural (campo 128 seamless, sliced em 16).
+    sewerFloor: makeOrganicRockField(801, SEWER_ROCK),
+    caveFloor: makeOrganicRockField(811, CAVE_ROCK),
     sewageFrames: makeMurkyWaterFrames(SEWAGE_PAL),
     deepWaterFrames: makeMurkyWaterFrames(DEEPWATER_PAL),
     sewerWalls: makeDungeonWallTiles(820, SEWER_WALL_PAL),

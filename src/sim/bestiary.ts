@@ -73,7 +73,42 @@ export const RATO_LANHOSO: CreatureTemplate = {
   loot: { goldMin: 0, goldMax: 1 }, // economia passe 1 (jun/2026): rato 0–1, média ~0,4
 };
 
+/**
+ * Esqueleto — família Mortos-Vivos (undead), T2, Perseguidor. "A unidade do
+ * grind lendário" (15k kills = *Quebra-Ossos* na camada emergente). Só ataque
+ * básico — encaixa no comportamento "chaser". É a família-coração e o farm
+ * natural do Priest (Luz Sagrada nuke vs profanos).
+ *
+ * Números (Balancista, bateria T2 on-level 2026-06-09 — `docs/reports/2026-06-08-
+ * bateria-diferenciacao-classe.md`): **HP 95** — a bateria on-level (lvl 10) mostrou
+ * que 48 era ONE-SHOTADO por melee (knight GF 41+auto=64) e até pela Luz Sagrada,
+ * trivializando o tier (T2 = lvl 8-15). 95 dá uma "contagem de golpes" real:
+ * melee mata em ~2-3s, caster em ~3-4 casts, sem virar esponja. (48 ainda foi útil
+ * no lvl 1 pra DESTRAVAR a diferenciação de skill — burn/slow/perfuração; M1.2.)
+ * Dano 12 (T2 pune descuido); XP 80 (≈ proporcional ao tempo de kill maior, segura
+ * o XP/h — ✏️ re-régua na bateria de farm T2). Fraqueza a sagrado/fogo e resist a
+ * gelo (FAMILIAS.md) NÃO entram aqui (matriz Regra 10-20 fora da sim; bônus da Luz
+ * Sagrada vive no executor).
+ */
+export const ESQUELETO: CreatureTemplate = {
+  species: "esqueleto",
+  name: "Esqueleto",
+  family: "undead",
+  tier: "T2",
+  behavior: "chaser",
+  maxHp: 95,
+  attackDamage: 12,
+  attackType: "physical",
+  attackCooldownMs: 2000,
+  xp: 80,
+  aggroRadius: 6,
+  baseStepMs: 280, // mais lento que o jogador (260) — undead arrastado, kitável
+  respawnTicks: 300, // ~15s
+  loot: { goldMin: 1, goldMax: 3 },
+};
+
 /** Registro de templates por espécie — ponto único de lookup. */
 export const CREATURES: Record<string, CreatureTemplate> = {
   [RATO_LANHOSO.species]: RATO_LANHOSO,
+  [ESQUELETO.species]: ESQUELETO,
 };

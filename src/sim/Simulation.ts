@@ -31,7 +31,7 @@ import { CREATURES, type CreatureTemplate } from "./bestiary";
 import { applyDamage, chebyshev, type CombatCtx, type WeaponSource } from "./combat";
 import type { SimEntity } from "./entity";
 import { EventBus, type KillEvent } from "./events";
-import { attackCooldownMs, maxCarry, physicalDamage, statPointCost, xpForLevel } from "./formulas";
+import { attackCooldownMs, maxCarry, physicalDamage, statPointCost, wandDamage, xpForLevel } from "./formulas";
 import {
   ItemRegistry,
   attachItemLedger,
@@ -101,6 +101,8 @@ export class Simulation {
   private nextCorpseId = 1;
   /** RNG da sim (loot etc.) — seedado e determinístico. */
   private lootRng: Rng = mulberry32(0xa1f0);
+  /** RNG do combate (faixa de dano da wand) — stream próprio p/ não perturbar o loot. */
+  private combatRng: Rng = mulberry32(0xc0ffee);
   /**
    * Engine da camada EMERGENTE (Marcas/Mutações/Caminhos — DESIGN-EVOLUCAO.md).
    * Observa o bus e cristaliza padrões em recompensas nomeadas. Carregada com as
@@ -317,6 +319,14 @@ export class Simulation {
    */
   private recomputePlayerDerived(entity: SimEntity, prog: Progression): void {
     const w = this.weaponStatsOf(entity);
+    if (w.magic) {
+      // Arma mágica: o dano vem da faixa da PRÓPRIA arma (não escala atributo) e
+      // rola por tiro em updatePlayerAttack. `attackDamage` guarda só o ponto
+      // médio (leitura/debug). Cadência FIXA — sem redução por Destreza.
+      entity.attackDamage = Math.floor(((w.damageMin ?? 0) + (w.damageMax ?? 0)) / 2);
+      entity.attackCooldownMs = this.quantizeToTickMs(w.baseCooldownMs);
+      return;
+    }
     entity.attackDamage = physicalDamage(prog.attributes, w.baseDamage, w.usesDexterity);
     // Quantizado à grade de ticks: o cooldown informado é o comportamento real.
     entity.attackCooldownMs = this.quantizeToTickMs(attackCooldownMs(prog.attributes, w.baseCooldownMs));
@@ -796,7 +806,7 @@ export class Simulation {
     this.emitSnapshot(pending);
   }
 
-  /** Auto-attack: com alvo vivo e adjacente, ataca a cada cooldown. */
+  /** Auto-attack: com alvo vivo no ALCANCE da arma, ataca a cada cooldown. */
   private updatePlayerAttack(ctx: CombatCtx, player: SimEntity, now: number): void {
     if (player.dead || player.targetId == null) return;
     // Zona segura é zona SEM combate: não se ataca de dentro dela (a IA já é
@@ -807,13 +817,25 @@ export class Simulation {
       player.targetId = null; // alvo morto/inexistente ou em outro andar
       return;
     }
-    if (chebyshev(player.pos, target.pos) > MELEE_RANGE) return; // fora de alcance
+    const w = this.weaponStatsOf(player);
+    // Alcance da ARMA: melee = MELEE_RANGE (1); wand é ranged (WAND_RANGE, < arco).
+    const range = w.range ?? MELEE_RANGE;
+    if (chebyshev(player.pos, target.pos) > range) return; // fora de alcance
     if (now < player.nextAttackAt) return;
+    let damage = player.attackDamage;
+    if (w.magic) {
+      // Tiro mágico: custa mana (sem mana = não dispara, e NÃO consome o cooldown
+      // — retenta no próximo tick assim que a mana regenerar). Dano rola na faixa
+      // FIXA da arma (não escala atributo). Decidido 09/jun/2026 (modelo Tibia).
+      const cost = w.manaCost ?? 0;
+      if (player.mp < cost) return;
+      player.mp -= cost;
+      damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng());
+    }
     player.facing = this.facingToward(player.pos, target.pos);
     // Auto-attack alimenta o ledger da arma equipada (DESIGN-EVOLUCAO.md §"Magias
     // e Skills": todo kill por auto-attack conta no ledger da arma).
-    const w = this.weaponStatsOf(player);
-    applyDamage(ctx, player, target, player.attackDamage, w.damageType, this.weaponSourceOf(player), null);
+    applyDamage(ctx, player, target, damage, w.damageType, this.weaponSourceOf(player), null);
     player.nextAttackAt = now + player.attackCooldownMs;
   }
 
@@ -1034,10 +1056,18 @@ export class Simulation {
           const { leveledDown } = applyDeathPenalty(prog, e);
           if (leveledDown) this.recomputePlayerDerived(e, prog);
         }
-        // Respawn simples: volta ao spawn com HP cheio (tile livre mais próximo,
-        // mantendo o índice de ocupação coerente).
-        const sp = this.nearestFree(e, e.spawnPos);
-        this.moveTo(e, sp.x, sp.y);
+        // Respawn SEMPRE na superfície (z=0, o "templo"/spawn) — a morte tira do
+        // andar atual: morrer no esgoto não pode renascer no esgoto (SISTEMA-ANDARES).
+        // Reseta o z ANTES de achar tile livre (canEnter avalia em mover.z) e remove
+        // a ocupação no andar de origem na mão — moveTo usaria o z já trocado e
+        // deixaria uma chave fantasma no andar de baixo.
+        const fromKey = this.tileKey(e.pos.x, e.pos.y, e.z);
+        if (this.occupancy.get(fromKey) === e.id) this.occupancy.delete(fromKey);
+        e.z = 0;
+        // respawn no SANTUÁRIO (GRID §3.3), não na casa-tutorial do nascimento
+        const sp = this.nearestFree(e, this.world.map.respawn ?? e.spawnPos);
+        e.pos = { x: sp.x, y: sp.y };
+        this.occupancy.set(this.tileKey(sp.x, sp.y, e.z), e.id);
         e.hp = e.maxHp;
         e.mp = e.maxMp;
         e.dead = false;

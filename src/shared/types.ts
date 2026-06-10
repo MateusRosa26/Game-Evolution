@@ -304,7 +304,11 @@ export interface MapData {
    * Tibia). Puramente visual — não afeta a simulação.
    */
   buildings?: MapRect[];
+  /** Nascimento do personagem (sem classe): casa inicial / tutorial. */
   spawn: Vec2;
+  /** Ponto de respawn de MORTE (z=0). Santuário, separado do nascimento; ausente =
+   *  usa `spawn`. SISTEMA-ANDARES: morrer no subsolo volta sempre à superfície. */
+  respawn?: Vec2;
   /** Id estável do mapa (multi-mapa: "alvorada", "porao_estalagem"…). */
   id?: string;
   /** NPCs plantados pelo gerador do mapa (opcional). */

@@ -1,4 +1,4 @@
-import { Container, RenderTexture, Sprite, type Renderer, type Texture } from "pixi.js";
+import { Container, Graphics, RenderTexture, Sprite, type Renderer, type Texture } from "pixi.js";
 import { hash2D } from "../../sim/rng";
 import { TILE_SIZE } from "../../shared/constants";
 import { TileId, type MapData, type MapRect } from "../../shared/types";
@@ -224,9 +224,15 @@ export class WorldRenderer {
             const set =
               tile === TileId.Grass ? scatter.grass :
               tile === TileId.Dirt ? scatter.dirt :
-              tile === TileId.StoneFloor ? scatter.stone : null;
+              tile === TileId.StoneFloor ? scatter.stone :
+              tile === TileId.SewerFloor ? scatter.sewer :
+              tile === TileId.CaveFloor ? scatter.cave : null;
             if (!set) continue;
-            const density = tile === TileId.Grass ? 0.62 : tile === TileId.Dirt ? 0.42 : 0.3;
+            const density =
+              tile === TileId.Grass ? 0.62 :
+              tile === TileId.Dirt ? 0.42 :
+              tile === TileId.SewerFloor ? 0.34 :
+              tile === TileId.CaveFloor ? 0.28 : 0.3;
             if (hash2D(x, y, 31) >= density) continue;
             const count = hash2D(x, y, 32) < 0.22 ? 2 : 1;
             for (let k = 0; k < count; k++) {
@@ -255,6 +261,12 @@ export class WorldRenderer {
 
     // água animada: sprites individuais por cima do chão estático. Overworld +
     // esgoto raso/fundo — cada tile puxa seu próprio frame-set.
+    const isWater = (tx: number, ty: number): boolean => {
+      if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) return false;
+      const tt = map.tiles[ty * map.width + tx];
+      return tt === TileId.Water || tt === TileId.Sewage || tt === TileId.DeepWater;
+    };
+    const E = TILE_SIZE;
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
         const t = map.tiles[y * map.width + x];
@@ -264,9 +276,22 @@ export class WorldRenderer {
           t === TileId.DeepWater ? this.sprites.deepWaterFrames : null;
         if (!frames) continue;
         const w = new Sprite(frames[0]);
-        w.position.set(x * TILE_SIZE, y * TILE_SIZE);
+        w.position.set(x * E, y * E);
         this.ground.addChild(w);
         this.waterSprites.push({ sp: w, frames });
+        // PROFUNDIDADE: onde a água encosta no chão ela é um REBAIXO — sombra interna
+        // nas bordas (o lábio do chão projeta sombra na lâmina), mais forte no topo
+        // (luz vem de cima). Faz a água parecer CONTIDA, não solta por cima do tile.
+        const top = !isWater(x, y - 1), lf = !isWater(x - 1, y), rt = !isWater(x + 1, y), bt = !isWater(x, y + 1);
+        if (top || lf || rt || bt) {
+          const g = new Graphics();
+          if (top) { g.rect(0, 0, E, 3).fill({ color: 0, alpha: 0.5 }); g.rect(0, 3, E, 3).fill({ color: 0, alpha: 0.22 }); }
+          if (lf) { g.rect(0, 0, 3, E).fill({ color: 0, alpha: 0.38 }); g.rect(3, 0, 2, E).fill({ color: 0, alpha: 0.16 }); }
+          if (rt) g.rect(E - 3, 0, 3, E).fill({ color: 0, alpha: 0.3 });
+          if (bt) g.rect(0, E - 3, E, 3).fill({ color: 0, alpha: 0.3 });
+          g.position.set(x * E, y * E);
+          this.ground.addChild(g);
+        }
       }
     }
   }

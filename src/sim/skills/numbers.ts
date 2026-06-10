@@ -57,7 +57,15 @@ export const LANCA_DE_GELO = {
 // ── Apunhalar (Rogue) — melee posicional, ~2× pelas costas ──
 export const APUNHALAR = {
   manaCost: 5, // ✏️ placeholder
-  cooldownTicks: 20, // ✏️ placeholder
+  // calibrado (re-check pós-wand, 09/jun): 20t (1s) era SPAM degenerado — o rogue
+  // front-loadava 2 Apunhalares e deletava o Esqueleto on-level em 1,2s (falha o
+  // teste de Sirlin: "vence repetindo um movimento"). 60t (3s) = 1 strike + auto da
+  // adaga → TTK 2,4s: segue o mais rápido das classes, mas devolve o Apunhalar ao
+  // papel de GOLPE POSICIONAL da ficha (vale manobrar pro backstab 2×), não 2º
+  // auto-attack. Varredura: a CADÊNCIA é o lever (power quase não move o TTK).
+  // ⚠️ TTK-alvo relativo re-checar na bateria de kit completo (com Redemoinho/AoE
+  // do Knight). Report: `docs/reports/2026-06-09-recheck-spread-pos-wand.md`.
+  cooldownTicks: 60,
   power: 8, // base de dano físico (usa a adaga como base também) ✏️ placeholder
   range: 1, // melee
   /** Multiplicador de dano quando acerta pelas costas (ficha: ~2×). */
@@ -71,7 +79,11 @@ export const LUZ_SAGRADA = {
   power: 13, // base de dano mágico (holy) ✏️ placeholder
   range: 6, // ✏️ placeholder
   /** Multiplicador de dano vs famílias profanas (undead/demon) — é o nuke solo. */
-  unholyMultiplier: 2.5, // ✏️ placeholder
+  // calibrado (bateria T2, 2026-06-08): 2.5 one-shotava o Esqueleto (família-coração)
+  // já no lvl 1 → trivializava o farm do Priest. 1.8 = kill em ~2 casts: continua o
+  // melhor anti-profano disparado, sem virar botão-de-deletar (DESIGN-BESTIARIO:
+  // "forte sem trivializar a família-coração"). Re-checar vs demon T3+ na bateria T3.
+  unholyMultiplier: 1.8,
 } as const;
 
 // ── Curar Ferimentos (Priest) — cura self/aliado ──
