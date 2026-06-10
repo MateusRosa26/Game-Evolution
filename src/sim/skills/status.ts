@@ -47,8 +47,8 @@ export interface StatusEffect {
   stepMsMultiplier: number;
   /** ── wellFed ── multiplicador aplicado ao regen de HP/mana (>1 = mais rápido). */
   regenMultiplier: number;
-  /** ── meal ── MULTIPLICADOR da base de dano da arma (não flat): bônus de dano
-   *  do auto = buffDamage × baseDaArma. Escala com o tier da arma (comida preparada). */
+  /** ── meal ── +N na BASE DE DANO DA ARMA (comida preparada). Como o dano final =
+   *  base_da_arma + atributo, é +N flat no golpe. */
   buffDamage: number;
   /** ── meal ── fração de redução do cooldown de ataque (0.1 = 10% mais rápido). */
   buffAttackSpeedPct: number;
@@ -226,8 +226,7 @@ export function applyMealBuff(e: SimEntity, currentTick: number, p: { buffs: Mea
   });
 }
 
-/** Multiplicador da base de dano da arma do buff de refeição (0 se nenhum). O
- *  bônus final = este valor × base de dano da arma (calculado no auto-attack). */
+/** Bônus de dano do buff de refeição (+N na base da arma = +N no golpe; 0 se nenhum). */
 export function mealBuffDamage(e: SimEntity): number {
   const m = e.status.find((s) => s.kind === "meal");
   return m ? m.buffDamage : 0;

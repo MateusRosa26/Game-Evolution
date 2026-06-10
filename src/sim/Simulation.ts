@@ -876,11 +876,11 @@ export class Simulation {
     const range = w.range ?? MELEE_RANGE;
     if (chebyshev(player.pos, target.pos) > range) return; // fora de alcance
     if (now < player.nextAttackAt) return;
-    // Buff de refeição ("Saciado", COZINHA.md): bônus = MULTIPLICADOR × base de
-    // dano da ARMA (escala com o tier da arma, não é flat) + cooldown reduzido.
-    // Aplicado AQUI (no golpe), não no recompute — expira sozinho sem recalcular.
-    const dmgMult = mealBuffDamage(player);
-    let damage = player.attackDamage + Math.floor(dmgMult * w.baseDamage);
+    // Buff de refeição ("Saciado", COZINHA.md): +N na BASE DE DANO DA ARMA — e como
+    // o dano final = base_da_arma + atributo, isso é +N flat no golpe (espada 6→7
+    // ⇒ 14→15). Aplicado AQUI (no golpe), não no recompute — expira sem recalcular.
+    const bonusDmg = mealBuffDamage(player);
+    let damage = player.attackDamage + bonusDmg;
     if (w.magic) {
       // Tiro mágico: custa mana (sem mana = não dispara, e NÃO consome o cooldown
       // — retenta no próximo tick assim que a mana regenerar). Dano rola na faixa
@@ -888,9 +888,8 @@ export class Simulation {
       const cost = w.manaCost ?? 0;
       if (player.mp < cost) return;
       player.mp -= cost;
-      // Wand: "dano da arma" = média da faixa; o buff soma o multiplicador disso.
-      const wandAvg = ((w.damageMin ?? 0) + (w.damageMax ?? 0)) / 2;
-      damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng()) + Math.floor(dmgMult * wandAvg);
+      // Wand: +N na "base" da arma = +N no tiro rolado.
+      damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng()) + bonusDmg;
     }
     player.facing = this.facingToward(player.pos, target.pos);
     // Auto-attack alimenta o ledger da arma equipada (DESIGN-EVOLUCAO.md §"Magias
