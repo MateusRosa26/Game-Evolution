@@ -122,6 +122,10 @@ export const RATO_LANHOSO: CreatureTemplate = {
       // Cauda de Rato — troféu/reagente; comprada pelo Silas pós-quest dele.
       // Troféu recorrente (faixa-guia ~3–12%); a renda se ajusta no preço, não na chance.
       { templateId: "cauda_de_rato", chance: 0.1 }, // ✏️ Balancista (bateria M2)
+      // Queijo — comida que o rato devolve. Chance BAIXA de propósito: dá um respiro
+      // de sustain sem auto-sustentar a comida (senão mata o gold-sink do food-gating).
+      // ✏️ Balancista: tunar contra a economia de comida (alvo ~cobrir <½ do consumo).
+      { templateId: "queijo", chance: 0.08 },
     ],
   },
 };

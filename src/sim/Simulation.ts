@@ -290,6 +290,13 @@ export class Simulation {
     // Bolso inicial de 8 slots (decidido jun/2026 — a mochila da Q2 é o upgrade).
     const bolso = this.containers.create("Bolso", 8);
     entity.backpackContainerId = bolso.id;
+    // Comida inicial: 5 Queijos no bolso. No modelo food-gated (sem comida = sem
+    // regen), o novato precisa de comida pra recuperar desde o lvl 1 — senão o
+    // primeiro arranhão vira softlock injusto. Queijo ensina o sustain; o rato
+    // devolve mais. ✏️ quantidade tunável (5×90s = ~7,5min de saciedade inicial).
+    for (let i = 0; i < 5; i++) {
+      this.containers.add(bolso, { kind: "item", instanceId: this.items.create("queijo").id });
+    }
     this.entities.set(id, entity);
     // Bloqueio de corpo: nasce no tile livre mais próximo do spawn e ocupa-o.
     const sp = this.nearestFree(entity, entity.pos);

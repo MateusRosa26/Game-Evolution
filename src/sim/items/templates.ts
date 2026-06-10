@@ -366,6 +366,20 @@ export const CARNE_ASSADA: ItemTemplate = {
   consume: { kind: "food", regenMult: 1.5, durationMs: 300_000 },
 };
 
+/** Queijo — comida CRUA (piso da escala de preparo: cru < cozido < preparado).
+ *  Achado no mundo (drop do rato + kit inicial); regen na taxa-base (1.0×) e
+ *  duração CURTA — é o lanche/sustain de emergência. Cozinhar/combinar (ex.
+ *  pão+queijo = "queijo quente") é o upgrade — sistema de cozinha futuro. */
+export const QUEIJO: ItemTemplate = {
+  id: "queijo",
+  name: "Queijo",
+  category: "consumable",
+  stackable: true,
+  weight: 2,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 1.0, durationMs: 90_000 },
+};
+
 /** Poção de Vida Pequena — EMERGÊNCIA, luxo no early (≈33min de caça T1, ✏️). */
 export const POCAO_VIDA_PEQUENA: ItemTemplate = {
   id: "pocao_vida_pequena",
@@ -442,6 +456,7 @@ export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [PUNHOS.id]: PUNHOS,
   [PAO.id]: PAO,
   [CARNE_ASSADA.id]: CARNE_ASSADA,
+  [QUEIJO.id]: QUEIJO,
   [POCAO_VIDA_PEQUENA.id]: POCAO_VIDA_PEQUENA,
   [CORDA.id]: CORDA,
   [PA.id]: PA,
