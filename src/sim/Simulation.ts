@@ -53,6 +53,9 @@ import {
   SKILLS,
   STARTER_KITS,
   applyFood,
+  applyMealBuff,
+  mealBuffDamage,
+  mealBuffAttackSpeedPct,
   castSkill,
   isKnownSkillId,
   projectStatus,
@@ -873,7 +876,9 @@ export class Simulation {
     const range = w.range ?? MELEE_RANGE;
     if (chebyshev(player.pos, target.pos) > range) return; // fora de alcance
     if (now < player.nextAttackAt) return;
-    let damage = player.attackDamage;
+    // Buff de refeição ("Saciado", COZINHA.md): +dano flat e/ou cooldown reduzido.
+    // Aplicado AQUI (no golpe), não no recompute — expira sozinho sem recalcular.
+    let damage = player.attackDamage + mealBuffDamage(player);
     if (w.magic) {
       // Tiro mágico: custa mana (sem mana = não dispara, e NÃO consome o cooldown
       // — retenta no próximo tick assim que a mana regenerar). Dano rola na faixa
@@ -881,13 +886,17 @@ export class Simulation {
       const cost = w.manaCost ?? 0;
       if (player.mp < cost) return;
       player.mp -= cost;
-      damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng());
+      // Wand: o buff de dano de comida soma ao tiro rolado (atk-speed vale igual).
+      damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng()) + mealBuffDamage(player);
     }
     player.facing = this.facingToward(player.pos, target.pos);
     // Auto-attack alimenta o ledger da arma equipada (DESIGN-EVOLUCAO.md §"Magias
     // e Skills": todo kill por auto-attack conta no ledger da arma).
     applyDamage(ctx, player, target, damage, w.damageType, this.weaponSourceOf(player), null);
-    player.nextAttackAt = now + player.attackCooldownMs;
+    // Velocidade de ataque do buff: reduz o cooldown (quantizado à grade de ticks).
+    const speedPct = mealBuffAttackSpeedPct(player);
+    const cd = speedPct > 0 ? this.quantizeToTickMs(player.attackCooldownMs * (1 - speedPct)) : player.attackCooldownMs;
+    player.nextAttackAt = now + cd;
   }
 
   /** Enfileira mensagem de SISTEMA privada (loot/level/quest) para um jogador. */
@@ -1062,6 +1071,10 @@ export class Simulation {
 
     // effect.kind === "food": saciedade (buff de regen por duração).
     applyFood(e, this.tickCount, { regenMult: effect.regenMult, durationMs: effect.durationMs });
+    // Comida preparada: buff de stat temporário ("Saciado") — status à parte.
+    if (effect.buffs && effect.buffs.length > 0) {
+      applyMealBuff(e, this.tickCount, { buffs: effect.buffs, durationMs: effect.durationMs });
+    }
     consume();
     this.sysMessage(e.id, `Você comeu ${tpl.name}.`);
   }

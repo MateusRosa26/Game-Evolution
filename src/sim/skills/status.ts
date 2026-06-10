@@ -1,5 +1,6 @@
 import { TICK_MS, msToTicks } from "../../shared/constants";
 import type { DamageType } from "../../shared/types";
+import type { MealBuff } from "../items/templates";
 import type { StatusEffectState } from "../../shared/protocol";
 import type { SimEntity } from "../entity";
 import type { CombatCtx } from "../combat";
@@ -19,7 +20,7 @@ import { applyDamage } from "../combat";
  * Envenenada). `wellFed` ("Bem Alimentado") é o buff de saciedade da comida —
  * multiplica o regen de HP/mana enquanto ativo (loop de sustain Tibia).
  */
-export type StatusKind = "burn" | "slow" | "poison" | "wellFed";
+export type StatusKind = "burn" | "slow" | "poison" | "wellFed" | "meal";
 
 /**
  * Teto de saciedade: comer ACUMULA duração de "Bem Alimentado" só até aqui —
@@ -46,6 +47,10 @@ export interface StatusEffect {
   stepMsMultiplier: number;
   /** ── wellFed ── multiplicador aplicado ao regen de HP/mana (>1 = mais rápido). */
   regenMultiplier: number;
+  /** ── meal ── bônus FLAT de dano do ataque básico (comida preparada). */
+  buffDamage: number;
+  /** ── meal ── fração de redução do cooldown de ataque (0.1 = 10% mais rápido). */
+  buffAttackSpeedPct: number;
   /** ID da entidade que aplicou (atribuição do dano do DoT/kill). */
   sourceId: number;
   /** Skill que originou o status (para o evento kill/damage do DoT). */
@@ -102,6 +107,8 @@ export function applyDot(e: SimEntity, currentTick: number, source: SimEntity, s
     damageType: p.damageType,
     stepMsMultiplier: 1,
     regenMultiplier: 1,
+    buffDamage: 0,
+    buffAttackSpeedPct: 0,
     sourceId: source.id,
     skillId,
   });
@@ -127,6 +134,8 @@ export function applySlow(e: SimEntity, currentTick: number, p: SlowParams): voi
       damageType: "ice",
       stepMsMultiplier: p.stepMsMultiplier,
       regenMultiplier: 1,
+      buffDamage: 0,
+      buffAttackSpeedPct: 0,
       sourceId: 0,
       skillId: null,
     });
@@ -167,6 +176,8 @@ export function applyFood(e: SimEntity, currentTick: number, p: FoodParams): voi
     damageType: "physical",
     stepMsMultiplier: 1,
     regenMultiplier: p.regenMult,
+    buffDamage: 0,
+    buffAttackSpeedPct: 0,
     sourceId: 0,
     skillId: null,
   });
@@ -182,6 +193,48 @@ export function applyFood(e: SimEntity, currentTick: number, p: FoodParams): voi
 export function wellFedRegenMult(e: SimEntity): number {
   const fed = e.status.find((s) => s.kind === "wellFed");
   return fed ? fed.regenMultiplier : 0;
+}
+
+/**
+ * Aplica o buff de refeição (comida preparada — COZINHA.md). É um status "meal"
+ * SEPARADO do `wellFed` (timer próprio): comer pão barato NÃO estende o buff de um
+ * prato premium, porque pão não tem `buffs` (não chama isto). UM por vez — eating
+ * outro prato SUBSTITUI (remove o anterior). Resolve os MealBuffs em campos.
+ */
+export function applyMealBuff(e: SimEntity, currentTick: number, p: { buffs: MealBuff[]; durationMs: number }): void {
+  e.status = e.status.filter((s) => s.kind !== "meal"); // um buff de refeição por vez
+  let buffDamage = 0;
+  let buffAttackSpeedPct = 0;
+  for (const b of p.buffs) {
+    if (b.stat === "damage") buffDamage += b.amount;
+    else if (b.stat === "attackSpeed") buffAttackSpeedPct += b.amount;
+  }
+  e.status.push({
+    kind: "meal",
+    expiresAtTick: currentTick + msToTicks(p.durationMs),
+    damagePerTick: 0,
+    tickEveryTicks: 0,
+    nextDamageTick: Number.MAX_SAFE_INTEGER,
+    damageType: "physical",
+    stepMsMultiplier: 1,
+    regenMultiplier: 1,
+    buffDamage,
+    buffAttackSpeedPct,
+    sourceId: 0,
+    skillId: null,
+  });
+}
+
+/** Bônus FLAT de dano do buff de refeição ativo (0 se nenhum). */
+export function mealBuffDamage(e: SimEntity): number {
+  const m = e.status.find((s) => s.kind === "meal");
+  return m ? m.buffDamage : 0;
+}
+
+/** Fração de redução do cooldown de ataque do buff de refeição (0 se nenhum). */
+export function mealBuffAttackSpeedPct(e: SimEntity): number {
+  const m = e.status.find((s) => s.kind === "meal");
+  return m ? m.buffAttackSpeedPct : 0;
 }
 
 /** Recalcula `stepMs` efetivo a partir do baseStepMs e do slow ativo. */

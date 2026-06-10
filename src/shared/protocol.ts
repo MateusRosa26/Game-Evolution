@@ -123,9 +123,9 @@ export interface PlayerProgressState {
 export interface StatusEffectState {
   /**
    * queimadura (fogo, DoT) / lentidão / veneno (tipado p/ Rogue T2) /
-   * "Bem Alimentado" (buff de regen da comida).
+   * "Bem Alimentado" (regen da comida) / "Saciado" (buff de stat de prato preparado).
    */
-  kind: "burn" | "slow" | "poison" | "wellFed";
+  kind: "burn" | "slow" | "poison" | "wellFed" | "meal";
   /** ms restantes até expirar. */
   remainingMs: number;
 }

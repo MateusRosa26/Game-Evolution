@@ -49,6 +49,7 @@ const STATUS_COLOR: Record<StatusEffectState["kind"], number> = {
   slow: 0x6fc8e8,
   poison: 0x7ad15a,
   wellFed: 0xe8b54a, // "Bem Alimentado": dourado quente de saciedade
+  meal: 0xd2773a, // "Saciado" (buff de prato preparado): âmbar/assado, mais quente
 };
 
 interface FloatingText {

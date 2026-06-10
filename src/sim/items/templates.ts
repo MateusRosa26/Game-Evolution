@@ -138,10 +138,21 @@ export interface WeaponStats {
  *  - `food`  → comida: aplica/estende o status "Bem Alimentado" que MULTIPLICA o
  *              regen de HP/mana por `durationMs` (acumula até um teto — ver
  *              `FOOD_SATIETY_CAP_MS` em status.ts). Sem exausto (o teto regula).
+ *              `buffs` (comida preparada) dá um buff de STAT temporário (status
+ *              "Saciado" à parte, COZINHA.md) — timer próprio, um por vez.
  */
 export type ConsumeEffect =
   | { kind: "heal"; hp: number; exhaustMs: number }
-  | { kind: "food"; regenMult: number; durationMs: number };
+  | { kind: "food"; regenMult: number; durationMs: number; buffs?: MealBuff[] };
+
+/**
+ * Buff de refeição (comida preparada — COZINHA.md). `damage` = bônus FLAT no dano
+ * do ataque básico (canon "dano+1"); `attackSpeed` = fração de redução do cooldown
+ * (0.1 = 10% mais rápido). Valores ✏️ Balancista (modestos p/ não quebrar combate).
+ */
+export type MealBuff =
+  | { stat: "damage"; amount: number }
+  | { stat: "attackSpeed"; amount: number };
 
 /** Template declarativo de um item (a parte compartilhada/imutável). */
 export interface ItemTemplate {
@@ -468,7 +479,8 @@ export const SOPA: ItemTemplate = {
   stackable: true,
   weight: 8,
   rarity: "common",
-  consume: { kind: "food", regenMult: 3.0, durationMs: 180_000 },
+  // Sopa: refeição reforçada — +dano leve. ✏️ Balancista.
+  consume: { kind: "food", regenMult: 3.0, durationMs: 180_000, buffs: [{ stat: "damage", amount: 1 }] },
 };
 
 /** Queijo Quente — premium (pão+queijo+sal-gema). */
@@ -479,7 +491,8 @@ export const QUEIJO_QUENTE: ItemTemplate = {
   stackable: true,
   weight: 3,
   rarity: "common",
-  consume: { kind: "food", regenMult: 3.0, durationMs: 150_000 },
+  // Queijo Quente: +velocidade de ataque leve. ✏️ Balancista.
+  consume: { kind: "food", regenMult: 3.0, durationMs: 150_000, buffs: [{ stat: "attackSpeed", amount: 0.1 }] },
 };
 
 /** Carne Curada — premium, duração longa (carne+sal-gema+pimenta-longa). */
@@ -490,7 +503,8 @@ export const CARNE_CURADA: ItemTemplate = {
   stackable: true,
   weight: 4,
   rarity: "common",
-  consume: { kind: "food", regenMult: 3.0, durationMs: 240_000 },
+  // Carne Curada: a comida do guerreiro — +dano. ✏️ Balancista.
+  consume: { kind: "food", regenMult: 3.0, durationMs: 240_000, buffs: [{ stat: "damage", amount: 2 }] },
 };
 
 /** Favo Assado — premium de caster (pão+mel silvestre); foco em mana. */
