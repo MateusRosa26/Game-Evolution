@@ -14,7 +14,7 @@ import type {
   Snapshot,
   SnapshotEvent,
 } from "../shared/protocol";
-import type { ClientCommand, ContainerView, EquipSlot, ItemRef, QuestJournalEntry, ShopEntryView } from "../shared/protocol";
+import type { ClientCommand, ContainerView, EquipSlot, ItemRef, QuestJournalEntry, RecipeView, ShopEntryView } from "../shared/protocol";
 import { COMMERCE, availableSells, availableBuys, type TradeEntry } from "./npc/commerce";
 import {
   DIR_VECTORS,
@@ -1521,6 +1521,29 @@ export class Simulation {
   }
 
   /** Projeta as skills conhecidas do jogador (id, cooldown restante ms, custo). */
+  /** Projeta as receitas de cozinha + se o jogador pode fazer cada uma agora. */
+  private projectRecipes(e: SimEntity): RecipeView[] {
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    const out: RecipeView[] = [];
+    for (const r of Object.values(RECIPES)) {
+      const inputs = r.inputs.map((i) => ({ name: getItemTemplate(i.templateId)?.name ?? i.templateId, qty: i.qty }));
+      let reason: string | undefined;
+      if (r.unlockQuest) {
+        const st = e.quests.get(r.unlockQuest);
+        if (!st || st.stage !== "completed") reason = "Receita desconhecida";
+      }
+      if (!reason && bp) {
+        for (const i of r.inputs) {
+          if (this.countInBolso(bp, i.templateId) < i.qty) { reason = "Faltam ingredientes"; break; }
+        }
+      }
+      if (!reason && r.needsHeat && !this.world.nearHeat(e.pos.x, e.pos.y, e.z)) reason = "Sem fonte de calor por perto";
+      if (!reason && r.needsFreshWater && !this.world.nearFreshWater(e.pos.x, e.pos.y, e.z)) reason = "Sem água-doce por perto";
+      out.push({ id: r.id, name: r.name, canCook: !reason, inputs, reason });
+    }
+    return out;
+  }
+
   private projectSkills(e: SimEntity): KnownSkillState[] {
     const out: KnownSkillState[] = [];
     for (const id of e.knownSkills) {
@@ -1569,6 +1592,7 @@ export class Simulation {
       if (prog) state.progress = this.projectProgress(prog);
       if (e.kind === "player") {
         state.skills = this.projectSkills(e);
+        state.recipes = this.projectRecipes(e);
         const weapon = this.projectWeapon(e);
         if (weapon) state.weapon = weapon;
         if (e.outfit) state.outfit = structuredCloneOutfit(e.outfit);

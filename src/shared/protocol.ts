@@ -199,6 +199,8 @@ export interface EntityState {
   dialogue?: DialogueViewState;
   /** Loja ativa — SOMENTE o jogador dono (presente enquanto negocia). */
   shop?: ShopViewState;
+  /** Receitas de cozinha + se dá pra fazer agora (COZINHA.md) — SÓ o dono. */
+  recipes?: RecipeView[];
   /** Diário de quests — SOMENTE o jogador dono. */
   quests?: QuestJournalEntry[];
   /**
@@ -377,6 +379,18 @@ export interface ShopViewState {
   npcName: string;
   sells: ShopEntryView[];
   buys: ShopEntryView[];
+}
+
+/** Uma receita de cozinha projetada (COZINHA.md): pode fazer agora? por quê não? */
+export interface RecipeView {
+  id: string;
+  name: string;
+  /** Tem todos os ingredientes E os gates (calor/água/quest) atendidos. */
+  canCook: boolean;
+  /** Lista dos inputs (nome × qtd) — a UI mostra o que a receita pede. */
+  inputs: { name: string; qty: number }[];
+  /** Motivo de não poder fazer (faltam ingredientes / sem calor / sem água). */
+  reason?: string;
 }
 
 /**
