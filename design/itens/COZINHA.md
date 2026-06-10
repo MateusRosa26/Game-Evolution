@@ -72,6 +72,26 @@ food { regenMult, durationMs, buffs?: [{ stat, amount, durationMs }] }
 ```
 Categorias novas de item: `ingredient`, `vessel`. Sem `requires.level` (gating é orgânico).
 
+## 7.5. Distribuição de conteúdo (o sistema > a cidade inicial)
+
+O MOTOR da cozinha é mais largo do que qualquer cidade oferece. Conteúdo é
+**distribuído por geografia + drops** — explorar destrava cozinha, não upar:
+
+- **Cidade inicial (Alvorada / Bento):** só o **básico** — **Sal-gema** (tempero
+  universal) + **Pote**. Habilita as receitas à base de sal (Queijo Quente, Sopa).
+  Bento **NÃO vende tudo**.
+- **Outras cidades = especialidades de buff** (✏️ World/Loremaster placeiam): cada
+  uma vende UM ingrediente que destrava um tipo de buff — uma cidade o do **+dano**
+  (Pimenta-longa → Carne Curada), outra o de **+INT**, outra o de mana (Mel
+  Silvestre → Favo Assado)… Achar a cidade É o gate do buff.
+- **Receitas só-de-drop:** ingredientes raros de **mobs fortes**, SEM compra (o
+  tier lendário §2). Cozinhar o topo exige caçar o topo.
+
+Princípio: a cidade inicial ensina a mecânica com 2–3 receitas; a largura real
+(buffs variados, lendárias) é recompensa de exploração e de farm de tier alto.
+Hoje Bento vende Sal-gema + Pote; Pimenta-longa/Mel Silvestre existem como dados
+mas **sem vendedor** até as outras cidades entrarem (= gated por conteúdo).
+
 ## 8. Mapa (dados-sim)
 
 Marcar no mapa: **fontes de calor** (fogão da estalagem / cozinha do Bento, fogueiras) e **água-doce** (o **poço da Alvorada já existe**; rios doces). Água do mar marcada como **salgada** (não serve pra cozinhar).

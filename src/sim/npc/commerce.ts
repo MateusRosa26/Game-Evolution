@@ -79,14 +79,14 @@ export const COMMERCE: Record<string, NpcCommerce> = {
   // Bento — cozinheiro (Estalagem): vende pratos prontos e compra ingredientes,
   // pós-quest dele (Q6 — a mesma que destrava a 1ª receita).
   bento: {
+    // CIDADE INICIAL = só o BÁSICO da cozinha (COZINHA.md §Distribuição): o motor
+    // é mais largo que Alvorada. Bento vende o tempero universal (Sal-gema) + o
+    // vasilhame (Pote); habilita Queijo Quente e Sopa. Os ingredientes de buff
+    // ESPECIALIZADOS (Pimenta-longa = +dano, Mel Silvestre = caster, +INT futuro…)
+    // vivem em OUTRAS cidades — exploração destrava buffs. ✏️ preços Balancista.
     sells: [
       { templateId: "carne_assada", price: 6 },
-      // Ingredientes premium da cozinha (COZINHA.md) — o gold-sink: NÃO dropam,
-      // só comprados. ✏️ preços Balancista. Pimenta/Mel ✏️ podem ser gated por quest.
       { templateId: "sal_gema", price: 8 },
-      { templateId: "pimenta_longa", price: 25 },
-      { templateId: "mel_silvestre", price: 20 },
-      // Pote — vasilhame 1-uso (vira a sopa). Sink recorrente. ✏️ preço Balancista.
       { templateId: "pote", price: 5 },
     ],
     buys: [
