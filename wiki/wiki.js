@@ -38,6 +38,8 @@ const DOCS = [
     desc: "Roster de tipos de mão, modelos de peça, famílias temáticas, kit de nascimento/rito e os catálogos T1/T2." },
   { id: "itens-consumiveis", title: "Itens — Consumíveis", file: "../design/itens/CONSUMIVEIS.md",
     desc: "Comida & cozinha (fome = portão do regen), poções (luxo de emergência) e ferramentas." },
+  { id: "itens-cozinha", title: "Itens — Cozinha & Buff Food", file: "../design/itens/COZINHA.md",
+    desc: "Sistema de cozinha: receitas, ingredientes/vasilhames, verbo de cozinhar, buff de refeição e os 4 tiers de comida." },
   { id: "itens-economia", title: "Itens — Economia", file: "../design/itens/ECONOMIA.md",
     desc: "Loot & gold, preços e sinks (1º passe T1 calibrado) e a discussão de economia acoplada ao PvP." },
   { id: "visual", title: "Design Visual & UI", file: "../DESIGN-VISUAL.md",
