@@ -274,6 +274,14 @@ const HP_REGEN_BASE_PER_SEC = 2.0; // ✏️ taxa-base saciado L1 (compartilhada
 const MANA_REGEN_BASE_PER_SEC = 1.0; // ✏️ idem mana (saciado, L1)
 
 /**
+ * Intervalo do regen (modelo Tibia/Apogea, decidido criador 2026-06-10): o regen
+ * não é contínuo — aplica um CHUNK a cada `REGEN_INTERVAL_MS`. O chunk = taxa/seg
+ * × mult da comida × (intervalo em seg). A taxa MÉDIA no tempo é preservada; o
+ * feel vira "curas em pulsos" (e fights curtos podem não pegar um pulso). ✏️ 5s.
+ */
+export const REGEN_INTERVAL_MS = 5000;
+
+/**
  * Regeneração de HP por SEGUNDO **enquanto saciado** (sem comida = 0). Cresce com
  * o NÍVEL por classe (`CLASS_GROWTH.hpRegenPerLevel`), DESACOPLADA da Vitalidade
  * (Vit = pool; nível/classe = velocidade de encher — anti double-dip). O

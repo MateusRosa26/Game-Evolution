@@ -146,6 +146,33 @@ no nível-alvo ≈ 65–70% do DPS do mob daquele tier.**
 > extrapolação a T3–T5 (sem mobs). A régua dos 68% prevê o slope; #11 confirma
 > quando o bestiário crescer.
 
+## ADENDO 3 — Regen em PULSOS + escala de comida 1–3× (decisão do criador)
+
+Decisão (2026-06-10): (a) o regen aplica um **CHUNK a cada `REGEN_INTERVAL_MS`
+(5s)**, não contínuo — feel de "curas em pulsos" (fights curtos podem não pegar um
+pulso). (b) O mult da comida vai de **1× a 3×** pela escala de preparo: básico/cru
+~1×, receita simples (cozido) ~2×, premium (receita combinada) ~3×. Cap ~3×.
+
+Implementação: `regenTick` virou timer (`Progression.regenTimerMs`); chunk =
+taxa/seg (nível+classe) × mult × 5. Carne re-slotada 1,5→**2,0×** (cozido).
+
+**Medido (knight L1, base 2/s):**
+
+| mult (tier) | pulso/5s | média | vs rato 4,4 |
+|---|---|---|---|
+| 1× cru/básico | 10 HP | 2,0/s | não out-heala ✓ |
+| 2× cozido/simples | 20 HP | 4,0/s | não out-heala ✓ |
+| 3× premium | 30 HP | 6,0/s | **OUT-HEALA** ⚠️ |
+
+Sem comida = pulso vazio (0 regen) ✓. Primeiro pulso aos 5,0s.
+
+> ⚠️ **Tensão de design:** com cap 3×, comida premium trivializa conteúdo do
+> PRÓPRIO nível (3× = 6/s > rato 4,4). Só não quebra hoje porque receita premium
+> não existe (só 1× e 2× existem). **Gating do premium 3× = decisão do sistema de
+> cozinha** (receita gated por nível/ingredientes que acompanham o tier do conteúdo),
+> OU baixar a taxa-base. Lumpiness: chunk de 20–30 HP num pool de 114 é visível em
+> combate — se incomodar, baixar `REGEN_INTERVAL_MS` (ex. 3s) suaviza.
+
 ## Pendências ✏️ (criador / futuro)
 
 1. **Calibrar os coeficientes de regen/nível** (`CLASS_GROWTH.*RegenPerLevel` +

@@ -361,9 +361,9 @@ export const CARNE_ASSADA: ItemTemplate = {
   stackable: true,
   weight: 4,
   rarity: "common",
-  // Comida premium: regen MAIS RÁPIDO (1.5× = ~3 HP/s, ainda < DPS do rato) E mais
-  // duração — melhor nos dois eixos (Apogea-numeric). Bateria 2026-06-10.
-  consume: { kind: "food", regenMult: 1.5, durationMs: 300_000 },
+  // Cozido / receita simples (escala de preparo, cap 3×): regen 2.0× (~4 HP/s L1)
+  // e duração média. Acima do cru (1×); receitas premium combinadas chegam a ~3×.
+  consume: { kind: "food", regenMult: 2.0, durationMs: 300_000 },
 };
 
 /** Queijo — comida CRUA (piso da escala de preparo: cru < cozido < preparado).
