@@ -172,10 +172,16 @@ export function applyFood(e: SimEntity, currentTick: number, p: FoodParams): voi
   });
 }
 
-/** Multiplicador de regen ativo (status "Bem Alimentado"); 1 se não saciado. */
+/**
+ * Multiplicador de regen do status "Bem Alimentado". MODELO DE SUSTAIN (decidido
+ * criador, jun/2026, estilo Tibia/Apogea): **comida é pré-condição do regen** —
+ * SEM saciedade, regen de HP e mana é ZERO (em qualquer lugar). Saciado, regen =
+ * taxa-base (atributo) × este multiplicador (qualidade da comida). Por isso o
+ * retorno NÃO-saciado é 0, não 1: não há regen "de graça".
+ */
 export function wellFedRegenMult(e: SimEntity): number {
   const fed = e.status.find((s) => s.kind === "wellFed");
-  return fed ? fed.regenMultiplier : 1;
+  return fed ? fed.regenMultiplier : 0;
 }
 
 /** Recalcula `stepMs` efetivo a partir do baseStepMs e do slow ativo. */

@@ -348,8 +348,9 @@ export const PAO: ItemTemplate = {
   stackable: true,
   weight: 2,
   rarity: "common",
-  // Comida barata: saciedade curta. ✏️ mult/duração placeholder — Balancista.
-  consume: { kind: "food", regenMult: 1.5, durationMs: 120_000 },
+  // Comida barata: regen na TAXA-BASE (1.0× = ~2 HP/s p/ knight base), saciedade
+  // curta. Modelo "sem comida = sem regen": o pão é o sustain mínimo de grind.
+  consume: { kind: "food", regenMult: 1.0, durationMs: 120_000 },
 };
 
 /** Carne Assada — comida melhor (regen maior por duração). Cozinha/estalagem. */
@@ -360,8 +361,8 @@ export const CARNE_ASSADA: ItemTemplate = {
   stackable: true,
   weight: 4,
   rarity: "common",
-  // Comida melhor: mesma intensidade, MAIS duração que o pão (peso×duração).
-  // ✏️ mult/duração placeholder — Balancista.
+  // Comida premium: regen MAIS RÁPIDO (1.5× = ~3 HP/s, ainda < DPS do rato) E mais
+  // duração — melhor nos dois eixos (Apogea-numeric). Bateria 2026-06-10.
   consume: { kind: "food", regenMult: 1.5, durationMs: 300_000 },
 };
 
@@ -373,9 +374,11 @@ export const POCAO_VIDA_PEQUENA: ItemTemplate = {
   stackable: true,
   weight: 3,
   rarity: "common",
-  // Cura de EMERGÊNCIA instantânea + exausto curto. ✏️ hp/exhaust placeholder —
-  // Balancista (cura amarra na régua de maxHp/TTK do early).
-  consume: { kind: "heal", hp: 50, exhaustMs: 1000 },
+  // Cura de EMERGÊNCIA instantânea + exausto curto. Bateria consumíveis
+  // (2026-06-10): 30 ≈ 26% do maxHp T1 (~2,7 ratos de fôlego) — botão de pânico
+  // real sem virar reset; 50 (44%) era generoso demais. ✏️ alvo = 25–30% maxHp;
+  // recalibrar o ABSOLUTO quando maxHp/regen base saírem de placeholder (#11).
+  consume: { kind: "heal", hp: 30, exhaustMs: 1000 },
 };
 
 /** Corda — ferramenta PERMANENTE (compra única não-trivial). Vendor + baús. */
