@@ -1,89 +1,87 @@
-# Agentes — divisão de trabalho (3 funções)
+# Como trabalhamos — agentes em paralelo neste repo
 
-> Orientação para rodar 3 agentes Claude em paralelo neste repo sem colisão.
-> **Regra-mãe:** cada árvore de arquivos tem **UM dono exclusivo**. A dor que
-> originou este doc (dois agentes escrevendo no mesmo `Simulation.ts`) só some
-> com posse exclusiva por árvore. Leia também `CLAUDE.md` (arquitetura) e a
-> constituição `DESIGN-FILOSOFIA.md`.
+> Modelo decidido em 10/jun/2026, substituindo a divisão antiga por dono-de-árvore
+> (F1 sim / F2 client / F3 design). Aquela cortava por **camada**, mas toda feature
+> é **vertical** (cruza sim+shared+client) → forçava cada feature pela fila
+> F3→F1→F2, que travava. Leia também `CLAUDE.md` (arquitetura) e a constituição
+> `DESIGN-FILOSOFIA.md`.
 
-## Mapa de corte (segue a REGRA DE OURO da arquitetura)
+## A regra-mãe
 
-| Função | Dono exclusivo de | Skills |
-|---|---|---|
-| **F1 — Núcleo & Balance** | `src/sim/**`, `src/shared/**`, `src/net/**` | `designer-de-sistemas` + `balancista` |
-| **F2 — Cliente, Render & Arte** | `src/client/**` | `diretor-de-arte` |
-| **F3 — Design, Mundo & Lore** | `design/**`, `DESIGN-*.md`, `wiki/`, `ROADMAP-MVP.md` | `world-designer` + `loremaster` |
+**N chats simultâneos = N worktrees, 1 feature VERTICAL por chat.** Cada chat pega
+uma feature e a faz inteira — sim → shared → client → arte (placeholder) — sem
+esperar outro agente. O isolamento por worktree torna colisão de arquivo
+**impossível por construção**; o resto é convenção mínima.
 
-Só **F1 e F2 escrevem código**, em árvores **disjuntas** (compartilham só
-`src/shared`, que é da F1). **F3 não escreve código** — produz specs/docs. Logo,
-conflito de merge entre agentes é estruturalmente impossível.
+Por que vertical e não por camada: a dor real é o criador rodando 3-4 chats e tendo
+que *"dar instruções que não conflitem"*. Isso tem dois custos — (1) conflito de
+arquivo e (2) coordenação de tempo ("espera o outro adicionar o campo"). Worktree
+mata o #1; feature auto-contida mata o #2 (acaba a fila de espera).
 
----
-
-## F1 — Núcleo & Balance (a sim autoritativa)
-**Dono:** `src/sim/**` + `src/shared/**` + `src/net/**`
-**Faz:** mecânicas e regras; números/balance (baterias headless determinísticas);
-o lado-sim de TODA feature (combate, skills, itens, NPC-lógica/comércio, quests,
-tracking, progressão, **dados de mapa em `src/sim/maps/`**, dados de criatura em
-`bestiary.ts`); refactors da sim; protocolo/tipos em `src/shared`.
-**NÃO toca:** render, UI, sprites, `design/**`, docs de visão.
-**Handoff:** recebe spec da F3; expõe campos no `protocol.ts` que a F2 consome.
-**Skills:** `designer-de-sistemas` (estrutura/filosofia) + `balancista` (números).
-
-## F2 — Cliente, Render & Arte
-**Dono:** `src/client/**` (Game, Camera, render/, ui/, assets/, input/, dev/)
-**Faz:** rendering; todas as janelas/HUD (ShopWindow, DialogueWindow, Container…);
-pixel art procedural (`assets/sprites.ts` + `palette.ts`); pipeline PixelLab;
-lighting; feedback visual; interpolação de movimento.
-**Lê** `src/shared` (consome snapshots) — **não define regra**. Precisa de campo
-novo no snapshot? Pede pra F1 adicionar.
-**NÃO toca:** `src/sim`, balance, `design/**`.
-**Skills:** `diretor-de-arte`.
-
-## F3 — Design, Mundo & Lore (specs, zero código)
-**Dono:** `design/**`, `DESIGN-*.md`, `wiki/`, `ROADMAP-MVP.md`
-**Faz:** design de zonas/mapas/POIs/dungeons e ritmo de exploração; rosters de
-NPC/quest/loot como **especificação**; nomes/flavor/lore/diálogo; decisões de
-design; manutenção da wiki e dos mapas de decisão dos docs.
-**NÃO escreve código** → entrega specs que F1 (dados/regras) e F2 (arte/UI)
-implementam. Doc novo na wiki = entrada no array `DOCS` de `wiki/wiki.js`.
-**Skills:** `world-designer` + `loremaster` (+ `designer-de-sistemas` p/ specs).
-
----
-
-## Protocolo de feature cross-cutting
-Uma feature que cruza camadas (ex: comércio) flui em **sequência**, nunca dois
-agentes no mesmo arquivo ao mesmo tempo:
+## O fluxo de uma feature
 
 ```
-F3 (spec: o que é, regras, conteúdo)
-   → F1 (sim: dados + regra + campo no protocolo)
-      → F2 (cliente: UI + arte que consome o snapshot)
+1. git worktree add ~/rpg-worktrees/<slug> -b feat/<slug> <base>   (base = main atual)
+   └─ symlink do node_modules (ver swarm-worktree-setup); porta de dev própria
+2. o chat faz a fatia vertical, INVOCANDO o skill do domínio que tocar
+3. "pronto" =  npx tsc --noEmit limpo
+            ·  visto/rodado NO JOGO (não só headless — FPS headless é SwiftShader)
+            ·  bate com a constituição (DESIGN-FILOSOFIA.md)
+            ·  decisão confirmada escrita no DOC de design
+            ·  estado em voo escrito na MEMÓRIA
+4. merge no main · apaga o branch
 ```
 
-## Regras de convivência
-- **`src/shared` é da F1.** F2 só lê. Mudança de protocolo nasce de feature da F1.
-- **`src/sim/maps/` é da F1** (é código). F3 desenha o layout em spec; F1 transcreve.
-- Antes de mexer, confirme que está na sua árvore. Fora dela = abre handoff, não edita.
-- Commits: cada função commita só a sua árvore. Validar `npx tsc --noEmit` antes.
+Branch **curto**: branch longo diverge e vira fila-de-merge. Feature grande demais
+pra caber num contexto? Então **são duas features** ligadas por um contrato
+congelado — não uma feature sub-dividida.
+
+## Os skills são a guarda da visão (não papéis, não donos de pasta)
+
+A parte BOA dos "3 agentes" eram os skills — cada um carrega a constituição como
+veto. Eles continuam, invocados **quando o trabalho toca o domínio**:
+
+| Domínio | Skill |
+|---|---|
+| Mecânica / sistema / filosofia | `designer-de-sistemas` |
+| Números (dano/XP/custo/curva) | `balancista` |
+| Sprite / UI / pixel art / "ficou feio" | `diretor-de-arte` |
+| Nome / flavor / lore / cânone | `loremaster` |
+| Mapa / zona / spawn / POI | `world-designer` |
+
+Coerência da visão é um **passo dentro da feature**, não um agente atrás dela na fila.
+
+## As 2 regras que evitam dor
+
+1. **`src/shared` (`protocol.ts` / `types.ts`) é o único ponto que colide mesmo em
+   worktrees** — cada feature tende a adicionar um campo no protocolo. Convenção:
+   quem precisa de campo novo **adiciona**; os outros **dão rebase**. Serializa só o
+   contrato, nunca a feature inteira.
+2. **Em working tree COMPARTILHADO** (vários chats no mesmo dir, ex.: `main`):
+   só `git add <arquivos específicos>` + commit. **NUNCA** `git reset --hard`,
+   `git checkout .`, `git stash`, nem trocar de branch — apagam o não-commitado dos
+   outros chats. (Worktree próprio por chat elimina isso na raiz.)
+
+## A arquitetura do CÓDIGO continua (≠ divisão de trabalho)
+
+A separação **sim pura ↔ client burro ↔ shared serializável** (REGRA DE OURO do
+`CLAUDE.md`) é arquitetura para o online — **fica intacta**. O que mudou foi só a
+organização de *quem faz o quê*: um chat atravessa as três camadas na sua feature.
+
+## Durabilidade mora no DISCO
+
+Chat é cursor descartável que reidrata do disco. O que sobrevive ao reset:
+**git** (código), **docs de design** (a visão — decisão confirmada vira doc), e
+**memória** (estado em voo + gotchas). Se não está no disco, não existe no próximo chat.
+
+## NÃO construir agora (YAGNI)
+
+Governança pesada (guardião como papel, definition-of-done cerimonial em fases,
+contract-first como protocolo, regras de sub-despacho) fica pro dia em que a dor
+aparecer. **Gatilho futuro único:** um `WORK-BOARD.md` (3 linhas por chat:
+*trabalhando em X · arquivos Y · status*) entra SE o glance do `src/shared` começar
+a doer (você inseguro se alguém está mexendo no contrato) — não antes.
 
 ---
 
-## Backlog inicial por função (pós-reset, jun/2026)
-
-**F1**
-- Comércio: encher buy-lists com mais mobs/loot; ligar consumíveis com efeito.
-- Bateria T2 (próxima grande): orçamento, diferenciação real de LdG/burn/slow.
-- Sistema de morte (punição de XP). Eventos `equip`/`talk`/`chest_open`.
-- Recalibrar XP/h quando comida entrar; thresholds reais de Marca (wave de conteúdo).
-
-**F2**
-- Portar props procedurais (barril/caixa/tenda) do `prop-preview` pro `sprites.ts`
-  + novos `MapDecor.kind` no WorldRenderer (handoff do protótipo aprovado).
-- Conferir ShopWindow ao vivo (build/visual) — só `tsc` foi validado.
-- Stack de profundidade do mundo: #3 hero props, #4 autotile, #5 composição.
-
-**F3**
-- `MOBILIA-URBANA.md` §4: placement da feira ao redor do poço (spec p/ F1 transcrever).
-- Layout dos esgotos (continuação A1–A3); render do andar ativo (spec).
-- Comida: decidir buff simples vs sistema de stamina (sessão de consumíveis).
+Relacionado na memória: `modelo-trabalho-worktree`, `swarm-worktree-setup`.
