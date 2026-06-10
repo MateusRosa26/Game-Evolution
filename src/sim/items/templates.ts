@@ -146,9 +146,10 @@ export type ConsumeEffect =
   | { kind: "food"; regenMult: number; durationMs: number; buffs?: MealBuff[] };
 
 /**
- * Buff de refeição (comida preparada — COZINHA.md). `damage` = bônus FLAT no dano
- * do ataque básico (canon "dano+1"); `attackSpeed` = fração de redução do cooldown
- * (0.1 = 10% mais rápido). Valores ✏️ Balancista (modestos p/ não quebrar combate).
+ * Buff de refeição (comida preparada — COZINHA.md). `damage` = MULTIPLICADOR da
+ * BASE DE DANO DA ARMA (não é flat — escala com o tier da arma): amount 1 = +1×
+ * a base da arma no auto-attack (Sopa); 2 = +2× (Carne Curada). `attackSpeed` =
+ * fração de redução do cooldown (0.1 = 10% mais rápido). ✏️ Balancista (magnitudes).
  */
 export type MealBuff =
   | { stat: "damage"; amount: number }
@@ -479,11 +480,12 @@ export const SOPA: ItemTemplate = {
   stackable: true,
   weight: 8,
   rarity: "common",
-  // Sopa: refeição reforçada — +dano leve. ✏️ Balancista.
+  // Sopa: o buff de combate mais BÁSICO — +1× a base de dano da ARMA (escala com
+  // o tier da arma, não é flat). ✏️ Balancista (magnitude do multiplicador).
   consume: { kind: "food", regenMult: 3.0, durationMs: 180_000, buffs: [{ stat: "damage", amount: 1 }] },
 };
 
-/** Queijo Quente — premium (pão+queijo+sal-gema). */
+/** Queijo Quente — comfort food (pão+queijo+sal-gema): SÓ regen + tempo extra. */
 export const QUEIJO_QUENTE: ItemTemplate = {
   id: "queijo_quente",
   name: "Queijo Quente",
@@ -491,11 +493,12 @@ export const QUEIJO_QUENTE: ItemTemplate = {
   stackable: true,
   weight: 3,
   rarity: "common",
-  // Queijo Quente: +velocidade de ataque leve. ✏️ Balancista.
-  consume: { kind: "food", regenMult: 3.0, durationMs: 150_000, buffs: [{ stat: "attackSpeed", amount: 0.1 }] },
+  // Sem buff de stat (decisão criador): é o premium de SUSTAIN — regen 3× +
+  // duração LONGA (a comida confortável de caçada longa). ✏️ duração Balancista.
+  consume: { kind: "food", regenMult: 3.0, durationMs: 300_000 },
 };
 
-/** Carne Curada — premium, duração longa (carne+sal-gema+pimenta-longa). */
+/** Carne Curada — premium de COMBATE (carne+sal-gema+pimenta-longa). */
 export const CARNE_CURADA: ItemTemplate = {
   id: "carne_curada",
   name: "Carne Curada",
@@ -503,7 +506,7 @@ export const CARNE_CURADA: ItemTemplate = {
   stackable: true,
   weight: 4,
   rarity: "common",
-  // Carne Curada: a comida do guerreiro — +dano. ✏️ Balancista.
+  // Comida do guerreiro: +2× a base de dano da arma (premium acima da Sopa). ✏️ Balancista.
   consume: { kind: "food", regenMult: 3.0, durationMs: 240_000, buffs: [{ stat: "damage", amount: 2 }] },
 };
 
