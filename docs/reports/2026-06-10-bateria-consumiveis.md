@@ -173,6 +173,26 @@ Sem comida = pulso vazio (0 regen) ✓. Primeiro pulso aos 5,0s.
 > OU baixar a taxa-base. Lumpiness: chunk de 20–30 HP num pool de 114 é visível em
 > combate — se incomodar, baixar `REGEN_INTERVAL_MS` (ex. 3s) suaviza.
 
+## ADENDO 4 — Durações de comida pra baixo (decisão do criador)
+
+Decisão (2026-06-10): encurtar todas as durações — queijo 90→**60s**, pão 120→**75s**,
+carne 300→**120s**. Insight-chave medido: **duração ≠ velocidade de recuperação**
+(isso é a taxa de regen); duração = **peso econômico + punição ao desperdício**
+(comer no HP cheio joga comida fora).
+
+Economia medida (ciclo realista 150 rats/h, renda ~60g/h nu):
+
+| Comida | eficiente (come só p/ recuperar) | ingênuo (sempre saciado) |
+|---|---|---|
+| pão 75s | ~28g/h (47%) | ~96g/h |
+| carne 120s | ~26g/h | ~180g/h |
+
+**Veredito: não é brutal pra quem joga com cuidado** — piso eficiente fica em
+28–47% da renda (sink real, sem falir; drop de queijo 8% amortece). O que muda é
+que tempo curto **pune o jogo ingênuo** (comer no HP quase cheio) → vira skill de
+gestão de comida (espírito Tibia). Carne ficou em 120s (não 90) p/ manter
+identidade de tier sobre o pão (75s) e não virar armadilha de gold no grind.
+
 ## Pendências ✏️ (criador / futuro)
 
 1. **Calibrar os coeficientes de regen/nível** (`CLASS_GROWTH.*RegenPerLevel` +

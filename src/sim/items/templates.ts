@@ -349,8 +349,9 @@ export const PAO: ItemTemplate = {
   weight: 2,
   rarity: "common",
   // Comida barata: regen na TAXA-BASE (1.0× = ~2 HP/s p/ knight base), saciedade
-  // curta. Modelo "sem comida = sem regen": o pão é o sustain mínimo de grind.
-  consume: { kind: "food", regenMult: 1.0, durationMs: 120_000 },
+  // curta (75s). Staple de grind; bateria 2026-06-10: ~28g/h (eficiente) a 96g/h
+  // (ingênuo) vs renda ~60g/h — sink real que pune desperdício, sem falir.
+  consume: { kind: "food", regenMult: 1.0, durationMs: 75_000 },
 };
 
 /** Carne Assada — comida melhor (regen maior por duração). Cozinha/estalagem. */
@@ -362,8 +363,9 @@ export const CARNE_ASSADA: ItemTemplate = {
   weight: 4,
   rarity: "common",
   // Cozido / receita simples (escala de preparo, cap 3×): regen 2.0× (~4 HP/s L1)
-  // e duração média. Acima do cru (1×); receitas premium combinadas chegam a ~3×.
-  consume: { kind: "food", regenMult: 2.0, durationMs: 300_000 },
+  // e duração 120s (acima do pão 75s — identidade de tier). Premium = recupera mais
+  // rápido + dura mais; receitas combinadas chegam a ~3×. Bateria 2026-06-10.
+  consume: { kind: "food", regenMult: 2.0, durationMs: 120_000 },
 };
 
 /** Queijo — comida CRUA (piso da escala de preparo: cru < cozido < preparado).
@@ -377,7 +379,7 @@ export const QUEIJO: ItemTemplate = {
   stackable: true,
   weight: 2,
   rarity: "common",
-  consume: { kind: "food", regenMult: 1.0, durationMs: 90_000 },
+  consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
 };
 
 /** Poção de Vida Pequena — EMERGÊNCIA, luxo no early (≈33min de caça T1, ✏️). */
