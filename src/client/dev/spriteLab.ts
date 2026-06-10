@@ -176,6 +176,45 @@ async function main() {
   });
   gridLabel.position.set(8, gridY);
   root.addChild(gridLabel);
+
+  // MOBÍLIA URBANA — kit de feira (barril/caixa/tenda) sobre grama e pedra @6x
+  const propsY = gridY + 24 + Math.ceil(OUTFIT_COLORS.length / 26) * 20 + 40;
+  const props: { name: string; tex: Texture }[] = [
+    { name: "barril", tex: sprites.barrel },
+    { name: "caixa", tex: sprites.crate },
+    { name: "tenda", tex: sprites.stall },
+  ];
+  let px = 8;
+  for (const { name, tex } of props) {
+    for (const [bg, label] of [[sprites.grass[0], "grama"], [sprites.stoneFloor[0], "pedra"]] as const) {
+      const SC = 6;
+      const W = tex.width * SC, H = tex.height * SC;
+      const tile = new Container();
+      const bgSprite = new Sprite(bg);
+      bgSprite.width = W;
+      bgSprite.height = H;
+      tile.addChild(bgSprite);
+      const spr = new Sprite(tex);
+      spr.scale.set(SC);
+      tile.addChild(spr);
+      tile.position.set(px, propsY + 24);
+      root.addChild(tile);
+      const cap = new Text({
+        text: `${name} (${label})`,
+        style: { fontFamily: "monospace", fontSize: 12, fill: 0x7d8794 },
+      });
+      cap.position.set(px, propsY + 24 + H + 2);
+      root.addChild(cap);
+      px += W + 12;
+    }
+    px += 16;
+  }
+  const propsLabel = new Text({
+    text: "MOBÍLIA URBANA — barril / caixa / tenda (kit de feira) @6x",
+    style: { fontFamily: "monospace", fontSize: 14, fill: 0xe8e4d8 },
+  });
+  propsLabel.position.set(8, propsY);
+  root.addChild(propsLabel);
 }
 
 main();

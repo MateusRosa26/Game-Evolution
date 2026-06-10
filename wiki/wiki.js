@@ -28,6 +28,8 @@ const DOCS = [
     desc: "Gramática de spawns, layout da área inicial, baús, portas & chaves, ferramentas e casa inicial." },
   { id: "mundo-andares", title: "Mundo — Sistema de Andares", file: "../design/mundo/SISTEMA-ANDARES.md",
     desc: "Z-levels estilo Tibia: andares empilhados, buracos vazados, escada/corda/pá/tocha, cavernas escuras, faseamento." },
+  { id: "mundo-mobilia", title: "Mundo — Mobília urbana", file: "../design/mundo/MOBILIA-URBANA.md",
+    desc: "Contrato de props de cidade (MapDecor: tenda/barril/caixa/poço/tocha) + placement da feira ao redor do poço da Alvorada." },
   { id: "lore", title: "Lore & História", file: "../DESIGN-LORE.md",
     desc: "Linha do tempo do mundo: a Chegada, o Primeiro Mago, a Guerra do Submundo, raças e os 5 continentes." },
   { id: "itens", title: "Itens — Hub", file: "../DESIGN-ITENS.md",
@@ -44,6 +46,8 @@ const DOCS = [
     desc: "Spec das 15 quests + 4 ritos da fatia ①: camadas, áreas, níveis, NPCs, XP e recompensas." },
   { id: "npcs-fatia1", title: "NPCs — Fatia ① (Alvorada)", file: "../design/fatia-1-alvorada/NPCS.md",
     desc: "O elenco batizado da fatia ①: 19 NPCs com papéis, locais e vozes + topônimos PT/EN." },
+  { id: "esgotos-fatia1", title: "Esgotos — Fatia ① (Alvorada)", file: "../design/fatia-1-alvorada/ESGOTOS.md",
+    desc: "Spec implementável dos 3 andares de esgoto (A1/A2/A3) em z-level real: 5 bocas, footprints, portais, baú lacrado, Q10/Q15, ghouls." },
 ];
 
 // Views interativas (banco de dados) — parseadas dos .md acima em db.js

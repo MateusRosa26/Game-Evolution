@@ -133,7 +133,7 @@ Linhas tracejadas do v4. Saem dos 4 portões:
 
 ### 3.4 Hortas e feira (forrageio leve / flavor)
 - **Hortas** junto ao portão Sul: `[16..24]×[50..56]` — forrageio (morangos/colheita, `ITENS-LOOTS.md` §comida).
-- **Feira (tendas)** ao redor do poço: `[33..40]×[37..42]`.
+- **Feira (tendas)** ao redor do poço: `[33..42]×[34..44]` (a praça). **Placement por prop (poço + tendas/barris/caixas) detalhado em [`design/mundo/MOBILIA-URBANA.md`](../mundo/MOBILIA-URBANA.md) §4** — fonte da verdade do layout da feira; F1 transcreve de lá.
 
 ### 3.5 Mini-mapa ASCII da cidade (1 célula ≈ 6 tiles-cidade)
 
@@ -228,9 +228,11 @@ cy  +----+----+----+----+----+----+----+----+
 
 ---
 
-## 7. Esgotos de Alvorada — A1 / A2 / A3 (mapa separado, 3 andares)
+## 7. Esgotos de Alvorada — A1 / A2 / A3 (3 andares)
 
-> Prancha C do v4. Sistema de coordenadas **próprio** do esgoto (mapa separado), origem `(0,0)` no canto NW da planta de cada andar. Ligado ao overworld pelas **5 bocas** + descidas internas. **Custo de fuga cresce a cada andar** (OSRS).
+> ⚠️ **SUBSTITUÍDO pela spec implementável [`ESGOTOS.md`](ESGOTOS.md)** (fonte da verdade do layout dos esgotos). Esta seção foi escrita com "mapa separado / coords próprias do andar", **anterior à decisão de z-level real** ([SISTEMA-ANDARES.md](../mundo/SISTEMA-ANDARES.md)). Mantida abaixo como contexto histórico/intenção; coords e o modelo de coordenadas estão atualizados em `ESGOTOS.md` (z-level real, `FloorLayer` com `ox/oy`, coords de mundo/local).
+>
+> Prancha C do v4. **Custo de fuga cresce a cada andar** (OSRS).
 
 ### 7.1 Bocas de esgoto na cidade (entradas A1) — coord-cidade
 

@@ -2,7 +2,7 @@
 
 > Documento vivo. Seções ✏️ são preenchidas pelo criador. Conteúdo concreto (quests reais, NPCs nomeados, posições de baú) nasce junto com o design de mapa (M3).
 
-> **Hub.** Os corpos detalhados vivem em `design/mundo/`: [SISTEMA-QUESTS.md](SISTEMA-QUESTS.md) (as 3 camadas, templates, diário), [SISTEMA-NPCS.md](SISTEMA-NPCS.md) (comércio, diálogo, templates), [EXPLORACAO.md](EXPLORACAO.md) (gramática de spawns, layout, baús, portas & chaves, ferramentas, casa inicial, itens). Este doc reúne a filosofia, os princípios de mundo e o mapa de decisões.
+> **Hub.** Os corpos detalhados vivem em `design/mundo/`: [SISTEMA-QUESTS.md](SISTEMA-QUESTS.md) (as 3 camadas, templates, diário), [SISTEMA-NPCS.md](SISTEMA-NPCS.md) (comércio, diálogo, templates), [EXPLORACAO.md](EXPLORACAO.md) (gramática de spawns, layout, baús, portas & chaves, ferramentas, casa inicial, itens), [MOBILIA-URBANA.md](design/mundo/MOBILIA-URBANA.md) (contrato de props de cidade + placement da feira ao redor do poço). Este doc reúne a filosofia, os princípios de mundo e o mapa de decisões.
 
 ## Filosofia — o mundo recompensa quem olha
 

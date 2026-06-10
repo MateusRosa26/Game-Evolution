@@ -710,6 +710,125 @@ function makeRock(seed: number): Texture {
   return p.texture();
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Mobília urbana (kit de feira: barril / caixa / tenda)
+// ──────────────────────────────────────────────────────────────────────
+// Portado do protótipo aprovado (prop-preview): madeira reusa a paleta central
+// (woodPost/woodPostLight); ferro/linho/pano são específicos do kit. Luz vem de
+// cima-esquerda. Outline desenhado à mão como backing rect (a silhueta depende
+// dele, não do contorno automático). Anchor (0.5,1) no WorldRenderer.
+const PROP_OUT = PAL.outline;
+const WOOD = PAL.woodPost, WOOD_LT = PAL.woodPostLight, WOOD_DK = "#2a2016", WOOD_HI = "#5e4a34";
+const IRON = "#20242c", IRON_HI = "#3a4150";
+const LINEN = "#b8a784", LINEN_SH = "#8f8060", LINEN_HI = "#cdbf9d";
+const CLOTH = "#9a4f3c", CLOTH_SH = "#6e3a2c"; // vermelho-poeira dessaturado (acento quente)
+
+// Light GLOBAL top-left, mesma da árvore/muro. Estes três são desenhados em
+// LOW-TOP-DOWN (vê-se a face de topo + a frente), pra casar a perspectiva do
+// mundo procedural — não em elevação frontal. `p.outline` fecha a silhueta.
+
+/** Barril (18×24): tampa elíptica visível no topo + cilindro com a luz
+ *  envolvendo (highlight à esquerda do centro) + dois aros de ferro. */
+function makeBarrel(): Texture {
+  const p = new Px(18, 24);
+  const cx = 9;
+  const top = 5, bot = 21;
+  // ramp do cilindro (luz top-left → pico perto de x=6): 12 colunas (corpo x 3..14)
+  const ramp = [WOOD_DK, WOOD, WOOD_LT, WOOD_HI, WOOD_LT, WOOD, WOOD, WOOD, WOOD, WOOD_DK, WOOD_DK, WOOD_DK];
+  for (let i = 0; i < 12; i++) p.rect(3 + i, top, 1, bot - top, ramp[i]);
+  // barriga: 1px pra fora nos lados no meio (silhueta arredondada)
+  for (let y = top + 4; y < bot - 4; y++) {
+    p.px(2, y, ramp[0]);
+    p.px(15, y, ramp[11]);
+  }
+  // costuras de duela (tábuas) entre os aros
+  for (const sx of [6, 9, 12]) p.rect(sx, top + 1, 1, bot - top - 2, WOOD_DK);
+  // aros de ferro (2) — topo do aro pega luz
+  for (const ay of [8, 16]) {
+    p.rect(2, ay, 14, 1, IRON_HI);
+    p.rect(2, ay + 1, 14, 2, IRON);
+  }
+  // tampa elíptica no topo (a chave do low-top-down)
+  p.ellipse(cx, top, 6, 2.4, WOOD);
+  p.ellipse(cx, top, 5, 1.8, WOOD_LT);
+  for (let x = cx - 3; x <= cx + 1; x++) p.px(x, top - 2, WOOD_HI); // crista lit (back rim)
+  for (let x = cx - 6; x <= cx + 6; x++) if (((x - cx) / 6) ** 2 <= 1) p.px(x, top + 2, IRON); // aro da tampa
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Caixa/engradado (18×17): face de topo (encara o céu → mais clara) + face
+ *  frontal com X de reforço; quina topo→frente marcada vende o 3/4. */
+function makeCrate(): Texture {
+  const p = new Px(18, 17);
+  // face de topo (leve overhang) — y 2..5
+  const topRows = [[3, 14], [3, 14], [3, 14], [4, 13]];
+  for (let r = 0; r < topRows.length; r++) {
+    const [a, b] = topRows[r];
+    p.rect(a, 2 + r, b - a + 1, 1, r < 2 ? WOOD_HI : WOOD_LT);
+  }
+  for (const sx of [7, 10]) p.rect(sx, 2, 1, 4, WOOD_LT); // ripas do topo
+  // face frontal — y 6..14
+  p.rect(3, 6, 12, 9, WOOD);
+  p.rect(3, 6, 12, 1, WOOD_DK); // quina topo→frente (vende o 3/4)
+  p.rect(3, 6, 2, 9, WOOD_LT); // poste esq (luz)
+  p.rect(13, 6, 2, 9, WOOD_DK); // poste dir (sombra)
+  p.rect(3, 13, 12, 2, WOOD_DK); // base em sombra
+  for (let i = 0; i < 8; i++) {
+    p.px(5 + i, 7 + i, WOOD_HI); // X de reforço (diagonal lit)
+    p.px(12 - i, 7 + i, WOOD_DK);
+  }
+  for (const [x, y] of [[4, 7], [13, 7], [4, 13], [13, 13]] as const) p.px(x, y, IRON_HI); // pregos
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Tenda/banca de feira (46×42): toldo com TOPO visível (3/4) + franja
+ *  escalopada + balcão de tábuas com mercadoria encostada. */
+function makeStall(): Texture {
+  const p = new Px(46, 42);
+  // postes (atrás)
+  for (const px of [8, 35]) {
+    p.rect(px, 17, 2, 21, WOOD);
+    p.px(px + 1, 17, WOOD_DK);
+    p.rect(px, 17, 2, 1, WOOD_LT);
+  }
+  const bands = 6, bw = 40 / bands;
+  // topo do toldo visível (plano superior recuado, em sombra leve → vende o 3/4)
+  for (let b = 0; b < bands; b++) {
+    const isL = b % 2 === 0;
+    const x0 = 3 + Math.round(b * bw), x1 = 3 + Math.round((b + 1) * bw);
+    for (let x = x0 + 1; x < x1 + 1; x++) p.rect(x, 2, 1, 3, isL ? LINEN_SH : CLOTH_SH);
+  }
+  // frente do toldo (caída) — y 5..14
+  for (let b = 0; b < bands; b++) {
+    const isL = b % 2 === 0;
+    const col = isL ? LINEN : CLOTH, sh = isL ? LINEN_SH : CLOTH_SH, hi = isL ? LINEN_HI : CLOTH;
+    const x0 = 3 + Math.round(b * bw), x1 = 3 + Math.round((b + 1) * bw);
+    for (let x = x0; x < x1; x++) {
+      p.rect(x, 5, 1, 10, col);
+      p.px(x, 5, hi); // crista
+      p.px(x, 14, sh); // borda frontal
+    }
+    const sc = (x0 + x1) >> 1;
+    for (let k = 0; k < 4; k++) p.rect(sc - (3 - k), 15 + k, (3 - k) * 2 + 1, 1, sh); // franja
+  }
+  // balcão — tampo lit (visto de cima) + face de tábuas
+  p.rect(7, 27, 32, 4, WOOD_LT);
+  p.rect(7, 27, 32, 1, WOOD_HI);
+  p.rect(7, 31, 32, 7, WOOD);
+  for (let i = 0; i < 6; i++) p.rect(10 + i * 5, 31, 1, 7, WOOD_DK); // juntas das tábuas
+  p.rect(7, 37, 32, 1, WOOD_DK);
+  // mercadoria (sacos) sobre o tampo, no vão aberto
+  for (const sx of [13, 20, 27]) {
+    p.rect(sx + 1, 22, 3, 5, LINEN);
+    p.px(sx + 1, 22, LINEN_HI);
+    p.rect(sx + 1, 26, 3, 1, LINEN_SH);
+  }
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
 /**
  * Muralha AUTOTILE (estilo Tibia). 16 peças indexadas por máscara de vizinhos
  * que TAMBÉM são muro: bit N=1, E=2, S=4, W=8.
@@ -1358,6 +1477,10 @@ export interface SpriteLibrary {
   swamp: Texture[];
   trees: Texture[];
   rocks: Texture[];
+  /** Mobília urbana (kit de feira), anchor bottom: barril / caixa / tenda. */
+  barrel: Texture;
+  crate: Texture;
+  stall: Texture;
   /** Muralha autotile: 16 máscaras (N=1,E=2,S=4,W=8) × variantes de nuance. */
   walls: Texture[][];
   // ── Subsolo (procedural; rocha orgânica + água suja) — SISTEMA-ANDARES.md ──
@@ -1410,6 +1533,9 @@ export function createSprites(): SpriteLibrary {
     // Árvores: PixelLab (curadoria) quando carregadas; fallback procedural.
     trees: PIXELLAB.trees.length > 0 ? PIXELLAB.trees : [makeTree(101), makeTree(202), makeTree(303)],
     rocks: [makeRock(401), makeRock(402)],
+    barrel: makeBarrel(),
+    crate: makeCrate(),
+    stall: makeStall(),
     walls: makeWallTiles(),
     // Esgoto/caverna: rocha orgânica procedural (campo 128 seamless, sliced em 16).
     sewerFloor: makeOrganicRockField(801, SEWER_ROCK),
