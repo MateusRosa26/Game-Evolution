@@ -1106,6 +1106,15 @@ export class Simulation {
         return;
       }
     }
+    // Gates espaciais (COZINHA.md): fonte de calor e/ou água-doce por perto.
+    if (recipe.needsHeat && !this.world.nearHeat(e.pos.x, e.pos.y, e.z)) {
+      this.sysMessage(e.id, "Você precisa de uma fonte de calor (fogueira/fogão) por perto.");
+      return;
+    }
+    if (recipe.needsFreshWater && !this.world.nearFreshWater(e.pos.x, e.pos.y, e.z)) {
+      this.sysMessage(e.id, "Você precisa de água-doce (um poço) por perto — água do mar não serve.");
+      return;
+    }
     // Posse de todos os inputs (por templateId/qty).
     for (const inp of recipe.inputs) {
       if (this.countInBolso(bp, inp.templateId) < inp.qty) {

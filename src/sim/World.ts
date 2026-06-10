@@ -123,6 +123,24 @@ export class World {
     return lx >= 0 && ly >= 0 && lx < f.width && ly < f.height && f.pass[ly * f.width + lx] === 1;
   }
 
+  /**
+   * Há FONTE DE CALOR (fogão/fogueira) a ≤ `range` tiles de (x,y)? Gate de
+   * cozinha (COZINHA.md). Marcadores vivem no overworld (baseZ) por ora.
+   */
+  nearHeat(x: number, y: number, z: number = this.baseZ, range = 1): boolean {
+    if (z !== this.baseZ) return false;
+    return (this.map.heatSources ?? []).some((p) => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= range);
+  }
+
+  /**
+   * Há ÁGUA-DOCE (poço/rio doce) a ≤ `range` tiles de (x,y)? Água do mar (sem
+   * marcador) não conta. Gate de cozinha (sopas).
+   */
+  nearFreshWater(x: number, y: number, z: number = this.baseZ, range = 1): boolean {
+    if (z !== this.baseZ) return false;
+    return (this.map.freshWater ?? []).some((p) => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= range);
+  }
+
   /** Portal (transição entre andares) neste tile, se houver. */
   portalAt(x: number, y: number, z: number = this.baseZ): MapPortal | null {
     const f = this.floors.get(z);
