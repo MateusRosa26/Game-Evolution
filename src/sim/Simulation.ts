@@ -37,6 +37,7 @@ import {
   ItemRegistry,
   attachItemLedger,
   getItemTemplate,
+  RECIPES,
   STARTER_WEAPON_BY_CLASS,
   FISTS_TEMPLATE_ID,
   GOLD_WEIGHT_PER_COIN,
@@ -45,7 +46,7 @@ import {
 } from "./items";
 import { updateChaser } from "./monsterAi";
 import { creditQuestKill, QUESTS, type QuestState } from "./quests";
-import { ContainerRegistry } from "./items/containers";
+import { ContainerRegistry, type Container } from "./items/containers";
 import { mulberry32, type Rng } from "./rng";
 import { DIALOGUES, dialogueView } from "./dialogue";
 import {
@@ -709,6 +710,11 @@ export class Simulation {
         this.useItem(e, cmd.ref);
         break;
       }
+      case "cook": {
+        if (e.kind !== "player") break;
+        this.cookRecipe(e, cmd.recipeId);
+        break;
+      }
       case "setOutfit": {
         // Valida CADA peça: existe, slot certo, possuída, cor da grade.
         // Posse via quest/conteúdo pago só alimenta o guarda-roupa ✏️ —
@@ -1058,6 +1064,61 @@ export class Simulation {
     applyFood(e, this.tickCount, { regenMult: effect.regenMult, durationMs: effect.durationMs });
     consume();
     this.sysMessage(e.id, `Você comeu ${tpl.name}.`);
+  }
+
+  /** Quantas instâncias de `templateId` o jogador tem no bolso. */
+  private countInBolso(bp: Container, templateId: string): number {
+    let n = 0;
+    for (const s of bp.slots) {
+      if (s?.kind === "item" && this.items.get(s.instanceId)?.templateId === templateId) n++;
+    }
+    return n;
+  }
+
+  /** Remove `qty` instâncias de `templateId` do bolso (libera os slots). */
+  private removeFromBolso(bp: Container, templateId: string, qty: number): void {
+    let left = qty;
+    for (let i = 0; i < bp.slots.length && left > 0; i++) {
+      const s = bp.slots[i];
+      if (s?.kind === "item" && this.items.get(s.instanceId)?.templateId === templateId) {
+        bp.slots[i] = null;
+        left--;
+      }
+    }
+  }
+
+  /**
+   * Cozinha uma receita (COZINHA.md): valida posse dos inputs no bolso, consome
+   * (incl. vasilhame) e produz 1 unidade do prato. Os gates de calor/água-doce
+   * entram na Task 3; o buff do prato na Task 4. Receita = conhecimento (gate de
+   * quest opcional), nunca skill com nível.
+   */
+  private cookRecipe(e: SimEntity, recipeId: string): void {
+    const recipe = RECIPES[recipeId];
+    if (!recipe) return;
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (!bp) return;
+    // Gate de quest (se a receita pedir): precisa tê-la completado.
+    if (recipe.unlockQuest) {
+      const st = e.quests.get(recipe.unlockQuest);
+      if (!st || st.stage !== "completed") {
+        this.sysMessage(e.id, "Você ainda não conhece essa receita.");
+        return;
+      }
+    }
+    // Posse de todos os inputs (por templateId/qty).
+    for (const inp of recipe.inputs) {
+      if (this.countInBolso(bp, inp.templateId) < inp.qty) {
+        this.sysMessage(e.id, "Faltam ingredientes para a receita.");
+        return;
+      }
+    }
+    // Consome os inputs (libera ≥1 slot) e produz o prato no bolso.
+    for (const inp of recipe.inputs) this.removeFromBolso(bp, inp.templateId, inp.qty);
+    const inst = this.items.create(recipe.output);
+    this.containers.add(bp, { kind: "item", instanceId: inst.id });
+    const tpl = getItemTemplate(recipe.output);
+    this.sysMessage(e.id, `Você preparou ${tpl?.name ?? recipe.name}.`);
   }
 
   /** Saque rápido de ouro (shift/alt+clique): move a pilha pro bolso (funde). */

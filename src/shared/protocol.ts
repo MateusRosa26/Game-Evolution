@@ -67,6 +67,12 @@ export type ClientCommand =
    * efeito de uso são ignorados.
    */
   | { type: "useItem"; ref: ItemRef }
+  /**
+   * Cozinha uma receita (design/itens/COZINHA.md). A sim valida posse dos inputs
+   * no bolso, gates (fonte de calor / água-doce / quest), consome os inputs (incl.
+   * vasilhame) e produz 1 unidade do prato. Receita = conhecimento, não skill.
+   */
+  | { type: "cook"; recipeId: string }
   /** Falar no canal Local (vira balão sobre a cabeça + linha no chat). */
   | { type: "say"; text: string }
   /** DEV/teste: desbloqueia TODAS as peças do catálogo no guarda-roupa. */
