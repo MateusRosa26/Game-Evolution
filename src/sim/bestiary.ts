@@ -126,6 +126,9 @@ export const RATO_LANHOSO: CreatureTemplate = {
       // de sustain sem auto-sustentar a comida (senão mata o gold-sink do food-gating).
       // ✏️ Balancista: tunar contra a economia de comida (alvo ~cobrir <½ do consumo).
       { templateId: "queijo", chance: 0.08 },
+      // Carne Crua — matéria-prima de cozinha (besta). Comível crua (1×) ou insumo.
+      // ✏️ Balancista: sub-sustentável, junto da economia de comida.
+      { templateId: "carne_crua", chance: 0.1 },
     ],
   },
 };

@@ -35,7 +35,9 @@ export type ItemCategory =
   | "armor"
   | "consumable" // comida, poção (sustain)
   | "tool" // corda, pá, tocha, faca de esfolar (utilidade/exploração)
-  | "material"; // loot vendável (peles, glândulas, sucata — reagente/troféu)
+  | "material" // loot vendável (peles, glândulas, sucata — reagente/troféu)
+  | "ingredient" // tempero/insumo de cozinha — NÃO comível sozinho, só em receita (COZINHA.md)
+  | "vessel"; // vasilhame de cozinha (pote) — 1-uso, vira o prato e some ao comer
 
 /**
  * Tags de item (família/arquétipo da arma). Alimentam as "lentes" de rastreamento
@@ -397,6 +399,111 @@ export const POCAO_VIDA_PEQUENA: ItemTemplate = {
   consume: { kind: "heal", hp: 30, exhaustMs: 1000 },
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Cozinha (design/itens/COZINHA.md) — matéria-prima, ingredientes premium,
+//  vasilhames e pratos. Receitas em `recipes.ts`; verbo `cook` na Simulation.
+//  Números (mult/duração/buff/preço/drop) = ✏️ Balancista.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Carne Crua — matéria-prima de besta (dropa). Comível CRUA (1×, fraca) OU
+ *  insumo de receita. Cozinhar vira carne assada/pratos. */
+export const CARNE_CRUA: ItemTemplate = {
+  id: "carne_crua",
+  name: "Carne Crua",
+  category: "consumable",
+  stackable: true,
+  weight: 3,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
+};
+
+/** Sal-gema — ingrediente premium comprado (NÃO dropa). Destrava receitas top. */
+export const SAL_GEMA: ItemTemplate = {
+  id: "sal_gema",
+  name: "Sal-gema",
+  category: "ingredient",
+  stackable: true,
+  weight: 1,
+  rarity: "common",
+};
+
+/** Pimenta-longa — ingrediente premium comprado (NÃO dropa). */
+export const PIMENTA_LONGA: ItemTemplate = {
+  id: "pimenta_longa",
+  name: "Pimenta-longa",
+  category: "ingredient",
+  stackable: true,
+  weight: 1,
+  rarity: "uncommon",
+};
+
+/** Mel Silvestre — ingrediente premium comprado (NÃO dropa). */
+export const MEL_SILVESTRE: ItemTemplate = {
+  id: "mel_silvestre",
+  name: "Mel Silvestre",
+  category: "ingredient",
+  stackable: true,
+  weight: 2,
+  rarity: "uncommon",
+};
+
+/** Pote — vasilhame 1-uso (vira a sopa e some ao comer). Sink recorrente. */
+export const POTE: ItemTemplate = {
+  id: "pote",
+  name: "Pote",
+  category: "vessel",
+  stackable: true,
+  weight: 8,
+  rarity: "common",
+};
+
+// ── Pratos (output das receitas). Buffs entram na wave do meal-buff; aqui só o
+//    regen do tier (cozido 2× / premium 3×). Durações ✏️ Balancista.
+
+/** Sopa — premium (pote+água+carne crua+sal). Pote 1-uso já embutido no consumo. */
+export const SOPA: ItemTemplate = {
+  id: "sopa",
+  name: "Sopa",
+  category: "consumable",
+  stackable: true,
+  weight: 8,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 3.0, durationMs: 180_000 },
+};
+
+/** Queijo Quente — premium (pão+queijo+sal-gema). */
+export const QUEIJO_QUENTE: ItemTemplate = {
+  id: "queijo_quente",
+  name: "Queijo Quente",
+  category: "consumable",
+  stackable: true,
+  weight: 3,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 3.0, durationMs: 150_000 },
+};
+
+/** Carne Curada — premium, duração longa (carne+sal-gema+pimenta-longa). */
+export const CARNE_CURADA: ItemTemplate = {
+  id: "carne_curada",
+  name: "Carne Curada",
+  category: "consumable",
+  stackable: true,
+  weight: 4,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 3.0, durationMs: 240_000 },
+};
+
+/** Favo Assado — premium de caster (pão+mel silvestre); foco em mana. */
+export const FAVO_ASSADO: ItemTemplate = {
+  id: "favo_assado",
+  name: "Favo Assado",
+  category: "consumable",
+  stackable: true,
+  weight: 2,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 3.0, durationMs: 150_000 },
+};
+
 /** Corda — ferramenta PERMANENTE (compra única não-trivial). Vendor + baús. */
 export const CORDA: ItemTemplate = {
   id: "corda",
@@ -460,6 +567,16 @@ export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [CARNE_ASSADA.id]: CARNE_ASSADA,
   [QUEIJO.id]: QUEIJO,
   [POCAO_VIDA_PEQUENA.id]: POCAO_VIDA_PEQUENA,
+  // Cozinha (COZINHA.md)
+  [CARNE_CRUA.id]: CARNE_CRUA,
+  [SAL_GEMA.id]: SAL_GEMA,
+  [PIMENTA_LONGA.id]: PIMENTA_LONGA,
+  [MEL_SILVESTRE.id]: MEL_SILVESTRE,
+  [POTE.id]: POTE,
+  [SOPA.id]: SOPA,
+  [QUEIJO_QUENTE.id]: QUEIJO_QUENTE,
+  [CARNE_CURADA.id]: CARNE_CURADA,
+  [FAVO_ASSADO.id]: FAVO_ASSADO,
   [CORDA.id]: CORDA,
   [PA.id]: PA,
   [TOCHA.id]: TOCHA,

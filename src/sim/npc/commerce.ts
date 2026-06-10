@@ -79,9 +79,18 @@ export const COMMERCE: Record<string, NpcCommerce> = {
   // Bento — cozinheiro (Estalagem): vende pratos prontos e compra ingredientes,
   // pós-quest dele (Q6 — a mesma que destrava a 1ª receita).
   bento: {
-    sells: [{ templateId: "carne_assada", price: 6 }],
+    sells: [
+      { templateId: "carne_assada", price: 6 },
+      // Ingredientes premium da cozinha (COZINHA.md) — o gold-sink: NÃO dropam,
+      // só comprados. ✏️ preços Balancista. Pimenta/Mel ✏️ podem ser gated por quest.
+      { templateId: "sal_gema", price: 8 },
+      { templateId: "pimenta_longa", price: 25 },
+      { templateId: "mel_silvestre", price: 20 },
+      // Pote — vasilhame 1-uso (vira a sopa). Sink recorrente. ✏️ preço Balancista.
+      { templateId: "pote", price: 5 },
+    ],
     buys: [
-      // ✏️ + carne_crua / colheita quando os ingredientes entrarem (gated Q6).
+      { templateId: "carne_crua", price: 1 }, // compra matéria-prima de caça
     ],
   },
 
