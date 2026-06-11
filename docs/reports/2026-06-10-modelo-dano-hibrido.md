@@ -15,7 +15,13 @@
 
 ## ⚠️ Implicações a decidir (✏️ criador/Balancista)
 1. **Skills físicas herdaram o modelo** (Golpe Forte/Apunhalar usam `physicalDamage`): `def.power` agora é +N na base, multiplicado. Os `power` foram calibrados no aditivo → **precisam de re-régua** sob o híbrido (já eram ✏️/T2).
-2. **Magia/sagrado seguem ADITIVOS** (`magicDamage`/`holyDamage` com Int/Esp). Há agora **inconsistência de modelo**: físico multiplicativo, mágico aditivo. Decisão: unificar (Int/Esp também viram multiplicador) ou manter caster aditivo? (não mexido — fora do escopo desta decisão.)
+2. ~~Magia/sagrado aditivos~~ **RESOLVIDO (criador):** unificados no híbrido, mas com
+   **k de caster MENOR (0,02 vs martial 0,05)** e **base ALTA** (Bola 15, Lança 13,
+   Luz 14 — todas > arma 10). Resultado: caster = dano front-loaded e ESTÁVEL (o
+   poder vem das magias/base, não de empilhar Int/Esp); martial = base-baixa-mult-
+   alto (recompensa investimento). Contraste medido (mesma base, só atributo): attr8
+   → Knight 14 / Mago 17 / Priest 16; attr45 → 32 / 28 / 26. Caster compensa com
+   alcance/AoE/burn. CURA segue aditiva (não é dano).
 3. **k é placeholder (0,05):** a régua fina sai com a **curva de HP dos mobs por tier** — o dano cresce ~7× T1→T5 (14→97); o HP dos mobs precisa acompanhar pra TTK ficar estável. Bateria do regen core (#11) / T2.
 4. **Re-régua das outras armas:** as bases foram escaladas uniformemente; o dano por classe/arma (machado, adaga p/ rogue) shiftou levemente — afinar no catálogo quando a bateria de armas rodar.
 

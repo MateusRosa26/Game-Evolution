@@ -177,9 +177,13 @@ export function maxCarry(attrs: Attributes, cls: PlayerClass, level: number): nu
  */
 const STR_DAMAGE_K = 0.05; // Força: +5% do dano-base da arma por ponto
 const DEX_DAMAGE_K = 0.05; // Destreza (adagas): mesma régua; identidade = cadência
-const INTELLIGENCE_DAMAGE_FACTOR = 1.1; // ✏️ magia (skill) segue ADITIVA por ora
-const SPIRIT_HEAL_FACTOR = 1.3; // ✏️ placeholder — calibrar no M2
-const SPIRIT_DAMAGE_FACTOR = 1.1; // ofensiva SAGRADA escala Espírito (decidido 09/jun) — ✏️ calibrar
+// Caster: MESMO modelo híbrido, mas k MENOR (decidido criador jun/2026). Magia tem
+// base ALTA (> arma) e multiplicador BAIXO → dano front-loaded e estável (o poder
+// do mago vem das MAGIAS, não de empilhar Int); martial é base-baixa-mult-alto
+// (cresce com investimento). Equilibra com o alcance/AoE/status do caster. ✏️ Balancista.
+const INT_DAMAGE_K = 0.02; // Inteligência: metade do martial
+const SPIRIT_DAMAGE_K = 0.02; // Sagrado ofensivo (Espírito): mesma régua do caster
+const SPIRIT_HEAL_FACTOR = 1.3; // ✏️ CURA segue ADITIVA (não é dano) — calibrar M2
 
 /**
  * Dano físico de uma arma (modelo híbrido — ver acima). Adagas escalam com
@@ -200,7 +204,8 @@ export function physicalDamage(
  * skill na próxima wave). Escala com Inteligência.
  */
 export function magicDamage(attrs: Attributes, spellBase: number): number {
-  return Math.floor(spellBase + attrs.intelligence * INTELLIGENCE_DAMAGE_FACTOR); // ✏️ placeholder — calibrar no M2
+  // Híbrido (igual ao físico, k menor): base × (1 + Int×k). Base alta, mult baixo.
+  return Math.floor(spellBase * (1 + attrs.intelligence * INT_DAMAGE_K));
 }
 
 /**
@@ -211,7 +216,8 @@ export function magicDamage(attrs: Attributes, spellBase: number): number {
  * Espelha `magicDamage`, trocando o atributo. Cura segue em `healPower`.
  */
 export function holyDamage(attrs: Attributes, spellBase: number): number {
-  return Math.floor(spellBase + attrs.spirit * SPIRIT_DAMAGE_FACTOR);
+  // Híbrido caster (k menor), escalando Espírito em vez de Inteligência.
+  return Math.floor(spellBase * (1 + attrs.spirit * SPIRIT_DAMAGE_K));
 }
 
 /**
