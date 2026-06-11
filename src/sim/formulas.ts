@@ -347,22 +347,35 @@ export function manaRegenPerSecond(cls: PlayerClass, level: number, spirit: numb
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Curva de XP (estilo Tibia: polinomial)
+//  Curva de XP — LEI DE POTÊNCIA (calibrada por TEMPO, bateria 2026-06-11)
 // ─────────────────────────────────────────────────────────────────────────
+//
+// MIGROU da cúbica do Tibia (fecha a flag ⚠️ DESIGN-EVOLUCAO L133). Achado da
+// bateria: "exponencial pura" (geométrica) que o doc pedia EXPLODE num cap-25 —
+// até r=1,2 joga ~17% do jogo INTEIRO no último nível sozinho. O que o split-alvo
+// de horas (1→25 em ~30-45h; lvl 1-8 rápido; últimos 5 níveis ≈ 1/3 do tempo)
+// realmente pede é uma LEI DE POTÊNCIA de expoente ~2,5 — mais suave que a cúbica
+// (a cúbica errava no OUTRO sentido: early raso ~2% do XP, e total mal escalado
+// pro alvo de horas). Método Luban: desenhar pelo tempo, ancorar no XP/h MEDIDO.
+// Report: docs/reports/2026-06-11-curva-xp-exponencial.md
+//
+// CALIBRAÇÃO (re-pinável — XP/h muda quando a COMIDA entrar na sim, backlog #7):
+//   total(n) = round( SCALE · (n−1)^EXP )
+//   SCALE pina o TOTAL ao alvo de horas; EXP pina o FORMATO (early × late).
+//   Âncora de XP/h: 6.597 medido (M1.2, early, 73% descanso). Com SCALE=125 o
+//   1→25 cai em ~30,5h (XP/h crescente) a ~44h (XP/h plano) — bracketa 30-45h.
+//   ⚠️ comida sobe o XP/h → provavelmente subir SCALE ~1,3-1,6× no re-pin.
+const XP_CURVE_SCALE = 125; // K — escala (pino de TEMPO; subir = jogo mais longo)
+const XP_CURVE_EXPONENT = 2.5; // p — formato (cúbica=3 = late íngreme + early raso)
 
 /**
  * XP TOTAL acumulado necessário para ATINGIR `level` (level 1 = 0).
- * Curva polinomial estilo Tibia (crescimento ~cúbico) — íngreme por design
- * (DESIGN-EVOLUCAO.md §"Ritmo de progressão"). ✏️ placeholder — calibrar no M2.
- *
- * Fórmula (Tibia-like): para n = level,
- *   total(n) = round( (50/3) * (n³ - 6n² + 17n - 12) )
- * dá total(1)=0, total(2)=100, total(3)=350, ... crescendo cubicamente.
+ * Lei de potência calibrada por tempo (ver bloco acima). total(1)=0 (pow(0,p)=0),
+ * total(8)≈16,2k, total(15)≈91k, total(20)≈195k, total(25)≈353k.
  */
 export function xpForLevel(level: number): number {
   const n = Math.max(1, Math.floor(level));
-  // ✏️ placeholder — calibrar no M2.
-  return Math.round((50 / 3) * (n * n * n - 6 * n * n + 17 * n - 12));
+  return Math.round(XP_CURVE_SCALE * Math.pow(n - 1, XP_CURVE_EXPONENT));
 }
 
 /**

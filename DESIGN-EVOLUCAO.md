@@ -133,7 +133,7 @@ Vetores de poder da camada sólida (todos previsíveis e claros):
 
 - **Forma da curva (decidida, ref. Apogea):** começa rápido e fica **exponencialmente** mais lento — cada nível custa **aproximadamente o dobro** do anterior. Os primeiros níveis (~1–8) vêm rápido (o jogador entra no jogo); depois cada level vira projeto. Números exatos ✏️ balancista calibra na sim.
 - **Alvo de ritmo do MVP (decidido):** 1→25 em **~30–45h de caça eficiente** (casual: 2–3× isso). Split-alvo: 1→8 ~2–3h · 8→15 ~8–12h · 15→20 ~9–13h · 20→25 ~11–17h — **mais de um terço das horas nos últimos 5 níveis**. Lvl 25 é prestígio na escala da região (ref. criador: nos primeiros anos de Tibia não existia 200+ — o cap caro vem primeiro, áreas que facilitam vêm em expansões). Consequência de população: a maioria vive entre 8–18 → T2 é o centro de gravidade do conteúdo.
-  - ⚠️ Implementação: `formulas.ts` hoje usa a curva **cúbica do Tibia** — precisa migrar para a forma exponencial (delta ~2×/nível) na calibração.
+  - ✅ Implementação (2026-06-11): migrada da cúbica para **lei de potência** `total(n)=125·(n−1)^2.5` (`formulas.ts`). Achado da bateria: "exponencial pura" (geométrica ~2×) **explode num cap-25** (até r=1,2 joga 17% do jogo no último nível) — o split-alvo de horas pede expoente ~2,5, mais suave que a cúbica. Mede 30,7h (XP/h crescente) a 44,1h (plano); últimos 5 níveis = 36-44%. Report: `docs/reports/2026-06-11-curva-xp-exponencial.md`. ⚠️ a linguagem "exponencial ~2×" abaixo descreve a forma errada — ✏️ criador reescrever p/ "lei de potência".
 - Mobs exigem atenção e respeito — combate não é farm trivial nem de passagem. Um mob comum mal jogado pode matar.
 - Consequência: os thresholds das Marcas (10–20k kills) ficam ainda mais lendários, porque cada kill custa.
 
@@ -634,7 +634,7 @@ A lista de skills é **uma só, organizada por requisito** — não existe "skil
 - [x] **Mutação substitui** a skill original (decidido jun/2026): o gatilho é **perfil de uso sustentado** (não evento avulso), então não há mutação acidental — substituir é seguro e identitário.
 - [ ] Rito de substituição/fusão de Marca em item com slots cheios?
 - [ ] Multiplicador do **escalador comportamental** (ex: ×1.5) — conta **Caminhos E Mutações** juntos (eixo compartilhado/competitivo); a 1ª mutação fica fora. Calibrar com o Balancista
-- [ ] Calibrar na sim: % exata da XP total perdida na morte (ref. 10%) e fator da curva (ref. ~2×/nível) — alvo 1→25 em ~30–45h eficientes; ⚠️ vigiar que morte no cap (~3–4h perdidas) fique em "dói muito" sem cruzar pra rage-quit; punições secundárias leves (gold? debuff?)
+- [~] **Curva de XP migrada** (2026-06-11, lei de potência `125·(n−1)^2.5`) — fecha o "fator da curva". FALTA: (a) **re-pinar SCALE quando a comida entrar** (XP/h sobe, backlog Balancista #7); (b) **confirmar DEATH_XP_PENALTY**: a 10%, com a nova curva a morte custa **39%→99% do custo do nível** (quase 1 nível no late; doc estimava ~20% pressupondo geométrica) — no cap = 2,5-4,4h (o caso plano encosta no teto rage-quit). Knob visceral ✏️ criador: manter 10% (brutal) ou ~7-8% (~2-3,5h). Punições secundárias leves (gold? debuff?) ✏️
 - [ ] Lista de eventos canônicos que evoluem Marcas (world bosses no M3+, PvP no M6+)
 - [ ] Curva de XP / força dos mobs — números no M2
 - [ ] Classless: números do crescimento genérico (Balancista); custo em gold do rito e conteúdo das 4 quests de rito (world-designer/Loremaster). *(Recalcula retroativo ao classar: **decidido** — corpo automático vira o da classe; só os números são ✏️.)*
