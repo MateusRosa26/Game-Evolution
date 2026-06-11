@@ -134,8 +134,15 @@ export interface SimEntity {
   knownSkills: string[];
   /** Cooldown por skill: skillId → tick lógico a partir do qual pode usar de novo. */
   skillCooldowns: Record<string, number>;
-  /** Status effects ativos (queimadura/slow/veneno) — tick-based, com duração. */
+  /** Status effects ativos (queimadura/sangramento/veneno/slow/root) — tick-based, com duração. */
   status: StatusEffect[];
+  /**
+   * Conjuração em andamento (cast-time): a skill foi PEDIDA, a mana já foi cobrada
+   * no INÍCIO, e a sim resolve quando `currentTick >= endTick`. `aim` é o tile
+   * mirado (skills de chão). Cancelado (limpo, sem resolução) se o caster se mover
+   * ou tomar dano. null/undefined = não está conjurando (resolução instantânea).
+   */
+  casting?: { skillId: string; startTick: number; endTick: number; targetId: number | null; aim?: Vec2 } | null;
 
   // ── IA de monstro (null para player) ──
   ai: AiState | null;

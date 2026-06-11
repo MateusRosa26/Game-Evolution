@@ -25,6 +25,12 @@ export interface CombatCtx {
   lookup: (id: number) => SimEntity | undefined;
   /** RNG seedado (combatRng da Simulation) — rola o bloqueio de escudo. */
   rng: () => number;
+  /**
+   * Chamado quando `target` SOFRE dano (após aplicado, > 0). A Simulation usa
+   * para cancelar a conjuração em andamento do alvo (cast-time cancela ao tomar
+   * dano). Opcional — DoT/dano ambiental sem este sink simplesmente não cancela.
+   */
+  onDamaged?: (target: SimEntity, amount: number) => void;
 }
 
 /** Identidade de combate de uma entidade (para os payloads de evento). */
@@ -110,6 +116,8 @@ export function applyDamage(
     amount,
     pos: { x: target.pos.x, y: target.pos.y },
   });
+  // Tomar dano CANCELA a conjuração do alvo (decisão do task: move OU dano).
+  if (amount > 0) ctx.onDamaged?.(target, amount);
 
   if (target.hp > 0) return false;
 
