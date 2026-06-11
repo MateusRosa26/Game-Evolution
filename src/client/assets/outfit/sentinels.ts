@@ -73,36 +73,41 @@ function rotateToward(h: number, target: number, amount: number): number {
   return (h + diff + 360) % 360;
 }
 
-const COOL_HUE = 230; // sombras puxam para azul
-const WARM_HUE = 50; // luzes puxam para amarelo
+const COOL_HUE = 230; // sombras puxam para azul (usado pelo ramp de 6 tons)
+const WARM_HUE = 50; // luzes puxam para amarelo (usado pelo ramp de 6 tons)
+
+const SAT_CAP = 0.6; // teto de saturação — "moderado", nunca neon (veredito do criador)
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
 
 /**
- * LUT CONTÍNUA de shading: lum original (0..255) → RGB da cor alvo com o
- * shading PRESERVADO. Mesmas curvas do ramp de 6 tons (luz relativa, pico de
- * saturação no meio, matiz frio→quente), mas interpoladas — sem os 6 degraus
- * que posterizavam o sprite PixelLab (a armadura tem ~20 tons; achatar em 6
- * deixava "pior que antes da tintura", veredito do criador).
+ * LUT de dye estilo Tibia/Apogea (método validado — ver
+ * docs/reports/2026-06-11-dye-greyscale-pipeline.md): a cor MODULA a luz que já
+ * existe, não a substitui. Por luminância (0..255):
+ *  - PRESERVA a luminância original (sombreado intacto) → lightness = lum/255;
+ *  - troca só o MATIZ (da cor alvo);
+ *  - saturação MODERADA com sino no meio (`bell`) e teto SAT_CAP, ESCALADA pela
+ *    saturação da própria cor → cor neutra (aço #777) continua neutra, não vira
+ *    colorida; cor viva tinge moderado;
+ *  - PRESERVA o contorno: `gate` zera a saturação na faixa escura (< ~50/255) →
+ *    outline preto fica preto (preto × cor = preto).
+ * O método antigo (substituía a luz por um ramp saturado) perdia o outline e
+ * ficava extremo/chapado — ver o report.
  */
 export function shadeLutFromColor(hex: string): Uint8ClampedArray {
-  const [h, s, l] = hexToHsl(hex);
-  const lightF = [0.42, 0.6, 0.8, 1.0, 1.14, 1.26];
-  const satF = [0.7, 0.9, 1.05, 1.0, 0.85, 0.68];
-  const hueAmt = [14, 9, 3, 0, 8, 14];
-  const hueAt = (i: number) =>
-    i < 3 ? rotateToward(h, COOL_HUE, hueAmt[i]) : rotateToward(h, WARM_HUE, hueAmt[i]);
+  const [h, s] = hexToHsl(hex);
+  const satTarget = Math.min(SAT_CAP, s); // a cor escolhe a saturação (até o teto)
   const lut = new Uint8ClampedArray(256 * 3);
   for (let lum = 0; lum < 256; lum++) {
-    // mesma normalização do ramp (lum/200, clampado): t contínuo em [0,5]
-    const t = Math.min(5, (lum / 200) * 6);
-    const i0 = Math.min(4, Math.floor(t));
-    const f = t - i0;
-    const li = Math.max(0.07, Math.min(0.93, l * (lightF[i0] + (lightF[i0 + 1] - lightF[i0]) * f)));
-    const si = Math.max(0.04, Math.min(0.92, s * (satF[i0] + (satF[i0 + 1] - satF[i0]) * f)));
-    // matiz: interpola pelo caminho curto entre os tons vizinhos do ramp
-    const h0 = hueAt(i0);
-    const h1 = hueAt(i0 + 1);
-    const dh = ((h1 - h0 + 540) % 360) - 180;
-    const [r, g, b] = hslToRgb((h0 + dh * f + 360) % 360, si, li);
+    const Ln = lum / 255; // luminância preservada = lightness de saída
+    // sino: pico no meio, →0 nos extremos (outline escuro e brilho claro ficam neutros).
+    const bell = Math.sin(Math.PI * Ln);
+    // gate: garante o outline preto preservado (sat=0 abaixo de ~20/255, sobe até ~55/255).
+    const gate = smoothstep(0.08, 0.22, Ln);
+    const si = satTarget * bell * gate;
+    const [r, g, b] = hslToRgb(h, si, Ln);
     lut[lum * 3] = r;
     lut[lum * 3 + 1] = g;
     lut[lum * 3 + 2] = b;
