@@ -123,6 +123,10 @@ export class EntityRenderer {
   private speeches: { text: Text; elapsed: number }[] = [];
   /** Cadáveres saqueáveis (sprite do mob deitado/escurecido), por containerId. */
   private corpseSprites = new Map<number, Sprite>();
+  /** Overlay de tiles de PERIGO (telegraph de moves de área — MECANICAS-DE-MOB).
+   *  Fica no chão, SOB as entidades; pulsa no tick. */
+  private telegraphTiles = new Graphics();
+  private telegraphPulse = 0;
 
   constructor(
     private sprites: SpriteLibrary,
@@ -133,6 +137,8 @@ export class EntityRenderer {
     this.targetMarker = new Sprite(sprites.targetMarker);
     this.targetMarker.anchor.set(0.5, 0.5);
     this.targetMarker.visible = false;
+    this.telegraphTiles.zIndex = -1000; // sob entidades/cadáveres, sobre o chão
+    this.layer.addChild(this.telegraphTiles);
   }
 
   /** Texturas certas: mob pela espécie; player pelo OUTFIT (compositor+cache). */
@@ -216,6 +222,7 @@ export class EntityRenderer {
 
   apply(snap: Snapshot): void {
     const seen = new Set<number>();
+    const dangerTiles: { x: number; y: number }[] = []; // áreas de telegraph deste tick
     for (const e of snap.entities) {
       seen.add(e.id);
       let v = this.visuals.get(e.id);
@@ -275,7 +282,9 @@ export class EntityRenderer {
       v.telegraphing = !!e.telegraph;
       v.telegraph.visible = v.telegraphing;
       if (!v.telegraphing) v.telegraphClock = 0;
+      if (e.telegraph?.tiles) dangerTiles.push(...e.telegraph.tiles); // área (slam)
     }
+    this.drawDangerTiles(dangerTiles);
     // remove quem saiu
     for (const [id, v] of this.visuals) {
       if (!seen.has(id)) {
@@ -458,6 +467,9 @@ export class EntityRenderer {
   }
 
   tick(deltaMS: number): void {
+    // Pulso do overlay de tiles de perigo (alerta de área telegrafada).
+    this.telegraphPulse += deltaMS;
+    this.telegraphTiles.alpha = 0.55 + 0.45 * Math.abs(Math.sin(this.telegraphPulse / 150));
     for (const v of this.visuals.values()) {
       const moving = v.tweenElapsed < v.tweenDur;
       if (moving) {
@@ -681,6 +693,18 @@ export class EntityRenderer {
     container.zIndex = container.position.y;
     this.layer.addChild(container);
     return v;
+  }
+
+  /** Redesenha o overlay de tiles de PERIGO (área de um move telegrafado): um
+   *  preenchimento vermelho translúcido + borda por tile, em world-pixels. */
+  private drawDangerTiles(tiles: { x: number; y: number }[]): void {
+    const g = this.telegraphTiles;
+    g.clear();
+    for (const t of tiles) {
+      g.rect(t.x * TILE_SIZE, t.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        .fill({ color: 0xcc3322, alpha: 0.3 })
+        .stroke({ color: 0xff6644, width: 1, alpha: 0.85 });
+    }
   }
 
   private drawHpBar(g: Graphics, ratio: number): void {

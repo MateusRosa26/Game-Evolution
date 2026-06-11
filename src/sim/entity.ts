@@ -140,8 +140,9 @@ export interface SimEntity {
   // ── Moves de mecânica (telegrafados — MECANICAS-DE-MOB.md; null p/ player/NPC) ──
   /** Moves disponíveis (copiados do template no spawn). */
   moves?: MoveDef[];
-  /** Move em windup AGORA — trava passo/ataque até `resolveAt` (ms lógico). */
-  activeMove?: { def: MoveDef; targetId: number; resolveAt: number };
+  /** Move em windup AGORA — trava passo/ataque até `resolveAt` (ms lógico).
+   *  `targetTiles` = área marcada CONGELADA (moves de dano-em-área; undefined p/ leap). */
+  activeMove?: { def: MoveDef; targetId: number; resolveAt: number; targetTiles?: Vec2[] };
   /** Próximo instante (ms lógico) em que cada move sai do cooldown. */
   moveCooldowns?: Record<string, number>;
 }

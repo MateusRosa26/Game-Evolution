@@ -824,7 +824,7 @@ export class Simulation {
         if (e.activeMove) {
           // Em WINDUP: travado (não persegue/ataca). Resolve quando vence; o mob
           // age de novo no tick seguinte (MECANICAS-DE-MOB.md §1).
-          if (now >= e.activeMove.resolveAt) this.resolveMove(e);
+          if (now >= e.activeMove.resolveAt) this.resolveMove(e, ctx);
         } else {
           updateChaser(ctx, this.world, e, players, now, this.blockedFor(e));
         }
@@ -858,18 +858,16 @@ export class Simulation {
   /**
    * Resolve o move em windup de um monstro: aplica o efeito e limpa o
    * `activeMove`. Resolução determinística em unidade de tile (MECANICAS-DE-MOB).
-   * (1ª fatia: só "leap"; efeitos de dano-em-tiles entram quando as variantes/T2
-   * existirem — novo ramo aqui + `MoveKind` em `moves.ts`.)
    */
-  private resolveMove(monster: SimEntity): void {
+  private resolveMove(monster: SimEntity, ctx: CombatCtx): void {
     const am = monster.activeMove;
     monster.activeMove = undefined;
     if (!am) return;
-    const target = this.entities.get(am.targetId);
-    if (!target || target.dead || target.z !== monster.z) return; // alvo sumiu → aborta
     if (am.def.kind === "leap") {
       // Gap-closer anti-kite: pousa num tile LIVRE adjacente ao alvo. nearestFree
       // devolve `target.pos` se nada livre em r≤3 → nesse caso não pousa no alvo.
+      const target = this.entities.get(am.targetId);
+      if (!target || target.dead || target.z !== monster.z) return;
       const landing = this.nearestFree(monster, target.pos);
       if (landing.x === target.pos.x && landing.y === target.pos.y) return;
       this.occupancy.delete(this.tileKey(monster.pos.x, monster.pos.y, monster.z));
@@ -879,6 +877,18 @@ export class Simulation {
       const dy = target.pos.y - landing.y;
       monster.facing = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? "e" : "w") : dy >= 0 ? "s" : "n";
       monster.intent = null; // chegou colado; ataca no próximo tick
+    } else if (am.def.kind === "slam") {
+      // DESVIO: dano a quem OCUPA um tile marcado (congelado no início do windup).
+      // Saiu da área antes deste tick = imune (lê a occupancy AGORA, no fim).
+      if (!am.targetTiles) return;
+      for (const t of am.targetTiles) {
+        const occId = this.occupancy.get(this.tileKey(t.x, t.y, monster.z));
+        if (occId == null || occId === monster.id) continue; // tile vazio ou o próprio caster
+        const victim = this.entities.get(occId);
+        if (victim && !victim.dead && victim.kind === "player") {
+          applyDamage(ctx, monster, victim, am.def.damage ?? 0, am.def.damageType ?? "physical", null, null);
+        }
+      }
     }
   }
 
@@ -1517,7 +1527,12 @@ export class Simulation {
       // Telegraph de mecânica (MECANICAS-DE-MOB.md): move em windup — info PÚBLICA
       // por design (o client DEVE poder desenhar o aviso). ≠ condição secreta.
       if (e.activeMove) {
-        state.telegraph = { moveId: e.activeMove.def.id, kind: e.activeMove.def.kind, resolveAt: e.activeMove.resolveAt };
+        state.telegraph = {
+          moveId: e.activeMove.def.id,
+          kind: e.activeMove.def.kind,
+          resolveAt: e.activeMove.resolveAt,
+          tiles: e.activeMove.targetTiles, // área de perigo (slam) p/ o client desenhar
+        };
       }
       const prog = this.progressions.get(e.id);
       if (prog) state.progress = this.projectProgress(prog);
