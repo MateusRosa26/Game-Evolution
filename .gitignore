@@ -6,3 +6,6 @@ dist/
 !design/**/*.png
 .DS_Store
 __pycache__/
+
+# git worktrees aninhados (swarm) — nunca trackear no repo pai
+.claude/worktrees/

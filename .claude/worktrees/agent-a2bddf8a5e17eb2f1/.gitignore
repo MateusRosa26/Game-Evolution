@@ -1,8 +1,0 @@
-node_modules
-dist/
-.playwright-mcp/
-*.png
-!src/**/*.png
-!design/**/*.png
-.DS_Store
-__pycache__/
