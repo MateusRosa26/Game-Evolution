@@ -786,8 +786,8 @@ function renderSkills($doc, data) {
     <header class="db-header">
       <h1>✨ Skills & Magias</h1>
       <p class="db-sub"><strong>${data.detailed.length} skills</strong> com ficha completa + <strong>${data.planned.length} planejadas</strong> (M3).
-Adquiridas pelo mundo (NPCs espalhados, drops de mob, quests) — <strong>sem kit inicial</strong>. Aprendizado gateado por <strong>atributo + nível</strong> (não por classe — sagrado/assinatura trancados). Uso extremo gera <strong>Mutações</strong> — a única forma de upgrade.
-        Fonte: <a href="#/progressao">DESIGN-EVOLUCAO.md</a></p>
+Adquiridas pelo mundo (NPCs espalhados, drops de mob, quests) — <strong>sem kit inicial</strong>. Aprendizado gateado por <strong>atributo + nível</strong> (não por classe). Skill nova = <strong>verbo novo</strong> (anti-treadmill); dano sobe por stat+gear. Uso extremo gera <strong>Mutações</strong> — a única forma de upgrade.
+        Fonte: <a href="#/skills-catalogo">design/skills/CATALOGO.md</a> · hub: <a href="#/skills-hub">DESIGN-SKILLS.md</a></p>
     </header>
     <div class="db-toolbar">
       <input class="db-search" type="search" placeholder="Filtrar por nome, efeito, mutação…" value="${esc(sState.q)}" />
