@@ -98,6 +98,11 @@ Farm contínuo de 30min (HP+mana carregam; melee descansa <35%→90% HP; caster 
 3. **Nerf direto** (range/cast-time/burst): mais arriscado, já calibrado.
 - **NÃO é via regen de HP** (kitando o caster nem usa) nem nerfando o rogue (que é melee balanceado).
 
+## Decisões (criador, 2026-06-11)
+
+- **Wand/kite — NÃO nerfar (a balança vem sozinha no high-tier).** A wand é sustain por design, e o gap de 1,9× medido no L8 é **artefato de mob fraco**. Três coisas se compõem conforme os mobs ficam tankudos: (1) wand é **dano fixo** → vira fração pequena do HP → o caster é obrigado a gastar mana em magia; (2) **custo da wand sobe com o tier** (T1=2→T5=9) → encher com wand drena mana → a mana morde sozinha; (3) **auto-attack AD escala com atributo** → o melee não fica pra trás. → caster vira mana-bound naturalmente no high-tier, sem nerf. **Resíduo honesto:** kite = 0 HP-downtime persiste; o gap só fecha de fato se a mana-downtime do high-tier crescer o bastante — **verificável só quando T3+ existir** (gate do bestiário). Rede final = **cast-time** nas skills de poder (engine nova): não dá pra kitar E nukar. **Ação:** re-rodar farm-loop/kite vs T3+ quando existirem; nada a mexer agora.
+- **`DEATH_XP_PENALTY` = 10% (mantido).** Fica em 10% até segunda ordem; **se virar rage-quit, o fallback é um TETO de horas** (cap absoluto da perda no late), não baixar o %. Não-bloqueante.
+
 ## Pendências
 
 - [ ] Re-ancorar o XP/h **late (15→25)** quando mobs T2/T3 on-level existirem — hoje extrapolado.
