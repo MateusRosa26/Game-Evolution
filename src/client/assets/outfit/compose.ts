@@ -5,9 +5,23 @@
  */
 import { Texture } from "pixi.js";
 import type { Facing } from "../../../shared/types";
+import { TILE_SIZE } from "../../../shared/constants";
 import { OUTFIT_COLORS, type OutfitState } from "../../../shared/outfits";
 import { PAL } from "../palette";
 import { Px } from "../sprites";
+
+// As peças do paperdoll são authoradas a 32px. Remaster 64px: compõe a 32 (sem
+// mexer nas 28 funções de PART_DRAW) e dá UPSCALE INTEIRO (nearest) pro tamanho
+// do tile na saída → char/NPC no tamanho certo, pixel-clean. S=1 @32 = no-op.
+const SRC = 32;
+const OUT: number = TILE_SIZE;
+function upscaleTexture(src: HTMLCanvasElement): Texture {
+  if (OUT === SRC) return Texture.from(src);
+  const p = new Px(OUT, OUT);
+  p.ctx.imageSmoothingEnabled = false;
+  p.ctx.drawImage(src, 0, 0, SRC, SRC, 0, 0, OUT, OUT);
+  return p.texture();
+}
 import { drawHeldEquipment, PART_DRAW, type PartFacing } from "./parts";
 import { OutfitTextureLru } from "./lruCache";
 import { recolorCanvas } from "./sentinels";
@@ -76,17 +90,17 @@ export function outfitTextures(
     for (let f = 0; f < 3; f++) {
       const p = composeFrame(outfit, weaponTemplateId, facing, f);
       if (facing === "e") eastCanvases.push(p.canvas);
-      frames.push(p.texture());
+      frames.push(upscaleTexture(p.canvas));
     }
     result[facing] = frames;
   }
-  // west = flip de east
+  // west = flip de east (compõe o flip a 32, depois upscale)
   result.w = eastCanvases.map((src) => {
-    const p = new Px(32, 32);
-    p.ctx.translate(32, 0);
+    const p = new Px(SRC, SRC);
+    p.ctx.translate(SRC, 0);
     p.ctx.scale(-1, 1);
     p.ctx.drawImage(src, 0, 0);
-    return p.texture();
+    return upscaleTexture(p.canvas);
   });
 
   const tex = result as OutfitTextures;

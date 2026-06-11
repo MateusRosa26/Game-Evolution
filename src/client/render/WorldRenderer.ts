@@ -337,6 +337,15 @@ export class WorldRenderer {
         if (!tex) continue;
         const obj = new Sprite(tex);
         obj.anchor.set(0.5, 1);
+        // remaster 128: upscale inteiro temporário até regen nativa do PixelLab.
+        // Árvore PixelLab é 64px de largura (meio tile); escala inteira (=2) a leva
+        // a 128 largura. Os procedurais (makeTree/rocks/muros) já nascem em TILE_SIZE
+        // (largura ≥ TILE_SIZE → fator 1, intocados). Ancorada na base (0.5,1).
+        if (tile === TileId.Tree) {
+          const nw = tex.width || TILE_SIZE;
+          const up = Math.max(1, Math.round(TILE_SIZE / nw));
+          if (up !== 1) obj.scale.set(up);
+        }
         obj.position.set(cx, baseY);
         obj.zIndex = obj.position.y;
         this.objects.addChild(obj);

@@ -1,5 +1,5 @@
-/** Tamanho do tile em pixels de mundo. */
-export const TILE_SIZE = 32;
+/** Tamanho do tile em pixels de mundo. Remaster 128px (jun/2026): era 32→64→128. */
+export const TILE_SIZE = 128;
 
 /** Duração de um tick da simulação (20 ticks/s, estilo servidor de MMO). */
 export const TICK_MS = 50;
@@ -27,5 +27,5 @@ export const BASE_WALK_MS = 250;
  */
 export const DIAGONAL_FACTOR = 1.45;
 
-/** Zoom da câmera (pixel art 32px renderizada em 2x). */
-export const CAMERA_ZOOM = 2;
+/** Zoom da câmera. Remaster 128px: arte nativa renderiza 1:1 (~15 tiles na tela = visão fechada Tibia). */
+export const CAMERA_ZOOM = 1;
