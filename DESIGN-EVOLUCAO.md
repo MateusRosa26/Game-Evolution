@@ -32,9 +32,12 @@
 | Escala de números | **Tudo baixo (decidido — criador, jun/2026)**: dano/Def/gold/drops em números pequenos estilo Tibia old-school (dano de um dígito no T1, gold contado em moedas, up lento). Razão técnica (bateria M1.2): dano estável + mobs de HP baixo = o jogo é **contagem de golpes** — em escala baixa, ±1 é sentido e legível; inflação numérica destrói isso. Régua para TODO número novo do Balancista |
 | Velocidade de movimento | **Base plana p/ todos — NÃO sobe com nível (decidido jun/2026)**. Variação só de **itens** (botas), **magia** (haste/*Disparada*) e **comida** (✏️ buff simples vs sistema de stamina — sessão de consumíveis). Razão: o movimento na sim é quantizado em degraus de tick (estilo Tibia, breakpoints de 50ms), e MS-por-nível é o treadmill que o Pilar 7 veta; nas referências, **OSRS deixa o teto plano de propósito** (PvP justo, profundidade vem de energia/freeze/posição) e o **Tibia** mantém o per-level minúsculo com gear/haste como swing real. Mobilidade vira **loot/escolha** (Pilar 5/6), não barra de XP; anti-Sirlin (ninguém inalcançável só por ser high-level). Relatório: `docs/reports/2026-06-10-velocidade-movimento.md` |
 | Unidade de tempo | **Tudo em ms (decidido + refatorado jun/2026)**: cooldowns, durações de status, respawn, regen (agora por-segundo) são números de DESIGN em ms; a sim converte p/ ticks via `msToTicks` (`shared/constants.ts`). O **tick (50ms) é só a resolução interna** — mudá-lo reescala tudo sem tocar no balance. Tick fino (25/10ms) fica **reservado** (só vale a pena se algum dia o movimento exigir curva fina) |
-| Mutações | Nomeadas e qualitativas (não ranks); o **perfil de uso** decide qual mutação nasce; 2–4 por skill, autorais |
-| Thresholds | Brutais: ordem de 10–20k repetições / condutas por dezenas de níveis (números ✏️ calibrar com combate real) |
-| Proveniência | Contadores de item vivem na **instância** (ledger); progresso viaja com o item em trade/drop |
+| Mutações | Nomeadas e qualitativas (não ranks); o **perfil de uso** decide qual mutação nasce; 2–4 por skill, autorais. **Ganho pequeno + condicionador de estilo, nunca power spike.** **100% comportamental** (por uso) — tomo/drop/quest gateiam só a skill *base* (modelo R1, jun/2026). **1ª = onramp grátis** (fora do escalador); **da 2ª em diante já começa bem difícil.** Substitui a original (decidido) |
+| Thresholds | **Entrada descobrível, aprofundamento brutal** (decidido jun/2026): a 1ª mutação é barata (onramp que ensina o sistema); Marca de arma, Caminhos e mutações profundas são brutais (ordem de 10–20k repetições / condutas por dezenas de níveis). Números ✏️ calibrar com combate real |
+| Eixos do emergente | **Dois eixos ortogonais** (jun/2026): **GEAR** (Marca de arma — independente, auto-gateada pela troca de tier) × **COMPORTAMENTAL** (Mutação + Caminho/título — **escalador único e competitivo**: magia dificulta título e vice-versa → traço único; **soft, não pool gasto**; 1ª mutação fica fora) |
+| Escada de camadas | 4 camadas por raridade: ① 1ª Mutação (onramp/descoberta) · ② mutações profundas + Marca de arma · ③ Caminhos/classes escondidas · ④ **Criação de Skill** (pós-lançamento) |
+| Marca de arma | 15k+ kills na **mesma instância**, **auto-gateada por tier** (aparece no T3, raro no T2); **nunca compensa pular tier** — bônus de quem já está no topo. Independente do escalador comportamental |
+| Proveniência | Contadores de item vivem na **instância** (ledger). **Marca já destravada viaja inteira** com o item (relíquia); **progresso pré-unlock credita o novo dono em só 20–35%** no trade/loot (decidido jun/2026) — preserva o item-relíquia sem virar atalho de mercado pra Marca (% ✏️ Balancista) |
 | Arquitetura | Tudo na sim; condições como **dados** (definições), não código; eventos `kill`/`skill_use`/`damage`/`block`/`level_up` desde o M1 |
 
 Pendências em **Aberto / a decidir** no fim do documento.
@@ -154,9 +157,9 @@ O jogo observa o comportamento do jogador (contadores na simulação) e cristali
 
 **Pilares:**
 
-1. **Brutal de conseguir** — ordem de 10–20 mil repetições, ou condutas mantidas por dezenas de níveis. Uma Marca é um evento na vida do personagem, não um checkbox.
+1. **Entrada descobrível, aprofundamento brutal** — a 1ª Mutação de skill é o **onramp**: barata e completa (um pequeno giro de estilo, não power spike), ela existe pra o jogador *descobrir que o sistema existe* só jogando. O resto é brutal: Marca de arma, Caminhos e mutações profundas custam ordem de 10–20 mil repetições ou condutas mantidas por dezenas de níveis — esses são eventos na vida do personagem, não checkboxes.
 2. **Nomeada e narrativa** — toda recompensa tem nome próprio e flavor. "Quebra-Ossos" > "+15% dano vs mortos-vivos". O nome É a recompensa social.
-3. **História pertence ao objeto** — contadores de item vivem na **instância** do item. A espada que matou 14 mil esqueletos carrega esse progresso se for vendida/dropada. Itens viram relíquias com proveniência (crucial pro online/economia futura).
+3. **História pertence ao objeto** — contadores de item vivem na **instância** do item. A Marca já **destravada** viaja inteira (a espada *Quebra-Ossos* continua Quebra-Ossos com o novo dono); o **progresso pré-unlock** transfere só **20–35%** no trade/loot (anti-atalho de mercado — ver Anti-degeneração). Itens viram relíquias com proveniência (crucial pro online/economia futura).
 4. **Identidade emergente** — a build vem da camada sólida (stats + skills), mas a **identidade** vem daqui: as Marcas contam quem o personagem é, não o que ele distribui de pontos.
 5. **Tempero, não pilar de progressão** — nada da camada emergente é requisito para nada. É bônus, prestígio e lenda.
 
@@ -185,14 +188,15 @@ O jogo observa o comportamento do jogador (contadores na simulação) e cristali
 | Itens comuns → raros (~90% dos tiers) | **1** |
 | Itens lendários | **2** |
 | Itens únicos | **3** |
-| Personagem (Caminhos) | **sem cap fixo** — mas cada Caminho conquistado **aumenta a dificuldade dos próximos** (multiplicador de requisito ✏️ ex: ×1.5 por Caminho já obtido) |
+| Personagem — eixo comportamental (Caminhos/títulos **+ Mutações**) | **sem cap fixo**, mas **escalador único e competitivo**: cada saída conquistada (Caminho/título **ou** mutação) **encarece as próximas dos dois lados** (multiplicador ✏️ ex: ×1.5) — magia dificulta título e vice-versa → o personagem converge num **traço único**. **Soft (dificuldade sobe), não pool gasto** — nada fica inalcançável. **A 1ª mutação (onramp) fica fora do escalador** |
 
 - Item com slots cheios continua acumulando contadores, mas não ganha novas Marcas (a não ser que ✏️ exista rito para substituir/fundir — decidir depois).
 
 ### Anti-degeneração (regras da sim)
 
 - Kill só conta se o mob for **válido** (dá XP para o nível do jogador — mata farm de rato no lvl 100).
-- Para a **arma**: conta o kill se ela deu o **golpe final** estando equipada.
+- Para a **arma**: conta o kill se ela deu o **golpe final** estando equipada. Trocar de arma **atrasa, não zera** — o ledger é da instância; usar outra só não incrementa esta (cumulativo-sem-reset).
+- **Transferência (trade/loot):** a Marca já **destravada** viaja inteira com o item (relíquia); o **progresso pré-unlock credita o novo dono em só 20–35%** (% ✏️ Balancista). Impede comprar/lootar uma arma 14.999/15.000 e fechar a Marca de graça (anti-banalização pelo mercado), preservando a história parcial do item. Com vários tipos de mob, a diluição mantém caro "ser o primeiro a fechar mil de um tipo".
 - Para a **skill**: uso só conta se **atingiu alvo válido** (spam no ar não conta).
 - Contadores e verificação de condições rodam **100% na sim** (`src/sim/`), nunca no client — à prova de cheat no online futuro.
 - ✏️ Detectar AFK-farm / macro: decidir política (provavelmente irrelevante no single player, crítico no online).
@@ -248,7 +252,9 @@ Cada Marca tem **1 a 3 níveis** (depende da marca — definido no design dela).
 
 ## 2. Mutações de Skill
 
-Skill usada em volume extremo **muta**: muda qualitativamente e ganha nome. Não é rank (+5% dano) — é a skill virando outra coisa.
+Skill usada em volume extremo **muta**: muda qualitativamente e ganha nome. Não é rank (+5% dano) — é a skill virando outra coisa. **O ganho de poder é pequeno; o valor é o condicionador de estilo** (Koster: vara nova, não número maior) — por isso a camada emergente é tempero/identidade, nunca pilar de progressão.
+
+**A 1ª mutação é o onramp do sistema inteiro:** barata e completa (não trailer de algo maior), ela existe pra o jogador **descobrir que esse sistema existe só jogando**, e fica **fora do escalador comportamental**. **Da 2ª em diante já começa bem difícil** e entra no escalador único e competitivo que divide com os Caminhos (ver *Acúmulo*). Aquisição da mutação é **100% por uso** — tomo/drop/quest gateiam só a skill *base*, nunca a mutação (decidido jun/2026, modelo R1).
 
 **O "como" importa tanto quanto o "quanto":** a sim rastreia o **perfil de uso**, e ele decide **qual** mutação nasce. A mesma Bola de Fogo pode virar coisas diferentes:
 
@@ -259,7 +265,7 @@ Skill usada em volume extremo **muta**: muda qualitativamente e ganha nome. Não
 | Maioria em alvos já queimando | **Fogo Voraz** | reacende e espalha queimadura em área |
 
 - Cada skill tem **2–4 mutações possíveis** desenhadas à mão (✏️ por skill). Procedural não — nome e efeito são autorais.
-- Mutação substitui a skill original (✏️ ou convive? proposta: substitui — escolha permanente e identitária).
+- **Mutação substitui** a skill original (decidido jun/2026): o gatilho é um **perfil de uso sustentado** (não um evento avulso), então você **nunca muta por acidente** — substituir é seguro, permanente e identitário.
 
 ## 3. Caminhos do Personagem
 
@@ -284,6 +290,16 @@ Padrões de comportamento do **personagem inteiro**. Dois sabores:
 - Lembrete: cada Caminho obtido encarece os próximos (regra de acúmulo).
 
 ✏️ _lista alimentada pelo criador_
+
+---
+
+## 4. Criação de Skill (Camada 4 — pós-lançamento)
+
+O **ápice** do eixo comportamental: o jogo não muta uma skill que você já tem — ele **gera uma skill nova** a partir de um perfil de comportamento raríssimo (combinações de uso entre skills, condutas extremas cruzadas). É a saída mais rara da escada: uma assinatura que pouquíssimos personagens no mundo terão.
+
+- **Mesma engine, mesma taxonomia:** é o tracking observando um perfil e emitindo uma recompensa — só que a recompensa é uma skill autoral inédita. Entra no **escalador comportamental** como a saída mais cara de todas.
+- **Por que pós-lançamento:** o motor é barato (dado declarativo); a **autoria** de cada skill criável (efeito, gatilho, legibilidade, número do Balancista) é o custo real — não o sprite (PixelLab é barato). No MVP a engine fica pronta e exercitada; o catálogo de skills criáveis é conteúdo de expansão.
+- ✏️ Catálogo de skills criáveis + perfis-gatilho — criador / Loremaster / Balancista, pós-MVP.
 
 ---
 
@@ -612,10 +628,12 @@ A lista de skills é **uma só, organizada por requisito** — não existe "skil
 - [ ] **Fonte de cada skill** (qual é NPC / drop-only / NPC+drop / quest, e ONDE no mapa) — world-design, nas specs de fatia (`design/fatia-1-alvorada/` NPCS/ITENS-LOOTS)
 - [ ] **Limite de uso do kit híbrido**: nº de slots na skill bar + custo de mana/cooldown como freio (Balancista) — garantir que "todo mundo aprende tudo se tiver atributo" não vire bag-of-everything. *(Freio conceitual já decidido: o **corpo automático** da classe — pool/regen de mana, HP — torna o híbrido naturalmente caro; resta calibrar a dose.)*
 - [ ] Números reais de thresholds (calibrar com tempo médio de kill/uso quando o combate existir) — inclui thresholds dos níveis II/III de Marca
+- [ ] **% de transferência do progresso pré-unlock** no trade/loot (faixa decidida 20–35%; valor fino = Balancista)
+- [ ] **Alvo de calibração do Balancista = "horas entre uma coisa nova e a próxima"** (densidade de descoberta), não "horas brutas até lvl 25" — é o que separa difícil de maçante; conecta com a migração da curva cúbica→exponencial
 - [ ] Quebrar conduta **antes** de adquirir: perde a chance para sempre (NetHack) ou só zera o progresso? (pós-aquisição já decidido: permanente)
-- [ ] Mutação substitui ou convive com a skill original? (proposta: substitui)
+- [x] **Mutação substitui** a skill original (decidido jun/2026): o gatilho é **perfil de uso sustentado** (não evento avulso), então não há mutação acidental — substituir é seguro e identitário.
 - [ ] Rito de substituição/fusão de Marca em item com slots cheios?
-- [ ] Multiplicador de dificuldade por Caminho acumulado (ex: ×1.5)
+- [ ] Multiplicador do **escalador comportamental** (ex: ×1.5) — conta **Caminhos E Mutações** juntos (eixo compartilhado/competitivo); a 1ª mutação fica fora. Calibrar com o Balancista
 - [ ] Calibrar na sim: % exata da XP total perdida na morte (ref. 10%) e fator da curva (ref. ~2×/nível) — alvo 1→25 em ~30–45h eficientes; ⚠️ vigiar que morte no cap (~3–4h perdidas) fique em "dói muito" sem cruzar pra rage-quit; punições secundárias leves (gold? debuff?)
 - [ ] Lista de eventos canônicos que evoluem Marcas (world bosses no M3+, PvP no M6+)
 - [ ] Curva de XP / força dos mobs — números no M2
@@ -636,3 +654,4 @@ A lista de skills é **uma só, organizada por requisito** — não existe "skil
 - ✅ Morte: pune pesado em XP, **nunca** perde itens/Marcas
 - ✅ Permanência total: Marcas/Mutações/Caminhos não se perdem por nada (conduta pós-aquisição inclusa)
 - ✅ Marcas de item: 1–3 níveis por repetição; evolução qualitativa só por evento canônico
+- ✅ **Motor de progressão emergente — estrutura unificada (jun/2026):** UM motor (tracking) com 2 eixos ortogonais — **gear** (Marca de arma, auto-gateada por tier, independente, nunca compensa pular tier) × **comportamental** (Mutação + Caminho/título num escalador único e competitivo: magia dificulta título e vice-versa → traço único; soft, não pool gasto). Escada de 4 camadas: onramp → compromisso → prestígio → **Criação de Skill** (pós-lançamento). 1ª mutação = onramp grátis (fora do escalador), 2ª já começa difícil. Mutação = ganho pequeno + estilo, **100% comportamental** (tomo só na skill base — modelo R1). Transferência: Marca destravada viaja inteira, progresso pré-unlock só **20–35%**.

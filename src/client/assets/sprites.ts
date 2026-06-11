@@ -1339,6 +1339,42 @@ function makeLightTexture(): Texture {
   return Texture.from(c);
 }
 
+/**
+ * Partícula de impacto de combate — disco BRANCO macio (radial), tintável por
+ * tipo de dano no runtime (faísca/brasa/gota/fagulha). Base branca pra a tint
+ * multiplicar limpo; alpha radial dá o miolo quente e a borda que esvanece.
+ */
+function makeSpark(): Texture {
+  const size = 8;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(4, 4, 0, 4, 4, 4);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.5, "rgba(255,255,255,0.85)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  return Texture.from(c);
+}
+
+/**
+ * Estilhaço de impacto — losango cristalino BRANCO de bordas duras (gelo/físico).
+ * Miolo cheio + borda translúcida; tintado por tipo no runtime.
+ */
+function makeShard(): Texture {
+  const p = new Px(7, 7);
+  for (let y = 0; y < 7; y++) {
+    for (let x = 0; x < 7; x++) {
+      const d = Math.abs(x - 3) + Math.abs(y - 3);
+      if (d <= 1) p.px(x, y, "#ffffff");
+      else if (d <= 3) p.px(x, y, "rgba(255,255,255,0.78)");
+    }
+  }
+  return p.texture();
+}
+
 /** Cursor de tile (cantos em L). */
 function makeTileCursor(): Texture {
   const p = new Px(32, 32);
@@ -1503,6 +1539,9 @@ export interface SpriteLibrary {
   // Personagem: texturas vêm do compositor de OUTFITS (assets/outfit/compose.ts)
   rat: Record<Facing, Texture[]>;
   light: Texture;
+  /** Partículas de impacto de combate (tintadas por tipo de dano no render). */
+  spark: Texture;
+  shard: Texture;
   tileCursor: Texture;
   targetMarker: Texture;
   /** Boeiro/grade da descida pro esgoto. */
@@ -1552,6 +1591,8 @@ export function createSprites(): SpriteLibrary {
     torchFrames: makeTorchFrames(),
     rat: makeRatTextures(),
     light: makeLightTexture(),
+    spark: makeSpark(),
+    shard: makeShard(),
     tileCursor: makeTileCursor(),
     targetMarker: makeTargetMarker(),
     manhole: makeManhole(),
