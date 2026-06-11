@@ -9,6 +9,7 @@
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { categoryOf } from "./categories.mjs";
 
 const BASE = "https://api.pixellab.ai/v2";
 const KEY = readFileSync(join(homedir(), ".pixellab_key"), "utf8").trim();
@@ -42,6 +43,122 @@ const SPECS = {
     description: `a small simple cloth drawstring bag pouch, coarse beige fabric, tied with a cord, humble container, ${ITEM}, ${VOCAB}`,
     seed: 14,
   },
+
+  // --- Armas T1 (templates já codificados, faltam sprites) ---
+  "espada-curta": {
+    description: `a simple short sword, straight clean steel blade, leather-wrapped grip, plain iron crossguard, basic reliable beginner weapon, ${ITEM}, ${VOCAB}`,
+    seed: 21,
+  },
+  "machado-de-mao": {
+    description: `a one-handed hand axe, single curved iron axe head, short wooden haft, simple woodsman tool-weapon, ${ITEM}, ${VOCAB}`,
+    seed: 22,
+  },
+  "clava": {
+    description: `a crude wooden club mace, heavy knotted bludgeon head banded with a few iron rings, plain wooden handle, blunt humble weapon, ${ITEM}, ${VOCAB}`,
+    seed: 23,
+  },
+  "cajado-simples": {
+    description: `a simple wooden mage staff, long gnarled wooden quarterstaff, a small rough bound stone at the tip, humble apprentice staff, ${ITEM}, ${VOCAB}`,
+    seed: 24,
+  },
+  "adaga": {
+    description: `a small dagger, short narrow steel blade, leather-wrapped handle, simple crossguard, light quick rogue weapon, ${ITEM}, ${VOCAB}`,
+    seed: 25,
+  },
+  "cetro": {
+    description: `a very humble plain priest scepter, a short simple rod of tarnished dull worn brass, topped with a tiny small matte pale stone, modest unadorned clerical weapon, no ornaments no jewels no decoration, poor and worn, ${ITEM}, ${VOCAB}`,
+    seed: 36,
+  },
+
+  // --- Consumíveis T1 ---
+  "pao": {
+    description: `a small loaf of rustic bread, round crusty golden-brown peasant bread, humble food, ${ITEM}, ${VOCAB}`,
+    seed: 27,
+  },
+  "carne-assada": {
+    description: `a stylized chunk of roasted meat, a chunky cooked meat morsel with a small bone nub sticking out, bold rounded chunky shapes, warm golden-brown glazed, iconic cartoon fantasy game food, hearty appetizing, simple readable, painterly stylized not photorealistic, ${ITEM}, ${VOCAB}`,
+    seed: 48,
+  },
+  "carne-crua": {
+    description: `a stylized chunk of raw uncooked meat, a chunky raw red meat morsel with a small bone nub sticking out, bold rounded chunky shapes, pink-red raw flesh with pale marbled fat, no cooking no glaze no char no browning, iconic cartoon fantasy game food, simple readable, painterly stylized not photorealistic, ${ITEM}, ${VOCAB}`,
+    seed: 49,
+  },
+  "pocao-vida-pequena": {
+    description: `a small slim health potion, a tall narrow slender glass vial with a cork stopper, deep red liquid inside, thin flask bottle, ${ITEM}, ${VOCAB}`,
+    seed: 39,
+  },
+
+  // --- Ferramentas T1 ---
+  "corda": {
+    description: `a coiled rope, neat loop of thick brown hemp rope bundled together, simple explorer tool, ${ITEM}, ${VOCAB}`,
+    seed: 30,
+  },
+  "pa": {
+    description: `a simple shovel spade, wooden handle with a worn iron digging blade, old digging tool, ${ITEM}, ${VOCAB}`,
+    seed: 31,
+  },
+  "tocha": {
+    description: `a lit torch, wooden handle wrapped in oiled cloth at the top with a small warm flame, handheld light source, ${ITEM}, ${VOCAB}`,
+    seed: 32,
+  },
+  "faca-de-esfolar": {
+    description: `a skinning knife, short curved steel blade, plain bone handle, simple worn skinning tool, ${ITEM}, ${VOCAB}`,
+    seed: 33,
+  },
+
+  // --- Material (loot) ---
+  "cauda-de-rato": {
+    description: `a severed rat tail, thin tapering pinkish-grey rodent tail, small grisly trophy loot, ${ITEM}, ${VOCAB}`,
+    seed: 34,
+  },
+
+  // --- Vestir T1 vendor (couro genérico, sem bônus) ---
+  "coifa-de-couro": {
+    description: `a simple leather coif cap, a close-fitting plain brown leather hood helmet, humble head armor, modest and worn but intact, ${ITEM}, ${VOCAB}`,
+    seed: 50,
+  },
+  "tunica-de-couro": {
+    description: `a plain leather tunic chest armor, a worn but intact brown leather vest jerkin with simple stitching, humble body armor, NOT tattered NOT ragged, ${ITEM}, ${VOCAB}`,
+    seed: 51,
+  },
+  "calcas-de-couro": {
+    description: `a pair of simple leather trousers, plain worn brown leather pants leggings, humble leg armor, ${ITEM}, ${VOCAB}`,
+    seed: 52,
+  },
+  "botas-de-couro": {
+    description: `a pair of plain sturdy leather boots, simple intact brown leather boots with laces, modest footwear, NOT scuffed NOT cracked, ${ITEM}, ${VOCAB}`,
+    seed: 53,
+  },
+  "luvas-de-couro": {
+    description: `a SINGLE single leather glove, one plain worn brown leather hand glove only, just one glove NOT a pair, humble modest, ${ITEM}, ${VOCAB}`,
+    seed: 64,
+  },
+  "escudo-de-madeira": {
+    description: `a round wooden shield, simple planked wood round shield with an iron rim and a central iron boss, worn humble buckler, ${ITEM}, ${VOCAB}`,
+    seed: 55,
+  },
+
+  // --- Vestir/joias T1 baús (COM bônus — tema na cor) ---
+  "capuz-do-cacador": {
+    description: `a hunter's hood, a rugged green and brown leather and cloth ranger hood, weathered hunting headgear, modest with a fine touch, ${ITEM}, ${VOCAB}`,
+    seed: 56,
+  },
+  "robe-do-erudito": {
+    description: `a scholar's robe, a long flowing dark blue-grey cloth mage robe with simple pale trim, modest scholarly garment, ${ITEM}, ${VOCAB}`,
+    seed: 57,
+  },
+  "peitoral-da-muralha": {
+    description: `a bulwark breastplate, a sturdy worn iron steel chest plate cuirass armor, heavy solid defensive plate, ${ITEM}, ${VOCAB}`,
+    seed: 58,
+  },
+  "botas-do-viajante": {
+    description: `a PAIR of two traveler's boots side by side, both sturdy brown leather travel boots with buckles and straps, well-traveled and reliable, a matching pair of boots, modest with a fine touch, ${ITEM}, ${VOCAB}`,
+    seed: 69,
+  },
+  "anel-de-regeneracao-menor": {
+    description: `a lesser ring of regeneration, a simple worn metal band ring set with a small dull green gem, modest enchanted ring, ${ITEM}, ${VOCAB}`,
+    seed: 60,
+  },
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -73,7 +190,7 @@ async function main() {
 
   let j = JSON.parse(txt);
   const jobId = j.background_job_id || j.id || j.generation_id;
-  const dir = join("design", "pixellab-candidatos", "items", name);
+  const dir = join("design", "pixellab-candidatos", "items", categoryOf(name), name);
   mkdirSync(dir, { recursive: true });
 
   let images = collectImages(j);

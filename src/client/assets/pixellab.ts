@@ -102,8 +102,8 @@ const KNIGHT_ATTACK_URLS = import.meta.glob("./img/chars/knight/attack/*.png", {
   query: "?url",
   import: "default",
 }) as Record<string, string>;
-// Sprites de item (1 PNG por item) — img/items/<id>.png
-const ITEM_URLS = import.meta.glob("./img/items/*.png", {
+// Sprites de item (1 PNG por item) — img/items/<categoria>/<id>.png (recursivo)
+const ITEM_URLS = import.meta.glob("./img/items/**/*.png", {
   eager: true,
   query: "?url",
   import: "default",
@@ -249,11 +249,12 @@ export async function loadPixellabAssets(): Promise<void> {
     if (dirs.s.length && dirs.e.length && dirs.n.length) PIXELLAB.knightAttack = dirs;
   }
 
-  // Itens: img/items/<id>.png → PIXELLAB.items[templateId] (arquivo '-' → '_')
+  // Itens: img/items/<categoria>/<id>.png → PIXELLAB.items[templateId].
+  // Chave = basename do arquivo (ignora a subpasta de categoria), '-' → '_'.
   const itemEntries = Object.entries(ITEM_URLS);
   const itemTexes = await Promise.all(itemEntries.map(([, url]) => Assets.load<Texture>(url)));
   itemEntries.forEach(([path], i) => {
-    const m = path.match(/img\/items\/(.+)\.png$/);
+    const m = path.match(/([^/]+)\.png$/);
     if (m) PIXELLAB.items[m[1].replace(/-/g, "_")] = itemTexes[i];
   });
 }

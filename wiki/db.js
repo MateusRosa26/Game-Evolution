@@ -910,6 +910,88 @@ function renderClasses($doc, data) {
 
 // ---------------- Itens & Equipamento ----------------
 
+// Sprites de item gerados (PixelLab + curadoria, jun/2026). Lista mantida à mão
+// para a wiki seguir self-contained (sem glob/Vite). Caminho servido pela raiz do
+// projeto no dev server. Ao aprovar novos sprites, adicione a entrada aqui.
+const ITEM_SPRITE_BASE = "/src/client/assets/img/items/";
+// `cat` = subpasta de categoria (espelha ItemCategory da sim); container é só-sprite.
+const CAT_LABEL = { weapon: "Armas", shield: "Escudos", armor: "Armaduras & Vestir", consumable: "Consumíveis", tool: "Ferramentas", material: "Material", container: "Containers" };
+const ITEM_SPRITES = [
+  { slug: "espada-curta", label: "Espada Curta", cat: "weapon" },
+  { slug: "espada-cega", label: "Espada Cega", cat: "weapon" },
+  { slug: "adaga", label: "Adaga", cat: "weapon" },
+  { slug: "machado-de-mao", label: "Machado de Mão", cat: "weapon" },
+  { slug: "clava", label: "Clava", cat: "weapon" },
+  { slug: "cajado-simples", label: "Cajado Simples", cat: "weapon" },
+  { slug: "cetro", label: "Cetro", cat: "weapon" },
+  { slug: "escudo-de-madeira", label: "Escudo de Madeira", cat: "shield" },
+  { slug: "coifa-de-couro", label: "Coifa de Couro", cat: "armor" },
+  { slug: "capuz-do-cacador", label: "Capuz do Caçador", cat: "armor" },
+  { slug: "tunica-de-couro", label: "Túnica de Couro", cat: "armor" },
+  { slug: "gibao-roto", label: "Gibão Roto", cat: "armor" },
+  { slug: "robe-do-erudito", label: "Robe do Erudito", cat: "armor" },
+  { slug: "peitoral-da-muralha", label: "Peitoral da Muralha", cat: "armor" },
+  { slug: "calcas-de-couro", label: "Calças de Couro", cat: "armor" },
+  { slug: "botas-de-couro", label: "Botas de Couro", cat: "armor" },
+  { slug: "botas-surradas", label: "Botas Surradas", cat: "armor" },
+  { slug: "botas-do-viajante", label: "Botas do Viajante", cat: "armor" },
+  { slug: "luvas-de-couro", label: "Luvas de Couro", cat: "armor" },
+  { slug: "anel-de-regeneracao-menor", label: "Anel de Regeneração Menor", cat: "armor" },
+  { slug: "pao", label: "Pão", cat: "consumable" },
+  { slug: "carne-assada", label: "Carne Assada", cat: "consumable" },
+  { slug: "carne-crua", label: "Carne Crua", cat: "consumable" },
+  { slug: "pocao-vida-pequena", label: "Poção de Vida Pequena", cat: "consumable" },
+  { slug: "pa", label: "Pá", cat: "tool" },
+  { slug: "corda", label: "Corda", cat: "tool" },
+  { slug: "tocha", label: "Tocha", cat: "tool" },
+  { slug: "faca-de-esfolar", label: "Faca de Esfolar", cat: "tool" },
+  { slug: "cauda-de-rato", label: "Cauda de Rato", cat: "material" },
+  { slug: "sacola-pano", label: "Sacola de Pano", cat: "container" },
+];
+const SPRITE_SET = new Set(ITEM_SPRITES.map((s) => s.slug));
+const SPRITE_CAT = Object.fromEntries(ITEM_SPRITES.map((s) => [s.slug, s.cat]));
+// nome do doc → slug do sprite, para casos em que o slug não bate direto
+const SPRITE_ALIAS = { "cajado-de-fogo": "cajado-simples", "cajado-de-gelo": "cajado-simples" };
+
+const slugify = (s) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+// sprites que casam com o nome de um item do catálogo (split em → / , ; — pega
+// "Espada Cega → Espada Curta" e "Cajado de Fogo / Cajado de Gelo")
+function itemSprites(name) {
+  const out = [];
+  for (const part of name.split(/[→\/,;]/)) {
+    const slug = slugify(part);
+    const hit = SPRITE_SET.has(slug) ? slug : SPRITE_ALIAS[slug];
+    if (hit && !out.includes(hit)) out.push(hit);
+  }
+  return out;
+}
+const spriteImg = (slug, label, size = 32) =>
+  `<img src="${ITEM_SPRITE_BASE}${SPRITE_CAT[slug] ?? ""}/${slug}.png" alt="${esc(label)}" title="${esc(label)}" width="${size}" height="${size}" loading="lazy" style="image-rendering:pixelated;vertical-align:middle" onerror="this.style.display='none'">`;
+
+function spriteGallery() {
+  const cats = [...new Set(ITEM_SPRITES.map((s) => s.cat))];
+  return `
+    <section class="db-group">
+      <h2 class="db-h2">🖼️ Sprites gerados <span class="dim-note">— ${ITEM_SPRITES.length} ícones (PixelLab + curadoria, jun/2026) · 32px, exibidos 2×, por categoria</span></h2>
+      ${cats.map((g) => `
+        <div style="margin:.4rem 0 .9rem">
+          <div class="dim" style="font-size:.8rem;margin-bottom:.3rem">${esc(CAT_LABEL[g] ?? g)} <span style="opacity:.6">· ${g}/</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:.9rem">
+            ${ITEM_SPRITES.filter((s) => s.cat === g).map((s) => `
+              <figure style="margin:0;width:84px;text-align:center">
+                <div style="background:linear-gradient(90deg,#2c3a26 50%,#969488 50%);border:1px solid #10141c;border-radius:4px;padding:6px;display:flex;align-items:center;justify-content:center;height:76px">
+                  ${spriteImg(s.slug, s.label, 64)}
+                </div>
+                <figcaption class="dim" style="font-size:.72rem;margin-top:.25rem;line-height:1.1">${esc(s.label)}</figcaption>
+              </figure>`).join("")}
+          </div>
+        </div>`).join("")}
+    </section>`;
+}
+
 function renderItems($doc, data) {
   const tiers = [...new Set(data.items.map((i) => i.tier))];
   const cats = [...new Set(data.items.map((i) => i.cat))];
@@ -950,7 +1032,8 @@ function renderItems($doc, data) {
         <td><strong>${fmt(r.tipo)}</strong></td><td>${fmt(r.maos)}</td><td>${fmt(r.escala)}</td>
         <td>${fmt(r.subtipo)}</td><td class="dim">${fmt(r.essencia)}</td>
       </tr>`).join("")}</tbody></table>
-    </section>`;
+    </section>
+    ${spriteGallery()}`;
 
   const $sort = $doc.querySelector(".db-sort");
   $sort.value = iState.sort;
@@ -978,11 +1061,13 @@ function iRenderBody($doc, data) {
 
   $doc.querySelector("#db-body").innerHTML = !list.length ? emptyMsg() : `
     <table class="db-table"><thead><tr>
-      <th>Item</th><th>EN</th><th>Tier</th><th>Categoria</th><th>Tipo/Slot</th><th>Números</th><th>Fonte</th><th>Bônus / Nota</th>
+      <th></th><th>Item</th><th>EN</th><th>Tier</th><th>Categoria</th><th>Tipo/Slot</th><th>Números</th><th>Fonte</th><th>Bônus / Nota</th>
     </tr></thead><tbody>
     ${list.map((i) => {
       const ec = elementColor(i.name + " " + i.bonus);
+      const sprites = itemSprites(i.name);
       return `<tr>
+      <td style="width:40px;text-align:center">${sprites.map((s) => spriteImg(s, i.name)).join("")}</td>
       <td><strong${ec ? ` style="color:${ec}"` : ""}>${fmt(i.name)}</strong></td>
       <td class="dim"><em>${fmt(i.en)}</em></td>
       <td><span class="tier-badge" style="--tc:${TIER_COLORS[i.tier] ?? "#8890a0"}">${esc(i.tier)}</span></td>
