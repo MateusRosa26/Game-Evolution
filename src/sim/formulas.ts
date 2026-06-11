@@ -68,6 +68,11 @@ export const CLASS_GROWTH: Record<PlayerClass, ClassGrowth> = {
   mage: { hpPerLevel: 5, manaPerLevel: 12, capPerLevel: 10, hpRegenPerLevel: 0.04, manaRegenPerLevel: 0.06 },
   rogue: { hpPerLevel: 7, manaPerLevel: 5, capPerLevel: 18, hpRegenPerLevel: 0.07, manaRegenPerLevel: 0.04 },
   priest: { hpPerLevel: 12, manaPerLevel: 10, capPerLevel: 12, hpRegenPerLevel: 0.06, manaRegenPerLevel: 0.10 },
+  // CLASSLESS = média das 4 classes (sem o pico de nenhuma = a fraqueza estrutural
+  // do pau-pra-toda-obra). O −10% do design emerge de ser média + base attrs menor
+  // (25 vs ~28-33 das classes); no RITO o cls troca e os pools recalculam pela
+  // classe escolhida no nível atual (o −10% some retroativo). ✏️ Balancista afina.
+  classless: { hpPerLevel: 10, manaPerLevel: 7, capPerLevel: 16, hpRegenPerLevel: 0.07, manaRegenPerLevel: 0.05 },
 };
 
 /** Atributos iniciais por classe (nível 1). ✏️ placeholder — calibrar no M2. */
@@ -77,6 +82,10 @@ export const CLASS_BASE_ATTRIBUTES: Record<PlayerClass, Attributes> = {
   mage: { strength: 4, dexterity: 5, intelligence: 8, vitality: 5, spirit: 6 },
   rogue: { strength: 5, dexterity: 8, intelligence: 5, vitality: 6, spirit: 4 },
   priest: { strength: 4, dexterity: 5, intelligence: 6, vitality: 5, spirit: 8 },
+  // CLASSLESS: distribuição plana (sem especialização), soma 25 < ~28-33 das classes
+  // → ~10% abaixo. No rito: attrs[k] = classe_base[k] + (attrs_atual[k] − 5) (troca o
+  // inato, preserva os pontos alocados). ✏️ Balancista.
+  classless: { strength: 5, dexterity: 5, intelligence: 5, vitality: 5, spirit: 5 },
 };
 
 /**

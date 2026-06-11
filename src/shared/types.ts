@@ -72,7 +72,7 @@ export interface NpcSpawnDef {
  * escolhíveis — a especialização emerge via Caminhos/Mutações (wave futura).
  * Identificadores estáveis (chaves de dados/fórmulas).
  */
-export type PlayerClass = "knight" | "mage" | "rogue" | "priest";
+export type PlayerClass = "knight" | "mage" | "rogue" | "priest" | "classless";
 
 /**
  * Os 5 atributos da camada sólida (DESIGN-EVOLUCAO.md §Stats). DISTRIBUÍVEIS

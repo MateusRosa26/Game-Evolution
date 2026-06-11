@@ -66,6 +66,30 @@ export function createProgression(cls: PlayerClass): Progression {
 }
 
 /**
+ * Rito de classe — transição classless → classe (decisão criador jun/2026:
+ * pontos CARREGAM, UMA VIA). Troca a classe e o atributo INATO preservando os
+ * pontos que o jogador alocou: para cada atributo, `novo = classe_base +
+ * (atual − classless_base)`. Como maxHp/maxMana/cap são funções puras de
+ * (attrs, cls, level), trocar `cls` faz os pools recalcularem pela classe no
+ * nível ATUAL — você vira "um {classe} de nível N" como se sempre tivesse sido
+ * (o −10% do classless some retroativo; ritar cedo ou tarde dá o mesmo base no
+ * mesmo nível). NÃO mexe em recursos atuais, gold ou skills — quem chama
+ * (Simulation) valida o gate (gold+quest), cobra e concede o kit. Retorna false
+ * se o gate de estado falhar (já tem classe, ou alvo inválido).
+ */
+export function applyRitoTransition(prog: Progression, target: PlayerClass): boolean {
+  if (prog.cls !== "classless" || target === "classless") return false;
+  const base = CLASS_BASE_ATTRIBUTES.classless;
+  const tgt = CLASS_BASE_ATTRIBUTES[target];
+  const a = prog.attributes;
+  for (const k of Object.keys(a) as AttributeKey[]) {
+    a[k] = tgt[k] + (a[k] - base[k]);
+  }
+  prog.cls = target;
+  return true;
+}
+
+/**
  * Sincroniza os recursos máximos da entidade com as fórmulas (após mudança de
  * atributos/nível). Se `fill` for true, enche HP/Mana atuais ao novo máximo;
  * senão, só faz clamp para não passar do teto. Auto-attack do jogador também
