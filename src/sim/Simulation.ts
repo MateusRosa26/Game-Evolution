@@ -44,6 +44,7 @@ import {
   GOLD_WEIGHT_CAP_COINS,
   goldWeight,
 } from "./items";
+import type { BlockStats } from "./items/templates";
 import { updateChaser } from "./monsterAi";
 import { creditQuestKill, QUESTS, type QuestState } from "./quests";
 import { ContainerRegistry, type Container } from "./items/containers";
@@ -269,6 +270,8 @@ export class Simulation {
       dead: false,
       // Arma inicial da classe como INSTÂNCIA equipada (preenchido abaixo).
       equippedWeaponId: null,
+      armorDef: 0,
+      block: null,
       // Outfit default da classe; guarda-roupa nasce com as peças FREE.
       outfit: structuredCloneOutfit(DEFAULT_OUTFIT_BY_CLASS[cls]),
       wardrobe: new Set(OUTFIT_PARTS.filter((p) => p.free).map((p) => p.id)),
@@ -335,6 +338,22 @@ export class Simulation {
    * continuam com números do bestiário.
    */
   private recomputePlayerDerived(entity: SimEntity, prog: Progression): void {
+    // Armadura/escudo equipados → Def cacheada + bloqueio (mitigação em applyDamage).
+    let armorDef = 0;
+    let block: BlockStats | null = null;
+    for (const slot of ["helmet", "armor", "legs", "boots"] as const) {
+      const instId = entity.equipment[slot];
+      const t = instId != null ? getItemTemplate(this.items.get(instId)?.templateId ?? "") : undefined;
+      if (t?.armor) armorDef += t.armor.def;
+    }
+    for (const slot of ["hand1", "hand2"] as const) {
+      const instId = entity.equipment[slot];
+      const t = instId != null ? getItemTemplate(this.items.get(instId)?.templateId ?? "") : undefined;
+      if (t?.block) block = t.block;
+    }
+    entity.armorDef = armorDef;
+    entity.block = block;
+
     const w = this.weaponStatsOf(entity);
     if (w.magic) {
       // Arma mágica: o dano vem da faixa da PRÓPRIA arma (não escala atributo) e
@@ -422,6 +441,8 @@ export class Simulation {
       dead: false,
       // Mobs usam números do bestiário, sem arma-instância (ledger só p/ players).
       equippedWeaponId: null,
+      armorDef: 0, // mob não equipa armadura (a "armadura" do mob é stat do bestiário)
+      block: null,
       outfit: null, // sprite de mob vem da espécie
       wardrobe: new Set(),
       knownSkills: [],
@@ -475,6 +496,8 @@ export class Simulation {
         nextItemUseAt: 0,
         dead: false,
         equippedWeaponId: null,
+        armorDef: 0,
+        block: null,
         outfit: null,
         wardrobe: new Set(),
         knownSkills: [],
@@ -810,6 +833,7 @@ export class Simulation {
       pending,
       night: false,
       lookup: (id) => this.entities.get(id),
+      rng: this.combatRng,
     };
 
     // Aponta o SINK da engine de tracking para o `pending` DESTE tick: hints/
@@ -1327,6 +1351,9 @@ export class Simulation {
     if (!t) return false;
     if (t.slot === "weapon" || t.slot === "shield") return slot === "hand1" || slot === "hand2";
     if (t.slot === "armor") return slot === "armor";
+    if (t.slot === "helmet") return slot === "helmet";
+    if (t.slot === "legs") return slot === "legs";
+    if (t.slot === "boots") return slot === "boots";
     return false;
   }
 

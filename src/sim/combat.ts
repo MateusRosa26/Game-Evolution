@@ -2,6 +2,7 @@ import type { DamageType, Vec2 } from "../shared/types";
 import type { SnapshotEvent } from "../shared/protocol";
 import type { CombatActorRef, EventBus } from "./events";
 import type { SimEntity } from "./entity";
+import { armorMitigation } from "./formulas";
 
 /**
  * Lógica de combate da sim: aplicação de dano, morte e emissão dos eventos
@@ -22,6 +23,8 @@ export interface CombatCtx {
   night: boolean;
   /** Lookup de entidade por ID (DoT precisa achar a fonte que aplicou o status). */
   lookup: (id: number) => SimEntity | undefined;
+  /** RNG seedado (combatRng da Simulation) — rola o bloqueio de escudo. */
+  rng: () => number;
 }
 
 /** Identidade de combate de uma entidade (para os payloads de evento). */
@@ -66,6 +69,25 @@ export function applyDamage(
   skillId: string | null,
 ): boolean {
   if (target.dead) return false;
+
+  // ── Mitigação do ALVO (ordem decidida: bloqueio% → Def SORTEADA (0..Def) → piso
+  // 1). Só o player carrega armadura/escudo (mob: armorDef 0, block null), então o
+  // golpe DO player no mob não muda — só o golpe NO player é reduzido. ──
+  if (target.block && ctx.rng() < target.block.chance) {
+    const blocked = Math.round(amount * target.block.chunkPct);
+    amount -= blocked;
+    ctx.bus.emit("block", {
+      blocker: actorRef(target),
+      attacker: actorRef(source),
+      blocked,
+      damageType,
+      context: { tick: ctx.tick, night: ctx.night },
+    });
+  }
+  if (damageType === "physical" && target.armorDef > 0) {
+    amount -= armorMitigation(target.armorDef, ctx.rng()); // sorteio 0..Def (Tibia-puro)
+  }
+  amount = Math.max(1, Math.round(amount));
 
   target.hp = Math.max(0, target.hp - amount);
 

@@ -16,8 +16,26 @@ import { WAND_RANGE } from "../balance";
  * usado (auto-attack + skills de arma).
  */
 
-/** Slot de equipamento. Só `weapon` é usado agora; os demais ficam declarados. */
-export type ItemSlot = "weapon" | "shield" | "armor";
+/** Slot de equipamento (mapeia para os EquipSlot de vestir; `armor`=torso). */
+export type ItemSlot = "weapon" | "shield" | "armor" | "helmet" | "legs" | "boots";
+
+/**
+ * Stats de armadura — Def PLANA subtraída do dano físico recebido. Presente em
+ * peças de vestir (helmet/armor/legs/boots). Ordem da mitigação (decidida — report
+ * kit/itens 2026-06-04): bloqueio% → Def flat → piso 1.
+ */
+export interface ArmorStats {
+  /** Def plana subtraída do dano FÍSICO recebido. */
+  def: number;
+}
+
+/** Bloqueio de escudo — chance de absorver um CHUNK do golpe (NUNCA 100%). */
+export interface BlockStats {
+  /** Chance [0..1] de bloquear um golpe recebido. */
+  chance: number;
+  /** Fração [0..1] do dano absorvida ao bloquear (✏️ ~0.7). */
+  chunkPct: number;
+}
 
 /**
  * Categoria do item — o classificador largo (acima do slot de equipamento).
@@ -189,6 +207,10 @@ export interface ItemTemplate {
   weight: number;
   /** Stats de arma — presente só quando `slot === "weapon"`. */
   weapon?: WeaponStats;
+  /** Stats de armadura (Def) — peças de vestir (helmet/armor/legs/boots). */
+  armor?: ArmorStats;
+  /** Bloqueio — presente em escudos (`slot === "shield"`). */
+  block?: BlockStats;
   /**
    * Efeito de usar (consumíveis). Presente só em `category === "consumable"`
    * com verbo ligado — comida e poção. Ausente = item sem efeito de uso (a
@@ -571,6 +593,72 @@ export const CAUDA_DE_RATO: ItemTemplate = {
   rarity: "common",
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Armadura & escudo T1 — vendor genérico (EQUIPAMENTO.md §"Vestir T1")
+//  Couro: Σ Def alvo 2–3 no set (decidido) — split por peça ✏️ Balancista. Aqui
+//  1/1/1/0 = Σ3 (cabeça/torso/pernas pagam; botas 0, pois seu "lar" é velocidade,
+//  que estreia nas Botas do Viajante de baú). Escudo: Def 0, paga em BLOQUEIO
+//  (chance ~20% / chunk 70% — provisórios ✏️). Pesos/preços ✏️ Balancista.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Coifa de Couro — capacete T1 genérico (vendor). */
+export const COIFA_DE_COURO: ItemTemplate = {
+  id: "coifa_de_couro",
+  name: "Coifa de Couro",
+  category: "armor",
+  slot: "helmet",
+  weight: 20,
+  rarity: "common",
+  armor: { def: 1 },
+};
+
+/** Túnica de Couro — armadura (torso) T1 genérica (vendor). */
+export const TUNICA_DE_COURO: ItemTemplate = {
+  id: "tunica_de_couro",
+  name: "Túnica de Couro",
+  category: "armor",
+  slot: "armor",
+  weight: 70,
+  rarity: "common",
+  armor: { def: 1 },
+};
+
+/** Calças de Couro — pernas T1 genéricas (vendor). */
+export const CALCAS_DE_COURO: ItemTemplate = {
+  id: "calcas_de_couro",
+  name: "Calças de Couro",
+  category: "armor",
+  slot: "legs",
+  weight: 50,
+  rarity: "common",
+  armor: { def: 1 },
+};
+
+/** Botas de Couro — botas T1 genéricas (vendor). Def 0 (o "lar" delas é velocidade). */
+export const BOTAS_DE_COURO: ItemTemplate = {
+  id: "botas_de_couro",
+  name: "Botas de Couro",
+  category: "armor",
+  slot: "boots",
+  weight: 25,
+  rarity: "common",
+  armor: { def: 0 },
+};
+
+/** Escudo de Madeira — escudo T1 (rito Knight / vendor). Def 0: paga em BLOQUEIO. */
+export const ESCUDO_DE_MADEIRA: ItemTemplate = {
+  id: "escudo_de_madeira",
+  name: "Escudo de Madeira",
+  category: "shield",
+  slot: "shield",
+  weight: 45,
+  rarity: "common",
+  armor: { def: 0 },
+  // Bloqueio CALIBRADO (Balancista 2026-06-11): chance 30% (a alavanca real — o
+  // chunk é ~inerte no TTL), chunk 70% (teto p/ o lendário Inabalável ~100%).
+  block: { chance: 0.3, chunkPct: 0.7 },
+};
+
 /** Registro de templates por ID — ponto único de lookup. */
 export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [ESPADA_CURTA.id]: ESPADA_CURTA,
@@ -600,6 +688,12 @@ export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [TOCHA.id]: TOCHA,
   [FACA_DE_ESFOLAR.id]: FACA_DE_ESFOLAR,
   [CAUDA_DE_RATO.id]: CAUDA_DE_RATO,
+  // Armadura & escudo T1 (vendor — EQUIPAMENTO.md §"Vestir T1")
+  [COIFA_DE_COURO.id]: COIFA_DE_COURO,
+  [TUNICA_DE_COURO.id]: TUNICA_DE_COURO,
+  [CALCAS_DE_COURO.id]: CALCAS_DE_COURO,
+  [BOTAS_DE_COURO.id]: BOTAS_DE_COURO,
+  [ESCUDO_DE_MADEIRA.id]: ESCUDO_DE_MADEIRA,
 };
 
 /** Lookup de template por ID (undefined = desconhecido). */
@@ -612,7 +706,10 @@ export function getItemTemplate(id: string): ItemTemplate | undefined {
  * (equipáveis). Fonte única para comércio/loot decidirem "que tipo de item é".
  */
 export function itemCategory(t: ItemTemplate): ItemCategory {
-  return t.category ?? t.slot ?? "material";
+  if (t.category) return t.category;
+  if (t.slot === "weapon" || t.slot === "shield" || t.slot === "armor") return t.slot;
+  if (t.slot === "helmet" || t.slot === "legs" || t.slot === "boots") return "armor";
+  return "material";
 }
 
 /**

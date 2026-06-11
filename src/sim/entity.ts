@@ -5,6 +5,7 @@ import type { StatusEffect } from "./skills/status";
 import type { MoveDef } from "./moves";
 import type { QuestState } from "./quests";
 import type { EquipSlot } from "../shared/protocol";
+import type { BlockStats } from "./items/templates";
 
 /** Intenção de movimento de uma entidade. */
 export type MoveIntent =
@@ -107,6 +108,15 @@ export interface SimEntity {
    * instância (ver `Simulation.recomputePlayerDerived`).
    */
   equippedWeaponId: number | null;
+
+  /**
+   * Def plana CACHEADA da armadura equipada (soma das peças helmet/armor/legs/
+   * boots). Mob = 0 sempre (não equipa). Recalc em `recomputePlayerDerived`;
+   * entra na mitigação física do `applyDamage` (bloqueio% → Def → piso 1).
+   */
+  armorDef: number;
+  /** Bloqueio CACHEADO do escudo equipado (null = sem escudo). */
+  block: BlockStats | null;
 
   /**
    * Outfit do personagem (peças + cores — `shared/outfits.ts`). ESTADO da

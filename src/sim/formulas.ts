@@ -220,6 +220,19 @@ export function physicalVariance(avg: number, roll: number): number {
 }
 
 /**
+ * Mitigação de ARMADURA — redução SORTEADA `0..Def` (estilo Tibia/Apogea), não
+ * subtração fixa. `roll`∈[0,1) do RNG seedado. Decidido (criador, jun/2026):
+ * flat Def fixo criava penhasco "piso 1 vs cheio" (knight blindado intocável p/
+ * mob de tier baixo; disparidade mage×knight binária). O sorteio vira amortecedor
+ * MACIO — às vezes o golpe passa quase cheio (roll→0) — e a média (~Def/2) mantém
+ * a armadura pequena perto do dano. Régua de tier (decidida): a Def somável de um
+ * tier fica SEMPRE abaixo do dano do mob do mesmo tier (nunca trivializa on-level).
+ */
+export function armorMitigation(def: number, roll: number): number {
+  return Math.round(def * roll);
+}
+
+/**
  * Dano mágico de uma skill. `spellBase` é o dano-base da magia (vem do design da
  * skill na próxima wave). Escala com Inteligência.
  */
