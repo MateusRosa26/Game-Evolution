@@ -98,8 +98,9 @@ export const COMMERCE: Record<string, NpcCommerce> = {
       { templateId: "machado_de_mao", price: 60 },
       { templateId: "clava", price: 40 },
       { templateId: "adaga", price: 40 },
-      // ✏️ + escudo_de_madeira / gibao / botas / armadura_de_couro quando os
-      //    templates de ARMADURA/ESCUDO existirem (hoje templates.ts só tem armas).
+      // ✏️ + escudo_de_madeira / gibao / botas / armadura_de_couro: o catálogo T1
+      //    já está desenhado+balanceado (EQUIPAMENTO.md) e com sprite; falta PORTAR
+      //    as peças pra items/templates.ts (hoje só tem armas) e listá-las aqui.
     ],
     buys: [
       // ✏️ + sucata_de_arma / adaga_enferrujada / escudo_lascado (gated Q4).

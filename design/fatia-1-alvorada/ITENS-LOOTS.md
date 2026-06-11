@@ -50,7 +50,7 @@ Pistas limpas pra uma vila pequena, **sem sobreposição** (preços ✏️ Balan
 | Vendedor | Vende | Nota |
 |---|---|---|
 | **Nina — Loja Geral** | só **utilitários**: pão, tocha, corda, pá, sacola, flechas | **não vende armas** (tirada a sobreposição com o Ferreiro) |
-| **Duarte — Ferreiro** | **fonte única de gear de combate**: armas + **escudo** + **armadura** (metal/couro básico) | ✏️ **faltam templates de armadura/escudo** — criar em `src/sim/items/templates.ts` (hoje só há armas) |
+| **Duarte — Ferreiro** | **fonte única de gear de combate**: armas + **escudo** + **armadura** (metal/couro básico) | ✏️ catálogo T1 já **desenhado + balanceado** (`design/itens/EQUIPAMENTO.md`) e **com sprite** (`assets/img/items/armor` + `shield`); falta só **PORTAR** as peças pra `src/sim/items/templates.ts` (hoje só tem armas) e adicioná-las ao `sells` do Duarte em `commerce.ts` |
 | **Silas — Boticário** | poções (Vida Pequena) | luxo de emergência |
 | **Bartolo — Estalagem** | comida + pratos prontos | sustain de rotina |
 

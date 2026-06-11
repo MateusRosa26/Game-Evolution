@@ -118,7 +118,7 @@ Linhas tracejadas do v4. Saem dos 4 portões:
 | **Estalagem do Vau** | Baixa | `(20,42)` | **Bartolo** (Q1 + Q6) — estalajadeiro **e cozinheiro** (Bento fundido nele, jun/2026); vende comida + pratos; **porão** dos ratos; fogueira fixa (cozinha) |
 | **Loja Geral** | Baixa | `(24,38)` | Nina (Q2); vendor geral (vendor floor); **só utilitários** — corda/pá/tochas/flechas/sacola; **não vende armas** (vão no Ferreiro) |
 | **Boticário** (loja de Poções) | Baixa | `(31,38)` | Silas (Q3); vende Vida Pequena; compra reagentes pós-quest |
-| **Ferreiro** | Baixa | `(20,28)` | Duarte (Q4, Q9); **fonte única de gear de combate** — armas + escudo + armadura (✏️ templates de armadura/escudo a criar); compra sucata pós-quest |
+| **Ferreiro** | Baixa | `(20,28)` | Duarte (Q4, Q9); **fonte única de gear de combate** — armas + escudo + armadura (✏️ catálogo T1 pronto em EQUIPAMENTO.md + sprites; falta portar pra `templates.ts`); compra sucata pós-quest |
 | **Armazém** *(the Storehouse)* | Baixa | `(38,32)` | barracão comunal de tábuas que **faz as vezes de Depot** (banco/guarda-volumes do sistema) — cluster de utilidade; R2 (Mage) busca o tomo aqui |
 | **Praça do Poço** (+ **bueiro**) | Baixa | centro `(36,34)`; **bueiro `(36,38)`** | hub; o **bueiro** = boca de esgoto principal (Q1 aponta) |
 | **Câmara** (sem prefeito no MVP) | Baixa | `(46,46)` | cenário/flavor — **Augusto cortado** (jun/2026); a vibe da muralha inacabada foi pro Capitão Vidal; ✏️ futura quest-hub |
