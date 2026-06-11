@@ -62,9 +62,12 @@ export const CLASS_GROWTH: Record<PlayerClass, ClassGrowth> = {
   // > Priest(AP sustain) > Rogue(AD dmg) > Mage(AP dmg). Antes rogue(9)>priest(7) estava
   // INVERTIDO (carry mais durável que sustain). ✏️ Balancista afina os números.
   knight: { hpPerLevel: 15, manaPerLevel: 2, capPerLevel: 25, hpRegenPerLevel: 0.10, manaRegenPerLevel: 0.02 },
-  mage: { hpPerLevel: 5, manaPerLevel: 12, capPerLevel: 10, hpRegenPerLevel: 0.04, manaRegenPerLevel: 0.10 },
+  // manaRegenPerLevel: Priest (AP SUSTAIN) > Mage (AP DAMAGE/burst) — endurance de
+  // mana é a identidade do sustain; o dano do mage vem do BURST (pool+base), não do
+  // regen sustentado. (Afeta níveis altos; L1 usa a base compartilhada.) ✏️ Balancista.
+  mage: { hpPerLevel: 5, manaPerLevel: 12, capPerLevel: 10, hpRegenPerLevel: 0.04, manaRegenPerLevel: 0.06 },
   rogue: { hpPerLevel: 7, manaPerLevel: 5, capPerLevel: 18, hpRegenPerLevel: 0.07, manaRegenPerLevel: 0.04 },
-  priest: { hpPerLevel: 12, manaPerLevel: 10, capPerLevel: 12, hpRegenPerLevel: 0.06, manaRegenPerLevel: 0.08 },
+  priest: { hpPerLevel: 12, manaPerLevel: 10, capPerLevel: 12, hpRegenPerLevel: 0.06, manaRegenPerLevel: 0.10 },
 };
 
 /** Atributos iniciais por classe (nível 1). ✏️ placeholder — calibrar no M2. */
@@ -287,7 +290,12 @@ export function dodgeChance(attrs: Attributes): number {
 // fica abaixo do DPS do mob do nível-alvo, mas supera o de mobs out-levelados.
 // L1 base ≈ 2/s (< DPS rato 4,4 → não out-heala no mesmo nível). ✏️ recalibrar #11.
 const HP_REGEN_BASE_PER_SEC = 2.0; // ✏️ taxa-base saciado L1 (compartilhada)
-const MANA_REGEN_BASE_PER_SEC = 1.0; // ✏️ idem mana (saciado, L1)
+// Mana saciado L1 = 6/s (bateria economia-mana 2026-06-11): a 1/s o caster secava
+// em 3s e o sustentado virava metade do martial. A 6/s o mage (carry) sustenta
+// ~16 DPS (≈rogue) e o priest (sustain) ~11 (≈knight). Demanda da Bola ~9,3/s >
+// regen → ainda há ciclo burst→recupera (mana = downtime do caster, espelho do HP
+// do tank), mas recuperável. ✏️ fino na bateria de throughput completa.
+const MANA_REGEN_BASE_PER_SEC = 6.0;
 
 /**
  * Intervalo do regen (modelo Tibia/Apogea, decidido criador 2026-06-10): o regen
