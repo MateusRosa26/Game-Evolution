@@ -11,8 +11,10 @@ importando os stats por nível. Fatia de sim/shared (client passou tsc sem mudan
   classes → ~10% abaixo, sem especialização).
 - `CLASS_GROWTH.classless` = média das 4 `{hp10, mana7, cap16, hpReg0.07, manaReg0.05}`
   (sem o pico de nenhuma = a fraqueza do pau-pra-toda-obra).
-- Kit: nasce sem skill (`STARTER_KITS.classless = []`), arma tutorial `CLAVA`,
-  outfit "cidadão". O rito concede o kit inicial da classe.
+- Kit: nasce sem skill (`STARTER_KITS.classless = []`), arma de NASCIMENTO
+  `ESPADA_CEGA` (item do tutorial, não kit de classe), outfit "cidadão". O rito
+  concede o kit de skills E ENTREGA a arma da classe (troca a Cega; preserva no
+  bolso se o jogador já tiver trocado por outra arma).
 - **Transição** (`applyRitoTransition`): `attrs[k] = classe_base[k] + (atual[k] − 5)`
   → troca o inato, preserva os pontos alocados. maxHp/maxMana/cap são funções puras
   de (attrs,cls,level), então trocar `cls` recalcula os pools pela classe no nível

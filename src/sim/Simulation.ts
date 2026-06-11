@@ -1023,9 +1023,22 @@ export class Simulation {
     for (const sk of STARTER_KITS[target]) {
       if (!e.knownSkills.includes(sk)) e.knownSkills.push(sk);
     }
+    // O rito ENTREGA a arma do kit (DESIGN-EVOLUCAO §Classes): equipa a arma
+    // inicial da classe. A Espada Cega de nascimento é CONSUMIDA pelo rito; se o
+    // jogador já a trocou por outra arma, essa vai pro bolso (não sobrescreve a
+    // escolha dele) — e só se perde no caso raro de bolso cheio.
+    const kitWeapon = this.items.create(STARTER_WEAPON_BY_CLASS[target]);
+    const prevId = e.equipment.hand1 ?? null;
+    const prevIsBirthBlade =
+      prevId != null && this.items.get(prevId)?.templateId === STARTER_WEAPON_BY_CLASS.classless;
+    const bp2 = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (prevId != null && !prevIsBirthBlade && bp2 && this.containers.freeSlot(bp2) >= 0) {
+      this.containers.add(bp2, { kind: "item", instanceId: prevId });
+    }
+    e.equipment.hand1 = kitWeapon.id;
+    this.afterEquipChange(e); // sincroniza equippedWeaponId + derivados de combate
     // Pools recalculam pela classe no nível atual (clamp, sem cura grátis).
     syncMaxResources(e, prog, false);
-    this.recomputePlayerDerived(e, prog);
     this.sysMessage(e.id, `O rito se completa. Você agora é ${NAMES[target]}.`);
   }
 
