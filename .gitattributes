@@ -1,0 +1,3 @@
+# Normaliza EOL: working tree CRLF (Windows/OneDrive), repo gerencia via merge.
+# Fecha os conflitos CRLF/LF que travavam merges (ex: formulas.ts).
+* text=auto eol=crlf
