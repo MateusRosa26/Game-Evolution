@@ -2,7 +2,7 @@ import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { TILE_SIZE } from "../../shared/constants";
 import type { CorpseView, EntityState, Snapshot, StatusEffectState } from "../../shared/protocol";
 import { DEFAULT_OUTFIT_BY_CLASS, OUTFIT_PART_BY_ID } from "../../shared/outfits";
-import type { DamageType, Facing } from "../../shared/types";
+import type { Facing } from "../../shared/types";
 import { outfitTextures } from "../assets/outfit/compose";
 import { paperdollAttackTextures } from "../assets/outfit/paperdoll";
 import { FLYING_SPECIES, PIXELLAB, PIXELLAB_CHAR_SCALE } from "../assets/pixellab";
@@ -33,63 +33,6 @@ const ATTACK_DUR_MS = 380;
 /** Floating damage text — sobe e some. */
 const FLOAT_DUR_MS = 900;
 const FLOAT_RISE_PX = 22;
-/** Pop-in do número (escala 1.25→1, ou 1.5→1 em golpe grande). */
-const FLOAT_POP_MS = 120;
-/** Flash de hit: o alvo "estoura" branco 1–2 frames (DESIGN-VISUAL.md). */
-const FLASH_DUR_MS = 120;
-
-/**
- * Cor do floating number / partícula por tipo de dano — tabela única do
- * DESIGN-VISUAL.md §"Feedback de combate" (consistência total número↔partícula).
- * `arcane` reusa o roxo "Sombrio" do doc; `bleed` é o vermelho-sangue.
- */
-const DAMAGE_COLOR: Record<DamageType, number> = {
-  physical: 0xe8e4d8,
-  fire: 0xff8c3a,
-  ice: 0x6ec4e8,
-  poison: 0x7ec850,
-  bleed: 0xd83a32,
-  holy: 0xffd86a,
-  arcane: 0x9a6ad8,
-};
-
-/**
- * Receita de partículas de impacto por tipo de dano (DESIGN-VISUAL.md:
- * "mínimas e por elemento — charme barato"). `tex` escolhe disco macio (spark)
- * ou losango cristalino (shard); `vy0` dá o viés vertical (brasa SOBE, gota CAI);
- * aditivos brilham (fogo/gelo/sagrado/arcano), sólidos cravam (físico/veneno/sangue).
- */
-interface ImpactStyle {
-  tex: "spark" | "shard";
-  color: number;
-  count: number;
-  /** Rapidez radial base (px/s). */
-  speed: number;
-  /** Viés vertical inicial (px/s; negativo = pra cima). */
-  vy0: number;
-  /** Gravidade (px/s²; negativa = flutua/sobe). */
-  gravity: number;
-  life: number;
-  size: number;
-  additive: boolean;
-}
-
-const IMPACT: Record<DamageType, ImpactStyle> = {
-  // faísca seca: estilhaços brancos espirram e caem rápido
-  physical: { tex: "shard", color: 0xeae6da, count: 4, speed: 48, vy0: -12, gravity: 220, life: 260, size: 1, additive: false },
-  // brasa: poucas, sobem flutuando e brilham (aditivo)
-  fire: { tex: "spark", color: 0xffa442, count: 6, speed: 24, vy0: -34, gravity: -36, life: 460, size: 1.1, additive: true },
-  // estilhaço de gelo: cristais que se abrem e caem, brilho frio
-  ice: { tex: "shard", color: 0x8fd6f0, count: 5, speed: 52, vy0: -8, gravity: 180, life: 320, size: 1, additive: true },
-  // gota de veneno: escorre pra baixo, sólida
-  poison: { tex: "spark", color: 0x8ad65e, count: 5, speed: 18, vy0: 8, gravity: 150, life: 460, size: 1, additive: false },
-  // fagulha sagrada: sobe e cintila, brilho dourado
-  holy: { tex: "spark", color: 0xffe27a, count: 6, speed: 22, vy0: -28, gravity: 26, life: 480, size: 1, additive: true },
-  // mote arcano: orbita pra cima, roxo brilhante
-  arcane: { tex: "spark", color: 0xb083e0, count: 5, speed: 24, vy0: -22, gravity: 18, life: 440, size: 1, additive: true },
-  // respingo de sangue: cai forte, sólido
-  bleed: { tex: "spark", color: 0xd83a32, count: 5, speed: 30, vy0: 4, gravity: 280, life: 360, size: 0.9, additive: false },
-};
 
 /**
  * Projétil de cast (runa viajando from→to): velocidade CONSTANTE em px/ms —
@@ -112,22 +55,6 @@ const STATUS_COLOR: Record<StatusEffectState["kind"], number> = {
 interface FloatingText {
   text: Text;
   elapsed: number;
-  /** Escala inicial do pop-in (1.25 normal, 1.5 golpe grande). */
-  pop: number;
-  /** Amplitude do shake horizontal (px) — só golpe grande; 0 = sem shake. */
-  shake: number;
-  /** X de âncora pro shake oscilar em volta (o número só sobe em Y). */
-  baseX: number;
-}
-
-/** Partícula de impacto: sprite tintado com velocidade/gravidade e fade. */
-interface Particle {
-  spr: Sprite;
-  vx: number;
-  vy: number;
-  gravity: number;
-  elapsed: number;
-  life: number;
 }
 
 interface CastProjectile {
@@ -144,12 +71,6 @@ interface CastProjectile {
 interface EntityVisual {
   container: Container;
   sprite: Sprite;
-  /** Overlay branco aditivo do mesmo sprite — o flash de hit ao tomar dano. */
-  flashSprite: Sprite;
-  /** Tempo restante do flash de hit (ms); 0 = inativo. */
-  flashClock: number;
-  /** maxHp atual do alvo — define se um dano é "grande" (número maior + shake). */
-  maxHp: number;
   /** Conjunto de texturas (knight/rat) deste visual. */
   textures: Record<Facing, Texture[]>;
   /** Frames de ataque deste visual (mob: espécie; char: golpe composto c/ peças). */
@@ -160,6 +81,10 @@ interface EntityVisual {
   statusIcons: Graphics;
   /** Chave dos status desenhados (evita redesenhar todo tick). */
   statusKey: string;
+  /** Indicador de telegraph (move de mob em windup — MECANICAS-DE-MOB.md). */
+  telegraph: Graphics;
+  telegraphing: boolean;
+  telegraphClock: number;
   // tween de posição (em tiles, com fração)
   fromX: number;
   fromY: number;
@@ -195,12 +120,14 @@ export class EntityRenderer {
   private floats: FloatingText[] = [];
   /** Projéteis de cast ativos (runas viajando). */
   private casts: CastProjectile[] = [];
-  /** Partículas de impacto de combate ativas. */
-  private particles: Particle[] = [];
   /** Balões de fala ativos (presos às entidades). */
   private speeches: { text: Text; elapsed: number }[] = [];
   /** Cadáveres saqueáveis (sprite do mob deitado/escurecido), por containerId. */
   private corpseSprites = new Map<number, Sprite>();
+  /** Overlay de tiles de PERIGO (telegraph de moves de área — MECANICAS-DE-MOB).
+   *  Fica no chão, SOB as entidades; pulsa no tick. */
+  private telegraphTiles = new Graphics();
+  private telegraphPulse = 0;
 
   constructor(
     private sprites: SpriteLibrary,
@@ -211,6 +138,8 @@ export class EntityRenderer {
     this.targetMarker = new Sprite(sprites.targetMarker);
     this.targetMarker.anchor.set(0.5, 0.5);
     this.targetMarker.visible = false;
+    this.telegraphTiles.zIndex = -1000; // sob entidades/cadáveres, sobre o chão
+    this.layer.addChild(this.telegraphTiles);
   }
 
   /** Texturas certas: mob pela espécie; player pelo OUTFIT (compositor+cache). */
@@ -294,6 +223,7 @@ export class EntityRenderer {
 
   apply(snap: Snapshot): void {
     const seen = new Set<number>();
+    const dangerTiles: { x: number; y: number }[] = []; // áreas de telegraph deste tick
     for (const e of snap.entities) {
       seen.add(e.id);
       let v = this.visuals.get(e.id);
@@ -338,7 +268,6 @@ export class EntityRenderer {
         v.attackTextures = this.attackTexturesFor(e);
         this.applyFrame(v, this.currentFrame(v));
       }
-      v.maxHp = e.maxHp;
       const ratio = e.maxHp > 0 ? e.hp / e.maxHp : 0;
       if (ratio !== v.lastHpRatio) {
         v.lastHpRatio = ratio;
@@ -350,7 +279,13 @@ export class EntityRenderer {
         v.statusKey = statusKey;
         this.drawStatusIcons(v.statusIcons, e.status);
       }
+      // ── Telegraph de mecânica (windup de move): liga/desliga o anel de alerta ──
+      v.telegraphing = !!e.telegraph;
+      v.telegraph.visible = v.telegraphing;
+      if (!v.telegraphing) v.telegraphClock = 0;
+      if (e.telegraph?.tiles) dangerTiles.push(...e.telegraph.tiles); // área (slam)
     }
+    this.drawDangerTiles(dangerTiles);
     // remove quem saiu
     for (const [id, v] of this.visuals) {
       if (!seen.has(id)) {
@@ -366,25 +301,11 @@ export class EntityRenderer {
     }
 
     // ── Eventos one-shot do tick: floats, cast e cura ──
-    // O snapshot do evento `damage` NÃO carrega o tipo (a sim guarda, mas não o
-    // serializa). Correlaciona-se o `cast` do MESMO tick (mesmo atacante) pra
-    // colorir o golpe; auto-attack/garra de mob/DoT sem cast = físico (branco).
-    const castType = new Map<number, DamageType>();
-    for (const ev of snap.events) {
-      if (ev.kind === "cast") {
-        const dt = skillMeta(ev.skillId).damageType;
-        if (dt) castType.set(ev.casterId, dt);
-      }
-    }
     for (const ev of snap.events) {
       if (ev.kind === "damage") {
         const at = this.visualPosOf(ev.targetId, ev.pos);
-        const type = castType.get(ev.attackerId) ?? "physical";
-        const tv = this.visuals.get(ev.targetId);
-        this.spawnDamageText(ev.amount, at.x, at.y, type, tv?.maxHp ?? 0);
-        this.spawnImpact(type, at.x, at.y);
-        // flash de hit no ALVO + animação de ataque no ATACANTE
-        if (tv) tv.flashClock = FLASH_DUR_MS;
+        this.spawnDamageText(ev.amount, at.x, at.y);
+        // animação de ataque no ATACANTE (se a espécie tiver frames de attack)
         const av = this.visuals.get(ev.attackerId);
         if (av?.attackTextures) av.attackClock = ATTACK_DUR_MS;
       } else if (ev.kind === "cast") {
@@ -467,7 +388,7 @@ export class EntityRenderer {
     text.zIndex = 1e9;
     v.container.addChild(text);
     // Reusa o pool de floats: sobe e some sobre o player.
-    this.floats.push({ text, elapsed: 0, pop: 1.3, shake: 0, baseX: text.x });
+    this.floats.push({ text, elapsed: 0 });
   }
 
   /**
@@ -481,21 +402,15 @@ export class EntityRenderer {
     return { x: (fallbackTile.x + 0.5) * TILE_SIZE, y: (fallbackTile.y + 0.6) * TILE_SIZE };
   }
 
-  /**
-   * Floating number colorido por tipo de dano (DESIGN-VISUAL.md). Golpe que
-   * leva ≥33% do maxHp do alvo é "grande": fonte maior + shake breve (o "crit"
-   * do doc — sem flag de crítico no snapshot, a régua é o peso do golpe).
-   */
-  private spawnDamageText(amount: number, worldX: number, worldY: number, type: DamageType, maxHp: number): void {
-    const big = maxHp > 0 && amount / maxHp >= 0.33;
+  private spawnDamageText(amount: number, worldX: number, worldY: number): void {
     const text = new Text({
       text: `${amount}`,
       style: {
         fontFamily: "monospace",
-        fontSize: big ? 15 : 11,
+        fontSize: 11,
         fontWeight: "bold",
-        fill: DAMAGE_COLOR[type],
-        stroke: { color: 0x10141c, width: big ? 4 : 3 },
+        fill: 0xff5a4a,
+        stroke: { color: 0x10141c, width: 3 },
       },
     });
     text.resolution = 4;
@@ -503,32 +418,7 @@ export class EntityRenderer {
     text.position.set(worldX, worldY);
     text.zIndex = 1e9; // sempre por cima
     this.layer.addChild(text);
-    this.floats.push({ text, elapsed: 0, pop: big ? 1.5 : 1.25, shake: big ? 2.5 : 0, baseX: worldX });
-  }
-
-  /**
-   * Burst de partículas de impacto no ponto de hit, conforme a receita do tipo
-   * de dano. Espalha radialmente com viés vertical + gravidade por elemento.
-   */
-  private spawnImpact(type: DamageType, worldX: number, worldY: number): void {
-    const s = IMPACT[type];
-    const tex = s.tex === "shard" ? this.sprites.shard : this.sprites.spark;
-    for (let i = 0; i < s.count; i++) {
-      const spr = new Sprite(tex);
-      spr.anchor.set(0.5);
-      spr.tint = s.color;
-      if (s.additive) spr.blendMode = "add";
-      spr.scale.set(s.size * (0.7 + Math.random() * 0.6));
-      spr.position.set(worldX + (Math.random() - 0.5) * 6, worldY + (Math.random() - 0.5) * 6);
-      spr.zIndex = 1e9 - 1; // sob o número, sobre o mundo/entidades
-      this.layer.addChild(spr);
-      const ang = Math.random() * Math.PI * 2;
-      const sp = s.speed * (0.5 + Math.random());
-      // achata o eixo Y (mundo top-down) e soma o viés vertical do elemento
-      const vx = Math.cos(ang) * sp;
-      const vy = Math.sin(ang) * sp * 0.55 + s.vy0;
-      this.particles.push({ spr, vx, vy, gravity: s.gravity, elapsed: 0, life: s.life });
-    }
+    this.floats.push({ text, elapsed: 0 });
   }
 
   /** Floating text VERDE de cura sobre o alvo (segue o padrão do dano). */
@@ -548,7 +438,7 @@ export class EntityRenderer {
     text.position.set(worldX, worldY);
     text.zIndex = 1e9;
     this.layer.addChild(text);
-    this.floats.push({ text, elapsed: 0, pop: 1.25, shake: 0, baseX: worldX });
+    this.floats.push({ text, elapsed: 0 });
   }
 
   /**
@@ -578,6 +468,9 @@ export class EntityRenderer {
   }
 
   tick(deltaMS: number): void {
+    // Pulso do overlay de tiles de perigo (alerta de área telegrafada).
+    this.telegraphPulse += deltaMS;
+    this.telegraphTiles.alpha = 0.55 + 0.45 * Math.abs(Math.sin(this.telegraphPulse / 150));
     for (const v of this.visuals.values()) {
       const moving = v.tweenElapsed < v.tweenDur;
       if (moving) {
@@ -616,60 +509,25 @@ export class EntityRenderer {
         }
       }
 
-      // Flash de hit: overlay branco aditivo do MESMO frame (segue troca de
-      // textura/espelho durante o flash), alpha decaindo 0.75→0.
-      if (v.flashClock > 0) {
-        v.flashClock -= deltaMS;
-        const f = v.flashSprite;
-        if (v.flashClock > 0) {
-          f.visible = true;
-          f.texture = v.sprite.texture;
-          f.position.copyFrom(v.sprite.position);
-          f.scale.copyFrom(v.sprite.scale);
-          f.alpha = 0.75 * (v.flashClock / FLASH_DUR_MS);
-        } else {
-          f.visible = false;
-          f.alpha = 0;
-        }
+      // ── Pulso do anel de telegraph (mob avisando um move em windup) ──
+      if (v.telegraphing) {
+        v.telegraphClock += deltaMS;
+        const p = Math.abs(Math.sin(v.telegraphClock / 110)); // ~3 Hz, alerta
+        v.telegraph.alpha = 0.45 + 0.55 * p;
+        v.telegraph.scale.set(0.85 + 0.3 * p);
       }
     }
 
-    // floating damage text: sobe, dá pop-in, faz shake (golpe grande) e some
+    // floating damage text: sobe e desaparece
     for (const f of this.floats) {
       f.elapsed += deltaMS;
       const t = Math.min(f.elapsed / FLOAT_DUR_MS, 1);
       f.text.y -= (FLOAT_RISE_PX / FLOAT_DUR_MS) * deltaMS;
       f.text.alpha = 1 - t * t;
-      // pop-in: escala pop→1 nos primeiros FLOAT_POP_MS
-      const pt = Math.min(f.elapsed / FLOAT_POP_MS, 1);
-      f.text.scale.set(f.pop + (1 - f.pop) * pt);
-      // shake horizontal (só golpe grande): oscila em volta de baseX e decai
-      if (f.shake > 0) {
-        const decay = Math.max(0, 1 - f.elapsed / 180);
-        f.text.x = f.baseX + (Math.random() - 0.5) * 2 * f.shake * decay;
-      }
     }
     this.floats = this.floats.filter((f) => {
       if (f.elapsed >= FLOAT_DUR_MS) {
         f.text.destroy();
-        return false;
-      }
-      return true;
-    });
-
-    // partículas de impacto: velocidade + gravidade (px/s) e fade quadrático
-    for (const p of this.particles) {
-      p.elapsed += deltaMS;
-      const dt = deltaMS / 1000;
-      p.vy += p.gravity * dt;
-      p.spr.x += p.vx * dt;
-      p.spr.y += p.vy * dt;
-      const t = Math.min(p.elapsed / p.life, 1);
-      p.spr.alpha = 1 - t * t;
-    }
-    this.particles = this.particles.filter((p) => {
-      if (p.elapsed >= p.life) {
-        p.spr.destroy();
         return false;
       }
       return true;
@@ -774,17 +632,6 @@ export class EntityRenderer {
     }
     container.addChild(sprite);
 
-    // Overlay do flash de hit: cópia aditiva do sprite (sincronizada no tick).
-    // Acima do sprite, abaixo de nome/HP (que entram depois no container).
-    const flashSprite = new Sprite(sprite.texture);
-    flashSprite.anchor.set(0.5, 1);
-    flashSprite.blendMode = "add";
-    flashSprite.alpha = 0;
-    flashSprite.visible = false;
-    flashSprite.position.copyFrom(sprite.position);
-    flashSprite.scale.copyFrom(sprite.scale);
-    container.addChild(flashSprite);
-
     const nameText = new Text({
       text: e.name,
       style: {
@@ -808,17 +655,25 @@ export class EntityRenderer {
     statusIcons.position.set(16, -37);
     container.addChild(statusIcons);
 
+    // Telegraph: anel de alerta "carregando" acima da cabeça (mob em windup de
+    // mecânica). Pulsa no tick; visível só enquanto há `telegraph` no snapshot.
+    const telegraph = new Graphics();
+    telegraph.circle(0, 0, 5).stroke({ color: 0xffcc33, width: 2 });
+    telegraph.position.set(0, -46);
+    telegraph.visible = false;
+    container.addChild(telegraph);
+
     const v: EntityVisual = {
       container,
       sprite,
-      flashSprite,
-      flashClock: 0,
-      maxHp: e.maxHp,
       textures,
       nameText,
       hpBar,
       statusIcons,
       statusKey: "",
+      telegraph,
+      telegraphing: false,
+      telegraphClock: 0,
       fromX: e.pos.x,
       fromY: e.pos.y,
       toX: e.pos.x,
@@ -839,6 +694,18 @@ export class EntityRenderer {
     container.zIndex = container.position.y;
     this.layer.addChild(container);
     return v;
+  }
+
+  /** Redesenha o overlay de tiles de PERIGO (área de um move telegrafado): um
+   *  preenchimento vermelho translúcido + borda por tile, em world-pixels. */
+  private drawDangerTiles(tiles: { x: number; y: number }[]): void {
+    const g = this.telegraphTiles;
+    g.clear();
+    for (const t of tiles) {
+      g.rect(t.x * TILE_SIZE, t.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        .fill({ color: 0xcc3322, alpha: 0.3 })
+        .stroke({ color: 0xff6644, width: 1, alpha: 0.85 });
+    }
   }
 
   private drawHpBar(g: Graphics, ratio: number): void {

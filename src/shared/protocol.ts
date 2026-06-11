@@ -180,6 +180,12 @@ export interface EntityState {
   maxMp: number;
   /** Status effects ativos (queimadura/slow/veneno). Vazio = nenhum. */
   status: StatusEffectState[];
+  /**
+   * Mecânica de mob em WINDUP (telegrafado — MECANICAS-DE-MOB.md). Presente só
+   * enquanto o mob avisa um move; o client desenha o aviso (tile/animação) e a
+   * janela de desvio. `resolveAt` = tempo lógico (ms) em que o efeito resolve.
+   */
+  telegraph?: { moveId: string; kind: string; resolveAt: number; tiles?: Vec2[] };
   /** Progressão — presente SOMENTE na entidade do jogador (undefined p/ mobs). */
   progress?: PlayerProgressState;
   /** Skills conhecidas — SOMENTE na entidade do jogador (undefined p/ mobs). */
