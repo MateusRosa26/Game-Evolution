@@ -74,9 +74,11 @@ export const COMMERCE: Record<string, NpcCommerce> = {
     sells: [
       { templateId: "pao", price: 2 },
       { templateId: "carne_assada", price: 6 },
+      { templateId: "sal_gema", price: 8 }, // cozinha: cidade inicial = só básico (Bento fundido no Bartolo)
+      { templateId: "pote", price: 5 },     // Pimenta-longa/Mel Silvestre = outras cidades
     ],
     buys: [
-      // ✏️ + carne_crua / colheita quando os ingredientes entrarem (gated Q6).
+      { templateId: "carne_crua", price: 1 }, // compra matéria-prima de caça
     ],
   },
 

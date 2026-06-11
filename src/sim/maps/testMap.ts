@@ -178,5 +178,8 @@ export function generateTestMap(): MapData {
   // AFK não trancam ninguém no spawn), mobs não entram e não há combate a
   // partir de dentro. Zonas de passagem (escadas/portais): nenhuma ainda (M3).
   const safeZones = [{ x: spawn.x - 1, y: spawn.y - 1, w: 3, h: 3 }];
-  return { width: W, height: H, tiles, lights, decor, monsters, safeZones, passZones: [], spawn };
+  // Cozinha de teste: fogão + poço perto do spawn (gates de COZINHA.md).
+  const heatSources = [{ x: spawn.x + 3, y: spawn.y }];
+  const freshWater = [{ x: spawn.x + 2, y: spawn.y }];
+  return { width: W, height: H, tiles, lights, decor, monsters, safeZones, passZones: [], spawn, heatSources, freshWater };
 }

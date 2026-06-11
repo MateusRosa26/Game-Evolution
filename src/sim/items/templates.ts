@@ -35,7 +35,9 @@ export type ItemCategory =
   | "armor"
   | "consumable" // comida, poção (sustain)
   | "tool" // corda, pá, tocha, faca de esfolar (utilidade/exploração)
-  | "material"; // loot vendável (peles, glândulas, sucata — reagente/troféu)
+  | "material" // loot vendável (peles, glândulas, sucata — reagente/troféu)
+  | "ingredient" // tempero/insumo de cozinha — NÃO comível sozinho, só em receita (COZINHA.md)
+  | "vessel"; // vasilhame de cozinha (pote) — 1-uso, vira o prato e some ao comer
 
 /**
  * Tags de item (família/arquétipo da arma). Alimentam as "lentes" de rastreamento
@@ -136,10 +138,23 @@ export interface WeaponStats {
  *  - `food`  → comida: aplica/estende o status "Bem Alimentado" que MULTIPLICA o
  *              regen de HP/mana por `durationMs` (acumula até um teto — ver
  *              `FOOD_SATIETY_CAP_MS` em status.ts). Sem exausto (o teto regula).
+ *              `buffs` (comida preparada) dá um buff de STAT temporário (status
+ *              "Saciado" à parte, COZINHA.md) — timer próprio, um por vez.
  */
 export type ConsumeEffect =
   | { kind: "heal"; hp: number; exhaustMs: number }
-  | { kind: "food"; regenMult: number; durationMs: number };
+  | { kind: "food"; regenMult: number; durationMs: number; buffs?: MealBuff[] };
+
+/**
+ * Buff de refeição (comida preparada — COZINHA.md). `damage` = +N na BASE DE DANO
+ * DA ARMA; no modelo híbrido (dano = base × (1 + atributo×k)), +N na base PASSA
+ * pelo multiplicador → escala com o personagem (espada base 10 + buff 1 = 11 ⇒
+ * 14→15 no T1, e mais no late). amount 1 = Sopa, 2 = Carne Curada. `attackSpeed`
+ * = fração de redução do cooldown (0.1 = 10% mais rápido). ✏️ Balancista.
+ */
+export type MealBuff =
+  | { stat: "damage"; amount: number }
+  | { stat: "attackSpeed"; amount: number };
 
 /** Template declarativo de um item (a parte compartilhada/imutável). */
 export interface ItemTemplate {
@@ -212,7 +227,7 @@ export const ESPADA_CURTA: ItemTemplate = {
   slot: "weapon",
   tags: ["espada"],
   rarity: "common",
-  weapon: { baseDamage: 6, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 10, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false }, // base ×1.67 (modelo híbrido)
 };
 
 /** Espada Cega — kit de NASCIMENTO (casa inicial, classless). A régua do zero:
@@ -225,7 +240,7 @@ export const ESPADA_CEGA: ItemTemplate = {
   slot: "weapon",
   tags: ["espada"],
   rarity: "common",
-  weapon: { baseDamage: 4, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 7, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false }, // base ×1.67
 };
 
 /** Machado de Mão — rito/vendor. Golpe pesado: o único perfil T1 que separa o
@@ -237,7 +252,7 @@ export const MACHADO_DE_MAO: ItemTemplate = {
   slot: "weapon",
   tags: ["machado"],
   rarity: "common",
-  weapon: { baseDamage: 8, baseCooldownMs: 2400, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 13, baseCooldownMs: 2400, damageType: "physical", usesDexterity: false }, // base ×1.67
 };
 
 /** Clava — rito/vendor. Intermediária; a identidade "impacto" mora no subtipo
@@ -249,7 +264,7 @@ export const CLAVA: ItemTemplate = {
   slot: "weapon",
   tags: ["maca"],
   rarity: "common",
-  weapon: { baseDamage: 6, baseCooldownMs: 2100, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 10, baseCooldownMs: 2100, damageType: "physical", usesDexterity: false }, // base ×1.67
 };
 
 /** Cajado simples — kit do Mage. Auto-attack MÁGICO: dano FIXO em faixa, não
@@ -287,7 +302,7 @@ export const ADAGA: ItemTemplate = {
   slot: "weapon",
   tags: ["adaga"],
   rarity: "common",
-  weapon: { baseDamage: 5, baseCooldownMs: 1600, damageType: "physical", usesDexterity: true },
+  weapon: { baseDamage: 8, baseCooldownMs: 1600, damageType: "physical", usesDexterity: true }, // base ×1.67 (✏️ rogue battery)
 };
 
 /** Cetro — kit do Priest. Auto-attack MÁGICO igual à wand (faixa fixa, sem
@@ -330,7 +345,7 @@ export const PUNHOS: ItemTemplate = {
   slot: "weapon",
   tags: ["desarmado"],
   rarity: "common",
-  weapon: { baseDamage: 2, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 3, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false }, // punhos ×1.67
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -348,8 +363,10 @@ export const PAO: ItemTemplate = {
   stackable: true,
   weight: 2,
   rarity: "common",
-  // Comida barata: saciedade curta. ✏️ mult/duração placeholder — Balancista.
-  consume: { kind: "food", regenMult: 1.5, durationMs: 120_000 },
+  // Comida barata: regen na TAXA-BASE (1.0× = ~2 HP/s p/ knight base), saciedade
+  // curta (75s). Staple de grind; bateria 2026-06-10: ~28g/h (eficiente) a 96g/h
+  // (ingênuo) vs renda ~60g/h — sink real que pune desperdício, sem falir.
+  consume: { kind: "food", regenMult: 1.0, durationMs: 75_000 },
 };
 
 /** Carne Assada — comida melhor (regen maior por duração). Cozinha/estalagem. */
@@ -360,9 +377,24 @@ export const CARNE_ASSADA: ItemTemplate = {
   stackable: true,
   weight: 4,
   rarity: "common",
-  // Comida melhor: mesma intensidade, MAIS duração que o pão (peso×duração).
-  // ✏️ mult/duração placeholder — Balancista.
-  consume: { kind: "food", regenMult: 1.5, durationMs: 300_000 },
+  // Cozido / receita simples (escala de preparo, cap 3×): regen 2.0× (~4 HP/s L1)
+  // e duração 120s (acima do pão 75s — identidade de tier). Premium = recupera mais
+  // rápido + dura mais; receitas combinadas chegam a ~3×. Bateria 2026-06-10.
+  consume: { kind: "food", regenMult: 2.0, durationMs: 120_000 },
+};
+
+/** Queijo — comida CRUA (piso da escala de preparo: cru < cozido < preparado).
+ *  Achado no mundo (drop do rato + kit inicial); regen na taxa-base (1.0×) e
+ *  duração CURTA — é o lanche/sustain de emergência. Cozinhar/combinar (ex.
+ *  pão+queijo = "queijo quente") é o upgrade — sistema de cozinha futuro. */
+export const QUEIJO: ItemTemplate = {
+  id: "queijo",
+  name: "Queijo",
+  category: "consumable",
+  stackable: true,
+  weight: 2,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
 };
 
 /** Poção de Vida Pequena — EMERGÊNCIA, luxo no early (≈33min de caça T1, ✏️). */
@@ -373,9 +405,121 @@ export const POCAO_VIDA_PEQUENA: ItemTemplate = {
   stackable: true,
   weight: 3,
   rarity: "common",
-  // Cura de EMERGÊNCIA instantânea + exausto curto. ✏️ hp/exhaust placeholder —
-  // Balancista (cura amarra na régua de maxHp/TTK do early).
-  consume: { kind: "heal", hp: 50, exhaustMs: 1000 },
+  // Cura de EMERGÊNCIA instantânea + exausto curto. Bateria consumíveis
+  // (2026-06-10): 30 ≈ 26% do maxHp T1 (~2,7 ratos de fôlego) — botão de pânico
+  // real sem virar reset; 50 (44%) era generoso demais. ✏️ alvo = 25–30% maxHp;
+  // recalibrar o ABSOLUTO quando maxHp/regen base saírem de placeholder (#11).
+  consume: { kind: "heal", hp: 30, exhaustMs: 1000 },
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Cozinha (design/itens/COZINHA.md) — matéria-prima, ingredientes premium,
+//  vasilhames e pratos. Receitas em `recipes.ts`; verbo `cook` na Simulation.
+//  Números (mult/duração/buff/preço/drop) = ✏️ Balancista.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Carne Crua — matéria-prima de besta (dropa). Comível CRUA (1×, fraca) OU
+ *  insumo de receita. Cozinhar vira carne assada/pratos. */
+export const CARNE_CRUA: ItemTemplate = {
+  id: "carne_crua",
+  name: "Carne Crua",
+  category: "consumable",
+  stackable: true,
+  weight: 3,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
+};
+
+/** Sal-gema — ingrediente premium comprado (NÃO dropa). Destrava receitas top. */
+export const SAL_GEMA: ItemTemplate = {
+  id: "sal_gema",
+  name: "Sal-gema",
+  category: "ingredient",
+  stackable: true,
+  weight: 1,
+  rarity: "common",
+};
+
+/** Pimenta-longa — ingrediente premium comprado (NÃO dropa). */
+export const PIMENTA_LONGA: ItemTemplate = {
+  id: "pimenta_longa",
+  name: "Pimenta-longa",
+  category: "ingredient",
+  stackable: true,
+  weight: 1,
+  rarity: "uncommon",
+};
+
+/** Mel Silvestre — ingrediente premium comprado (NÃO dropa). */
+export const MEL_SILVESTRE: ItemTemplate = {
+  id: "mel_silvestre",
+  name: "Mel Silvestre",
+  category: "ingredient",
+  stackable: true,
+  weight: 2,
+  rarity: "uncommon",
+};
+
+/** Pote — vasilhame 1-uso (vira a sopa e some ao comer). Sink recorrente. */
+export const POTE: ItemTemplate = {
+  id: "pote",
+  name: "Pote",
+  category: "vessel",
+  stackable: true,
+  weight: 8,
+  rarity: "common",
+};
+
+// ── Pratos (output das receitas). Buffs entram na wave do meal-buff; aqui só o
+//    regen do tier (cozido 2× / premium 3×). Durações ✏️ Balancista.
+
+/** Sopa — premium (pote+água+carne crua+sal). Pote 1-uso já embutido no consumo. */
+export const SOPA: ItemTemplate = {
+  id: "sopa",
+  name: "Sopa",
+  category: "consumable",
+  stackable: true,
+  weight: 8,
+  rarity: "common",
+  // Sopa: o buff de combate mais BÁSICO — +1 na base de dano da arma (espada
+  // 10→11 ⇒ golpe 14→15 no T1; escala pelo multiplicador no late). ✏️ Balancista.
+  consume: { kind: "food", regenMult: 3.0, durationMs: 180_000, buffs: [{ stat: "damage", amount: 1 }] },
+};
+
+/** Queijo Quente — comfort food (pão+queijo+sal-gema): SÓ regen + tempo extra. */
+export const QUEIJO_QUENTE: ItemTemplate = {
+  id: "queijo_quente",
+  name: "Queijo Quente",
+  category: "consumable",
+  stackable: true,
+  weight: 3,
+  rarity: "common",
+  // Sem buff de stat (decisão criador): é o premium de SUSTAIN — regen 3× +
+  // duração LONGA (a comida confortável de caçada longa). ✏️ duração Balancista.
+  consume: { kind: "food", regenMult: 3.0, durationMs: 300_000 },
+};
+
+/** Carne Curada — premium de COMBATE (carne+sal-gema+pimenta-longa). */
+export const CARNE_CURADA: ItemTemplate = {
+  id: "carne_curada",
+  name: "Carne Curada",
+  category: "consumable",
+  stackable: true,
+  weight: 4,
+  rarity: "common",
+  // Comida do guerreiro: +2 na base de dano da arma (premium acima da Sopa). ✏️ Balancista.
+  consume: { kind: "food", regenMult: 3.0, durationMs: 240_000, buffs: [{ stat: "damage", amount: 2 }] },
+};
+
+/** Favo Assado — premium de caster (pão+mel silvestre); foco em mana. */
+export const FAVO_ASSADO: ItemTemplate = {
+  id: "favo_assado",
+  name: "Favo Assado",
+  category: "consumable",
+  stackable: true,
+  weight: 2,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 3.0, durationMs: 150_000 },
 };
 
 /** Corda — ferramenta PERMANENTE (compra única não-trivial). Vendor + baús. */
@@ -439,7 +583,18 @@ export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [PUNHOS.id]: PUNHOS,
   [PAO.id]: PAO,
   [CARNE_ASSADA.id]: CARNE_ASSADA,
+  [QUEIJO.id]: QUEIJO,
   [POCAO_VIDA_PEQUENA.id]: POCAO_VIDA_PEQUENA,
+  // Cozinha (COZINHA.md)
+  [CARNE_CRUA.id]: CARNE_CRUA,
+  [SAL_GEMA.id]: SAL_GEMA,
+  [PIMENTA_LONGA.id]: PIMENTA_LONGA,
+  [MEL_SILVESTRE.id]: MEL_SILVESTRE,
+  [POTE.id]: POTE,
+  [SOPA.id]: SOPA,
+  [QUEIJO_QUENTE.id]: QUEIJO_QUENTE,
+  [CARNE_CURADA.id]: CARNE_CURADA,
+  [FAVO_ASSADO.id]: FAVO_ASSADO,
   [CORDA.id]: CORDA,
   [PA.id]: PA,
   [TOCHA.id]: TOCHA,

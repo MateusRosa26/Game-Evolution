@@ -25,6 +25,8 @@ export {
 
 export { type ItemInstance, ItemRegistry } from "./instances";
 
+export { type Recipe, type RecipeInput, RECIPES } from "./recipes";
+
 export {
   type ItemLedger,
   type LedgerContextKills,

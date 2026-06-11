@@ -67,6 +67,12 @@ export type ClientCommand =
    * efeito de uso são ignorados.
    */
   | { type: "useItem"; ref: ItemRef }
+  /**
+   * Cozinha uma receita (design/itens/COZINHA.md). A sim valida posse dos inputs
+   * no bolso, gates (fonte de calor / água-doce / quest), consome os inputs (incl.
+   * vasilhame) e produz 1 unidade do prato. Receita = conhecimento, não skill.
+   */
+  | { type: "cook"; recipeId: string }
   /** Falar no canal Local (vira balão sobre a cabeça + linha no chat). */
   | { type: "say"; text: string }
   /** DEV/teste: desbloqueia TODAS as peças do catálogo no guarda-roupa. */
@@ -117,9 +123,9 @@ export interface PlayerProgressState {
 export interface StatusEffectState {
   /**
    * queimadura (fogo, DoT) / lentidão / veneno (tipado p/ Rogue T2) /
-   * "Bem Alimentado" (buff de regen da comida).
+   * "Bem Alimentado" (regen da comida) / "Saciado" (buff de stat de prato preparado).
    */
-  kind: "burn" | "slow" | "poison" | "wellFed";
+  kind: "burn" | "slow" | "poison" | "wellFed" | "meal";
   /** ms restantes até expirar. */
   remainingMs: number;
 }
@@ -199,6 +205,8 @@ export interface EntityState {
   dialogue?: DialogueViewState;
   /** Loja ativa — SOMENTE o jogador dono (presente enquanto negocia). */
   shop?: ShopViewState;
+  /** Receitas de cozinha + se dá pra fazer agora (COZINHA.md) — SÓ o dono. */
+  recipes?: RecipeView[];
   /** Diário de quests — SOMENTE o jogador dono. */
   quests?: QuestJournalEntry[];
   /**
@@ -377,6 +385,18 @@ export interface ShopViewState {
   npcName: string;
   sells: ShopEntryView[];
   buys: ShopEntryView[];
+}
+
+/** Uma receita de cozinha projetada (COZINHA.md): pode fazer agora? por quê não? */
+export interface RecipeView {
+  id: string;
+  name: string;
+  /** Tem todos os ingredientes E os gates (calor/água/quest) atendidos. */
+  canCook: boolean;
+  /** Lista dos inputs (nome × qtd) — a UI mostra o que a receita pede. */
+  inputs: { name: string; qty: number }[];
+  /** Motivo de não poder fazer (faltam ingredientes / sem calor / sem água). */
+  reason?: string;
 }
 
 /**

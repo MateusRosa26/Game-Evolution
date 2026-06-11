@@ -39,7 +39,7 @@ export const GOLPE_FORTE = {
 export const BOLA_DE_FOGO = {
   manaCost: 14, // ✏️ placeholder
   cooldownMs: 1500, // ✏️ placeholder
-  power: 14, // base de dano mágico ✏️ placeholder
+  power: 7, // single-target FRACO de propósito (carry de AoE, skills futuras); rogue é o rei single ✏️
   range: 6, // ✏️ placeholder
   /** Queimadura (DoT): aplica `damagePerTick` a cada `intervalMs`, por `durationMs`. */
   burn: { damagePerTick: 3, durationMs: 3000, intervalMs: 500 }, // ✏️ placeholder
@@ -49,7 +49,7 @@ export const BOLA_DE_FOGO = {
 export const LANCA_DE_GELO = {
   manaCost: 16, // ✏️ placeholder
   cooldownMs: 2000, // ✏️ placeholder
-  power: 12, // base de dano mágico ✏️ placeholder
+  power: 13, // base mágica (< Bola: tem slow de utilidade) — híbrido caster ✏️ Balancista
   range: 6, // comprimento da linha ✏️ placeholder
   /** Lentidão aplicada em cada alvo atravessado. */
   slow: { stepMsMultiplier: 1.5, durationMs: 3000 }, // ✏️ placeholder (+50% stepMs)
@@ -77,7 +77,7 @@ export const APUNHALAR = {
 export const LUZ_SAGRADA = {
   manaCost: 12, // ✏️ placeholder
   cooldownMs: 1500, // ✏️ placeholder
-  power: 13, // base de dano mágico (holy) ✏️ placeholder
+  power: 14, // base sagrada (nuke do priest) — híbrido caster, escala Espírito ✏️ Balancista
   range: 6, // ✏️ placeholder
   /** Multiplicador de dano vs famílias profanas (undead/demon) — é o nuke solo. */
   // calibrado (bateria T2, 2026-06-08): 2.5 one-shotava o Esqueleto (família-coração)

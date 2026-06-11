@@ -564,6 +564,15 @@ export function generateAlvoradaMap(): MapData {
   // Bartolo: Estalagem do Vau, atrás do balcão — city(20,39) → local (120,119).
   const npcSpawns = [{ npcId: "bartolo", name: "Bartolo", x: 120, y: 119 }];
 
+  // Cozinha (COZINHA.md): fonte de calor = fogão da Estalagem do Vau (interior,
+  // cozinha do Bento); água-doce = o Poço, centro da Praça do Poço. Placement
+  // VALIDADO (jun/2026): ambos andáveis com 8 vizinhos livres (dá pra cozinhar ao
+  // lado). ✏️ fogueiras de campo (acampamento goblin/santuário) como heat = futuro.
+  const [hx, hy] = city(18, 40);
+  const [wx, wy] = city(37, 39);
+  const heatSources = [{ x: hx, y: hy }];
+  const freshWater = [{ x: wx, y: wy }];
+
   return {
     id: "alvorada",
     width: W,
@@ -578,6 +587,8 @@ export function generateAlvoradaMap(): MapData {
     spawn,
     respawn,
     npcSpawns,
+    heatSources,
+    freshWater,
     portals: ALVORADA_PORTALS,
     floors: [buildSewerA1()],
   };

@@ -318,6 +318,16 @@ export interface MapData {
   id?: string;
   /** NPCs plantados pelo gerador do mapa (opcional). */
   npcSpawns?: NpcSpawnDef[];
+  /**
+   * FONTES DE CALOR (fogão/fogueira) — gate de cozinha (COZINHA.md): receitas
+   * cozidas/premium exigem estar perto de uma. Pontos no overworld (baseZ).
+   */
+  heatSources?: Vec2[];
+  /**
+   * ÁGUA-DOCE (poço/rio doce) — gate de cozinha: receitas com água exigem estar
+   * perto de uma. Água do MAR (tiles de água sem marcador) NÃO serve.
+   */
+  freshWater?: Vec2[];
   // ── Z-levels (SISTEMA-ANDARES.md) — tudo opcional: ausência = andar único z=0 ──
   /** Andar do mapa base (overworld = 0). default 0. */
   z?: number;

@@ -14,7 +14,7 @@ import type {
   Snapshot,
   SnapshotEvent,
 } from "../shared/protocol";
-import type { ClientCommand, ContainerView, EquipSlot, ItemRef, QuestJournalEntry, ShopEntryView } from "../shared/protocol";
+import type { ClientCommand, ContainerView, EquipSlot, ItemRef, QuestJournalEntry, RecipeView, ShopEntryView } from "../shared/protocol";
 import { COMMERCE, availableSells, availableBuys, type TradeEntry } from "./npc/commerce";
 import {
   DIR_VECTORS,
@@ -32,11 +32,12 @@ import { CREATURES, type CreatureTemplate } from "./bestiary";
 import { applyDamage, chebyshev, type CombatCtx, type WeaponSource } from "./combat";
 import type { SimEntity } from "./entity";
 import { EventBus, type KillEvent } from "./events";
-import { attackCooldownMs, maxCarry, physicalDamage, statPointCost, wandDamage, xpForLevel } from "./formulas";
+import { attackCooldownMs, maxCarry, physicalDamage, physicalVariance, statPointCost, wandDamage, xpForLevel } from "./formulas";
 import {
   ItemRegistry,
   attachItemLedger,
   getItemTemplate,
+  RECIPES,
   STARTER_WEAPON_BY_CLASS,
   FISTS_TEMPLATE_ID,
   GOLD_WEIGHT_PER_COIN,
@@ -45,13 +46,16 @@ import {
 } from "./items";
 import { updateChaser } from "./monsterAi";
 import { creditQuestKill, QUESTS, type QuestState } from "./quests";
-import { ContainerRegistry } from "./items/containers";
+import { ContainerRegistry, type Container } from "./items/containers";
 import { mulberry32, type Rng } from "./rng";
 import { DIALOGUES, dialogueView } from "./dialogue";
 import {
   SKILLS,
   STARTER_KITS,
   applyFood,
+  applyMealBuff,
+  mealBuffDamage,
+  mealBuffAttackSpeedPct,
   castSkill,
   isKnownSkillId,
   projectStatus,
@@ -292,6 +296,13 @@ export class Simulation {
     // Bolso inicial de 8 slots (decidido jun/2026 — a mochila da Q2 é o upgrade).
     const bolso = this.containers.create("Bolso", 8);
     entity.backpackContainerId = bolso.id;
+    // Comida inicial: 5 Queijos no bolso. No modelo food-gated (sem comida = sem
+    // regen), o novato precisa de comida pra recuperar desde o lvl 1 — senão o
+    // primeiro arranhão vira softlock injusto. Queijo ensina o sustain; o rato
+    // devolve mais. ✏️ quantidade tunável (5×60s = ~5min de saciedade inicial).
+    for (let i = 0; i < 5; i++) {
+      this.containers.add(bolso, { kind: "item", instanceId: this.items.create("queijo").id });
+    }
     this.entities.set(id, entity);
     // Bloqueio de corpo: nasce no tile livre mais próximo do spawn e ocupa-o.
     const sp = this.nearestFree(entity, entity.pos);
@@ -707,6 +718,11 @@ export class Simulation {
         this.useItem(e, cmd.ref);
         break;
       }
+      case "cook": {
+        if (e.kind !== "player") break;
+        this.cookRecipe(e, cmd.recipeId);
+        break;
+      }
       case "setOutfit": {
         // Valida CADA peça: existe, slot certo, possuída, cor da grade.
         // Posse via quest/conteúdo pago só alimenta o guarda-roupa ✏️ —
@@ -766,6 +782,8 @@ export class Simulation {
         weaponSource: this.weaponSourceOf(caster),
         // AoE/linha só atinge entidades do andar do caster.
         enemiesInWorld: [...this.entities.values()].filter((en) => en.z === caster.z),
+        // RNG seedado p/ variância do dano físico (skills AD).
+        roll: this.combatRng,
       };
       castSkill(skillCtx, caster, req.skillId, target);
     }
@@ -908,21 +926,38 @@ export class Simulation {
     const range = w.range ?? MELEE_RANGE;
     if (chebyshev(player.pos, target.pos) > range) return; // fora de alcance
     if (now < player.nextAttackAt) return;
-    let damage = player.attackDamage;
+    // Buff de refeição ("Saciado", COZINHA.md): +N na BASE DE DANO DA ARMA. No
+    // modelo híbrido (dano = base × (1 + atributo×k)), +N na base passa PELO
+    // multiplicador → escala com o personagem (não é flat). Por isso recalculamos
+    // com a base buffada em vez de somar no fim.
+    const bonusBase = mealBuffDamage(player);
+    const prog = this.progressions.get(player.id);
+    let damage: number;
     if (w.magic) {
       // Tiro mágico: custa mana (sem mana = não dispara, e NÃO consome o cooldown
       // — retenta no próximo tick assim que a mana regenerar). Dano rola na faixa
-      // FIXA da arma (não escala atributo). Decidido 09/jun/2026 (modelo Tibia).
+      // FIXA da arma (não escala atributo) — o buff +N soma flat ao tiro.
       const cost = w.manaCost ?? 0;
       if (player.mp < cost) return;
       player.mp -= cost;
-      damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng());
+      damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng()) + bonusBase;
+    } else {
+      // FÍSICO (AD) é VARIÁVEL (Tibia/Apogea): a média vem da fórmula, mas o golpe
+      // rola num range largo (swingy) — ≠ mágico, que é constante.
+      const avg =
+        prog && bonusBase > 0
+          ? physicalDamage(prog.attributes, w.baseDamage + bonusBase, w.usesDexterity)
+          : player.attackDamage;
+      damage = physicalVariance(avg, this.combatRng());
     }
     player.facing = this.facingToward(player.pos, target.pos);
     // Auto-attack alimenta o ledger da arma equipada (DESIGN-EVOLUCAO.md §"Magias
     // e Skills": todo kill por auto-attack conta no ledger da arma).
     applyDamage(ctx, player, target, damage, w.damageType, this.weaponSourceOf(player), null);
-    player.nextAttackAt = now + player.attackCooldownMs;
+    // Velocidade de ataque do buff: reduz o cooldown (quantizado à grade de ticks).
+    const speedPct = mealBuffAttackSpeedPct(player);
+    const cd = speedPct > 0 ? this.quantizeToTickMs(player.attackCooldownMs * (1 - speedPct)) : player.attackCooldownMs;
+    player.nextAttackAt = now + cd;
   }
 
   /** Enfileira mensagem de SISTEMA privada (loot/level/quest) para um jogador. */
@@ -1097,8 +1132,76 @@ export class Simulation {
 
     // effect.kind === "food": saciedade (buff de regen por duração).
     applyFood(e, this.tickCount, { regenMult: effect.regenMult, durationMs: effect.durationMs });
+    // Comida preparada: buff de stat temporário ("Saciado") — status à parte.
+    if (effect.buffs && effect.buffs.length > 0) {
+      applyMealBuff(e, this.tickCount, { buffs: effect.buffs, durationMs: effect.durationMs });
+    }
     consume();
     this.sysMessage(e.id, `Você comeu ${tpl.name}.`);
+  }
+
+  /** Quantas instâncias de `templateId` o jogador tem no bolso. */
+  private countInBolso(bp: Container, templateId: string): number {
+    let n = 0;
+    for (const s of bp.slots) {
+      if (s?.kind === "item" && this.items.get(s.instanceId)?.templateId === templateId) n++;
+    }
+    return n;
+  }
+
+  /** Remove `qty` instâncias de `templateId` do bolso (libera os slots). */
+  private removeFromBolso(bp: Container, templateId: string, qty: number): void {
+    let left = qty;
+    for (let i = 0; i < bp.slots.length && left > 0; i++) {
+      const s = bp.slots[i];
+      if (s?.kind === "item" && this.items.get(s.instanceId)?.templateId === templateId) {
+        bp.slots[i] = null;
+        left--;
+      }
+    }
+  }
+
+  /**
+   * Cozinha uma receita (COZINHA.md): valida posse dos inputs no bolso, consome
+   * (incl. vasilhame) e produz 1 unidade do prato. Os gates de calor/água-doce
+   * entram na Task 3; o buff do prato na Task 4. Receita = conhecimento (gate de
+   * quest opcional), nunca skill com nível.
+   */
+  private cookRecipe(e: SimEntity, recipeId: string): void {
+    const recipe = RECIPES[recipeId];
+    if (!recipe) return;
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (!bp) return;
+    // Gate de quest (se a receita pedir): precisa tê-la completado.
+    if (recipe.unlockQuest) {
+      const st = e.quests.get(recipe.unlockQuest);
+      if (!st || st.stage !== "completed") {
+        this.sysMessage(e.id, "Você ainda não conhece essa receita.");
+        return;
+      }
+    }
+    // Gates espaciais (COZINHA.md): fonte de calor e/ou água-doce por perto.
+    if (recipe.needsHeat && !this.world.nearHeat(e.pos.x, e.pos.y, e.z)) {
+      this.sysMessage(e.id, "Você precisa de uma fonte de calor (fogueira/fogão) por perto.");
+      return;
+    }
+    if (recipe.needsFreshWater && !this.world.nearFreshWater(e.pos.x, e.pos.y, e.z)) {
+      this.sysMessage(e.id, "Você precisa de água-doce (um poço) por perto — água do mar não serve.");
+      return;
+    }
+    // Posse de todos os inputs (por templateId/qty).
+    for (const inp of recipe.inputs) {
+      if (this.countInBolso(bp, inp.templateId) < inp.qty) {
+        this.sysMessage(e.id, "Faltam ingredientes para a receita.");
+        return;
+      }
+    }
+    // Consome os inputs (libera ≥1 slot) e produz o prato no bolso.
+    for (const inp of recipe.inputs) this.removeFromBolso(bp, inp.templateId, inp.qty);
+    const inst = this.items.create(recipe.output);
+    this.containers.add(bp, { kind: "item", instanceId: inst.id });
+    const tpl = getItemTemplate(recipe.output);
+    this.sysMessage(e.id, `Você preparou ${tpl?.name ?? recipe.name}.`);
   }
 
   /** Saque rápido de ouro (shift/alt+clique): move a pilha pro bolso (funde). */
@@ -1480,6 +1583,29 @@ export class Simulation {
   }
 
   /** Projeta as skills conhecidas do jogador (id, cooldown restante ms, custo). */
+  /** Projeta as receitas de cozinha + se o jogador pode fazer cada uma agora. */
+  private projectRecipes(e: SimEntity): RecipeView[] {
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    const out: RecipeView[] = [];
+    for (const r of Object.values(RECIPES)) {
+      const inputs = r.inputs.map((i) => ({ name: getItemTemplate(i.templateId)?.name ?? i.templateId, qty: i.qty }));
+      let reason: string | undefined;
+      if (r.unlockQuest) {
+        const st = e.quests.get(r.unlockQuest);
+        if (!st || st.stage !== "completed") reason = "Receita desconhecida";
+      }
+      if (!reason && bp) {
+        for (const i of r.inputs) {
+          if (this.countInBolso(bp, i.templateId) < i.qty) { reason = "Faltam ingredientes"; break; }
+        }
+      }
+      if (!reason && r.needsHeat && !this.world.nearHeat(e.pos.x, e.pos.y, e.z)) reason = "Sem fonte de calor por perto";
+      if (!reason && r.needsFreshWater && !this.world.nearFreshWater(e.pos.x, e.pos.y, e.z)) reason = "Sem água-doce por perto";
+      out.push({ id: r.id, name: r.name, canCook: !reason, inputs, reason });
+    }
+    return out;
+  }
+
   private projectSkills(e: SimEntity): KnownSkillState[] {
     const out: KnownSkillState[] = [];
     for (const id of e.knownSkills) {
@@ -1538,6 +1664,7 @@ export class Simulation {
       if (prog) state.progress = this.projectProgress(prog);
       if (e.kind === "player") {
         state.skills = this.projectSkills(e);
+        state.recipes = this.projectRecipes(e);
         const weapon = this.projectWeapon(e);
         if (weapon) state.weapon = weapon;
         if (e.outfit) state.outfit = structuredCloneOutfit(e.outfit);

@@ -1,6 +1,6 @@
 # Itens — Consumíveis (comida & cozinha, poções, ferramentas)
 
-> Sub-documento de [DESIGN-ITENS.md](DESIGN-ITENS.md) (o hub: decisões-mãe, slots, raridades, instância+ledger). Aqui vive o **sustain consumível**: comida/cozinha, poções e ferramentas. Equipamento em [EQUIPAMENTO.md](EQUIPAMENTO.md); preços/economia em [ECONOMIA.md](ECONOMIA.md).
+> Sub-documento de [DESIGN-ITENS.md](DESIGN-ITENS.md) (o hub: decisões-mãe, slots, raridades, instância+ledger). Aqui vive o **sustain consumível**: comida/cozinha, poções e ferramentas. Equipamento em [EQUIPAMENTO.md](EQUIPAMENTO.md); preços/economia em [ECONOMIA.md](ECONOMIA.md). O **sistema de cozinha** (receitas, ingredientes, vasilhames, verbo de cozinhar, buff de refeição, 4 tiers) tem doc próprio: [COZINHA.md](COZINHA.md).
 
 ## Consumíveis — Comida & Cozinha (decidido — jun/2026, BASE Apogea, sistema PRÓPRIO)
 

@@ -13,6 +13,7 @@ import { Mouse } from "./input/Mouse";
 import { Hud } from "./ui/Hud";
 import { DialogueWindow } from "./ui/DialogueWindow";
 import { ShopWindow } from "./ui/ShopWindow";
+import { CookingWindow } from "./ui/CookingWindow";
 import { JournalPanel } from "./ui/JournalPanel";
 import { EquipPanel } from "./ui/EquipPanel";
 import { ContainerWindow } from "./ui/ContainerWindow";
@@ -93,6 +94,12 @@ export class Game {
     sell: (instanceId) => this.transport.send({ type: "sellItem", instanceId }),
     close: () => this.transport.send({ type: "closeShop" }),
   });
+  /** Janela de cozinha (tecla C). Estado de abertura é do client (não trafega). */
+  private cookingOpen = false;
+  private cookWin = new CookingWindow({
+    cook: (recipeId) => this.transport.send({ type: "cook", recipeId }),
+    close: () => (this.cookingOpen = false),
+  });
   private journal = new JournalPanel();
   private tooltip = new Tooltip();
   private equipPanel = new EquipPanel(this.dnd, this.tooltip);
@@ -163,6 +170,12 @@ export class Game {
         this.outfitPanel.toggle();
         return;
       }
+      // K: abre/fecha a janela de cozinha (kitchen — COZINHA.md).
+      if (ev.code === "KeyK") {
+        ev.preventDefault();
+        this.cookingOpen = !this.cookingOpen;
+        return;
+      }
       // J: diário de quests.
       if (ev.code === "KeyJ") {
         ev.preventDefault();
@@ -181,7 +194,9 @@ export class Game {
       // Esc: fecha loja/diálogo se abertos; senão cancela o alvo (estilo Tibia).
       if (ev.code === "Escape") {
         ev.preventDefault();
-        if (this.playerState?.shop) {
+        if (this.cookingOpen) {
+          this.cookingOpen = false;
+        } else if (this.playerState?.shop) {
           this.transport.send({ type: "closeShop" });
         } else if (this.playerState?.dialogue) {
           this.transport.send({ type: "closeDialogue" });
@@ -378,6 +393,7 @@ export class Game {
     this.uiLayer.addChild(this.equipPanel.container);
     this.uiLayer.addChild(this.dialogueWin.container);
     this.uiLayer.addChild(this.shopWin.container);
+    this.uiLayer.addChild(this.cookWin.container);
     this.uiLayer.addChild(this.chat.container);
     this.uiLayer.addChild(this.tooltip.container);
     this.uiLayer.addChild(this.dnd.ghostLayer);
@@ -388,6 +404,7 @@ export class Game {
     // janela de diálogo nasce em coordenada negativa = invisível).
     this.dialogueWin.resize(this.app.screen.width, this.app.screen.height);
     this.shopWin.resize(this.app.screen.width, this.app.screen.height);
+    this.cookWin.resize(this.app.screen.width, this.app.screen.height);
     this.journal.resize(this.app.screen.width, this.app.screen.height);
     this.equipPanel.resize(this.app.screen.width, this.app.screen.height);
     this.equipPanel.setState(this.playerState ?? undefined);
@@ -525,6 +542,7 @@ export class Game {
       const bpId = this.playerState.backpackContainerId;
       const backpackView = this.playerState.containers?.find((c) => c.containerId === bpId);
       this.shopWin.update(this.playerState.shop, backpackView);
+      this.cookWin.update(this.playerState.recipes, this.cookingOpen);
       this.journal.setState(this.playerState.quests);
       this.equipPanel.setState(this.playerState);
       this.minimap.update(this.playerState.pos.x, this.playerState.pos.y);
@@ -617,6 +635,7 @@ export class Game {
   private onResize(): void {
     this.dialogueWin.resize(this.app.screen.width, this.app.screen.height);
     this.shopWin.resize(this.app.screen.width, this.app.screen.height);
+    this.cookWin.resize(this.app.screen.width, this.app.screen.height);
     this.journal.resize(this.app.screen.width, this.app.screen.height);
     this.equipPanel.resize(this.app.screen.width, this.app.screen.height);
     this.minimap.resize(this.app.screen.width, this.app.screen.height);

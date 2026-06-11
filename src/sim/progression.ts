@@ -13,12 +13,10 @@ import {
   maxHp,
   maxMana,
   hpRegenPerSecond,
+  REGEN_INTERVAL_MS,
   statPointCost,
   xpFromKill,
 } from "./formulas";
-
-/** Fração de segundo que um tick representa (regen por-segundo → por-tick). */
-const SECONDS_PER_TICK = TICK_MS / 1000;
 
 /**
  * Camada de progressão (DESIGN-EVOLUCAO.md §"Camada Sólida") — SIM only.
@@ -41,9 +39,8 @@ export interface Progression {
   attributes: Attributes;
   /** Pontos de atributo livres ainda não distribuídos. */
   freeStatPoints: number;
-  /** Acumuladores fracionários de regen (somam por tick, aplicam em inteiros). */
-  hpRegenAcc: number;
-  manaRegenAcc: number;
+  /** Tempo (ms) acumulado desde o último PULSO de regen (modelo de intervalo). */
+  regenTimerMs: number;
 }
 
 /**
@@ -64,8 +61,7 @@ export function createProgression(cls: PlayerClass): Progression {
     xp: 0,
     attributes: { ...CLASS_BASE_ATTRIBUTES[cls] },
     freeStatPoints: 0,
-    hpRegenAcc: 0,
-    manaRegenAcc: 0,
+    regenTimerMs: 0,
   };
 }
 
@@ -204,32 +200,27 @@ export function allocateStatPoint(
 }
 
 /**
- * Regeneração por tick de HP e Mana via fórmulas (acumuladores fracionários).
- * O status "Bem Alimentado" (comida) MULTIPLICA a taxa enquanto saciado — é o
- * loop de sustain Tibia (comer acelera o regen, não o substitui). Não regenera
- * entidade morta. Chamado a cada tick para o jogador.
+ * Regeneração de HP e Mana — modelo de PULSOS (Tibia/Apogea, decidido criador
+ * 2026-06-10): aplica um CHUNK a cada `REGEN_INTERVAL_MS` (não contínuo). O chunk
+ * = taxa/seg (nível+classe) × mult da comida × intervalo. **Comida é pré-condição**:
+ * `wellFedRegenMult` é 0 sem saciedade → sem comida, chunk 0 (HP e mana). O timer
+ * corre mesmo sem comida/sem dano (próximo pulso cai no boundary de 5s). Não
+ * regenera entidade morta. Chamado a cada tick para o jogador.
  */
 export function regenTick(prog: Progression, entity: SimEntity): void {
   if (entity.dead) return;
+  prog.regenTimerMs += TICK_MS;
+  if (prog.regenTimerMs < REGEN_INTERVAL_MS) return;
+  prog.regenTimerMs -= REGEN_INTERVAL_MS;
   const fed = wellFedRegenMult(entity);
+  if (fed <= 0) return; // sem comida = sem regen (pulso vazio)
+  const intervalSec = REGEN_INTERVAL_MS / 1000;
   if (entity.hp < entity.maxHp) {
-    prog.hpRegenAcc += hpRegenPerSecond(prog.attributes) * fed * SECONDS_PER_TICK;
-    if (prog.hpRegenAcc >= 1) {
-      const whole = Math.floor(prog.hpRegenAcc);
-      entity.hp = Math.min(entity.maxHp, entity.hp + whole);
-      prog.hpRegenAcc -= whole;
-    }
-  } else {
-    prog.hpRegenAcc = 0;
+    const chunk = Math.round(hpRegenPerSecond(prog.cls, prog.level) * fed * intervalSec);
+    entity.hp = Math.min(entity.maxHp, entity.hp + chunk);
   }
   if (entity.mp < entity.maxMp) {
-    prog.manaRegenAcc += manaRegenPerSecond(prog.attributes) * fed * SECONDS_PER_TICK;
-    if (prog.manaRegenAcc >= 1) {
-      const whole = Math.floor(prog.manaRegenAcc);
-      entity.mp = Math.min(entity.maxMp, entity.mp + whole);
-      prog.manaRegenAcc -= whole;
-    }
-  } else {
-    prog.manaRegenAcc = 0;
+    const chunk = Math.round(manaRegenPerSecond(prog.cls, prog.level) * fed * intervalSec);
+    entity.mp = Math.min(entity.maxMp, entity.mp + chunk);
   }
 }

@@ -35,14 +35,39 @@ export interface ClassGrowth {
    * nível, sem o jogador escolher). Força dá um BÔNUS por cima (ver maxCarry).
    */
   capPerLevel: number;
+  /**
+   * Regen de HP/s adicionado por nível (saciado) — AUTOMÁTICO por classe.
+   * DESACOPLADO da Vitalidade DE PROPÓSITO (decidido criador, jun/2026): Vit já
+   * compra o POOL (maxHp); deixá-la comprar também a VELOCIDADE de encher seria
+   * double-dip (stat dominante, teste de Sirlin). Vit = tamanho do tanque;
+   * nível+classe = velocidade de encher. É a régua do invariante de regen:
+   * cresce com o nível p/ out-healar conteúdo VELHO, nunca o do nível atual.
+   */
+  hpRegenPerLevel: number;
+  /** Regen de mana/s por nível (saciado) — idem, desacoplado do Espírito. */
+  manaRegenPerLevel: number;
 }
 
 /** Crescimento por classe. ✏️ placeholder — calibrar no M2. */
 export const CLASS_GROWTH: Record<PlayerClass, ClassGrowth> = {
-  knight: { hpPerLevel: 15, manaPerLevel: 2, capPerLevel: 25 }, // ✏️ placeholder — calibrar
-  mage: { hpPerLevel: 5, manaPerLevel: 12, capPerLevel: 10 }, // ✏️ placeholder — calibrar
-  rogue: { hpPerLevel: 9, manaPerLevel: 5, capPerLevel: 18 }, // ✏️ placeholder — calibrar
-  priest: { hpPerLevel: 7, manaPerLevel: 10, capPerLevel: 12 }, // ✏️ placeholder — calibrar
+  // hpRegenPerLevel do KNIGHT = CALIBRADO em 2 âncoras (bateria 2026-06-10): 0.10
+  // segura a razão "regen saciado (carne) ≈ 68% do DPS no nível-alvo" nos DOIS
+  // tiers que existem (rato T1@lvl1 69%, esqueleto T2@lvl8 68%) — invariante OK
+  // (nunca out-heala no nível; crossover rato lvl11, esqueleto lvl21). As OUTRAS
+  // classes derivam por analogia da razão de hpPerLevel (knight>rogue>priest>mage),
+  // ✏️ ainda não medidas. manaRegenPerLevel = ✏️ placeholder (sem âncora de dreno
+  // de mana ainda). T3–T5 confirmam a curva na bateria #11 quando o bestiário crescer.
+  // MATRIZ DE CLASSES (decidido criador jun/2026): sustain (Knight/Priest) durável,
+  // damage (Rogue/Mage) frágil. hpPerLevel reflete a durabilidade: Knight(AD sustain)
+  // > Priest(AP sustain) > Rogue(AD dmg) > Mage(AP dmg). Antes rogue(9)>priest(7) estava
+  // INVERTIDO (carry mais durável que sustain). ✏️ Balancista afina os números.
+  knight: { hpPerLevel: 15, manaPerLevel: 2, capPerLevel: 25, hpRegenPerLevel: 0.10, manaRegenPerLevel: 0.02 },
+  // manaRegenPerLevel: Priest (AP SUSTAIN) > Mage (AP DAMAGE/burst) — endurance de
+  // mana é a identidade do sustain; o dano do mage vem do BURST (pool+base), não do
+  // regen sustentado. (Afeta níveis altos; L1 usa a base compartilhada.) ✏️ Balancista.
+  mage: { hpPerLevel: 5, manaPerLevel: 12, capPerLevel: 10, hpRegenPerLevel: 0.04, manaRegenPerLevel: 0.06 },
+  rogue: { hpPerLevel: 7, manaPerLevel: 5, capPerLevel: 18, hpRegenPerLevel: 0.07, manaRegenPerLevel: 0.04 },
+  priest: { hpPerLevel: 12, manaPerLevel: 10, capPerLevel: 12, hpRegenPerLevel: 0.06, manaRegenPerLevel: 0.10 },
 };
 
 /** Atributos iniciais por classe (nível 1). ✏️ placeholder — calibrar no M2. */
@@ -147,18 +172,29 @@ export function maxCarry(attrs: Attributes, cls: PlayerClass, level: number): nu
 //  Dano
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Coeficientes de dano. ✏️ placeholder — calibrar no M2. */
-const STRENGTH_DAMAGE_FACTOR = 1.0; // ✏️ placeholder — calibrar no M2
-const DEXTERITY_DAGGER_FACTOR = 1.2; // ✏️ placeholder — calibrar no M2 (adagas escalam com Des)
-const INTELLIGENCE_DAMAGE_FACTOR = 1.1; // ✏️ placeholder — calibrar no M2
-const SPIRIT_HEAL_FACTOR = 1.3; // ✏️ placeholder — calibrar no M2
-const SPIRIT_DAMAGE_FACTOR = 1.1; // ofensiva SAGRADA escala Espírito (decidido 09/jun) — ✏️ calibrar
+/**
+ * MODELO DE DANO FÍSICO — HÍBRIDO quadrático-suave (decidido criador jun/2026):
+ * `dano = base_da_arma × (1 + atributo×k)`. A arma é o PISO aditivo (loot importa:
+ * achar arma melhor escala tudo); o atributo AMPLIFICA (sinergia gear×stat, feel
+ * Tibia). `k` é PEQUENO de propósito — o crescimento (base sobe por tier × atributo
+ * sobe por nível) é quadrático SUAVE, não explode (≠ `arma×Str` puro). As BASES das
+ * armas foram re-escaladas (×~1,67) na migração p/ preservar o dano T1 (knight/
+ * espada = 14, rato em 2 golpes — zero ripple na calibração M1). ✏️ Balancista
+ * afina k + bases + curva de HP dos mobs por tier.
+ */
+const STR_DAMAGE_K = 0.05; // Força: +5% do dano-base da arma por ponto
+const DEX_DAMAGE_K = 0.05; // Destreza (adagas): mesma régua; identidade = cadência
+// Caster: MESMO modelo híbrido, mas k MENOR (decidido criador jun/2026). Magia tem
+// base ALTA (> arma) e multiplicador BAIXO → dano front-loaded e estável (o poder
+// do mago vem das MAGIAS, não de empilhar Int); martial é base-baixa-mult-alto
+// (cresce com investimento). Equilibra com o alcance/AoE/status do caster. ✏️ Balancista.
+const INT_DAMAGE_K = 0.05; // SIMÉTRICO ao martial (decisão criador): gap estável,
+const SPIRIT_DAMAGE_K = 0.05; // a vantagem do caster vem da BASE, não do k (não inverte)
+const SPIRIT_HEAL_FACTOR = 1.3; // ✏️ CURA segue ADITIVA (não é dano) — calibrar M2
 
 /**
- * Dano físico de uma arma. `weaponBase` é o dano-base da arma (M1: do bestiário
- * para mobs; placeholder para o jogador). Adagas escalam com Destreza; demais
- * armas melee com Força. A próxima wave de armas decidirá o `usesDexterity`
- * a partir da arma equipada.
+ * Dano físico de uma arma (modelo híbrido — ver acima). Adagas escalam com
+ * Destreza; demais armas melee com Força. `usesDexterity` vem da arma equipada.
  */
 export function physicalDamage(
   attrs: Attributes,
@@ -166,9 +202,21 @@ export function physicalDamage(
   usesDexterity = false,
 ): number {
   const attr = usesDexterity ? attrs.dexterity : attrs.strength;
-  const factor = usesDexterity ? DEXTERITY_DAGGER_FACTOR : STRENGTH_DAMAGE_FACTOR;
-  // ✏️ placeholder — calibrar no M2: escala linear simples sobre a base da arma.
-  return Math.floor(weaponBase + attr * factor);
+  const k = usesDexterity ? DEX_DAMAGE_K : STR_DAMAGE_K;
+  return Math.floor(weaponBase * (1 + attr * k));
+}
+
+/**
+ * Variância do dano FÍSICO (AD): diferença gigante AD×AP (decidido criador jun/2026,
+ * estilo Tibia/Apogea) — físico ROLA um range largo (swingy), mágico é CONSTANTE.
+ * `physicalDamage` dá a MÉDIA; isto rola em [méd×(1−spread), méd×(1+spread)] com
+ * `roll`∈[0,1) do RNG seedado da sim. Média preservada → o balance (DPS médio)
+ * calibrado se mantém; muda só o feel (AD imprevisível, AP confiável). ✏️ spread.
+ */
+export const PHYSICAL_DAMAGE_SPREAD = 0.4; // ±40% — AD bem swingy
+export function physicalVariance(avg: number, roll: number): number {
+  const f = 1 - PHYSICAL_DAMAGE_SPREAD + roll * 2 * PHYSICAL_DAMAGE_SPREAD;
+  return Math.max(1, Math.floor(avg * f));
 }
 
 /**
@@ -176,7 +224,8 @@ export function physicalDamage(
  * skill na próxima wave). Escala com Inteligência.
  */
 export function magicDamage(attrs: Attributes, spellBase: number): number {
-  return Math.floor(spellBase + attrs.intelligence * INTELLIGENCE_DAMAGE_FACTOR); // ✏️ placeholder — calibrar no M2
+  // Híbrido (igual ao físico, k menor): base × (1 + Int×k). Base alta, mult baixo.
+  return Math.floor(spellBase * (1 + attrs.intelligence * INT_DAMAGE_K));
 }
 
 /**
@@ -187,7 +236,8 @@ export function magicDamage(attrs: Attributes, spellBase: number): number {
  * Espelha `magicDamage`, trocando o atributo. Cura segue em `healPower`.
  */
 export function holyDamage(attrs: Attributes, spellBase: number): number {
-  return Math.floor(spellBase + attrs.spirit * SPIRIT_DAMAGE_FACTOR);
+  // Híbrido caster (k menor), escalando Espírito em vez de Inteligência.
+  return Math.floor(spellBase * (1 + attrs.spirit * SPIRIT_DAMAGE_K));
 }
 
 /**
@@ -248,25 +298,42 @@ export function dodgeChance(attrs: Attributes): number {
 //  Regeneração (por SEGUNDO — independente da taxa de tick)
 // ─────────────────────────────────────────────────────────────────────────
 
-// Regen por segundo. ✏️ placeholder — calibrar no M2. (= valor antigo por tick × 20.)
-const HP_REGEN_BASE_PER_SEC = 0.4; // ✏️ placeholder — calibrar no M2
-const HP_REGEN_PER_VITALITY = 0.2; // ✏️ placeholder — calibrar no M2
-const MANA_REGEN_BASE_PER_SEC = 0.4; // ✏️ placeholder — calibrar no M2
-const MANA_REGEN_PER_SPIRIT = 0.3; // ✏️ placeholder — calibrar no M2
+// Regen por segundo — taxa ENQUANTO SACIADO (modelo Tibia: sem comida o regen é
+// 0; ver `wellFedRegenMult`). Cresce com o NÍVEL (não com atributo) — invariante:
+// fica abaixo do DPS do mob do nível-alvo, mas supera o de mobs out-levelados.
+// L1 base ≈ 2/s (< DPS rato 4,4 → não out-heala no mesmo nível). ✏️ recalibrar #11.
+const HP_REGEN_BASE_PER_SEC = 2.0; // ✏️ taxa-base saciado L1 (compartilhada)
+// Mana saciado L1 = 6/s (bateria economia-mana 2026-06-11): a 1/s o caster secava
+// em 3s e o sustentado virava metade do martial. A 6/s o mage (carry) sustenta
+// ~16 DPS (≈rogue) e o priest (sustain) ~11 (≈knight). Demanda da Bola ~9,3/s >
+// regen → ainda há ciclo burst→recupera (mana = downtime do caster, espelho do HP
+// do tank), mas recuperável. ✏️ fino na bateria de throughput completa.
+const MANA_REGEN_BASE_PER_SEC = 6.0;
 
 /**
- * Regeneração de HP por SEGUNDO. Escala com Vitalidade. O acumulador de regen
- * da entidade soma a fração por tick (×TICK_MS/1000) e aplica em inteiros.
+ * Intervalo do regen (modelo Tibia/Apogea, decidido criador 2026-06-10): o regen
+ * não é contínuo — aplica um CHUNK a cada `REGEN_INTERVAL_MS`. O chunk = taxa/seg
+ * × mult da comida × (intervalo em seg). A taxa MÉDIA no tempo é preservada; o
+ * feel vira "curas em pulsos" (e fights curtos podem não pegar um pulso). ✏️ 5s.
  */
-export function hpRegenPerSecond(attrs: Attributes): number {
-  return HP_REGEN_BASE_PER_SEC + attrs.vitality * HP_REGEN_PER_VITALITY; // ✏️ placeholder
+export const REGEN_INTERVAL_MS = 5000;
+
+/**
+ * Regeneração de HP por SEGUNDO **enquanto saciado** (sem comida = 0). Cresce com
+ * o NÍVEL por classe (`CLASS_GROWTH.hpRegenPerLevel`), DESACOPLADA da Vitalidade
+ * (Vit = pool; nível/classe = velocidade de encher — anti double-dip). O
+ * acumulador da entidade soma a fração por tick; `regenTick` zera tudo sem comida.
+ */
+export function hpRegenPerSecond(cls: PlayerClass, level: number): number {
+  return HP_REGEN_BASE_PER_SEC + CLASS_GROWTH[cls].hpRegenPerLevel * (level - 1);
 }
 
 /**
- * Regeneração de mana por SEGUNDO. Escala com Espírito.
+ * Regeneração de mana por SEGUNDO **enquanto saciado**. Cresce com o nível por
+ * classe (casters lideram), desacoplada do Espírito (mesma lógica anti double-dip).
  */
-export function manaRegenPerSecond(attrs: Attributes): number {
-  return MANA_REGEN_BASE_PER_SEC + attrs.spirit * MANA_REGEN_PER_SPIRIT; // ✏️ placeholder
+export function manaRegenPerSecond(cls: PlayerClass, level: number): number {
+  return MANA_REGEN_BASE_PER_SEC + CLASS_GROWTH[cls].manaRegenPerLevel * (level - 1);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
