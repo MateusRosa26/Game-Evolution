@@ -197,10 +197,13 @@ export interface EntityState {
   telegraph?: { moveId: string; kind: string; resolveAt: number; tiles?: Vec2[] };
   /**
    * Skill em CONJURAÇÃO agora (cast-time) — info pública (o client desenha a barra
-   * de cast). `pct` = progresso 0..1 (0 = começou, 1 = prestes a resolver). Presente
-   * só enquanto a entidade conjura algo; null/undefined = nada sendo conjurado.
+   * de cast). `pct` = progresso 0..1 (0 = começou, 1 = prestes a resolver). `aim` é
+   * o TILE mirado de uma skill de área no chão (groundTarget) — presente só quando a
+   * conjuração tem mira de chão; deixa o client desenhar o telegraph (área alvo) onde
+   * a skill vai cair. Presente só enquanto a entidade conjura algo; null/undefined =
+   * nada sendo conjurado.
    */
-  casting?: { skillId: string; pct: number } | null;
+  casting?: { skillId: string; pct: number; aim?: Vec2 } | null;
   /** Progressão — presente SOMENTE na entidade do jogador (undefined p/ mobs). */
   progress?: PlayerProgressState;
   /** Skills conhecidas — SOMENTE na entidade do jogador (undefined p/ mobs). */

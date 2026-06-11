@@ -160,6 +160,23 @@ interface CastProjectile {
   durMs: number;
 }
 
+/**
+ * Estouro de ÁREA (groundTarget/selfRadius): anel que expande até o raio da
+ * skill e some, colorido pela skill. Apresentação pura — a sim já resolveu.
+ */
+interface AreaBurst {
+  gfx: Graphics;
+  cx: number;
+  cy: number;
+  /** Raio final em px (raio em tiles × TILE_SIZE). */
+  maxR: number;
+  color: number;
+  elapsed: number;
+}
+
+/** Duração do estouro de área (expande + esvanece). */
+const BURST_DUR_MS = 360;
+
 interface EntityVisual {
   container: Container;
   sprite: Sprite;
@@ -183,6 +200,12 @@ interface EntityVisual {
   telegraph: Graphics;
   telegraphing: boolean;
   telegraphClock: number;
+  /** Barra de conjuração (cast-time) acima da cabeça — só enquanto `casting`. */
+  castBar: Graphics;
+  /** Skill conjurada atualmente (detecta troca → redesenha a barra). null = nada. */
+  castSkillId: string | null;
+  /** Último pct desenhado da barra de cast (evita redesenhar todo tick). */
+  castPct: number;
   // tween de posição (em tiles, com fração)
   fromX: number;
   fromY: number;
@@ -218,6 +241,8 @@ export class EntityRenderer {
   private floats: FloatingText[] = [];
   /** Projéteis de cast ativos (runas viajando). */
   private casts: CastProjectile[] = [];
+  /** Estouros de área ativos (anéis de groundTarget/selfRadius expandindo). */
+  private bursts: AreaBurst[] = [];
   /** Partículas de impacto de combate ativas. */
   private particles: Particle[] = [];
   /** Fantasmas de morte ativos (sprite dissolvendo). */
@@ -230,6 +255,9 @@ export class EntityRenderer {
    *  Fica no chão, SOB as entidades; pulsa no tick. */
   private telegraphTiles = new Graphics();
   private telegraphPulse = 0;
+  /** Telegraph de SKILLSHOT (groundTarget em cast): área-alvo no chão, sob as
+   *  entidades, colorida pela skill. Redesenhado a cada snapshot; pulsa no tick. */
+  private castTelegraphTiles = new Graphics();
 
   constructor(
     private sprites: SpriteLibrary,
@@ -242,6 +270,8 @@ export class EntityRenderer {
     this.targetMarker.visible = false;
     this.telegraphTiles.zIndex = -1000; // sob entidades/cadáveres, sobre o chão
     this.layer.addChild(this.telegraphTiles);
+    this.castTelegraphTiles.zIndex = -999; // logo acima do perigo de mob, ainda sob entidades
+    this.layer.addChild(this.castTelegraphTiles);
   }
 
   /** Texturas certas: mob pela espécie; player pelo OUTFIT (compositor+cache). */
@@ -326,6 +356,9 @@ export class EntityRenderer {
   apply(snap: Snapshot): void {
     const seen = new Set<number>();
     const dangerTiles: { x: number; y: number }[] = []; // áreas de telegraph deste tick
+    // Áreas-alvo de skillshots em conjuração (groundTarget com aim) — desenhadas
+    // coloridas pela skill, sob as entidades, p/ o jogador ver ONDE vai cair.
+    const castAreas: { x: number; y: number; radius: number; color: number }[] = [];
     for (const e of snap.entities) {
       seen.add(e.id);
       let v = this.visuals.get(e.id);
@@ -387,8 +420,16 @@ export class EntityRenderer {
       v.telegraph.visible = v.telegraphing;
       if (!v.telegraphing) v.telegraphClock = 0;
       if (e.telegraph?.tiles) dangerTiles.push(...e.telegraph.tiles); // área (slam)
+
+      // ── Barra de conjuração (cast-time) + telegraph de skillshot no chão ──
+      this.updateCastBar(v, e);
+      if (e.casting?.aim) {
+        const m = skillMeta(e.casting.skillId);
+        castAreas.push({ x: e.casting.aim.x, y: e.casting.aim.y, radius: m.areaRadius ?? 0, color: m.color });
+      }
     }
     this.drawDangerTiles(dangerTiles);
+    this.drawCastAreas(castAreas);
     // Efeito de morte: captura o visual ANTES do diff de remoção o destruir
     // (o mob morto sai do snapshot no mesmo tick). Genérico por morte — kill que
     // conta pra Marca NÃO tem feedback especial (DESIGN-VISUAL.md/constituição).
@@ -435,7 +476,14 @@ export class EntityRenderer {
         const av = this.visuals.get(ev.attackerId);
         if (av?.attackTextures) av.attackClock = ATTACK_DUR_MS;
       } else if (ev.kind === "cast") {
-        this.spawnCast(ev.skillId, ev.casterId, ev.from, ev.to);
+        const mode = skillMeta(ev.skillId).target;
+        if (mode === "ground" || mode === "selfBurst" || mode === "self") {
+          // Área/burst: estoura no destino (selfRadius/self = caster; ground = aim).
+          this.spawnAreaBurst(ev.skillId, ev.casterId, ev.from, ev.to);
+        } else {
+          // projétil (alvo único / cadeia): runa viaja from→to a velocidade const.
+          this.spawnCast(ev.skillId, ev.casterId, ev.from, ev.to);
+        }
       } else if (ev.kind === "heal") {
         const at = this.visualPosOf(ev.targetId, ev.pos);
         this.spawnHealText(ev.amount, at.x, at.y);
@@ -664,10 +712,47 @@ export class EntityRenderer {
     this.casts.push({ gfx, fromX: origin.x, fromY: origin.y, toX, toY, elapsed: 0, durMs });
   }
 
+  /**
+   * Estouro de ÁREA (groundTarget no `to` mirado / selfRadius centrado no caster):
+   * um anel que expande até o raio da skill e some, mais uma chuva de partículas de
+   * impacto do tipo de dano por todo o raio. APRESENTAÇÃO — a sim já resolveu o efeito.
+   */
+  private spawnAreaBurst(
+    skillId: string,
+    casterId: number,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ): void {
+    const meta = skillMeta(skillId);
+    // selfRadius/self estouram no caster (posição VISUAL); ground no tile do evento.
+    const center =
+      meta.target === "ground"
+        ? { x: (to.x + 0.5) * TILE_SIZE, y: (to.y + 0.6) * TILE_SIZE }
+        : this.visualPosOf(casterId, from);
+    const radiusTiles = meta.areaRadius ?? 1;
+    const maxR = (radiusTiles + 0.5) * TILE_SIZE;
+    const gfx = new Graphics();
+    gfx.zIndex = 1e9 - 2; // sob números/partículas, sobre o mundo
+    this.layer.addChild(gfx);
+    this.bursts.push({ gfx, cx: center.x, cy: center.y, maxR, color: meta.color, elapsed: 0 });
+    // Chuva de partículas do elemento por todo o raio (charme barato, reusa IMPACT).
+    if (meta.damageType) {
+      const span = radiusTiles * TILE_SIZE;
+      const shots = 1 + radiusTiles;
+      for (let i = 0; i < shots; i++) {
+        const ox = (Math.random() - 0.5) * 2 * span;
+        const oy = (Math.random() - 0.5) * 2 * span * 0.6;
+        this.spawnImpact(meta.damageType, center.x + ox, center.y + oy);
+      }
+    }
+  }
+
   tick(deltaMS: number): void {
     // Pulso do overlay de tiles de perigo (alerta de área telegrafada).
     this.telegraphPulse += deltaMS;
     this.telegraphTiles.alpha = 0.55 + 0.45 * Math.abs(Math.sin(this.telegraphPulse / 150));
+    // mira de skillshot pulsa mais suave (previsão, não perigo iminente de mob)
+    this.castTelegraphTiles.alpha = 0.7 + 0.3 * Math.abs(Math.sin(this.telegraphPulse / 220));
     for (const v of this.visuals.values()) {
       const moving = v.tweenElapsed < v.tweenDur;
       if (moving) {
@@ -816,6 +901,24 @@ export class EntityRenderer {
       }
       return true;
     });
+
+    // estouros de área: anel que expande até maxR e esvanece (ease-out)
+    for (const b of this.bursts) {
+      b.elapsed += deltaMS;
+      const t = Math.min(b.elapsed / BURST_DUR_MS, 1);
+      const ease = 1 - (1 - t) * (1 - t); // ease-out (rápido no começo)
+      const r = Math.max(1, b.maxR * ease);
+      b.gfx.clear();
+      b.gfx.circle(b.cx, b.cy, r).fill({ color: b.color, alpha: 0.18 * (1 - t) });
+      b.gfx.circle(b.cx, b.cy, r).stroke({ color: b.color, width: 2, alpha: 0.9 * (1 - t) });
+    }
+    this.bursts = this.bursts.filter((b) => {
+      if (b.elapsed >= BURST_DUR_MS) {
+        b.gfx.destroy();
+        return false;
+      }
+      return true;
+    });
   }
 
   private currentTilePos(v: EntityVisual): { x: number; y: number } {
@@ -929,6 +1032,12 @@ export class EntityRenderer {
     telegraph.visible = false;
     container.addChild(telegraph);
 
+    // Barra de cast (cast-time): acima do nome/HP, só visível enquanto conjura.
+    const castBar = new Graphics();
+    castBar.position.set(-14, -50);
+    castBar.visible = false;
+    container.addChild(castBar);
+
     const v: EntityVisual = {
       container,
       sprite,
@@ -943,6 +1052,9 @@ export class EntityRenderer {
       telegraph,
       telegraphing: false,
       telegraphClock: 0,
+      castBar,
+      castSkillId: null,
+      castPct: -1,
       fromX: e.pos.x,
       fromY: e.pos.y,
       toX: e.pos.x,
@@ -963,6 +1075,59 @@ export class EntityRenderer {
     container.zIndex = container.position.y;
     this.layer.addChild(container);
     return v;
+  }
+
+  /**
+   * Barra de conjuração (cast-time) acima da cabeça: aparece enquanto a entidade
+   * tem `casting` no snapshot e segue `casting.pct` (0→1). Some quando o cast
+   * termina/cancela. Cor pela skill (identidade visual). APRESENTAÇÃO pura.
+   */
+  private updateCastBar(v: EntityVisual, e: EntityState): void {
+    const casting = e.casting;
+    if (!casting) {
+      if (v.castSkillId !== null) {
+        v.castSkillId = null;
+        v.castPct = -1;
+        v.castBar.visible = false;
+        v.castBar.clear();
+      }
+      return;
+    }
+    v.castBar.visible = true;
+    // Redesenha só quando muda a skill ou o pct (em passos de 1px de preenchimento).
+    const W = 28;
+    const fill = Math.max(0, Math.min(W - 2, Math.round((W - 2) * casting.pct)));
+    if (casting.skillId === v.castSkillId && Math.round((W - 2) * v.castPct) === fill) return;
+    v.castSkillId = casting.skillId;
+    v.castPct = casting.pct;
+    const color = skillMeta(casting.skillId).color;
+    const g = v.castBar;
+    g.clear();
+    g.rect(0, 0, W, 4).fill({ color: 0x10141c, alpha: 0.9 });
+    if (fill > 0) g.rect(1, 1, fill, 2).fill({ color, alpha: 0.95 });
+    g.rect(0, 0, W, 4).stroke({ color: 0x000307, width: 1, alpha: 0.6 });
+  }
+
+  /**
+   * Redesenha o telegraph de SKILLSHOT (groundTarget em conjuração): a área-alvo
+   * no chão (tile mirado + raio Chebyshev), colorida pela skill, sob as entidades.
+   * É só PREVISÃO visual — a sim resolve o efeito no fim do cast.
+   */
+  private drawCastAreas(areas: { x: number; y: number; radius: number; color: number }[]): void {
+    const g = this.castTelegraphTiles;
+    g.clear();
+    for (const a of areas) {
+      const r = Math.max(0, a.radius);
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          g.rect((a.x + dx) * TILE_SIZE, (a.y + dy) * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            .fill({ color: a.color, alpha: 0.22 });
+        }
+      }
+      // borda no tile central de mira (foco da skillshot)
+      g.rect(a.x * TILE_SIZE, a.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        .stroke({ color: a.color, width: 1, alpha: 0.9 });
+    }
   }
 
   /** Redesenha o overlay de tiles de PERIGO (área de um move telegrafado): um

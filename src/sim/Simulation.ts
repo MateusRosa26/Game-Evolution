@@ -1813,6 +1813,8 @@ export class Simulation {
         const span = e.casting.endTick - e.casting.startTick;
         const pct = span > 0 ? Math.min(1, Math.max(0, (this.tickCount - e.casting.startTick) / span)) : 1;
         state.casting = { skillId: e.casting.skillId, pct };
+        // aim do chão (groundTarget): deixa o client telegrafar a ÁREA-alvo
+        if (e.casting.aim) state.casting.aim = { x: e.casting.aim.x, y: e.casting.aim.y };
       }
       const prog = this.progressions.get(e.id);
       if (prog) state.progress = this.projectProgress(prog);
