@@ -80,6 +80,10 @@ interface EntityVisual {
   statusIcons: Graphics;
   /** Chave dos status desenhados (evita redesenhar todo tick). */
   statusKey: string;
+  /** Indicador de telegraph (move de mob em windup — MECANICAS-DE-MOB.md). */
+  telegraph: Graphics;
+  telegraphing: boolean;
+  telegraphClock: number;
   // tween de posição (em tiles, com fração)
   fromX: number;
   fromY: number;
@@ -267,6 +271,10 @@ export class EntityRenderer {
         v.statusKey = statusKey;
         this.drawStatusIcons(v.statusIcons, e.status);
       }
+      // ── Telegraph de mecânica (windup de move): liga/desliga o anel de alerta ──
+      v.telegraphing = !!e.telegraph;
+      v.telegraph.visible = v.telegraphing;
+      if (!v.telegraphing) v.telegraphClock = 0;
     }
     // remove quem saiu
     for (const [id, v] of this.visuals) {
@@ -487,6 +495,14 @@ export class EntityRenderer {
           this.applyFrame(v, moving ? this.currentFrame(v) : 0);
         }
       }
+
+      // ── Pulso do anel de telegraph (mob avisando um move em windup) ──
+      if (v.telegraphing) {
+        v.telegraphClock += deltaMS;
+        const p = Math.abs(Math.sin(v.telegraphClock / 110)); // ~3 Hz, alerta
+        v.telegraph.alpha = 0.45 + 0.55 * p;
+        v.telegraph.scale.set(0.85 + 0.3 * p);
+      }
     }
 
     // floating damage text: sobe e desaparece
@@ -626,6 +642,14 @@ export class EntityRenderer {
     statusIcons.position.set(16, -37);
     container.addChild(statusIcons);
 
+    // Telegraph: anel de alerta "carregando" acima da cabeça (mob em windup de
+    // mecânica). Pulsa no tick; visível só enquanto há `telegraph` no snapshot.
+    const telegraph = new Graphics();
+    telegraph.circle(0, 0, 5).stroke({ color: 0xffcc33, width: 2 });
+    telegraph.position.set(0, -46);
+    telegraph.visible = false;
+    container.addChild(telegraph);
+
     const v: EntityVisual = {
       container,
       sprite,
@@ -634,6 +658,9 @@ export class EntityRenderer {
       hpBar,
       statusIcons,
       statusKey: "",
+      telegraph,
+      telegraphing: false,
+      telegraphClock: 0,
       fromX: e.pos.x,
       fromY: e.pos.y,
       toX: e.pos.x,
