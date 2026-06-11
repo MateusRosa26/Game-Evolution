@@ -220,7 +220,7 @@ export function regenTick(prog: Progression, entity: SimEntity): void {
     entity.hp = Math.min(entity.maxHp, entity.hp + chunk);
   }
   if (entity.mp < entity.maxMp) {
-    const chunk = Math.round(manaRegenPerSecond(prog.cls, prog.level) * fed * intervalSec);
+    const chunk = Math.round(manaRegenPerSecond(prog.cls, prog.level, prog.attributes.spirit) * fed * intervalSec);
     entity.mp = Math.min(entity.maxMp, entity.mp + chunk);
   }
 }

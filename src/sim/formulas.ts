@@ -73,7 +73,7 @@ export const CLASS_GROWTH: Record<PlayerClass, ClassGrowth> = {
 /** Atributos iniciais por classe (nível 1). ✏️ placeholder — calibrar no M2. */
 export const CLASS_BASE_ATTRIBUTES: Record<PlayerClass, Attributes> = {
   // ✏️ placeholder — calibrar no M2. Cada classe favorece seu atributo-chave.
-  knight: { strength: 8, dexterity: 5, intelligence: 4, vitality: 8, spirit: 5 },
+  knight: { strength: 11, dexterity: 5, intelligence: 4, vitality: 8, spirit: 5 },
   mage: { strength: 4, dexterity: 5, intelligence: 8, vitality: 5, spirit: 6 },
   rogue: { strength: 5, dexterity: 8, intelligence: 5, vitality: 6, spirit: 4 },
   priest: { strength: 4, dexterity: 5, intelligence: 6, vitality: 5, spirit: 8 },
@@ -308,7 +308,12 @@ const HP_REGEN_BASE_PER_SEC = 2.0; // ✏️ taxa-base saciado L1 (compartilhada
 // ~16 DPS (≈rogue) e o priest (sustain) ~11 (≈knight). Demanda da Bola ~9,3/s >
 // regen → ainda há ciclo burst→recupera (mana = downtime do caster, espelho do HP
 // do tank), mas recuperável. ✏️ fino na bateria de throughput completa.
-const MANA_REGEN_BASE_PER_SEC = 6.0;
+const MANA_REGEN_BASE_PER_SEC = 3.0;
+// Espírito = REGEN de mana (Int = pool). Atributos diferentes p/ pool vs regen =
+// sem double-dip. Calibrado p/ caster base (Esp 6) cair nos ~6/s da bateria de
+// economia-mana; investir Esp é a alavanca de sustain (Esp inútil deixa de existir
+// pro mago). Mage Esp6=6/s, Priest Esp8=7/s (sustain). ✏️ fino na throughput #11.
+const MANA_REGEN_PER_SPIRIT = 0.5;
 
 /**
  * Intervalo do regen (modelo Tibia/Apogea, decidido criador 2026-06-10): o regen
@@ -329,11 +334,16 @@ export function hpRegenPerSecond(cls: PlayerClass, level: number): number {
 }
 
 /**
- * Regeneração de mana por SEGUNDO **enquanto saciado**. Cresce com o nível por
- * classe (casters lideram), desacoplada do Espírito (mesma lógica anti double-dip).
+ * Regeneração de mana por SEGUNDO **enquanto saciado**. Base + Espírito (alavanca
+ * de sustain do caster; Int=pool, Esp=regen → sem double-dip) + crescimento por
+ * nível/classe. Investir Esp acelera o regen — torna Esp útil pro mago também.
  */
-export function manaRegenPerSecond(cls: PlayerClass, level: number): number {
-  return MANA_REGEN_BASE_PER_SEC + CLASS_GROWTH[cls].manaRegenPerLevel * (level - 1);
+export function manaRegenPerSecond(cls: PlayerClass, level: number, spirit: number): number {
+  return (
+    MANA_REGEN_BASE_PER_SEC +
+    spirit * MANA_REGEN_PER_SPIRIT +
+    CLASS_GROWTH[cls].manaRegenPerLevel * (level - 1)
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────

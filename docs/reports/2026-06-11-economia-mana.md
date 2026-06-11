@@ -94,3 +94,35 @@ Paridade final L6 (single-target, não-undead) / HP:
 - Mage 15,4 / 115 — AP damage, single fraco de propósito (AoE futuro).
 - Priest 12,7 (28,1 undead) / 150 — AP sustain especialista anti-undead + cura.
 - Knight 10,8 / ~245 — AD sustain tanque.
+
+## ADENDO 4 — Espírito útil pro mago + Knight bruiser (2026-06-11)
+
+Dois ajustes de identidade de atributo (criador):
+
+**1. Espírito = REGEN de mana (Int = POOL).** O regen estava desacoplado de atributo
+(só nível+classe), o que deixava o Espírito INÚTIL pro mago (mago não cura/holy).
+Religado: `manaRegenPerSecond` agora soma `Esp × MANA_REGEN_PER_SPIRIT` (0,5), com
+`MANA_REGEN_BASE` 6,0 → 3,0 pra preservar o baseline. Atributos DIFERENTES p/ pool
+(Int) vs regen (Esp) ⇒ sem double-dip. Resultado:
+- mage base (Esp 6): **6,0/s** (= alvo da bateria, casters viáveis preservado).
+- mage investindo Esp (14): **10,0/s** — Esp vira alavanca de sustain (burst-mage Int
+  × sustain-mage Esp = escolha de build real).
+- priest base (Esp 8): **7,0/s** — o AP-sustain lidera naturalmente, sem termo de classe.
+
+Espelho: **Int continua útil pro priest** (já alimenta `maxMana` = pool) — os dois
+casters querem os dois atributos (Int=capacidade de burst, Esp=taxa de sustain).
+
+**2. Knight bruiser — base Str 8 → 11.** O gap single-target knight×rogue (57–69%)
+era largo demais: com a escalada dos mobs a vantagem de tank erode e a armadura só
+mitiga 10–20%, então exp/h exige dano. O tank do knight vem do `hpPerLevel` (15,
+automático), então o piso de Str sobra pra dano sem custar sobrevivência. Antes→depois L6:
+| build | DPS antes | DPS depois | % do rogue | HP |
+|---|---|---|---|---|
+| knight Str (bruiser) | 13,2 | **13,9** | 69→**74%** | 189 |
+| knight Vit (tank) | 10,8 | **11,6** | 57→**61%** | 245 |
+
+Rogue segue rei single-target (18,9) — a liderança dele está no KIT (apunhalar backstab
+2,0 + cadência da adaga), não no atributo, então mesmo com base Str > base Dex do rogue
+o knight fica abaixo. Bruiser a 74% com +42% de HP = exp/h competitivo (menos downtime).
+✏️ se ainda largo, alavancas: + base Str, ou multiplicador no golpe_forte (igualar o
+backstab estrutural do rogue).
