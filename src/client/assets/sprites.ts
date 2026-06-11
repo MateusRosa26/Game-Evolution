@@ -312,13 +312,23 @@ function makeStoneField(seed: number): Texture[] {
       });
     }
   }
+  // Lookup espacial: a semente mais próxima está sempre na vizinhança 3×3 de
+  // células (jitter < ½ célula), então varro 9 sementes em vez de cols×rows.
+  // Mesmo resultado do brute-force, ~3× menos trabalho. Índice = r·cols + c.
+  const cellW = FIELD / cols, cellH = FIELD / rows;
   const cellOf = (px: number, py: number): number => {
     let best = 0, bd = 1e9;
-    for (let i = 0; i < seeds.length; i++) {
-      let dx = Math.abs(px - seeds[i].x); if (dx > FIELD / 2) dx = FIELD - dx; // toroidal
-      let dy = Math.abs(py - seeds[i].y); if (dy > FIELD / 2) dy = FIELD - dy;
-      const d = dx * dx + dy * dy;
-      if (d < bd) { bd = d; best = i; }
+    const qc = Math.floor(px / cellW), qr = Math.floor(py / cellH);
+    for (let dr = -1; dr <= 1; dr++) {
+      const rr = (((qr + dr) % rows) + rows) % rows;
+      for (let dc = -1; dc <= 1; dc++) {
+        const i = rr * cols + ((((qc + dc) % cols) + cols) % cols);
+        const s = seeds[i];
+        let dx = Math.abs(px - s.x); if (dx > FIELD / 2) dx = FIELD - dx; // toroidal
+        let dy = Math.abs(py - s.y); if (dy > FIELD / 2) dy = FIELD - dy;
+        const d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = i; }
+      }
     }
     return best;
   };
@@ -386,20 +396,33 @@ export function buildRockField(seed: number, o: RockOpts): Px {
   const half = FIELD / 2;
   const [JR, JG, JB] = hexRgb(o.joint);
   const TAU = Math.PI * 2;
+  // DOMAIN WARP periódico (seamless): ondula a coord antes do Voronoi → fronteiras
+  // orgânicas, não reta de "crazy-paving". O termo de wx depende SÓ de y e o de wy
+  // SÓ de x → pré-computo por linha/coluna (2·FIELD sin/cos em vez de 4·FIELD²).
+  const warpX = new Float64Array(FIELD), warpY = new Float64Array(FIELD);
+  for (let i = 0; i < FIELD; i++) {
+    warpX[i] = Math.sin((TAU * 3 * i) / FIELD + seed) * 2.4 * S + Math.sin((TAU * 7 * i) / FIELD) * 1.1 * S;
+    warpY[i] = Math.cos((TAU * 3 * i) / FIELD + seed) * 2.4 * S + Math.cos((TAU * 7 * i) / FIELD) * 1.1 * S;
+  }
   for (let y = 0; y < FIELD; y++) {
+    const wxRow = warpX[y]; // wx = x + warpX[y] (constante na linha)
     for (let x = 0; x < FIELD; x++) {
-      // DOMAIN WARP periódico (seamless): ondula a coord antes do Voronoi → fronteiras
-      // orgânicas, não reta de "crazy-paving". wx depende só de y e wy só de x → fecha em 128.
-      const wx = x + Math.sin((TAU * 3 * y) / FIELD + seed) * 2.4 * S + Math.sin((TAU * 7 * y) / FIELD) * 1.1 * S;
-      const wy = y + Math.cos((TAU * 3 * x) / FIELD + seed) * 2.4 * S + Math.cos((TAU * 7 * x) / FIELD) * 1.1 * S;
-      // 1º e 2º vizinhos (distância TOROIDAL) → fronteira = sqrt(d2) − sqrt(d1)
+      const wx = x + wxRow, wy = y + warpY[x];
+      // 1º e 2º vizinhos (distância TOROIDAL) → fronteira = sqrt(d2) − sqrt(d1).
+      // Lookup espacial 5×5: warp + 2º-vizinho cabem na vizinhança (jitter+warp <
+      // 1 célula), varro 25 sementes em vez de cols×rows. Índice = r·cols + c.
+      const qc = Math.floor(wx / cw), qr = Math.floor(wy / ch);
       let b1 = 1e9, b2 = 1e9, id = 0, sox = 0, soy = 0;
-      for (let i = 0; i < seeds.length; i++) {
-        let dx = wx - seeds[i].x; if (dx > half) dx -= FIELD; else if (dx < -half) dx += FIELD;
-        let dy = wy - seeds[i].y; if (dy > half) dy -= FIELD; else if (dy < -half) dy += FIELD;
-        const d = dx * dx + dy * dy;
-        if (d < b1) { b2 = b1; b1 = d; id = i; sox = dx; soy = dy; }
-        else if (d < b2) { b2 = d; }
+      for (let dr = -2; dr <= 2; dr++) {
+        const rr = (((qr + dr) % rows) + rows) % rows;
+        for (let dc = -2; dc <= 2; dc++) {
+          const i = rr * cols + ((((qc + dc) % cols) + cols) % cols);
+          let dx = wx - seeds[i].x; if (dx > half) dx -= FIELD; else if (dx < -half) dx += FIELD;
+          let dy = wy - seeds[i].y; if (dy > half) dy -= FIELD; else if (dy < -half) dy += FIELD;
+          const d = dx * dx + dy * dy;
+          if (d < b1) { b2 = b1; b1 = d; id = i; sox = dx; soy = dy; }
+          else if (d < b2) { b2 = d; }
+        }
       }
       const s = seeds[id];
       const edge = Math.sqrt(b2) - Math.sqrt(b1); // ~0 na fronteira entre lumps
