@@ -171,7 +171,7 @@ export function generateTestMap(): MapData {
     const t = get(mx, my);
     if (t === TileId.Tree || t === TileId.Rock || t === TileId.Wall) set(mx, my, TileId.Grass);
     if (get(mx, my) === TileId.Water) continue;
-    monsters.push({ x: mx, y: my, species: "rato_lanhoso" });
+    monsters.push({ x: mx, y: my, species: "rato" });
   }
 
   // Área de respawn = ZONA SEGURA (decidido): sem bloqueio de corpo (players

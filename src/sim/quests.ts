@@ -56,7 +56,7 @@ export const QUESTS: Record<string, QuestDef> = {
     layer: "direta",
     giverNpcId: "bartolo",
     // ✏️ mapId: "porao_estalagem" quando o mapa do porão entrar (multi-mapa)
-    kill: { species: "rato_lanhoso", count: 8 },
+    kill: { species: "rato", count: 8 },
     rewards: { xp: 50, gold: 20 },
     journalActive:
       "O estalajadeiro quer o porão limpo dos ratos. “Eles não param de aparecer, devem subir de algum lugar…”",

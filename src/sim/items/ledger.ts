@@ -53,7 +53,7 @@ export interface ItemLedger {
   totalKills: number;
   /** Kills por FAMÍLIA de criatura (ex: { undead: 14000, bestial: 30 }). */
   killsByFamily: Record<string, number>;
-  /** Kills por ESPÉCIE (ex: { rato_lanhoso: 30, esqueleto: 14000 }). */
+  /** Kills por ESPÉCIE (ex: { rato: 30, esqueleto: 14000 }). */
   killsBySpecies: Record<string, number>;
   /** Kills por CONTEXTO (noite/HP baixo/golpe final). */
   killsByContext: LedgerContextKills;

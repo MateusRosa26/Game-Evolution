@@ -1147,7 +1147,7 @@ function makeTorchFrames(): Texture[] {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Rato Lanhoso — família Bestial, T1 ("o primeiro sangue do jogador")
+// Rato — família Bestial, T1 ("o primeiro sangue do jogador")
 // 4 direções × 3 frames, mesmo contrato visual do cavaleiro.
 // ──────────────────────────────────────────────────────────────────────
 

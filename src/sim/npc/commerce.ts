@@ -53,13 +53,14 @@ export const COMMERCE: Record<string, NpcCommerce> = {
   // Nina — Loja Geral (Baixa): vendor floor. A opção PREGUIÇOSA — vende o básico
   // e compra quase tudo a preço ruim (sempre aberto, sem gating).
   nina: {
+    // Só UTILITÁRIOS (revisado jun/2026): a Loja Geral NÃO vende mais armas —
+    // o gear de combate é exclusivo do Ferreiro (Duarte). Tira a sobreposição.
     sells: [
       { templateId: "pao", price: 2 },
       { templateId: "tocha", price: 3 },
       { templateId: "corda", price: 15 },
       { templateId: "pa", price: 20 },
-      { templateId: "espada_curta", price: 40 },
-      { templateId: "machado_de_mao", price: 60 },
+      // ✏️ + flechas / sacola quando os templates entrarem.
     ],
     buys: [
       // Vendor floor: paga MENOS que o especialista (cauda 1 vs 2 no Silas).
@@ -67,27 +68,14 @@ export const COMMERCE: Record<string, NpcCommerce> = {
     ],
   },
 
-  // Bartolo — Estalagem do Vau: comida/cama (cama não é item). Sempre aberto.
+  // Bartolo — Estalagem do Vau: estalajadeiro E cozinheiro (Bento fundido nele,
+  // jun/2026). Vende comida + pratos prontos; compra ingredientes pós-Q6.
   bartolo: {
     sells: [
       { templateId: "pao", price: 2 },
       { templateId: "carne_assada", price: 6 },
-    ],
-    buys: [],
-  },
-
-  // Bento — cozinheiro (Estalagem): vende pratos prontos e compra ingredientes,
-  // pós-quest dele (Q6 — a mesma que destrava a 1ª receita).
-  bento: {
-    // CIDADE INICIAL = só o BÁSICO da cozinha (COZINHA.md §Distribuição): o motor
-    // é mais largo que Alvorada. Bento vende o tempero universal (Sal-gema) + o
-    // vasilhame (Pote); habilita Queijo Quente e Sopa. Os ingredientes de buff
-    // ESPECIALIZADOS (Pimenta-longa = +dano, Mel Silvestre = caster, +INT futuro…)
-    // vivem em OUTRAS cidades — exploração destrava buffs. ✏️ preços Balancista.
-    sells: [
-      { templateId: "carne_assada", price: 6 },
-      { templateId: "sal_gema", price: 8 },
-      { templateId: "pote", price: 5 },
+      { templateId: "sal_gema", price: 8 }, // cozinha: cidade inicial = só básico (Bento fundido no Bartolo)
+      { templateId: "pote", price: 5 },     // Pimenta-longa/Mel Silvestre = outras cidades
     ],
     buys: [
       { templateId: "carne_crua", price: 1 }, // compra matéria-prima de caça
@@ -104,14 +92,17 @@ export const COMMERCE: Record<string, NpcCommerce> = {
     ],
   },
 
-  // Duarte — ferreiro (Baixa): vende armas T1; compra sucata pós-quest da Entrega
-  // (Q4 — vira a porta do trade).
+  // Duarte — ferreiro (Baixa): FONTE ÚNICA de gear de combate (revisado jun/2026)
+  // — armas + escudo + armadura (metal/couro básico). Compra sucata pós-Q4.
   duarte: {
     sells: [
       { templateId: "espada_curta", price: 40 },
       { templateId: "machado_de_mao", price: 60 },
       { templateId: "clava", price: 40 },
       { templateId: "adaga", price: 40 },
+      // ✏️ + escudo_de_madeira / gibao / botas / armadura_de_couro: o catálogo T1
+      //    já está desenhado+balanceado (EQUIPAMENTO.md) e com sprite; falta PORTAR
+      //    as peças pra items/templates.ts (hoje só tem armas) e listá-las aqui.
     ],
     buys: [
       // ✏️ + sucata_de_arma / adaga_enferrujada / escudo_lascado (gated Q4).

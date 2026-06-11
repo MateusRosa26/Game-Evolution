@@ -1,0 +1,12 @@
+{
+ "jobId": "e9a83384-0855-4287-b464-58012469300a",
+ "charId": "3e55d11f-4269-499d-95e7-bbd315068f2d",
+ "created": {
+  "usage": null,
+  "background_job_id": "e9a83384-0855-4287-b464-58012469300a",
+  "character_id": "3e55d11f-4269-499d-95e7-bbd315068f2d",
+  "status": "processing",
+  "enhanced_prompt": null,
+  "enhance_usage": null
+ }
+}

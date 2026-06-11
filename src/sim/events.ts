@@ -18,7 +18,7 @@ import type { CreatureFamily, DamageType, Vec2 } from "../shared/types";
 /** Identidade de combate de uma entidade no momento do evento. */
 export interface CombatActorRef {
   id: number;
-  /** Espécie da criatura (ex: "rato_lanhoso") — null para o jogador/genérico. */
+  /** Espécie da criatura (ex: "rato") — null para o jogador/genérico. */
   species: string | null;
   /** Família canônica — null quando não for criatura (ex: jogador). */
   family: CreatureFamily | null;

@@ -82,6 +82,8 @@ Regras do recorte:
 - **Gosto confirmado:** palavra única, geográfico-atmosférica, sonoridade elegante — *Alvorada, Brumal, Charneca, Pontal, Atalaia*.
 - **Evitar:** nomes religiosos/fúnebres diretos (Vésperas, Capela, Campossanto), função comercial (Feitoria), compostos inventados (Entreverde), rural-banal (Figueiral, Lameira).
 - Exemplares canônicos para a skill nomeadora: as 4 cidades acima + Atalaia (banco).
+- **Reclassificação (jun/2026):** **Alvorada** deixou de ser "capital" e passou a ser **a primeira povoação** (vila de fronteira, casas pequenas, muralha baixa de pedra) — ver Geografia em `DESIGN-LORE.md`. O nome continua válido: "Alvorada/amanhecer" cabe ainda melhor num começo humilde.
+- **Fila de batismo — a grande cidade-capital (✏️ fora do MVP):** o coração estabelecido e monumental da humanidade, destino de expansão. Conceito-âncora: **par com Alvorada** (amanhecer → auge). Candidatos calibrados no gosto registrado: **Meridiano** *(meio-dia/zênite — o oposto solar de "amanhecer"; geográfico-astronômico, lê em EN/PT — recomendado pelo par temático)* · **Lumiar** *(toponímia lusa real, raiz de luz/lume — cidade-luz)* · **Solânea** *(toponímia BR real, raiz solar)* · **Coroada** *(evoca a sede-mãe sem dizer "capital"; risco de on-the-nose)*. Criador escolhe quando o jogo precisar — segurar até lá.
 
 ## Mapa de decisões (fechado)
 
@@ -100,10 +102,40 @@ Regras do recorte:
 | Baús lacrados | Lacre por **nível mínimo** (estilo quest door de Tibia): visível antes, abrível depois — o jogador memoriza e volta |
 | Portas & chaves | **Chaves estilo Apogea (decidido jun/2026)**: permanentes, **não-físicas, introcáveis** (flag por personagem); **nunca se sabe qual porta abrem**. Chaveiro minimalista (só nomes evocativos); aviso só no **1º uso**. **Dois tipos de porta**: comum (segura aberta pro grupo) × selada (só o portador). **Chave exigida dos dois lados** — entrar sem chave é compromisso (sai com o portador ou morrendo); venda de acesso = serviço de sessão. Chave abre **portas**; lacre de baú segue por **nível** |
 | Nascimento | **Casa inicial** (tutorial diegético, modelo Tibia/Apogea): NPC-guia + containers **domésticos** (≠ baús raros) com 1–2 armaduras, arma genérica e sacola; a **1ª chave** abre a porta de saída — o loop container→chave→porta ensinado no minuto 2 |
+| Santuário & respawn (jun/2026) | **Bind point estilo Tibia/Apogea.** Toda povoação (vila ou cidade) tem um **Santuário**; o jogador **marca o santuário em que está fisicamente** (não dá pra marcar à distância) e **renasce sempre no último marcado**. Marcar é **grátis** — a fricção é a caminhada, não gold. **Sem rede de teleporte**: o mundo se atravessa **a pé** (constituição: anti-conveniência, a distância importa). Única conveniência de travessia = **barcos pagos entre cidades grandes** (gold sink; usa os rios/balsa já canônicos — Pontal, a Porta d'Água), *ganha/paga*, não livre. É como o **eixo "pra dentro" joga sem forçar**: o jogador migra de casa marcando o santuário da próxima cidade; marcar o da **Capital** é o seu próprio "cheguei à civilização". **Sinergia com a morte:** respawn-no-bind + caminhada-de-volta = punição que escala com o quão fundo/longe você foi (princípio OSRS). **Penalidade de morte = −10% da XP TOTAL acumulada** (pode rebaixar de nível; piso protege XP baixo — já implementado, ver `DESIGN-EVOLUCAO.md`) |
 | Raridades de item | Comum → Incomum → Raro → **Lendário** → **Único**, alinhadas aos slots de Marca (1 / 1 / 1 / 2 / 3) |
 | Arquitetura | Quests, diálogos e baús são **dados** (definições), avaliados na sim — mesmo modelo das Marcas |
 
 > **Onde cada tema mora em detalhe:** quests (as 3 camadas, templates, diário) → [SISTEMA-QUESTS.md](SISTEMA-QUESTS.md); NPCs (4 papéis, comércio especializado, diálogo híbrido, templates) → [SISTEMA-NPCS.md](SISTEMA-NPCS.md); spawns, layout da área inicial, baús, portas & chaves, ferramentas, casa inicial e itens → [EXPLORACAO.md](EXPLORACAO.md).
+
+---
+
+## Progressão do mundo — o espinho (pós-MVP, jun/2026)
+
+> Como o mundo se expande do MVP rumo a um jogo lançável. **A lore É o motor de progressão** — não precisa inventar curva, precisa *sequenciar a escavação da história*. Cânone-mãe em `DESIGN-LORE.md` (linha do tempo + §Geografia/"Escala da civilização").
+
+**Os 3 eixos de progressão** (cada um é uma fantasia diferente; o MVP só usa os dois primeiros):
+
+1. **Pra fora** (distância) — fronteira → bordas selvagens. Perigo por afastamento da segurança (OSRS Wilderness). Fantasia: "enfrentar o mato". Eixo principal do MVP.
+2. **Pra baixo** (profundidade) — superfície → esgoto → cavernas → **o Submundo selado**. Perigo + custo de fuga por profundidade. Fantasia: "descer no escuro". Endpoint canônico: os demônios da 2ª Crise.
+3. **Pra dentro** (escala da civilização — *novo, jun/2026*) — vila humilde → cidades → **a Capital monumental**. **Não é eixo de perigo, é eixo de história/sistemas**: as versões grandes do Templo/Torre/Guilda (cujos ecos humildes estão em Alvorada) guardam o conhecimento dos arcos profundos. Joga via **bind de santuário** (ver tabela de decisões). Fantasia: "chegar à civilização".
+
+**As 4 Crises = a escada de dificuldade** (o jogador anda **pra trás no tempo** — a ferida mais recente é a mais rasa; a mais antiga, o endgame mais fundo; é a fantasia do "jogador-arqueólogo" que a lore pede):
+
+| Arco | Crise (lore) | Tier | Camada geográfica |
+|---|---|---|---|
+| ① **Contaminação** | 3ª Crise (rescaldo) | T1–3 | **RIM** — a fronteira (MVP) |
+| ② **O Necromante inacabado** | 3ª Crise (núcleo) | T3–4 | **MIDLANDS** — a estrada pra dentro; tenentes (lich/death knight) = *fontes* regionais |
+| ③ **O Submundo** | 2ª Crise | T4–5 | **BELOW** — Fendas, Cultistas, Reis Demônios (endgame ↓) |
+| ④ **O Primeiro Mago** | 1ª Crise | endgame | **DEEP/IN** — Árvore Sagrada, Seguidores (o mistério mais antigo) |
+
+**Camadas geográficas:** RIM (fronteira) → MIDLANDS (estrada inward) → HEART (Capital, hub T4–5) → BEYOND/BELOW (endgames: Submundo pra baixo, Árvore/1º Mago pra dentro, expansões de povo pra fora — elfos via Pontal, gelo via serra, mar via penhascos). Cada **expansão** escava uma camada mais funda **ou** abre um continente/povo novo (motor de live-service pronto na lore: 5 continentes, um por expansão).
+
+**Escopo do "lançável" (decidido — criador, jun/2026): o primeiro ato até a Capital.** Região 1 (fronteira/Contaminação, ①, lvl 1–25) polida → **estrada pra dentro** (1–2 regiões MIDLANDS T3–4 carregando o arco ②) → **a Capital alcançável** como clímax (o primeiro "cheguei à civilização"). Cap ~lvl 35–40. É o menor escopo que **sente um jogo** (os 3 eixos aparecem juntos), não uma demo da fronteira. Endgames ③/④ ficam **visíveis como promessa** (a Árvore no horizonte, o Pico do Dragão, a boca do Submundo).
+
+> **Reformula a Fase 3 do `ROADMAP-MVP.md`:** "cidades 2–4" deixa de ser 3 vilas-irmãs da fronteira e vira **a estrada inward + a Capital** (mesmo orçamento, direção diferente).
+
+**✏️ Aberto:** qual promessa é a **bandeira do endgame** no lançamento (o gancho de trailer/retenção) — **pra baixo** (Submundo/demônios, dragões no Pico) · o **mistério** (Árvore Sagrada/1º Mago/Seguidores) · **pra fora** (1ª expansão de povo, elfos via Pontal). · Nome da Capital (candidatos no registro de Nomenclatura; recomendado *Meridiano*). · Direção da Capital no macro (hipótese: oeste, rumo à Árvore Sagrada = coração antigo/sagrado humano).
 
 ---
 

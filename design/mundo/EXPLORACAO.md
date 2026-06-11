@@ -23,6 +23,49 @@ A caça **não** vive em "zonas/cinturões" demarcados: o mundo é uma **paisage
 5. **Exploração paga em spots**: descobrir um covil escondido É recompensa (e os melhores têm baú guardado no fundo). Spot óbvio = salário; spot escondido = prêmio.
 6. **Densidade/respawn por spot**: dimensionados pra sustentar caçada contínua de 1–2 jogadores por spot (números ✏️ balancista, na sim).
 
+## Padrão de spawn — o eixo de densidade/respawn (decidido — jun/2026)
+
+Os tipos acima dizem *que LUGAR* é o spot. Ortogonal a eles, um segundo eixo diz *que PADRÃO de densidade/respawn* o lugar usa — e é o que dá o **feel** (sinal, pressão de matilha, caçada sustentada). Qualquer tipo de lugar pode rodar qualquer padrão: um *Campo temático* "cidade dos goblins" roda **Pool**; um goblin sozinho na *Rota habitada* roda **Sentinela**.
+
+**TODOS os 3 padrões usam o MESMO modelo que já existe** (`MapMonster` + `respawnMs`: pontos fixos, cada um renasce X tempo depois de morrer, no mesmo lugar). Diferem só em **nº de pontos × densidade × tempo de respawn** — é coord + número, sem engine nova.
+
+| Padrão | O que é | Função | nº pontos · densidade · respawn |
+|---|---|---|---|
+| **Sentinela** (solitário) | 1 mob isolado | **linguagem, não farm** — telegrafa o que vem (1 batedor na trilha = "há acampamento"; 1 lobo ferido = "a alcateia está perto"); pode **mentir** (isca de emboscada) | 1 ponto · — · respawn longo |
+| **Bando** (pequeno pack) | 2–4 mobs com lógica (ninhada, patrulha), espaçados p/ pull ≤ alvo de letalidade | farm de superfície, espalhado pelo campo | 2–4 · apertado · respawn médio |
+| **Pool** (zona de caça) | MUITOS pontos fixos densos — você faz um **circuito** (limpa um canto, quando volta o primeiro já respawnou). **NÃO é refil infinito** | "limpar e circular": mais perigo/densidade/recompensa, **custo de fuga maior** | muitos · denso em circuito · respawn afinado pro teto |
+
+> **O respawn-timer É o teto de exp/h (decidido jun/2026, modelo Tibia):** `teto exp/h = nº spawns × (3600/respawn_seg) × xp_mob`. Quando o TTK do jogador fica rápido o bastante pra limpar mais rápido que o respawn, ele **bate nesse teto** — matar mais rápido não rende mais (espera o respawn). Um "pool que se reabastece pra sempre" REMOVERIA o teto e recompensaria DPS infinito → degenera o farm; por isso **não existe spawn que nunca acaba**. O timer dá o ritmo E protege o balance. (Calibração nº-pontos × respawn × HP/xp ✏️ Balancista.)
+
+> **Reconciliação com o termo "Covil"** (tabela anterior): "Covil" é um *tipo de lugar* (átomo de farm com identidade) e escala nos dois padrões — um covil pequeno roda **Bando**; uma toca grande que justifica caçada longa roda **Pool** (mais pontos, não refil). Sem colisão: lugar × padrão compõem.
+
+## Como a gramática funciona — princípios operacionais (decidido — jun/2026)
+
+A gramática é uma **gramática, não um checklist**. Quatro princípios a sustentam — cada um vira mecânica, prática ou gate, nunca só valor declarado:
+
+**1. Gramática ≠ fórmula — o orçamento de subversão é onde moram os momentos memoráveis.** O instante em que "todo rumo = 1 Sentinela + 2 Bandos + 1 Pool" vira receita, o mapa fica previsível e mata a descoberta (pilar 3). As **exceções não são rodapé — são o conteúdo**: a Sentinela que é isca, o Pool sem telegrafia, o rumo "seguro" que de repente não é.
+- *Operacional — registro de subversão*: cada fatia reserva **1–2 "mentiras"**, listadas no doc da fatia. Não é cota a preencher (isso é checklist de novo) — é **teto + anti-repetição**: nunca a mesma trick em regiões vizinhas. O inimigo da surpresa é a repetição; a ferramenta é um registro que IMPEDE reusar o mesmo tell.
+- *Suporte de engine*: a "Sentinela que mente" precisa de **spawn ligado/gatilho** (`ambushOnAggro` / `linkedSpawn`) — agredir/aproximar acorda um Bando escondido. ✏️ designer-de-sistemas.
+- *Vocabulário de tell rotativo*: telegrafia não pode ser sempre "1 mob na trilha" — varie a linguagem (carcaça, trilha gasta, **silêncio onde devia haver som**, fumaça no horizonte). Paleta mantida por world-designer + diretor-de-arte.
+- *Vale nas DUAS escalas — identidade de região = tendência, não lei (decidido pelo criador jun/2026)*: cada cidade/região **puxa** pra um padrão dominante (Alvorada ensina os 3 dosados; Charneca puxa Pool escuro de undead; Brumal puxa emboscada/bioma-misto de fronteira) — isso é o que mantém o arco de 30-45h em ritmos diferentes, não só mobs mais fortes. **Mas dominante ≠ exclusivo**: nenhuma região é mono-padrão; cada uma guarda variações que surpreendem. O padrão de cada spawn se escolhe por **qualidade/dificuldade/o que torna AQUELE spot interessante**, nunca por cota regional. A especialização macro é um *lean* de identidade; o checklist regional é o mesmo erro do checklist por-rumo, um nível acima.
+
+**2. O que decide o "fun" não está na taxonomia — está na CALIBRAÇÃO do spot (o modelo já existe; o difícil é tunar).** O loop viciante "limpar e circular um spot" de um Tibia-like vive ou morre na relação **nº de pontos × tempo de respawn × HP/xp do mob**. A gramática (onde cada spot fica) é a parte fácil/certa; **achar os números é a parte difícil/decisiva**. Risco real: enamorar-se da colocação elegante e subinvestir na calibração.
+- *Mecanismo = o que já existe*: pontos fixos + `respawnMs` por ponto. **Sem feature nova** — não há "controlador de população"; o timer de respawn é tudo (e é o teto de exp/h, ver acima).
+- *Os botões e o que cada um faz*: **nº de pontos** (densidade máx + parte do teto de exp/h) · **tempo de respawn** (o throttle do exp/h) · **HP/xp do mob → TTK** (define se o jogador é gargalo ou bate no teto) · **disposição/chokepoints** (placement → controla o pull). A "curva por profundidade" = mais pontos / respawn mais curto no fundo.
+- *Métricas-alvo ANTES de tunar* (senão se tuna no escuro): spot bom = jogador no level fica ~TTK-limited (engajado), over-leveled bate no **teto de respawn** (rende pouco → "esse spot acabou pra você, segue"). Balancista mede **exp/h sustentado vs teto, mortes/h, tamanho de pull**.
+- *Gate de processo*: calibração é trabalho do **Balancista na sim** (não engenharia) — posicionar agora, medir, dobrar.
+
+**3. Compromisso de custo de conteúdo, de olhos abertos — bespoke nas vitrines, template na cauda longa.** Colocação hand-authored é correta pra Alvorada (cidade-vitrine, *deve* ser bespoke), mas não escala pro 50º spot do ato 3.
+- *Estratégia de duas camadas*: **áreas-vitrine** (cada spot bespoke — cidades de spawn, dungeons nomeadas, clímax de quest) × **tecido conectivo** (paleta de **stamps** de Bando/Pool pré-tunados, posiciona-e-reskina).
+- *Biblioteca de stamps*: Bando/Pool já são conceitos parametrizados (família, tier, padrão, densidade) → cauda longa vira **montagem, não autoria**. A gramática é o que torna isso possível.
+- *Heurística de orçamento*: gaste craft bespoke onde o jogador **desacelera e olha** (primeiras impressões, landmarks, clímax); use stamps onde ele **passa**.
+
+**4. O papel mente — o que faz a abordagem funcionar é o loop de validação, não o doc.** Desenhar no papel produz mapas que mentem; o método do projeto manda **andar + medir**.
+- *O loop como ritual*: posicionar → **andar** (dev server + Playwright) → **medir** (balancista headless) → **dobrar**.
+- *Gate de "pronto"*: um spot não está pronto até ter sido **andado E medido** contra os alvos.
+- *Instrumentação*: o balancista precisa de proxies de *feel*, não só XP/h — **tamanho de pull, % downtime, eventos de quase-morte**. ✏️ harness headless que simula um jogador farmando o spot e reporta isso.
+- *Teste dos "primeiros 10 minutos"*: char classless fresco saindo de cada portão — o perigo **se lê pela cena**? Morre de surpresa (ruim) ou de risco telegrafado (bom)?
+
 ## Layout da área inicial (rascunho de trabalho)
 
 > Fonte: `design/rascunhos/area-inicial-v2.png` (Figma Make do criador) — o rascunho é exclusivamente uma **sugestão de layout** para trabalhar em cima. **Cidades já batizadas** (abaixo); **POIs ainda são placeholders**. Mobs e lore definidos por nós.
@@ -42,13 +85,13 @@ A caça **não** vive em "zonas/cinturões" demarcados: o mundo é uma **paisage
 
 **Estrutura — 3 cidades no MVP + 1 porta de expansão (decidido):**
 
-- **Alvorada** (oeste, planícies) — **capital**, hub completo. A primeira cidade fundada após a Chegada: "o amanhecer da humanidade no mundo novo". District: planície dourada, civilização, muralha; weenie: a torre da muralha (+ a **Árvore Sagrada** no horizonte distante — promessa macro da lore). Constelação T1: ratos na cidade + **Esgotos** (dungeon urbana), planícies, trilha dos lobos, acampamento goblin, estrada dos bandidos ao sul.
+- **Alvorada** (oeste, planícies) — **a primeira povoação**, hub do novato. O primeiro povoado erguido após a Chegada: "o amanhecer da humanidade no mundo novo" — **não uma capital pronta**, mas um punhado de **casas pequenas** e uma **muralha baixa de pedra, inacabada**; gente frágil fincando o primeiro pé num mundo que não é seu. Os serviços existem em **versão humilde** (capela de tábuas, casa do mago, pátio da milícia, armazém), não em instituições monumentais — a grandiosidade (muralhas **altas, de andares**, templos, torres, **a verdadeira cidade**) é **promessa no horizonte**, fora do MVP (ver Geografia em `DESIGN-LORE.md`). District: planície dourada, fronteira mansa, muralha baixa; weenie: a torre de vigia da muralha (+ a **Árvore Sagrada** no horizonte distante — promessa macro da lore). Constelação T1: ratos na vila + **Esgotos** (dungeon urbana — drenos de pedra **mais antigos que o povoado**, sobre os quais a vila foi erguida), planícies, trilha dos lobos, acampamento goblin, estrada dos bandidos ao sul.
 - **Charneca** (sul) — vilarejo do **arco da Contaminação**. District: planície brava, névoa, musgo cinza; weenie: a colina do cemitério com a capela em ruína. Constelação T1→T2: pântano raso (Aquáticos), cemitério (Mortos-Vivos), **Catacumbas**.
 - **Brumal** (nordeste) — vilarejo madeireiro, a **fronteira selvagem**. District: floresta fechada, bruma azulada; weenie: o **Pico do Dragão** ao norte (muro T4–T5 do MVP). Constelação T2→T3: Floresta Sombria, Dungeon da Floresta, Cavernas de Gelo, colinas de ogros — bioma misto na borda da serra (elementais de gelo + ursos + lobos).
 - **Pontal** (leste) — **fechada no MVP**: visível do outro lado do rio (a balsa não atravessa), guardada por **Atalaia**, o posto de vigia na estrada leste. É a porta de expansão élfica — o Santuário Élfico (T1–T2) fica acessível como POI deste lado.
 - **Esqueleto Lynch**: triângulo de estradas Alvorada↔Charneca↔Brumal com as **Ruínas Antigas no node central** (T1→T3 por profundidade, boss do arco no fundo); edges = serra ao norte, rio a leste, penhascos ao sul (3 portas de expansão); canto NE (gelo+Pico) = extremo do gradiente, o mais longe da segurança.
 - **Orçamento de conteúdo do MVP**: ~20–25 spots de caça (ponderados: T2 maior fatia) · ~25–35 quests · **20–30 baús** (piramidal: base utilitária/chaves no early, topo enxuto — ver Baús) · ~12+ segredos não-baú (atalhos, áreas, keywords, NPCs escondidos) · ~16–18 andares de dungeon somados.
-- **Construção em fatias verticais**: ① constelação de Alvorada (cidade + esgotos + spots T1) → ② Charneca + atos 1–2 do arco → ③ Brumal + fronteira T3 + boss. Cada fatia jogável de ponta a ponta.
+- **Construção em fatias verticais**: ① constelação de Alvorada (vila + esgotos + spots T1) → ② Charneca + atos 1–2 do arco → ③ Brumal + fronteira T3 + boss. Cada fatia jogável de ponta a ponta.
 - **Spawn de personagens novos (decidido jun/2026):** o char nasce **sem classe** (modelo Rookgaard — `DESIGN-EVOLUCAO.md`) e spawna **aleatoriamente** entre as cidades de spawn. **Regra: cidade de spawn = constelação T1 ao redor + os 4 NPCs de classe.** No MVP: **Alvorada + Charneca**; Brumal entra ✏️ **se** ganhar bolsão T1 próprio. Os 4 **ritos de classe** (quest boba + gold simbólico, com a cara de cada classe — ver `DESIGN-EVOLUCAO.md`) entram no orçamento de quests e dobram como tutoriais de mecânica.
 - **14 pontos de interesse** em 5 categorias (Esgotos de Alvorada adicionado):
 

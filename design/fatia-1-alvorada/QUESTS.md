@@ -44,7 +44,7 @@ Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando
 | Q3 | Reagentes do Boticário / *The Apothecary's Reagents* | direta | Norte | 2–4 | **Silas**, boticário | **trade de reagentes** + 1 poção de cortesia |
 | Q4 | A Entrega do Ferreiro / *The Smith's Delivery* | direta | Leste | 2–4 | **Duarte**, ferreiro | **trade de sucata/armas** · mostra Pontal |
 | Q5 | Lobos Demais / *Too Many Wolves* | direta | Nordeste | 3–5 | **Capitão Vidal** | **bounty de orelhas** · abre Q8 |
-| Q6 | O Prato do Cozinheiro / *The Cook's Dish* | direta | Cidade (caça: Toca/Matagal) | 3–6 | **Bento**, cozinheiro da estalagem | **receita do Ensopado + trade de ingredientes** |
+| Q6 | O Prato do Cozinheiro / *The Cook's Dish* | direta | Cidade (caça: Toca/Matagal) | 3–6 | **Bartolo**, estalajadeiro-cozinheiro | **receita do Ensopado + trade de ingredientes** |
 | Q7 | A Caçada do Peleteiro / *The Furrier's Hunt* | composta (2 atos) | Sul (Matagal) | 4 → 9 | **Amaro**, caçador-peleteiro (Cais) | **Faca de Esfolar + trade de peles** |
 | Q8 | Orelha por Orelha / *Ear for Ear* | encadeada (3 atos) | Nordeste | 3 → 10 | **Capitão Vidal** (pós-Q5) | gold bom + peça T1 · fio → Fortaleza |
 | Q9 | A Estrada Roubada / *The Stolen Road* | encadeada (NPC em NPC) | Sul (ponte) | 8–12 | **Duarte**, ferreiro (pós-Q4) | gold bom · ensina estrada de Charneca |
@@ -62,14 +62,14 @@ Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando
 > Modelo decidido em `DESIGN-EVOLUCAO.md`: quest boba + gold simbólico, com a cara da classe; entrega a **arma do kit**; nenhuma skill vem de graça. **Sem restrição de nível NENHUMA (decidido jun/2026)**: o rito pode ser feito a qualquer momento — a única barreira é o **gold (150, decidido jun/2026**; era simbólico — agora a classe é conquista do early, e o período classless é fase real do personagem**)**. **Cada rito tutoriza um SISTEMA diferente do jogo** (decidido jun/2026). Âncoras físicas do layout v4. Falas ✏️ Loremaster.
 
 ### R1. A Prova do Pátio / *The Courtyard Trial* — rito do Knight
-- **Local:** Guilda dos Guerreiros · **NPC: Ricardo**, o instrutor
+- **Local:** Pátio da Milícia · **NPC: Ricardo**, o instrutor
 - **Quest:** aguentar os golpes de Ricardo com o escudo de treino + derrubar o boneco do pátio.
 - **Tutoriza:** combate melee + **bloqueio com escudo** — a lente de Marca do Knight (golpes bloqueados) nasce no primeiro minuto.
 - **Entrega:** escolha espada × machado × maça + escudo de madeira (kit decidido).
 
 ### R2. O Tomo Esquecido / *The Forgotten Tome* — rito do Mage
-- **Local:** Torre Arcana · **NPC: Leonor**, a arcanista
-- **Quest:** Leonor deixou um tomo guardado no **Depot** — buscar e trazer. Ao voltar, escolher o elemento **tocando o braseiro OU o cristal** (fogo × gelo).
+- **Local:** Casa do Mago · **NPC: Leonor**, a arcanista
+- **Quest:** Leonor deixou um tomo guardado no **Armazém** (o Depot da vila) — buscar e trazer. Ao voltar, escolher o elemento **tocando o braseiro OU o cristal** (fogo × gelo).
 - **Tutoriza:** o **Depot** (o sistema que todo jogador precisa conhecer) + a primeira declaração elemental.
 - **Entrega:** cajado 2H (kit decidido).
 
@@ -80,7 +80,7 @@ Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando
 - **Entrega:** escolha adaga × arco (kit decidido).
 
 ### R4. A Vigília / *The Vigil* — rito do Priest
-- **Local:** Templo (Alto) · **NPC: Gabriel**, o sacerdote
+- **Local:** Capela (Alto) · **NPC: Gabriel**, o sacerdote
 - **Quest:** levar a oferenda e acender a chama no **Santuário**.
 - **Tutoriza:** o **santuário de respawn** — saber onde se renasce, antes da primeira morte.
 - **Entrega:** escolha cetro × luva — a luva oferecida **sem comentário algum** (hint silencioso do Monge, decidido).
@@ -95,7 +95,7 @@ Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando
 - **NPC / gatilho:** **Bartolo**, estalajadeiro (Estalagem do Vau) — oferece de cara.
 - **Requisitos:** nenhum.
 - **Texto-pista ✏️:** *"Os malditos roem até as vigas. Desce lá e me livra deles — e olha que eles não param de aparecer, devem subir de algum lugar…"*
-- **Etapas:** `talk` → `kill` **8** Ratos Lanhosos na região do porão da estalagem → `talk` (report).
+- **Etapas:** `talk` → `kill` **8** Ratos na região do porão da estalagem → `talk` (report).
 - **Recompensa:** gold pequeno + **50 XP**. Fala final **aponta o bueiro da praça** (planta os Esgotos).
 - **Ensina:** combate básico, loop oferta→report, contador discreto no diário.
 - **Registro no diário ✏️:** *"O estalajadeiro jura que os ratos sobem de algum lugar. O bueiro da praça?"*
@@ -103,7 +103,7 @@ Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando
 ### Q6. O Prato do Cozinheiro / *The Cook's Dish*
 - **Camada:** direta
 - **Nível-alvo:** 3–6 ✏️ (carne de lobo T1 às vezes / javali T2 sempre — o jogador escolhe o risco)
-- **NPC / gatilho:** **Bento**, cozinheiro da estalagem.
+- **NPC / gatilho:** **Bartolo**, o estalajadeiro (também cozinha — Bento fundido nele, jun/2026).
 - **Requisitos:** nenhum.
 - **Texto-pista ✏️:** *"Pão eu tenho. O que falta é carne de verdade — caça, não essa miséria de celeiro."*
 - **Etapas:** `talk` → entregar **4** Carnes de Caça (loot: Lobo às vezes, Javali sempre) → **cozinhar juntos** na estalagem (interação na fogueira fixa).
@@ -133,7 +133,7 @@ Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando
 - **Lá embaixo:** o Andar 3 — bolsão minúsculo, 1–2 Ghouls. Não é spot de farm: é **arrepio**.
 - **Recompensa:** o conhecimento — **registro no diário** + loot dos ghouls ✏️ (família-coração, ver arco). Baú: decidir no orçamento de baús (M3) — o segredo já paga em lore.
 - **Papel:** 1º sussurro da Contaminação **por baixo** — rima com a Água do Poço sem se tocarem (quem fez as duas liga os pontos sozinho).
-- **Registro no diário ✏️:** *"Mergulhei onde ninguém mergulha. Algo apodrece sob a capital — e anda."*
+- **Registro no diário ✏️:** *"Mergulhei onde ninguém mergulha. Algo apodrece sob o povoado — e anda."*
 
 ---
 
@@ -175,7 +175,7 @@ Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando
 - **NPC / gatilho:** **Capitão Vidal** (Quartel da Guarda).
 - **Requisitos:** nenhum.
 - **Texto-pista ✏️:** *"A alcateia da orla atacou dois viajantes esta semana. Não tenho homens — a muralha consome tudo. Reduza a matilha."*
-- **Etapas:** `talk` → `kill` **8** Lobos Cinzentos na **Toca dos Lobos** (orla da mata) → `talk` (report).
+- **Etapas:** `talk` → `kill` **8** Lobos na **Toca dos Lobos** (orla da mata) → `talk` (report).
 - **Recompensa:** gold + **100 XP** + **destrava o bounty de orelhas de goblin** (o capitão passa a comprar — contrato permanente) + **abre Orelha por Orelha (Q8)**.
 - **Ensina:** a orla da mata, o caminho do vau NE.
 - **Registro no diário ✏️:** *"Alcateia reduzida. O Capitão Vidal agora paga por orelha de goblin — 'praga pior que lobo'."*
@@ -184,7 +184,7 @@ Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando
 - **Camada:** encadeada (direta em 3 atos — cada ato manda mais longe)
 - **Nível-alvo:** 3 → 10 ✏️
 - **NPC / gatilho:** **Capitão Vidal**, **após Lobos Demais** (gating de confiança).
-- **Ato 1 (lvl ~3–5):** batedores goblins rondam o vau NE — `kill` Goblins Batedores + trazer **10** orelhas.
+- **Ato 1 (lvl ~3–5):** batedores goblins rondam o vau NE — `kill` Goblins + trazer **10** orelhas.
 - **Ato 2 (lvl ~5–8):** seguir a trilha → **descobrir o Acampamento Goblin** (`region_enter`) → report → reduzir o acampamento (`kill` **12** goblins).
 - **Ato 3 (lvl ~8–10):** a **Caverna dos Goblins**: chegar ao fundo e descobrir **quem os arma** → `kill` **Orc Soldado** (decidido jun/2026 — fecha a pendência do bestiário) + trazer a **Sucata de Arma marcada** ✏️ como prova.
 - **Recompensa final:** gold bom + **XP por ato: 100 / 150 / 350** + **peça T1 de gear** (loot raro do Orc, ITENS-LOOTS).
@@ -228,7 +228,7 @@ Níveis-alvo abaixo validados contra a régua T1 medida; validação fina quando
 - **Ato 1 (lvl ~4–6):** *prova de caçador* — trazer **3** Peles de Lobo.
 - **Ato 2 (lvl ~8–9):** ele conta de **Presa-Torta** (*Crooktusk*) — o javali velho do fundo do Matagal, grande demais pra ele. **Modelo decidido**: mob único do mundo, **respawn contínuo lento** (✏️ ~20–30 min), visível pra todos sempre — **zero phasing**; o `kill` credita **todos que contribuíram** no combate. Matar e reportar (a sim rastreia o evento — sem item de quest).
 - **Recompensa:** **100 XP (ato 1) + 250 XP (ato 2)** + **Faca de Esfolar** (a ferramenta E o símbolo — fecha pendência de ITENS-LOOTS: a "caçada conjunta" virou caçada do named, sem tech de follower) + **destrava trade de peles/couro/presas**.
-- **Ficha de Presa-Torta:** ✏️ bestiário (variante named do Javali de Presas, T2+ — alcunha de crônica dos caçadores, fonte 4 da nomenclatura).
+- **Ficha de Presa-Torta:** ✏️ bestiário (variante named do Javali, T2+ — alcunha de crônica dos caçadores, fonte 4 da nomenclatura).
 - **Registro no diário ✏️ (ato 2):** *"Presa-Torta caiu. Amaro não acreditou até ver a cicatriz da presa. Agora compra o que eu esfolar."*
 
 ### Q9. A Estrada Roubada / *The Stolen Road* — encadeada, NPC em NPC
@@ -303,7 +303,7 @@ demais                       → sem pré-requisito
 - [ ] Textos-pista finais (os daqui são rascunhos de intenção) — **Loremaster**
 - [x] ~~Níveis-alvo, contagens de kill/coleta, valores de XP~~ — calibrados (Balancista, bateria M1 — ver §Orçamento de XP)
 - [x] ~~Valores de gold~~ — 1º passe calibrado (Balancista + criador, jun/2026 — ver §Orçamento, gold por quest); ✏️ validação na sim quando loot/gold entrarem (M2)
-- [ ] Ficha de Presa-Torta (variante named do Javali de Presas) — **bestiário**
+- [ ] Ficha de Presa-Torta (variante named do Javali) — **bestiário**
 - [ ] O destino de Jonas, o moleiro (Q12) — quão escuro? — **Loremaster**
 - [ ] Loot dos Ghouls do Porão Afogado (família-coração) — junto do arco (fatia ②)
 - [ ] Baú no A3? — decidir no orçamento de baús (M3)

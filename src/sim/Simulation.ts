@@ -82,6 +82,8 @@ interface PendingRespawn {
   pos: Vec2;
   /** Andar do mob morto — respawna no mesmo z. */
   z: number;
+  /** Override de respawn por-spot (carrega pro mob renascido). */
+  respawnMs?: number;
   atTick: number;
 }
 
@@ -379,18 +381,18 @@ export class Simulation {
   private spawnInitialMonsters(): void {
     for (const m of this.world.map.monsters) {
       const template = CREATURES[m.species];
-      if (template) this.spawnMonster(template, { x: m.x, y: m.y });
+      if (template) this.spawnMonster(template, { x: m.x, y: m.y }, this.world.baseZ, m.respawnMs);
     }
     // Spawns por ANDAR (z<0): cada FloorLayer traz seus mobs em coords de mundo.
     for (const f of this.world.map.floors ?? []) {
       for (const m of f.monsters) {
         const template = CREATURES[m.species];
-        if (template) this.spawnMonster(template, { x: m.x, y: m.y }, f.z);
+        if (template) this.spawnMonster(template, { x: m.x, y: m.y }, f.z, m.respawnMs);
       }
     }
   }
 
-  private spawnMonster(template: CreatureTemplate, pos: Vec2, z: number = this.world.baseZ): number {
+  private spawnMonster(template: CreatureTemplate, pos: Vec2, z: number = this.world.baseZ, respawnMs?: number): number {
     const id = this.nextId++;
     this.entities.set(id, {
       id,
@@ -428,6 +430,7 @@ export class Simulation {
       ai: "idle",
       aggroRadius: template.aggroRadius,
       spawnPos: { x: pos.x, y: pos.y },
+      respawnMs, // override por-spot (undefined = usa template.respawnMs no death)
       npcKey: null,
       quests: new Map(),
       activeDialogue: null,
@@ -1385,7 +1388,8 @@ export class Simulation {
             template,
             pos: { x: e.spawnPos.x, y: e.spawnPos.y },
             z: e.z,
-            atTick: this.tickCount + msToTicks(template.respawnMs),
+            respawnMs: e.respawnMs,
+            atTick: this.tickCount + msToTicks(e.respawnMs ?? template.respawnMs),
           });
         }
         // limpa qualquer jogador que mirava nele
@@ -1407,7 +1411,7 @@ export class Simulation {
             this.world.isWalkable(r.pos.x, r.pos.y, r.z) &&
             !this.world.isSafeZone(r.pos.x, r.pos.y, r.z) &&
             !this.occupancy.has(this.tileKey(r.pos.x, r.pos.y, r.z));
-          if (free) this.spawnMonster(r.template, r.pos, r.z);
+          if (free) this.spawnMonster(r.template, r.pos, r.z, r.respawnMs);
           else remaining.push({ ...r, atTick: this.tickCount + 20 });
         } else {
           remaining.push(r);

@@ -10,18 +10,18 @@
 
 ## 0. PRÉ-REQUISITO que bloqueia o conteúdo: o bestiário
 
-O `alvorada.ts` **filtra spawns pelo bestiário implementado**, e hoje `Bestiary.ts` só tem **2 espécies**: `rato_lanhoso` e `esqueleto` (linhas 168-169). Por isso o A1 atual povoa com `esqueleto` — **placeholder por falta de dado, não escolha de design**. Pior: morto-vivo é da família-Contaminação, cujo **1º sussurro deve estrear no A3** (Q15) — pôr esqueleto no A1 fura o tier E queima o reveal.
+O `alvorada.ts` **filtra spawns pelo bestiário implementado**, e hoje `Bestiary.ts` só tem **2 espécies**: `rato` e `esqueleto` (linhas 168-169). Por isso o A1 atual povoa com `esqueleto` — **placeholder por falta de dado, não escolha de design**. Pior: morto-vivo é da família-Contaminação, cujo **1º sussurro deve estrear no A3** (Q15) — pôr esqueleto no A1 fura o tier E queima o reveal.
 
 **Para os esgotos ficarem on-spec, F1/Balancista precisa adicionar ao bestiário (em ordem de necessidade):**
 
 | Espécie | Tier | Andar | Papel |
 |---|---|---|---|
-| `morcego_sanguessuga` | T1 | A1 (norte) | já tem arte; transição com a Gruta — tira o A1 da muleta do esqueleto |
+| `morcego` | T1 | A1 (norte) | já tem arte; transição com a Gruta — tira o A1 da muleta do esqueleto |
 | `aranha_das_cavernas` | T2 | A2 | dungeon de verdade |
 | `escaravelho_de_cripta` | T1 | A2 | enche o A2 |
 | `ghoul` | T3 | A3 | o arrepio do Porão Afogado — 1º sussurro da Contaminação (Q15) |
 
-Enquanto não existirem: F1 transcreve a **geometria** já (vale por si) e povoa com `rato_lanhoso` + um marcador `// TODO species` onde entra morcego/aranha/ghoul. **Não** espalhar `esqueleto` pelo A1.
+Enquanto não existirem: F1 transcreve a **geometria** já (vale por si) e povoa com `rato` + um marcador `// TODO species` onde entra morcego/aranha/ghoul. **Não** espalhar `esqueleto` pelo A1.
 
 ---
 
@@ -108,10 +108,19 @@ Leitura: galeria-espinha E-W na linha y13-16 liga as 5 bocas; trincheira de `Sew
 ### 3.4 Spawns A1 ✏️
 | Espécie | world (≈) | Nota |
 |---|---|---|
-| `morcego_sanguessuga` ×2 | (114,93),(118,96) | norte, perto da boca Capela (transição c/ a Gruta) |
-| `rato_lanhoso` ×4 | espalhados na espinha/HALL | T1 base |
+| `morcego` ×2 | (114,93),(118,96) | norte, perto da boca Capela (transição c/ a Gruta) |
+| `rato` ×4 | espalhados na espinha/HALL | T1 base |
 
 > **Tier sobe pro fundo:** zero morto-vivo no A1. O "fundo perigoso" do A1 é a poça funda (hazard ambiental), não um T2.
+
+### 3.5 A Adega da Estalagem (Q1) — o primeiro dungeon contido (decidido — jun/2026)
+
+A Q1 ("Ratos no Porão", Bartolo) NÃO acontece em campo aberto: o **placeholder de "ratos fora do portão Sul" SAI** (sempre foi stopgap). O porão é a **adega sob a Estalagem do Vau** (Bartolo, world ≈ `(120,119)` z=0) — o **primeiro dungeon contido** do jogo, e o tutorial diegético de "descer num espaço fechado, lutar, voltar".
+
+- **Geometria:** sala pequena murada em **z=−1**, ISOLADA do A1 (não é uma 6ª boca). Entrada = **escada na estalagem** (z=0 ↔ adega z=−1, par `stairs`). 8 `rato` dentro.
+- **Ligação ao A1 = fresta de rato (telegrafia só, decidido):** uma fresta/cano numa parede da adega **impassável pro jogador** — você VÊ de onde os ratos sobem, mas não segue por ali. Resolve a ficção da Q1 (*"não param de aparecer, devem subir de algum lugar"*) sem dar atalho. Visual: parede com rachadura + `Sewage` escorrendo (✏️ diretor-de-arte).
+- **Por que NÃO uma boca utilizável:** a Q1 aponta o **bueiro da praça** como a entrada de verdade do esgoto — se a adega descesse direto pro A1, o gancho "ache o bueiro" morre. Adega = tarefa fechada; bueiro da praça = a porta que se DESCOBRE depois. (Os dois são pontos de superfície do mesmo A1; os ratos do A1 sobem pela fresta.)
+- **Handoff:** mini-mapa/sala z=−1 própria (engine de andares) — não é "posicionar coord no overworld". Entra junto do footprint do A1.
 
 ---
 
@@ -181,7 +190,7 @@ ASCII (A3-local, 14×12):
 
 | Quest | Exige | Aqui | ✓ |
 |---|---|---|---|
-| Q1 Ratos no Porão | bueiro da praça aponta o esgoto | boca Praça (136,118) §3.1 | ✓ |
+| Q1 Ratos no Porão | adega da estalagem (kill) + bueiro da praça (gancho) | adega z=−1 §3.5 + boca Praça (136,118) §3.1 | ✓ |
 | Q10 A Água do Poço | esgoto A2 + alvenaria antiga manchada | A2 alvenaria (132,108) §4.1 | ✓ |
 | Q15 O Porão Afogado | passagem alagada (A2) + A3 + ghouls | passagem (128,120) → A3 ghoul (134,113) | ✓ |
 | (travessia ⑤) | galeria alagada → margem leste | boca cave A2 (146,102) ↔ (255,170) | ✓ |
@@ -190,7 +199,7 @@ ASCII (A3-local, 14×12):
 
 ## 8. Checklist de handoff
 
-**F1 — bestiário (`Bestiary.ts`):** adicionar `morcego_sanguessuga` (desbloqueia A1) → `aranha_das_cavernas`+`escaravelho_de_cripta` (A2) → `ghoul` (A3). Números = Balancista.
+**F1 — bestiário (`Bestiary.ts`):** adicionar `morcego` (desbloqueia A1) → `aranha_das_cavernas`+`escaravelho_de_cripta` (A2) → `ghoul` (A3). Números = Balancista.
 
 **F1 — mapa (`alvorada.ts`):**
 - [ ] Realinhar boeiro/portal da praça p/ **(136,118)** (corrige (138,118) atual + casa com a feira).

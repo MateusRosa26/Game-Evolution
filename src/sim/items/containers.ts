@@ -17,7 +17,7 @@ export type ContainerSlotContent =
 
 export interface Container {
   id: number;
-  /** Nome exibível ("Bolso", "Mochila", "Corpo de Rato Lanhoso"). */
+  /** Nome exibível ("Bolso", "Mochila", "Corpo de Rato"). */
   name: string;
   capacity: number;
   slots: ContainerSlotContent[];
