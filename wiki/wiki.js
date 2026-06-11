@@ -14,6 +14,10 @@ const DOCS = [
     desc: "Visão do jogo, sistemas decididos, arquitetura sim/client e roadmap M0–M6." },
   { id: "progressao", title: "Progressão & Marcas", file: "../DESIGN-EVOLUCAO.md",
     desc: "Duas camadas: sólida (stats, skills, level) + emergente (Marcas, Mutações, Caminhos)." },
+  { id: "skills-hub", title: "Skills & Magias — Hub", file: "../DESIGN-SKILLS.md",
+    desc: "Gating por atributo+nível, os três eixos (dano/novidade/XP-hora), anti-treadmill puro-Koster, o espinho de 5 bandas e a assimetria de contagem." },
+  { id: "skills-catalogo", title: "Skills — Catálogo", file: "../design/skills/CATALOGO.md",
+    desc: "Índice mestre das ~35 skills por requisito + fichas detalhadas (parseado pela view de Skills)." },
   { id: "bestiario", title: "Bestiário — Hub", file: "../DESIGN-BESTIARIO.md",
     desc: "Princípios, tiers e orçamento de ataques, biblioteca de blocos e matriz de fraquezas (Regra 10–20)." },
   { id: "bestiario-familias", title: "Bestiário — Famílias", file: "../design/bestiario/FAMILIAS.md",
@@ -302,9 +306,12 @@ function buildDb() {
   }
   const evo = state.docs.get("progressao");
   if (evo?.md) {
-    dbData.skills = parseSkills(evo.md);
     dbData.classes = parseClasses(evo.md);
   }
+  // Skills pós-split (jun/2026): índice mestre + fichas vivem no sub-doc CATALOGO.md;
+  // o hub DESIGN-SKILLS.md tem só as decisões-mãe (não parseável). Mesmo padrão do bestiário.
+  const skillCat = state.docs.get("skills-catalogo");
+  if (skillCat?.md) dbData.skills = parseSkills(skillCat.md);
   // Catálogos/roster de itens vivem no sub-doc EQUIPAMENTO.md (split jun/2026).
   const it = state.docs.get("itens-equipamento");
   if (it?.md) dbData.itens = parseItems(it.md);

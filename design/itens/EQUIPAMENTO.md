@@ -175,8 +175,17 @@ Leituras de design:
 proposta numerada, confirmada: com a fórmula `max(1, bruto − ΣDef)` e o rato batendo 7,
 um set Σ5–6 derrubaria o dano do T1 inteiro ao piso 1 — armadura T1 apagaria o perigo T1
 (anti-pilar-2). Com Σ2–3, TTL contra 2 ratos continua matando o descuidado (~20–25s). O
-**escudo T1 não tem Def flat** — paga em **bloqueio** (chance ~20%, chunk 70%, provisórios
-✏️). Distribuição exata por peça ✏️ fina quando a mitigação entrar na sim (M2), preservando o Σ.
+**escudo T1 não tem Def flat** — paga em **bloqueio**. **CALIBRADO + REVISADO
+(Balancista, 2026-06-11 — `docs/reports/2026-06-11-bateria-armadura-ttl.md`):** mitigação na
+ordem **bloqueio% → Def SORTEADA → piso 1**. O criador rejeitou Def **flat** (criava penhasco
+"piso 1 vs cheio" + escala ruim) → **Def agora é SORTEADA `0..Def`** (`armorMitigation`, estilo
+Tibia; média ~Def/2, sem piso duro) + **regra de tier: Def somável < dano do mob do tier**
+(nunca trivializa on-level). **Números finais: couro Σ3 (split 1/1/1/0) + escudo chance 30% /
+chunk 70%.** Achado: a Def plana só amacia mob fraco; **o ESCUDO (% do golpe) é a defesa do
+knight contra o que mata** (escala com o hit) — e é ferramenta de classe, então a disparidade
+mage×knight fica na classe certa. No escudo, a **chance é a alavanca** (o chunk 70 vs 80 é ~inerte
+no TTL). TTL knight Σ3+30%: rato×2 20,9s · lobo×2 **10,3s** · lobo×3 **6,8s** — pacote perigoso
+mata em 7–11s (pilar 2 intacto, não é roubado); mage sem escudo segue frágil (lobo×2 6,8s).
 
 ### Vestir/joias T1 — baús (COM bônus de identidade; posições ✏️ world-designer M3)
 

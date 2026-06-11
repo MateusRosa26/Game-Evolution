@@ -44,6 +44,7 @@ import {
   GOLD_WEIGHT_CAP_COINS,
   goldWeight,
 } from "./items";
+import type { BlockStats } from "./items/templates";
 import { updateChaser } from "./monsterAi";
 import { creditQuestKill, QUESTS, type QuestState } from "./quests";
 import { ContainerRegistry, type Container } from "./items/containers";
@@ -270,6 +271,8 @@ export class Simulation {
       dead: false,
       // Arma inicial da classe como INSTÂNCIA equipada (preenchido abaixo).
       equippedWeaponId: null,
+      armorDef: 0,
+      block: null,
       // Outfit default da classe; guarda-roupa nasce com as peças FREE.
       outfit: structuredCloneOutfit(DEFAULT_OUTFIT_BY_CLASS[cls]),
       wardrobe: new Set(OUTFIT_PARTS.filter((p) => p.free).map((p) => p.id)),
@@ -336,6 +339,22 @@ export class Simulation {
    * continuam com números do bestiário.
    */
   private recomputePlayerDerived(entity: SimEntity, prog: Progression): void {
+    // Armadura/escudo equipados → Def cacheada + bloqueio (mitigação em applyDamage).
+    let armorDef = 0;
+    let block: BlockStats | null = null;
+    for (const slot of ["helmet", "armor", "legs", "boots"] as const) {
+      const instId = entity.equipment[slot];
+      const t = instId != null ? getItemTemplate(this.items.get(instId)?.templateId ?? "") : undefined;
+      if (t?.armor) armorDef += t.armor.def;
+    }
+    for (const slot of ["hand1", "hand2"] as const) {
+      const instId = entity.equipment[slot];
+      const t = instId != null ? getItemTemplate(this.items.get(instId)?.templateId ?? "") : undefined;
+      if (t?.block) block = t.block;
+    }
+    entity.armorDef = armorDef;
+    entity.block = block;
+
     const w = this.weaponStatsOf(entity);
     if (w.magic) {
       // Arma mágica: o dano vem da faixa da PRÓPRIA arma (não escala atributo) e
@@ -423,6 +442,8 @@ export class Simulation {
       dead: false,
       // Mobs usam números do bestiário, sem arma-instância (ledger só p/ players).
       equippedWeaponId: null,
+      armorDef: 0, // mob não equipa armadura (a "armadura" do mob é stat do bestiário)
+      block: null,
       outfit: null, // sprite de mob vem da espécie
       wardrobe: new Set(),
       knownSkills: [],
@@ -432,6 +453,8 @@ export class Simulation {
       aggroRadius: template.aggroRadius,
       spawnPos: { x: pos.x, y: pos.y },
       respawnMs, // override por-spot (undefined = usa template.respawnMs no death)
+      moves: template.moves, // mecânicas telegrafadas (MECANICAS-DE-MOB.md)
+      moveCooldowns: {},
       npcKey: null,
       quests: new Map(),
       activeDialogue: null,
@@ -474,6 +497,8 @@ export class Simulation {
         nextItemUseAt: 0,
         dead: false,
         equippedWeaponId: null,
+        armorDef: 0,
+        block: null,
         outfit: null,
         wardrobe: new Set(),
         knownSkills: [],
@@ -816,6 +841,7 @@ export class Simulation {
       pending,
       night: false,
       lookup: (id) => this.entities.get(id),
+      rng: this.combatRng,
     };
 
     // Aponta o SINK da engine de tracking para o `pending` DESTE tick: hints/
@@ -845,7 +871,13 @@ export class Simulation {
     for (const e of this.entities.values()) {
       e.justMoved = false;
       if (e.kind === "monster" && e.ai !== null && !e.dead) {
-        updateChaser(ctx, this.world, e, players, now, this.blockedFor(e));
+        if (e.activeMove) {
+          // Em WINDUP: travado (não persegue/ataca). Resolve quando vence; o mob
+          // age de novo no tick seguinte (MECANICAS-DE-MOB.md §1).
+          if (now >= e.activeMove.resolveAt) this.resolveMove(e, ctx);
+        } else {
+          updateChaser(ctx, this.world, e, players, now, this.blockedFor(e));
+        }
       }
     }
 
@@ -871,6 +903,43 @@ export class Simulation {
     this.pruneDialogues();
     this.pruneCorpsesAndContainers();
     this.emitSnapshot(pending);
+  }
+
+  /**
+   * Resolve o move em windup de um monstro: aplica o efeito e limpa o
+   * `activeMove`. Resolução determinística em unidade de tile (MECANICAS-DE-MOB).
+   */
+  private resolveMove(monster: SimEntity, ctx: CombatCtx): void {
+    const am = monster.activeMove;
+    monster.activeMove = undefined;
+    if (!am) return;
+    if (am.def.kind === "leap") {
+      // Gap-closer anti-kite: pousa num tile LIVRE adjacente ao alvo. nearestFree
+      // devolve `target.pos` se nada livre em r≤3 → nesse caso não pousa no alvo.
+      const target = this.entities.get(am.targetId);
+      if (!target || target.dead || target.z !== monster.z) return;
+      const landing = this.nearestFree(monster, target.pos);
+      if (landing.x === target.pos.x && landing.y === target.pos.y) return;
+      this.occupancy.delete(this.tileKey(monster.pos.x, monster.pos.y, monster.z));
+      monster.pos = { x: landing.x, y: landing.y };
+      this.occupancy.set(this.tileKey(landing.x, landing.y, monster.z), monster.id);
+      const dx = target.pos.x - landing.x;
+      const dy = target.pos.y - landing.y;
+      monster.facing = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? "e" : "w") : dy >= 0 ? "s" : "n";
+      monster.intent = null; // chegou colado; ataca no próximo tick
+    } else if (am.def.kind === "slam") {
+      // DESVIO: dano a quem OCUPA um tile marcado (congelado no início do windup).
+      // Saiu da área antes deste tick = imune (lê a occupancy AGORA, no fim).
+      if (!am.targetTiles) return;
+      for (const t of am.targetTiles) {
+        const occId = this.occupancy.get(this.tileKey(t.x, t.y, monster.z));
+        if (occId == null || occId === monster.id) continue; // tile vazio ou o próprio caster
+        const victim = this.entities.get(occId);
+        if (victim && !victim.dead && victim.kind === "player") {
+          applyDamage(ctx, monster, victim, am.def.damage ?? 0, am.def.damageType ?? "physical", null, null);
+        }
+      }
+    }
   }
 
   /** Auto-attack: com alvo vivo no ALCANCE da arma, ataca a cada cooldown. */
@@ -1343,6 +1412,9 @@ export class Simulation {
     if (!t) return false;
     if (t.slot === "weapon" || t.slot === "shield") return slot === "hand1" || slot === "hand2";
     if (t.slot === "armor") return slot === "armor";
+    if (t.slot === "helmet") return slot === "helmet";
+    if (t.slot === "legs") return slot === "legs";
+    if (t.slot === "boots") return slot === "boots";
     return false;
   }
 
@@ -1666,6 +1738,16 @@ export class Simulation {
         maxMp: e.maxMp,
         status: projectStatus(e, this.tickCount),
       };
+      // Telegraph de mecânica (MECANICAS-DE-MOB.md): move em windup — info PÚBLICA
+      // por design (o client DEVE poder desenhar o aviso). ≠ condição secreta.
+      if (e.activeMove) {
+        state.telegraph = {
+          moveId: e.activeMove.def.id,
+          kind: e.activeMove.def.kind,
+          resolveAt: e.activeMove.resolveAt,
+          tiles: e.activeMove.targetTiles, // área de perigo (slam) p/ o client desenhar
+        };
+      }
       const prog = this.progressions.get(e.id);
       if (prog) state.progress = this.projectProgress(prog);
       if (e.kind === "player") {

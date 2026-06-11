@@ -40,6 +40,25 @@
 - **TTK inalterado** (player→mob): mob não tem armadura (`armorDef 0`), confirmado na sanidade da feature — a armadura só mexe no TTL, como deve.
 - **Opção ✏️ Designer de Sistemas (não obrigatória):** se o criador quiser o morcego_**sanguessuga** ainda relevante contra alvo blindado, o caminho é mecânico, não numérico — um **leech pequeno que ignora Def** (tema do bicho), não subir Σ (que estragaria o pilar 2 dos ratos). Fica como gancho, não pendência.
 
+## REVISÃO (mesmo dia) — flat ficou forte → mitigação SORTEADA + escudo recalibrado
+
+O criador achou o **flat Def forte demais** (e antecipou escala ruim): flat tem **limiar de trivialização em `Def≈dano`** — knight blindado vira intocável p/ mob de tier baixo, e a disparidade mage×knight vira **penhasco "piso 1 vs cheio"**, não rampa. Decisão estrutural: **mitigação SORTEADA `0..Def`** (estilo Tibia/Apogea — `armorMitigation(def, roll)` em `formulas.ts`, do lado do `physicalVariance`). Sem piso duro (às vezes o golpe passa quase cheio), média ~Def/2, e **regra de tier**: Def somável < dano do mob do tier (nunca trivializa on-level).
+
+**Achado-chave do re-teste (Σ3 sorteado):** a Def plana (mesmo sorteada) só amacia mob **fraco**; contra mob forte é desprezível (lobo×2 6,8→6,8). **Quem dá defesa de verdade contra o que mata é o ESCUDO (% do golpe)** — escala com o tamanho do hit. E o escudo é ferramenta do **knight** (rito), não da Def que todos vestem → a disparidade fica na classe certa. Sweep do escudo revelou: **o chunk (70 vs 80) é ~inerte no TTL; a CHANCE é a alavanca.**
+
+**Decisão final (criador, 2026-06-11): couro Σ3 SORTEADO + escudo chance 30% / chunk 70%.** TTL (knight = Σ3+escudo30; "mage" = Σ0 sem escudo):
+
+| cenário | mage Σ0 | knight Σ3+30% |
+|---|---|---|
+| rato×2 | 12,8 | 20,9 |
+| goblin×2 | 9,1 | 16,3 |
+| lobo×2 | 6,8 | **10,3** |
+| lobo×3 | 3,5 | **6,8** |
+| goblin+lobo | 6,8 | 10,8 |
+| javali×2 (T2) | 6,7 | 11,1 |
+
+**Não é roubado:** todo pacote perigoso ainda mata o knight em **7–11s** (pilar 2 intacto — o escudo compra reação, não imortalidade); a folga é do knight-com-escudo, o mage segue frágil (disparidade na classe certa). 25% vs 30% = idênticos contra o que mata (quantização); 30% só agrega ~2–4s vs mob fraco/solo. **Aplicado:** `escudo block {chance:0.3, chunkPct:0.7}`, mitigação via `armorMitigation`.
+
 ## Próximo
 
 - Re-medir XP/h e o **TTL realista** (com caminhada/regen) quando a **comida entrar na sim** e o **re-layout da vila** assentar os spots (backlog Balancista #7) — esta bateria é facetank puro, o teto de letalidade.

@@ -29,6 +29,8 @@ const BODY_SOUTH_BIAS: Record<string, 1 | -1> = {
 const IDLE_RESET_MS = 90;
 /** Duração da animação de ataque (4 frames ~95ms cada — golpe seco, estilo Apogea). */
 const ATTACK_DUR_MS = 380;
+/** Morte: o sprite "esvanece" (sobe + dissolve) enquanto solta a poeira/alma. */
+const DEATH_DUR_MS = 440;
 
 /** Floating damage text — sobe e some. */
 const FLOAT_DUR_MS = 900;
@@ -130,6 +132,12 @@ interface Particle {
   life: number;
 }
 
+/** Efeito de morte: fantasma (último frame do mob) que sobe e dissolve. */
+interface DeathFx {
+  spr: Sprite;
+  elapsed: number;
+}
+
 interface CastProjectile {
   gfx: Graphics;
   fromX: number;
@@ -160,6 +168,10 @@ interface EntityVisual {
   statusIcons: Graphics;
   /** Chave dos status desenhados (evita redesenhar todo tick). */
   statusKey: string;
+  /** Indicador de telegraph (move de mob em windup — MECANICAS-DE-MOB.md). */
+  telegraph: Graphics;
+  telegraphing: boolean;
+  telegraphClock: number;
   // tween de posição (em tiles, com fração)
   fromX: number;
   fromY: number;
@@ -197,10 +209,16 @@ export class EntityRenderer {
   private casts: CastProjectile[] = [];
   /** Partículas de impacto de combate ativas. */
   private particles: Particle[] = [];
+  /** Fantasmas de morte ativos (sprite dissolvendo). */
+  private deaths: DeathFx[] = [];
   /** Balões de fala ativos (presos às entidades). */
   private speeches: { text: Text; elapsed: number }[] = [];
   /** Cadáveres saqueáveis (sprite do mob deitado/escurecido), por containerId. */
   private corpseSprites = new Map<number, Sprite>();
+  /** Overlay de tiles de PERIGO (telegraph de moves de área — MECANICAS-DE-MOB).
+   *  Fica no chão, SOB as entidades; pulsa no tick. */
+  private telegraphTiles = new Graphics();
+  private telegraphPulse = 0;
 
   constructor(
     private sprites: SpriteLibrary,
@@ -211,6 +229,8 @@ export class EntityRenderer {
     this.targetMarker = new Sprite(sprites.targetMarker);
     this.targetMarker.anchor.set(0.5, 0.5);
     this.targetMarker.visible = false;
+    this.telegraphTiles.zIndex = -1000; // sob entidades/cadáveres, sobre o chão
+    this.layer.addChild(this.telegraphTiles);
   }
 
   /** Texturas certas: mob pela espécie; player pelo OUTFIT (compositor+cache). */
@@ -294,6 +314,7 @@ export class EntityRenderer {
 
   apply(snap: Snapshot): void {
     const seen = new Set<number>();
+    const dangerTiles: { x: number; y: number }[] = []; // áreas de telegraph deste tick
     for (const e of snap.entities) {
       seen.add(e.id);
       let v = this.visuals.get(e.id);
@@ -349,6 +370,21 @@ export class EntityRenderer {
       if (statusKey !== v.statusKey) {
         v.statusKey = statusKey;
         this.drawStatusIcons(v.statusIcons, e.status);
+      }
+      // ── Telegraph de mecânica (windup de move): liga/desliga o anel de alerta ──
+      v.telegraphing = !!e.telegraph;
+      v.telegraph.visible = v.telegraphing;
+      if (!v.telegraphing) v.telegraphClock = 0;
+      if (e.telegraph?.tiles) dangerTiles.push(...e.telegraph.tiles); // área (slam)
+    }
+    this.drawDangerTiles(dangerTiles);
+    // Efeito de morte: captura o visual ANTES do diff de remoção o destruir
+    // (o mob morto sai do snapshot no mesmo tick). Genérico por morte — kill que
+    // conta pra Marca NÃO tem feedback especial (DESIGN-VISUAL.md/constituição).
+    for (const ev of snap.events) {
+      if (ev.kind === "death") {
+        const dv = this.visuals.get(ev.entityId);
+        if (dv) this.spawnDeath(dv);
       }
     }
     // remove quem saiu
@@ -531,6 +567,46 @@ export class EntityRenderer {
     }
   }
 
+  /**
+   * Efeito de morte (DESIGN-VISUAL.md "mob esvanece + partículas"): clona o
+   * último frame do mob num sprite-fantasma que sobe e dissolve, e solta uma
+   * baforada de poeira/alma pálida subindo. Texturas são compartilhadas (cache),
+   * então destruir o visual original depois não afeta o fantasma.
+   */
+  private spawnDeath(v: EntityVisual): void {
+    const ghost = new Sprite(v.sprite.texture);
+    ghost.anchor.set(0.5, 1);
+    // posição de mundo = base do container + offset local do sprite (baseline/voo)
+    ghost.position.set(
+      v.container.position.x + v.sprite.position.x,
+      v.container.position.y + v.sprite.position.y,
+    );
+    ghost.scale.copyFrom(v.sprite.scale); // preserva escala do char e espelho
+    ghost.zIndex = v.container.position.y;
+    this.layer.addChild(ghost);
+    this.deaths.push({ spr: ghost, elapsed: 0 });
+    this.spawnDeathBurst(ghost.position.x, ghost.position.y - TILE_SIZE * 0.4);
+  }
+
+  /** Baforada pálida e fria (poeira/alma) subindo do ponto de morte. */
+  private spawnDeathBurst(worldX: number, worldY: number): void {
+    for (let i = 0; i < 8; i++) {
+      const spr = new Sprite(this.sprites.spark);
+      spr.anchor.set(0.5);
+      spr.tint = 0xc2cdd8; // pálido frio — leitura de "alma/poeira", não elemento
+      spr.blendMode = "add";
+      spr.scale.set(0.7 + Math.random() * 0.7);
+      spr.position.set(worldX + (Math.random() - 0.5) * 14, worldY + (Math.random() - 0.5) * 10);
+      spr.zIndex = 1e9 - 1;
+      this.layer.addChild(spr);
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 14 * (0.4 + Math.random());
+      const vx = Math.cos(ang) * sp;
+      const vy = Math.sin(ang) * sp * 0.5 - 26; // viés pra cima (a alma sobe)
+      this.particles.push({ spr, vx, vy, gravity: -8, elapsed: 0, life: 560 });
+    }
+  }
+
   /** Floating text VERDE de cura sobre o alvo (segue o padrão do dano). */
   private spawnHealText(amount: number, worldX: number, worldY: number): void {
     const text = new Text({
@@ -578,6 +654,9 @@ export class EntityRenderer {
   }
 
   tick(deltaMS: number): void {
+    // Pulso do overlay de tiles de perigo (alerta de área telegrafada).
+    this.telegraphPulse += deltaMS;
+    this.telegraphTiles.alpha = 0.55 + 0.45 * Math.abs(Math.sin(this.telegraphPulse / 150));
     for (const v of this.visuals.values()) {
       const moving = v.tweenElapsed < v.tweenDur;
       if (moving) {
@@ -632,6 +711,14 @@ export class EntityRenderer {
           f.alpha = 0;
         }
       }
+
+      // ── Pulso do anel de telegraph (mob avisando um move em windup) ──
+      if (v.telegraphing) {
+        v.telegraphClock += deltaMS;
+        const p = Math.abs(Math.sin(v.telegraphClock / 110)); // ~3 Hz, alerta
+        v.telegraph.alpha = 0.45 + 0.55 * p;
+        v.telegraph.scale.set(0.85 + 0.3 * p);
+      }
     }
 
     // floating damage text: sobe, dá pop-in, faz shake (golpe grande) e some
@@ -670,6 +757,21 @@ export class EntityRenderer {
     this.particles = this.particles.filter((p) => {
       if (p.elapsed >= p.life) {
         p.spr.destroy();
+        return false;
+      }
+      return true;
+    });
+
+    // fantasmas de morte: sobem ~12px e dissolvem (fade quadrático)
+    for (const d of this.deaths) {
+      d.elapsed += deltaMS;
+      const t = Math.min(d.elapsed / DEATH_DUR_MS, 1);
+      d.spr.y -= (12 / DEATH_DUR_MS) * deltaMS;
+      d.spr.alpha = 1 - t * t;
+    }
+    this.deaths = this.deaths.filter((d) => {
+      if (d.elapsed >= DEATH_DUR_MS) {
+        d.spr.destroy();
         return false;
       }
       return true;
@@ -808,6 +910,14 @@ export class EntityRenderer {
     statusIcons.position.set(16, -37);
     container.addChild(statusIcons);
 
+    // Telegraph: anel de alerta "carregando" acima da cabeça (mob em windup de
+    // mecânica). Pulsa no tick; visível só enquanto há `telegraph` no snapshot.
+    const telegraph = new Graphics();
+    telegraph.circle(0, 0, 5).stroke({ color: 0xffcc33, width: 2 });
+    telegraph.position.set(0, -46);
+    telegraph.visible = false;
+    container.addChild(telegraph);
+
     const v: EntityVisual = {
       container,
       sprite,
@@ -819,6 +929,9 @@ export class EntityRenderer {
       hpBar,
       statusIcons,
       statusKey: "",
+      telegraph,
+      telegraphing: false,
+      telegraphClock: 0,
       fromX: e.pos.x,
       fromY: e.pos.y,
       toX: e.pos.x,
@@ -839,6 +952,18 @@ export class EntityRenderer {
     container.zIndex = container.position.y;
     this.layer.addChild(container);
     return v;
+  }
+
+  /** Redesenha o overlay de tiles de PERIGO (área de um move telegrafado): um
+   *  preenchimento vermelho translúcido + borda por tile, em world-pixels. */
+  private drawDangerTiles(tiles: { x: number; y: number }[]): void {
+    const g = this.telegraphTiles;
+    g.clear();
+    for (const t of tiles) {
+      g.rect(t.x * TILE_SIZE, t.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        .fill({ color: 0xcc3322, alpha: 0.3 })
+        .stroke({ color: 0xff6644, width: 1, alpha: 0.85 });
+    }
   }
 
   private drawHpBar(g: Graphics, ratio: number): void {
