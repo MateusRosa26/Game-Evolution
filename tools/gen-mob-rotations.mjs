@@ -79,12 +79,21 @@ async function main() {
   console.log();
 
   writeFileSync(join(dir, "_v3raw.json"), JSON.stringify(j, null, 1).slice(0, 200000));
+  const urls = (j.last_response ?? j)?.storage_urls;
   if (images.length) {
     mkdirSync(dir, { recursive: true });
     images.forEach((b64, i) => writeFileSync(join(dir, `rot-${String(i).padStart(2, "0")}.png`), Buffer.from(b64, "base64")));
-    console.log(`[salvo] ${images.length} frames → ${dir}/rot-XX.png`);
+    console.log(`[salvo] ${images.length} frames inline → ${dir}/rot-XX.png`);
+  } else if (urls && typeof urls === "object") {
+    // v3 devolve URLs por direção (south/east/north/west/diagonais) — baixa cada
+    let n = 0;
+    for (const [d, url] of Object.entries(urls)) {
+      const buf = Buffer.from(await (await fetch(url)).arrayBuffer());
+      writeFileSync(join(dir, `rot-${d}.png`), buf); n++;
+    }
+    console.log(`[salvo] ${n} frames via storage_urls → ${dir}/rot-<dir>.png`);
   } else {
-    console.log(`[i] sem imagens inline na resposta — usar zip export: GET /characters/${charId}/zip (grátis). Dump em _v3raw.json (keys: ${Object.keys(j || {})})`);
+    console.log(`[i] sem imagens nem URLs — zip export: GET /characters/${charId}/zip. Dump em _v3raw.json (keys: ${Object.keys(j || {})})`);
   }
   const after = await balance();
   console.log(`[balance] depois: ${after} · [CUSTO] ${before - after} gerações`);
