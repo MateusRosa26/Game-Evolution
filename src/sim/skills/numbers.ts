@@ -151,3 +151,77 @@ export const DRENO_VITAL = {
   range: 6, // ✏️ Balancista
   lifedrainPct: 0.5, // cura o caster por 50% do dano causado ✏️ Balancista
 } as const;
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Catálogo (CATALOGO.md) — skills montadas sobre os executores GENÉRICOS já
+//  prontos (projectileTarget · lineThrough · meleeTarget · selfRadius). NÃO há
+//  executor novo aqui: cada uma é só DADO. Skills que exigem mecânica ainda
+//  inexistente (mobilidade, buff/shield, zona persistente, cone, taunt, cleanse,
+//  conjurar item, stealth, obstáculo) ficam de fora — listadas como ✏️ pendentes
+//  no report `2026-06-11-catalogo-skills.md`.
+//  TODOS os números abaixo são PLACEHOLDER `// ✏️ balancista` (régua = briefing).
+// ─────────────────────────────────────────────────────────────────────────
+
+// ── Dardo Arcano (Mage/Int) — projétil arcano single-target BARATO, sem status.
+//  Pão-com-manteiga pré-Bola de Fogo (banda ①): spam barato, sem elemento.
+export const DARDO_ARCANO = {
+  manaCost: 6, // ✏️ balancista — o mais barato do Mage (spam de abertura)
+  cooldownMs: 1000, // ✏️ balancista
+  power: 8, // ✏️ balancista — single fraco; sem status (o preço da economia)
+  range: 6, // ✏️ balancista
+} as const;
+
+// ── Raio (Mage/Int) — lineThrough instantâneo (lightning), SEM status.
+//  Feixe sem viagem de projétil (spec: lineThrough já cobre — sem primitivo novo).
+export const RAIO = {
+  manaCost: 18, // ✏️ balancista
+  cooldownMs: 2500, // ✏️ balancista
+  power: 15, // ✏️ balancista — dano de linha; perfura, sem controle (≠ Lança de Gelo)
+  range: 6, // ✏️ balancista — comprimento do feixe
+} as const;
+
+// ── Arremesso (universal) — projétil físico FRACO (faca/pedra): pull + finisher.
+export const ARREMESSO = {
+  manaCost: 2, // ✏️ balancista — quase de graça; logística, não dano
+  cooldownMs: 1500, // ✏️ balancista
+  power: 4, // ✏️ balancista — dano baixo (usa o braço/Des como base via formula)
+  range: 5, // ✏️ balancista
+} as const;
+
+// ── Disparo Perfurante (Rogue/Des) — projétil single-target ranged (caminho arco).
+//  CATALOGO diz "single-target à distância" → projectileTarget (não linha).
+export const DISPARO_PERFURANTE = {
+  manaCost: 6, // ✏️ balancista
+  cooldownMs: 2000, // ✏️ balancista
+  power: 10, // ✏️ balancista — single ranged sólido (Rogue é o rei single)
+  range: 6, // ✏️ balancista
+} as const;
+
+// ── Retalho (Rogue/Des) — meleeTarget físico + SANGRAMENTO (bleed) no alvo.
+//  2º eixo de dano do Rogue (banda ③): corte que abre DoT físico (single-target).
+export const RETALHO = {
+  manaCost: 6, // ✏️ balancista
+  cooldownMs: 3000, // ✏️ balancista
+  power: 7, // ✏️ balancista — golpe modesto; o valor é o DoT acumulado
+  range: 1, // melee
+  /** Sangramento (DoT físico): aplica `damagePerTick` a cada `intervalMs`. */
+  bleed: { damagePerTick: 4, durationMs: 4000, intervalMs: 1000 }, // ✏️ balancista
+} as const;
+
+// ── Vendaval de Aço (Rogue/Des, ~lvl 20) — selfRadius físico (AoE pack-answer).
+//  Deleter de pack do Rogue (banda ④): giro de lâminas ao redor; escala a ARMA.
+export const VENDAVAL_DE_ACO = {
+  manaCost: 20, // ✏️ balancista
+  cooldownMs: 5000, // ✏️ balancista
+  power: 6, // ✏️ balancista — bônus flat sobre o dano da arma (instant burst AoE)
+  areaRadius: 1, // ✏️ balancista — tudo adjacente (3×3)
+} as const;
+
+// ── Explosão de Luz (Priest/Esp, ~lvl 20) — selfRadius holy (AoE anti-pack undead).
+//  Nova sagrada (banda ④): usa a lógica anti-profano do holyDamage (já no executor).
+export const EXPLOSAO_DE_LUZ = {
+  manaCost: 26, // ✏️ balancista — premium (deleter de pack vs undead)
+  cooldownMs: 6000, // ✏️ balancista
+  power: 14, // ✏️ balancista — escala Espírito; cheio vs profano, reduzido vs resto
+  areaRadius: 2, // ✏️ balancista — 5×5 ao redor do caster
+} as const;

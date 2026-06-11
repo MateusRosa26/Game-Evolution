@@ -1,17 +1,24 @@
 import type { SkillDef } from "./types";
 import {
   APUNHALAR,
+  ARREMESSO,
   AURA_SAGRADA,
   BOLA_DE_FOGO,
   CURAR_FERIMENTOS,
+  DARDO_ARCANO,
+  DISPARO_PERFURANTE,
   DRENO_VITAL,
+  EXPLOSAO_DE_LUZ,
   FAGULHAS,
   GARRAS_DA_TERRA,
   GOLPE_FORTE,
   LANCA_DE_GELO,
   LUZ_SAGRADA,
+  RAIO,
   REDEMOINHO,
+  RETALHO,
   TEMPESTADE,
+  VENDAVAL_DE_ACO,
 } from "./numbers";
 
 /**
@@ -231,6 +238,125 @@ export const SKILL_DRENO_VITAL: SkillDef = {
   lifedrainPct: DRENO_VITAL.lifedrainPct,
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Catálogo (CATALOGO.md) — skills que são SÓ DADO sobre os executores prontos.
+//  As que exigem mecânica ainda inexistente ficam ✏️ pendentes (ver report).
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Dardo Arcano (Mage/Int) — projétil arcano barato single-target (banda ①). */
+export const SKILL_DARDO_ARCANO: SkillDef = {
+  id: "arcane_dart",
+  name: "Dardo Arcano",
+  cls: "mage",
+  targeting: "projectileTarget",
+  effect: "magic",
+  damageType: "arcane",
+  tags: ["arcano"],
+  manaCost: DARDO_ARCANO.manaCost,
+  cooldownMs: DARDO_ARCANO.cooldownMs,
+  range: DARDO_ARCANO.range,
+  power: DARDO_ARCANO.power,
+};
+
+/** Raio (Mage/Int) — linha perfurante de raio (lightning), instantâneo, sem status. */
+export const SKILL_RAIO: SkillDef = {
+  id: "bolt",
+  name: "Raio",
+  cls: "mage",
+  targeting: "lineThrough",
+  effect: "magic",
+  damageType: "lightning",
+  tags: ["raio"],
+  manaCost: RAIO.manaCost,
+  cooldownMs: RAIO.cooldownMs,
+  range: RAIO.range,
+  power: RAIO.power,
+};
+
+/** Arremesso (universal) — projétil físico fraco; pull e finisher. */
+export const SKILL_ARREMESSO: SkillDef = {
+  id: "throw",
+  name: "Arremesso",
+  cls: null, // universal
+  targeting: "projectileTarget",
+  effect: "physical",
+  damageType: "physical",
+  tags: ["fisico", "distancia"],
+  manaCost: ARREMESSO.manaCost,
+  cooldownMs: ARREMESSO.cooldownMs,
+  range: ARREMESSO.range,
+  power: ARREMESSO.power,
+};
+
+/** Disparo Perfurante (Rogue/Des) — single-target ranged (caminho do arco). */
+export const SKILL_DISPARO_PERFURANTE: SkillDef = {
+  id: "piercing_shot",
+  name: "Disparo Perfurante",
+  cls: "rogue",
+  targeting: "projectileTarget",
+  effect: "physical",
+  damageType: "physical",
+  tags: ["fisico", "distancia"],
+  manaCost: DISPARO_PERFURANTE.manaCost,
+  cooldownMs: DISPARO_PERFURANTE.cooldownMs,
+  range: DISPARO_PERFURANTE.range,
+  power: DISPARO_PERFURANTE.power,
+};
+
+/** Retalho (Rogue/Des) — melee físico + sangramento (bleed), single-target. */
+export const SKILL_RETALHO: SkillDef = {
+  id: "rend",
+  name: "Retalho",
+  cls: "rogue",
+  targeting: "meleeTarget",
+  effect: "physical",
+  damageType: "physical",
+  tags: ["fisico", "sangramento"],
+  manaCost: RETALHO.manaCost,
+  cooldownMs: RETALHO.cooldownMs,
+  range: RETALHO.range,
+  power: RETALHO.power,
+  // Sangramento (DoT físico) — parâmetros DECLARATIVOS no dado (executor genérico).
+  applyStatus: {
+    kind: "bleed",
+    damagePerTick: RETALHO.bleed.damagePerTick,
+    durationMs: RETALHO.bleed.durationMs,
+    intervalMs: RETALHO.bleed.intervalMs,
+  },
+};
+
+/** Vendaval de Aço (Rogue/Des, ~lvl 20) — selfRadius físico; escala a ARMA (ledger). */
+export const SKILL_VENDAVAL_DE_ACO: SkillDef = {
+  id: "steelstorm",
+  name: "Vendaval de Aço",
+  cls: "rogue",
+  targeting: "selfRadius",
+  effect: "physical",
+  damageType: "physical",
+  tags: ["fisico", "arma"],
+  manaCost: VENDAVAL_DE_ACO.manaCost,
+  cooldownMs: VENDAVAL_DE_ACO.cooldownMs,
+  range: 1, // melee (self-centered)
+  power: VENDAVAL_DE_ACO.power,
+  areaRadius: VENDAVAL_DE_ACO.areaRadius,
+};
+
+/** Explosão de Luz (Priest/Esp, ~lvl 20) — selfRadius holy; anti-pack vs profanos. */
+export const SKILL_EXPLOSAO_DE_LUZ: SkillDef = {
+  id: "burst_of_light",
+  name: "Explosão de Luz",
+  cls: "priest",
+  targeting: "selfRadius",
+  effect: "magic",
+  damageType: "holy", // o executor aplica o bônus anti-profano / penalidade fora do nicho
+  tags: ["sagrado", "anti-profano"],
+  manaCost: EXPLOSAO_DE_LUZ.manaCost,
+  cooldownMs: EXPLOSAO_DE_LUZ.cooldownMs,
+  range: 0, // self-centered
+  power: EXPLOSAO_DE_LUZ.power,
+  areaRadius: EXPLOSAO_DE_LUZ.areaRadius,
+};
+
 /** Registro de todas as skills por ID — ponto único de lookup. */
 export const SKILLS: Record<string, SkillDef> = {
   [SKILL_GOLPE_FORTE.id]: SKILL_GOLPE_FORTE,
@@ -245,4 +371,12 @@ export const SKILLS: Record<string, SkillDef> = {
   [SKILL_AURA_SAGRADA.id]: SKILL_AURA_SAGRADA,
   [SKILL_FAGULHAS.id]: SKILL_FAGULHAS,
   [SKILL_DRENO_VITAL.id]: SKILL_DRENO_VITAL,
+  // ── Catálogo (data-only sobre executores prontos) ──
+  [SKILL_DARDO_ARCANO.id]: SKILL_DARDO_ARCANO,
+  [SKILL_RAIO.id]: SKILL_RAIO,
+  [SKILL_ARREMESSO.id]: SKILL_ARREMESSO,
+  [SKILL_DISPARO_PERFURANTE.id]: SKILL_DISPARO_PERFURANTE,
+  [SKILL_RETALHO.id]: SKILL_RETALHO,
+  [SKILL_VENDAVAL_DE_ACO.id]: SKILL_VENDAVAL_DE_ACO,
+  [SKILL_EXPLOSAO_DE_LUZ.id]: SKILL_EXPLOSAO_DE_LUZ,
 };

@@ -37,9 +37,12 @@ export type SkillTag =
   | "posicional"
   | "terra" // Garras da Terra (groundTarget + root)
   | "root" // enraizamento
-  | "raio" // Tempestade / Fagulhas (lightning)
+  | "raio" // Tempestade / Fagulhas / Raio (lightning)
   | "chip" // dano-chip de AoE fraca (Fagulhas)
-  | "morte"; // Dreno Vital (lifedrain)
+  | "morte" // Dreno Vital (lifedrain)
+  | "arcano" // Dardo Arcano (sem elemento — economia)
+  | "distancia" // Arremesso / Disparo Perfurante (ranged físico)
+  | "sangramento"; // Retalho (DoT físico = bleed)
 
 /**
  * Aplicação de status que a skill faz no(s) alvo(s) atingido(s) — union
