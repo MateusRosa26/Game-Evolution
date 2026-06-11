@@ -66,7 +66,12 @@ const COLS = parseInt(process.argv[4] || "4", 10);
 const PAD = 8;          // moldura entre células
 const DIGIT = 3;        // escala dos dígitos do número
 
-const dir = join("design", "pixellab-candidatos", "items", categoryOf(ITEM), ITEM);
+// resolve o dir de candidatos: item (por categoria) ou mob (pixellab-candidatos/mobs/<id>)
+function candDir(id) {
+  try { return join("design", "pixellab-candidatos", "items", categoryOf(id), id); }
+  catch { return join("design", "pixellab-candidatos", "mobs", id); }
+}
+const dir = candDir(ITEM);
 const files = readdirSync(dir).filter((f) => /^cand-\d+\.png$/.test(f)).sort();
 if (!files.length) { console.error(`sem candidatos em ${dir}`); process.exit(1); }
 

@@ -5,7 +5,7 @@ import type { World } from "./World";
 
 /**
  * IA de monstro — M1 implementa só o comportamento "Perseguidor" (chaser),
- * o do Rato Lanhoso: idle → detecta jogador no raio de aggro → persegue via
+ * o do Rato: idle → detecta jogador no raio de aggro → persegue via
  * A* existente → ataca quando adjacente.
  *
  * Roda na sim, é determinística (sem RNG; o alvo é escolhido por proximidade

@@ -135,7 +135,7 @@ export class EntityRenderer {
   private texturesFor(e: EntityState): Record<Facing, Texture[]> {
     // PixelLab primeiro (norma 1:1); procedural segue como fallback eterno.
     if (e.species && PIXELLAB.mobs[e.species]) return PIXELLAB.mobs[e.species];
-    if (e.species === "rato_lanhoso") return this.sprites.rat;
+    if (e.species === "rato") return this.sprites.rat;
     // NPCs: cidadão procedural (distinto do herói) até a arte por elenco ✏️
     if (e.kind === "npc") {
       return outfitTextures(
@@ -181,7 +181,7 @@ export class EntityRenderer {
       seen.add(c.id);
       if (this.corpseSprites.has(c.id)) continue;
       const set = c.species ? PIXELLAB.mobs[c.species] : undefined;
-      const tex = set?.s?.[0] ?? (c.species === "rato_lanhoso" ? this.sprites.rat.s[0] : null);
+      const tex = set?.s?.[0] ?? (c.species === "rato" ? this.sprites.rat.s[0] : null);
       if (!tex) continue;
       const spr = new Sprite(tex);
       // Corpo "tombado": achata no eixo Y (parece deitado) sem encolher; tom

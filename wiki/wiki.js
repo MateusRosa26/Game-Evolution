@@ -18,6 +18,8 @@ const DOCS = [
     desc: "Princípios, tiers e orçamento de ataques, biblioteca de blocos e matriz de fraquezas (Regra 10–20)." },
   { id: "bestiario-familias", title: "Bestiário — Famílias", file: "../design/bestiario/FAMILIAS.md",
     desc: "O catálogo das 12 famílias com todas as criaturas (tabelas parseadas pela view do bestiário)." },
+  { id: "bestiario-mecanicas", title: "Bestiário — Mecânicas de Mob", file: "../design/bestiario/MECANICAS-DE-MOB.md",
+    desc: "Sistema de moves telegrafados-e-desviáveis (modelo tile×tick), vocabulário de moves e versionamento base→avançado→elite." },
   { id: "mundo", title: "Mundo — Hub", file: "../DESIGN-MUNDO.md",
     desc: "Filosofia de exploração, princípio MMO, permanência do mapa, recorte do MVP e nomenclatura." },
   { id: "mundo-quests", title: "Mundo — Sistema de Quests", file: "../design/mundo/SISTEMA-QUESTS.md",

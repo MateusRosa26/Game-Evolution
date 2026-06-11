@@ -77,39 +77,35 @@ const BUILDINGS: Building[] = [
 // 1 tile a oeste mantendo a porta canônica (15,12). Templo porta (20,14) exata.
 
 // ── §5: spots de caça — espécies do GRID; spawns só acendem se a espécie
-// existir no bestiário (hoje: só rato_lanhoso). O resto entra com o bestiário.
+// existir no bestiário (hoje: só rato). O resto entra com o bestiário.
 type Spot = { id: string; rect: [number, number, number, number]; spawns: [number, number, string][] };
 const SPOTS: Spot[] = [
+  // ── SENTINELAS (gramática de spawn — design/mundo/EXPLORACAO.md §Padrão de spawn):
+  // 1 mob solo = TELEGRAFIA, não farm. Ficam NOS CAMINHOS, nunca colados no portão.
+  // (A Q1/porão SAIU daqui — virou a adega da Estalagem, mapa z=-1 próprio: ESGOTOS.md §3.5.)
   {
-    // PLACEHOLDER da Q1 até o mapa do PORÃO (multi-mapa) existir: ratos logo
-    // fora do portão sul (fora da safe zone), ao alcance do Bartolo. ✏️ remover
-    // quando o porão entrar — os ratos passam a viver lá dentro.
-    id: "Porao (placeholder Q1 — fora do portao S)",
-    rect: [114, 139, 126, 147],
-    spawns: [
-      [118, 141, "rato_lanhoso"],
-      [121, 141, "rato_lanhoso"],
-      [116, 143, "rato_lanhoso"],
-      [123, 143, "rato_lanhoso"],
-      [119, 145, "rato_lanhoso"],
-      [122, 145, "rato_lanhoso"],
-      [117, 146, "rato_lanhoso"],
-      [124, 146, "rato_lanhoso"],
-    ],
+    id: "Sentinela: batedor goblin na trilha NE (telegrafa o Acampamento S5)",
+    rect: [170, 60, 182, 72],
+    spawns: [[176, 66, "goblin"]],
+  },
+  {
+    id: "Sentinela: lobo solitário na estrada O (telegrafa a alcateia S1)",
+    rect: [80, 105, 92, 117],
+    spawns: [[86, 111, "lobo"]],
   },
   {
     id: "S1 Planícies (T1)",
     rect: [10, 60, 70, 200],
     spawns: [
-      [30, 95, "rato_lanhoso"],
-      [24, 120, "rato_lanhoso"],
-      [40, 140, "rato_lanhoso"],
-      [55, 110, "rato_lanhoso"],
-      [35, 170, "rato_lanhoso"],
-      [60, 185, "rato_lanhoso"],
-      [20, 150, "lobo_cinzento"],
-      [50, 80, "lobo_cinzento"],
-      [65, 160, "lobo_cinzento"],
+      [30, 95, "rato"],
+      [24, 120, "rato"],
+      [40, 140, "rato"],
+      [55, 110, "rato"],
+      [35, 170, "rato"],
+      [60, 185, "rato"],
+      [20, 150, "lobo"],
+      [50, 80, "lobo"],
+      [65, 160, "lobo"],
     ],
   },
   {
@@ -117,49 +113,49 @@ const SPOTS: Spot[] = [
     rect: [20, 80, 55, 100],
     spawns: [
       // pontos no terreiro/arredores — NUNCA em cima dos muros dos celeiros
-      [31, 92, "rato_lanhoso"],
-      [36, 93, "rato_lanhoso"],
-      [43, 94, "rato_lanhoso"],
-      [48, 89, "rato_lanhoso"],
-      [38, 97, "rato_lanhoso"],
+      [31, 92, "rato"],
+      [36, 93, "rato"],
+      [43, 94, "rato"],
+      [48, 89, "rato"],
+      [38, 97, "rato"],
     ],
   },
   {
     id: "S3 Gruta dos Morcegos (T1 — Q3)",
     rect: [125, 48, 150, 68],
     spawns: [
-      [132, 55, "morcego_sanguessuga"],
-      [138, 60, "morcego_sanguessuga"],
-      [143, 53, "morcego_sanguessuga"],
-      [135, 64, "morcego_sanguessuga"],
-      [146, 62, "morcego_sanguessuga"],
-      [129, 60, "morcego_sanguessuga"],
+      [132, 55, "morcego"],
+      [138, 60, "morcego"],
+      [143, 53, "morcego"],
+      [135, 64, "morcego"],
+      [146, 62, "morcego"],
+      [129, 60, "morcego"],
     ],
   },
   {
     id: "S4 Toca dos Lobos (T1 — Q5/Q6)",
     rect: [172, 55, 200, 80],
     spawns: [
-      [180, 62, "lobo_cinzento"],
-      [188, 68, "lobo_cinzento"],
-      [194, 60, "lobo_cinzento"],
-      [177, 73, "lobo_cinzento"],
-      [191, 76, "lobo_cinzento"],
-      [185, 58, "lobo_cinzento"],
+      [180, 62, "lobo"],
+      [188, 68, "lobo"],
+      [194, 60, "lobo"],
+      [177, 73, "lobo"],
+      [191, 76, "lobo"],
+      [185, 58, "lobo"],
     ],
   },
   {
     id: "S5 Acampamento Goblin (T1 — Q8a2)",
     rect: [185, 35, 230, 70],
     spawns: [
-      [195, 42, "goblin_batedor"],
-      [205, 38, "goblin_batedor"],
-      [215, 45, "goblin_batedor"],
-      [222, 40, "goblin_batedor"],
-      [200, 55, "goblin_batedor"],
-      [212, 60, "goblin_batedor"],
-      [225, 52, "goblin_batedor"],
-      [192, 63, "goblin_batedor"],
+      [195, 42, "goblin"],
+      [205, 38, "goblin"],
+      [215, 45, "goblin"],
+      [222, 40, "goblin"],
+      [200, 55, "goblin"],
+      [212, 60, "goblin"],
+      [225, 52, "goblin"],
+      [192, 63, "goblin"],
     ],
   },
   {
@@ -189,12 +185,12 @@ const SPOTS: Spot[] = [
     id: "S10 Matagal dos Javalis (T2 — Q6/Q7, named Presa-Torta ✏️)",
     rect: [235, 230, 275, 270],
     spawns: [
-      [242, 238, "javali_de_presas"],
-      [252, 245, "javali_de_presas"],
-      [263, 240, "javali_de_presas"],
-      [248, 258, "javali_de_presas"],
-      [260, 263, "javali_de_presas"],
-      [270, 252, "javali_de_presas"],
+      [242, 238, "javali"],
+      [252, 245, "javali"],
+      [263, 240, "javali"],
+      [248, 258, "javali"],
+      [260, 263, "javali"],
+      [270, 252, "javali"],
     ],
   },
   {
@@ -661,10 +657,10 @@ function buildSewerA1(): FloorLayer {
     tiles: t,
     lights, decor,
     monsters: [
-      { x: wx(27), y: wy(20), species: "rato_lanhoso" }, // entrada
-      { x: wx(13), y: wy(18), species: "rato_lanhoso" }, // sump
-      { x: wx(20), y: wy(34), species: "rato_lanhoso" }, // galeria sul
-      { x: wx(37), y: wy(22), species: "rato_lanhoso" }, // espinha leste
+      { x: wx(27), y: wy(20), species: "rato" }, // entrada
+      { x: wx(13), y: wy(18), species: "rato" }, // sump
+      { x: wx(20), y: wy(34), species: "rato" }, // galeria sul
+      { x: wx(37), y: wy(22), species: "rato" }, // espinha leste
       { x: wx(24), y: wy(9), species: "esqueleto" },     // ruínas (T2 — fundo)
       { x: wx(40), y: wy(28), species: "esqueleto" },    // câmara leste (T2 — fundo)
     ],

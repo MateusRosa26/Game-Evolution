@@ -8,9 +8,9 @@ Florestas, campos e trilhas. Sem resist/fraqueza — a família "neutra" do comb
 
 | Criatura | Tier | Comportamento | Ataques | Notas |
 |---|---|---|---|---|
-| **Rato Lanhoso** | T1 | Perseguidor, Matilha | básico | o primeiro sangue do jogador |
-| **Lobo Cinzento** | T1–T2 | Perseguidor, Matilha | básico | a alcateia é a skill |
-| **Javali de Presas** | T2 | Territorial | básico + Investida | neutro até provocado |
+| **Rato** | T1 | Perseguidor, Matilha | básico | o primeiro sangue do jogador |
+| **Lobo** | T1–T2 | Perseguidor, Matilha | básico | a alcateia é a skill |
+| **Javali** | T2 | Territorial | básico + Investida | neutro até provocado |
 | **Urso Pardo** | T3 | Territorial | básico | **bruto**: HP e dano enormes, zero skill |
 
 ## 2. Humanoides (T1–T3) — goblins, orcs e fora-da-lei
@@ -19,7 +19,7 @@ Acampamentos, estradas, ruínas. Sem resist/fraqueza; dropam gear T1–T2. Culti
 
 | Criatura | Tier | Comportamento | Ataques | Notas |
 |---|---|---|---|---|
-| **Goblin Batedor** | T1 | Perseguidor, Covarde | básico | foge sangrando |
+| **Goblin** | T1 | Perseguidor, Covarde | básico | foge sangrando |
 | **Goblin Fundeiro** | T1–T2 | Atirador, Covarde | básico (funda) | primeiro ranged do jogo |
 | **Orc Soldado** | T2 | Perseguidor | básico + Autobuff (fúria) | defesa alta (escudo) |
 | **Bandido da Estrada** | T2–T3 | Perseguidor | básico + Autocura | se cura ao recuar — mate antes |
@@ -64,20 +64,22 @@ Céus, penhascos, tetos de caverna. Sem resist/fraqueza — rápidos, HP baixo. 
 
 | Criatura | Tier | Comportamento | Ataques | Notas |
 |---|---|---|---|---|
-| **Morcego Sanguessuga** | T1 | Perseguidor, Matilha | básico | enxames no escuro |
+| **Morcego** | T1 | Perseguidor, Matilha | básico | enxames no escuro |
 | **Abutre Carniceiro** | T2 | Perseguidor | básico + Investida (mergulho) | |
 | **Harpia** | T3 | Atirador | básico + *Grito Estridente* (signature: debuff curto ✏️) | |
 
-## 7. Mortos-Vivos (T2–T4) — a família-coração do jogo
+## 7. Mortos-Vivos (T1–T4) — a família-coração do jogo
 
 Criptas, cemitérios, catacumbas. **Imunes a veneno/sangramento; resistentes a gelo; fracos a sagrado e fogo.** A família do exemplo canônico (*Quebra-Ossos*) e o farm natural do Priest. Ameaça por quantidade: hordas.
 
 | Criatura | Tier | Comportamento | Ataques | Notas |
 |---|---|---|---|---|
-| **Esqueleto** | T2 | Perseguidor | básico | a unidade do grind lendário — 15k = *Quebra-Ossos* |
+| **Esqueleto** | **T1** | Perseguidor | básico | **undead de ENTRADA** (recast criador 2026-06-10); a unidade do grind lendário — 15k = *Quebra-Ossos* |
 | **Zumbi Pútrido** | T2–T3 | Perseguidor (lento) | básico | **bruto** lento; vem em números |
-| **Ghoul** | T3 | Perseguidor, Matilha | básico + Autobuff (frenesi) | rápido, faminto |
+| **Ghoul** | T2 | Perseguidor, Matilha | básico + Autobuff (frenesi) | rápido, faminto — **o degrau undead logo acima do esqueleto** (recast 2026-06-10) |
 | **Espectro** | T4 | Perseguidor | básico + slow no hit (toque gélido) | **resiste a físico** — exige magia/sagrado |
+
+> **Recast da família (criador, 2026-06-10):** o **esqueleto é o undead de ENTRADA (T1)**, não mais T2; o **ghoul** é o próximo degrau (T2). Numerado no sim (`bestiary.ts`): esqueleto T1 hp28/dmg8/xp17 (bateria mobs-Alvorada). ✏️ **Abertos para o criador/designer:** ghoul T2 vs T3 (acima fixei T2 como "o próximo após o esqueleto"); como o **Zumbi Pútrido** (T2–T3) se posiciona vs o ghoul; e o papel de *dummy T2 on-level* que o esqueleto-T2 ocupava na bateria de diferenciação de classe (08/jun) migra p/ qual mob. A bateria da família undead (fatia ② Charneca) fecha os números de ghoul/zumbi/espectro.
 
 ## 8. Dracônicos (T3–T5) — sangue de dragão
 

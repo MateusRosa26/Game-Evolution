@@ -7,7 +7,7 @@ import type { CreatureFamily, DamageType } from "../shared/types";
  * pede uma "biblioteca de blocos". Cada criatura é um template declarativo;
  * a IA lê o `behavior` e parâmetros — nada de classe por monstro.
  *
- * No M1 só o Rato Lanhoso existe e só o comportamento "chaser" é implementado.
+ * No M1 só o Rato existe e só o comportamento "chaser" é implementado.
  */
 
 /** Tiers de dificuldade do bestiário (DESIGN-BESTIARIO.md). */
@@ -95,13 +95,13 @@ export interface LootTable {
  */
 
 /**
- * Rato Lanhoso — família Bestial, T1, Perseguidor. "O primeiro sangue do
+ * Rato — família Bestial, T1, Perseguidor. "O primeiro sangue do
  * jogador": rápido, fraco, vem em grupos. Só ataque básico.
  * Números PLACEHOLDER (mobs são fortes por design — pune descuido).
  */
-export const RATO_LANHOSO: CreatureTemplate = {
-  species: "rato_lanhoso",
-  name: "Rato Lanhoso",
+export const RATO: CreatureTemplate = {
+  species: "rato",
+  name: "Rato",
   family: "bestial",
   tier: "T1",
   behavior: "chaser",
@@ -127,33 +127,34 @@ export const RATO_LANHOSO: CreatureTemplate = {
 };
 
 /**
- * Esqueleto — família Mortos-Vivos (undead), T2, Perseguidor. "A unidade do
- * grind lendário" (15k kills = *Quebra-Ossos* na camada emergente). Só ataque
- * básico — encaixa no comportamento "chaser". É a família-coração e o farm
- * natural do Priest (Luz Sagrada nuke vs profanos).
+ * Esqueleto — família Mortos-Vivos (undead), **T1** (undead de ENTRADA).
+ * RECAST (criador, 2026-06-10): o esqueleto é o degrau de ENTRADA da família
+ * morto-vivo (T1, met cedo) — o farm natural do Priest (Luz Sagrada nuke vs
+ * profanos) e a unidade da Marca *Quebra-Ossos* (15k kills = grind puro Tibia, a
+ * Marca fica aqui). O **ghoul** é o PRÓXIMO degrau undead (T2/T3, ainda sem arte
+ * — Camada C / fatia ② Charneca). Só ataque básico ("chaser"); passo 300ms =
+ * undead arrastado e kitável (a identidade preservada).
  *
- * Números (Balancista, bateria T2 on-level 2026-06-09 — `docs/reports/2026-06-08-
- * bateria-diferenciacao-classe.md`): **HP 95** — a bateria on-level (lvl 10) mostrou
- * que 48 era ONE-SHOTADO por melee (knight GF 41+auto=64) e até pela Luz Sagrada,
- * trivializando o tier (T2 = lvl 8-15). 95 dá uma "contagem de golpes" real:
- * melee mata em ~2-3s, caster em ~3-4 casts, sem virar esponja. (48 ainda foi útil
- * no lvl 1 pra DESTRAVAR a diferenciação de skill — burn/slow/perfuração; M1.2.)
- * Dano 12 (T2 pune descuido); XP 80 (≈ proporcional ao tempo de kill maior, segura
- * o XP/h — ✏️ re-régua na bateria de farm T2). Fraqueza a sagrado/fogo e resist a
- * gelo (FAMILIAS.md) NÃO entram aqui (matriz Regra 10-20 fora da sim; bônus da Luz
- * Sagrada vive no executor).
+ * Números T1 (Balancista, bateria mobs-Alvorada 2026-06-10): hp30/dmg9/xp18 —
+ * degrau "undead de entrada" no ladder T1 alargado (dano sobe 7→9→11→14 de rato a
+ * lobo, dando progressão DENTRO do T1). ✏️ PROVISÓRIO até a bateria da
+ * FAMÍLIA UNDEAD na fatia ② (esqueleto T1 + ghoul T2/T3 + resist/fraqueza).
+ * HISTÓRICO: era T2/hp95/dmg12/xp80 (bateria de diferenciação de classe 08/jun,
+ * como dummy T2 on-level lvl 10) — esse papel de dummy T2 MIGRA p/ outro mob ✏️.
+ * Fraqueza a sagrado/fogo + resist a gelo (FAMILIAS.md) NÃO entram aqui (matriz
+ * Regra 10-20 fora da sim; bônus da Luz Sagrada vive no executor).
  */
 export const ESQUELETO: CreatureTemplate = {
   species: "esqueleto",
   name: "Esqueleto",
   family: "undead",
-  tier: "T2",
+  tier: "T1",
   behavior: "chaser",
-  maxHp: 95,
-  attackDamage: 12,
+  maxHp: 30,
+  attackDamage: 9,
   attackType: "physical",
   attackCooldownMs: 2000,
-  xp: 80,
+  xp: 18,
   aggroRadius: 6,
   // 300ms = 3,33 t/s, UM TIER abaixo do jogador (250ms / 4 t/s) — undead arrastado,
   // kitável (design). Múltiplo de 50 = autorado igual ao efetivo orto (antes 280 já
@@ -163,8 +164,110 @@ export const ESQUELETO: CreatureTemplate = {
   loot: { gold: { min: 1, max: 3 } }, // ✏️ + osso/loot undead quando o item entrar
 };
 
+/**
+ * Goblin — Humanoide, T1, Perseguidor/Covarde (FAMILIAS.md §2). Pele-verde
+ * básico do acampamento (S5) e boca da caverna. "Foge sangrando" (covardia) ainda
+ * não modelado — entra como `chaser` (✏️ flee-on-bleed quando o comportamento
+ * existir). Um degrau acima do rato: mais HP, bate um pouco mais, passo de jogador.
+ * Números SEED ancorados no rato (T1) — ✏️ Balancista calibra (bateria de farm T1).
+ */
+export const GOBLIN: CreatureTemplate = {
+  species: "goblin",
+  name: "Goblin",
+  family: "humanoid",
+  tier: "T1",
+  behavior: "chaser",
+  maxHp: 38,
+  attackDamage: 11,
+  attackType: "physical",
+  attackCooldownMs: 1800,
+  xp: 24, // calibrado (bateria mobs-Alvorada jun/2026): degrau médio do T1, dano sobe (esqueleto 9 → goblin 11 → lobo 14)
+  aggroRadius: 6,
+  baseStepMs: 250, // passo de jogador — não alcança fugindo, mas não dá pra deixar nas costas
+  respawnMs: 12000,
+  loot: { gold: { min: 1, max: 3 } }, // ✏️ + Orelha de Goblin (bounty)/Amuleto Tosco quando os itens entrarem (templates.ts é da wave de itens)
+};
+
+/**
+ * Lobo — Bestial, **T1** (Perseguidor/Matilha — FAMILIAS.md §1: "a alcateia
+ * é a skill"). Calibrado (bateria mobs-Alvorada, jun/2026): **T1, não T2** — a
+ * dificuldade vem da MATILHA, não do HP solo. Empírico (knight lvl1): TTK solo ~5s
+ * (topo do T1, acima do goblin 3,8s); mas 2 lobos passivos matam em 10,2s — a
+ * matilha MAIS letal de todos os T1. Tier T1 (creatureLevel 1) faz o lobo dar XP
+ * cheia até ~lvl 6-7 e depois expirar (você gradua da Toca); T2 o faria render até
+ * lvl 13, cedo demais p/ mob de entrada. **Late-T1 (alargamento jun/2026): hp48,
+ * dmg14** — o T1 que MAIS pune (dmg 14 ≈ javali T2 16; 2 lobos passivos matam em
+ * 6,8s, a matilha mais letal) e faz ponte suave pro T2. ✏️ pack-AI é wave futura.
+ */
+export const LOBO: CreatureTemplate = {
+  species: "lobo",
+  name: "Lobo",
+  family: "bestial",
+  tier: "T1",
+  behavior: "chaser",
+  maxHp: 48,
+  attackDamage: 14,
+  attackType: "physical",
+  attackCooldownMs: 1700,
+  xp: 36,
+  aggroRadius: 7,
+  baseStepMs: 220, // veloz (matilha alcança) — múltiplo de 50 p/ casar com a quantização do tick
+  respawnMs: 12000,
+  loot: { gold: { min: 0, max: 2 } }, // ✏️ + Pele de Lobo/Carne quando os itens entrarem
+};
+
+/**
+ * Morcego — Voador, T1, Perseguidor/Matilha (FAMILIAS.md §4: "enxames
+ * no escuro"). Frágil, rápido, vem em nuvem; mob natural de gruta/A2. Sprite já
+ * marca FLYING. Números SEED abaixo do rato (mais fraco, mais rápido) — ✏️ Balancista.
+ */
+export const MORCEGO: CreatureTemplate = {
+  species: "morcego",
+  name: "Morcego",
+  family: "flying",
+  tier: "T1",
+  behavior: "chaser",
+  maxHp: 16,
+  attackDamage: 5,
+  attackType: "physical",
+  attackCooldownMs: 1400,
+  xp: 12,
+  aggroRadius: 6,
+  baseStepMs: 200, // voador rápido, igual à matilha de ratos
+  respawnMs: 10000,
+  loot: { gold: { min: 0, max: 1 } }, // ✏️ + Asa de Morcego (reagente do Silas) quando o item entrar
+};
+
+/**
+ * Javali — Bestial, T2, Territorial + Investida (FAMILIAS.md §1: "neutro
+ * até provocado"). Tanque que pune: muito HP, golpe pesado, lento pra atacar.
+ * Territorialidade e a carga ainda não modeladas — entra como `chaser` (✏️ neutro-
+ * até-provocado + investida). Named **Presa-Torta** (Q7) é uma variante futura.
+ * Números SEED na faixa T2 (abaixo do esqueleto em HP, acima em dano) — ✏️ Balancista.
+ */
+export const JAVALI: CreatureTemplate = {
+  species: "javali",
+  name: "Javali",
+  family: "bestial",
+  tier: "T2",
+  behavior: "chaser",
+  maxHp: 80,
+  attackDamage: 16,
+  attackType: "physical",
+  attackCooldownMs: 2200,
+  xp: 60,
+  aggroRadius: 5, // territorial: só acorda de perto
+  baseStepMs: 240,
+  respawnMs: 15000,
+  loot: { gold: { min: 1, max: 3 } }, // ✏️ + Presa de Javali/Couro Grosso/Carne de Caça quando os itens entrarem
+};
+
 /** Registro de templates por espécie — ponto único de lookup. */
 export const CREATURES: Record<string, CreatureTemplate> = {
-  [RATO_LANHOSO.species]: RATO_LANHOSO,
+  [RATO.species]: RATO,
   [ESQUELETO.species]: ESQUELETO,
+  [GOBLIN.species]: GOBLIN,
+  [LOBO.species]: LOBO,
+  [MORCEGO.species]: MORCEGO,
+  [JAVALI.species]: JAVALI,
 };

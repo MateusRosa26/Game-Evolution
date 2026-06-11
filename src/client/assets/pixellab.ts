@@ -82,7 +82,7 @@ export const PIXELLAB: {
 };
 
 /** Espécies que voam: o client desenha levemente acima do chão (charme barato). */
-export const FLYING_SPECIES = new Set(["morcego_sanguessuga"]);
+export const FLYING_SPECIES = new Set(["morcego"]);
 
 // Frames de mob descobertos no build (pasta por espécie — padrão do projeto).
 const MOB_FRAME_URLS = import.meta.glob("./img/mobs/*/*.png", {

@@ -132,4 +132,7 @@ export interface SimEntity {
   aggroRadius: number;
   /** Spawn de origem — usado para respawn determinístico. */
   spawnPos: Vec2;
+  /** Respawn em ms deste spawn específico (override por-spot do template —
+   *  EXPLORACAO.md §teto de exp/h). undefined = usa `template.respawnMs`. */
+  respawnMs?: number;
 }

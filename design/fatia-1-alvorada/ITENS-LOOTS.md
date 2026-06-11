@@ -13,14 +13,14 @@
 
 | Mob (bestiário) | Tier | Onde (spots v4) | Gold ✏️ | Loot vendável | Loot raro ✏️ |
 |---|---|---|---|---|---|
-| Rato Lanhoso | T1 | cidade, granja, esgoto A1, planícies | minúsculo | **Cauda de Rato** | — |
-| Lobo Cinzento | T1–T2 | toca, trilha, planícies | minúsculo | **Pele de Lobo**, Carne (às vezes) | Presa Perfeita (rara) |
-| Morcego Sanguessuga | T1 | gruta dos morcegos, esgoto A2 | minúsculo | **Asa de Morcego** | — |
-| Goblin Batedor | T1 | acampamento, caverna | pequeno | **Orelha de Goblin** | Amuleto Tosco |
+| Rato | T1 | cidade, granja, esgoto A1, planícies | minúsculo | **Cauda de Rato** | — |
+| Lobo | T1–T2 | toca, trilha, planícies | minúsculo | **Pele de Lobo**, Carne (às vezes) | Presa Perfeita (rara) |
+| Morcego | T1 | gruta dos morcegos, esgoto A2 | minúsculo | **Asa de Morcego** | — |
+| Goblin | T1 | acampamento, caverna | pequeno | **Orelha de Goblin** | Amuleto Tosco |
 | Goblin Fundeiro | T1–T2 | juncal, caverna | pequeno | Orelha de Goblin + **Funda Gasta** | — |
 | Escaravelho de Cripta | T1 | esgoto A2 | minúsculo | **Carapaça de Escaravelho** | — |
 | Aranha-das-Cavernas | T2 | ninho, esgoto A2 | pequeno | **Glândula de Veneno**, Seda | — |
-| Javali de Presas | T2 | matagal | pequeno | **Presa de Javali**, Couro Grosso, **Carne de Caça** | — |
+| Javali | T2 | matagal | pequeno | **Presa de Javali**, Couro Grosso, **Carne de Caça** | — |
 | Orc Soldado *(decidido jun/2026 — orcs armam os goblins; fio → Fortaleza)* | T2 | fundo da Caverna dos Goblins | pequeno–médio | **Sucata de Arma**, Escudo Lascado | peça T1 de gear |
 | Bandido da Estrada | T2 | ponte | **médio** (humanos carregam gold) | **Adaga Enferrujada**, Anel de Latão | **Carta Rabiscada** (*Scrawled Letter* — inicia *O Tesouro do Bando*, `QUESTS.md` Q11) |
 | Ghoul | T3 | Porão Afogado (1–2) | médio | ✏️ (família-coração — ver arco) | — |
@@ -38,10 +38,21 @@
 | **Duarte, o ferreiro** (Baixa) | Sucata de Arma, Adaga Enferrujada, Escudo Lascado | **quest da Entrega** (já existente — vira a porta do trade) |
 | **Capitão Vidal** (Quartel) | Orelha de Goblin (*bounty*) | **quest Lobos Demais** → abre o contrato de bounty |
 | **Abel, o coveiro** (Capela) | ✏️ itens do arco (restos profanos — fatia ②) | quest A Água do Poço |
-| **Bento, o cozinheiro** (estalagem) | ingredientes (carnes, colheita) **e pratos prontos** — renda não-combate | **quest do cozinheiro** (a mesma que destrava a 1ª receita) |
+| **Bartolo, o estalajadeiro-cozinheiro** (estalagem) | ingredientes (carnes, colheita) — renda não-combate | **quest do cozinheiro** (Q6 — a mesma que destrava a 1ª receita; Bento fundido no Bartolo, jun/2026) |
 
 - **Nenhum comprador especializado é anunciado**: descobre-se conversando (keywords/diálogo) ou pela quest. O vendor geral existe pra venda preguiçosa render pouco — a diferença paga o conhecimento.
 - No online: o "mapa de comércio" vira conhecimento que circula entre jogadores — exatamente como rotas de hunt.
+
+### Quem VENDE o quê (lanes de comércio — revisado jun/2026)
+
+Pistas limpas pra uma vila pequena, **sem sobreposição** (preços ✏️ Balancista):
+
+| Vendedor | Vende | Nota |
+|---|---|---|
+| **Nina — Loja Geral** | só **utilitários**: pão, tocha, corda, pá, sacola, flechas | **não vende armas** (tirada a sobreposição com o Ferreiro) |
+| **Duarte — Ferreiro** | **fonte única de gear de combate**: armas + **escudo** + **armadura** (metal/couro básico) | ✏️ **faltam templates de armadura/escudo** — criar em `src/sim/items/templates.ts` (hoje só há armas) |
+| **Silas — Boticário** | poções (Vida Pequena) | luxo de emergência |
+| **Bartolo — Estalagem** | comida + pratos prontos | sustain de rotina |
 
 ## Comida na fatia (modelo Apogea — ver DESIGN-ITENS §Comida & Cozinha)
 

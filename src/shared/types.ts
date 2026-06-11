@@ -217,8 +217,13 @@ export interface MapDecor {
 export interface MapMonster {
   x: number;
   y: number;
-  /** ID de espécie do bestiário (ex: "rato_lanhoso"). */
+  /** ID de espécie do bestiário (ex: "rato"). */
   species: string;
+  /** Respawn em ms DESTE ponto (override do `template.respawnMs`). Permite afinar
+   *  o teto de exp/h por-spot (EXPLORACAO.md §respawn-timer = teto): o mesmo mob
+   *  respawna mais rápido num Pool e mais devagar numa Sentinela. undefined =
+   *  usa o do bestiário. ✏️ Balancista por spot/padrão. */
+  respawnMs?: number;
 }
 
 /** Retângulo em tiles (zonas de regra: segura / passagem). */

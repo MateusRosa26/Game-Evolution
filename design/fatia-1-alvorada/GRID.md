@@ -57,7 +57,7 @@ Legenda: `███` muralha/cidade · `~` afluente/água · `①②③④` trav
 - **Edges:** o **afluente** (costura/edge dominante, cruzável em 5 lugares graduados) · a **muralha** da cidade · o **pântano S** (borda mole de letalidade) · a **floresta NE** (gradiente de perigo).
 - **Districts:** Cidade (Alto/Baixa/Cais) · campo manso O · floresta-perigo NE · pântano-bandido S · esgoto subterrâneo.
 - **Nodes (interseções de decisão):** os 4 portões · a Ponte de Alvorada · o vau · a boca de cada spot.
-- **Landmarks / weenies:** a **Árvore Sagrada** no horizonte oeste (já no v4) · a **muralha + Torre Arcana/Templo** da capital (silhueta visível de longe) · o **Moinho Velho** (silhueta sul) · a **balsa fechada + telhados de Pontal** na margem leste (promessa macro).
+- **Landmarks / weenies:** a **Árvore Sagrada** no horizonte oeste (já no v4) · a **muralha baixa de pedra + torre de vigia** da vila com os **telhados das casas pequenas** espreitando por cima (silhueta humilde, visível de perto — não a silhueta monumental de uma capital) · o **Moinho Velho** (silhueta sul) · a **balsa fechada + telhados de Pontal** na margem leste (promessa macro).
 
 ---
 
@@ -89,15 +89,17 @@ Linhas tracejadas do v4. Saem dos 4 portões:
 
 ---
 
-## 3. A cidade de Alvorada (intramuros) — 70×70 tiles
+## 3. Alvorada, a primeira povoação (intramuros)
 
-> Prancha B do v4 reprojetada. **Âncora da cidade no recorte ✏️:** muralha ocupa `[100..170]×[80..150]` local (a colina da curva). A cidade é a **zona segura / hub** (depot + mercado + praça). Origem local da cidade para detalhe fino: o resto desta seção usa **coordenadas-cidade `(cx,cy)`** com origem no canto NW da muralha `(100,80)` local — então `local = cidade + (100,80)`. Cidade 70×70.
+> **⚠️ RECAST (jun/2026) — vila, não capital.** Alvorada é a **primeira povoação humilde** (`DESIGN-LORE.md` §Geografia, `design/mundo/EXPLORACAO.md`): **casas pequenas + muralha baixa de pedra (inacabada)**, serviços em **versão humilde** (renomes em §3.3). **A pegada já lê como vila no engine** (criador confirmou — não parece grande), então o re-layout de escala é **baixa prioridade** ✏️ — o que muda de fato é a **identidade** (vila, serviços humildes, muralha baixa) e os **nomes dos prédios** (§3.3, já atualizados). As coordenadas 70×70 abaixo seguem como **referência relativa**. **Contraste com a cidade grande = altura/andares da muralha, não material**: a vila tem muralha de pedra **baixa**; a capital terá muralhas **altas, de andares**.
+>
+> Origem local da povoação para detalhe fino: esta seção usa **coordenadas-vila `(cx,cy)`** com origem no canto NW da muralha `(100,80)` local — então `local = vila + (100,80)`. A vila é a **zona segura / hub** (armazém + mercado + praça).
 
 ### 3.1 Muralha e portões
 
 | Elemento | Coord-cidade ✏️ | Notas |
 |---|---|---|
-| Muralha (anel) | perímetro `~[2..58]×[2..58]` | fechada N/L; **trecho O/S em obras (estacas)** — gancho físico do v4, gap atravessável visível mas "não-terminado" |
+| Muralha baixa (anel) | perímetro `~[2..58]×[2..58]` | **pedra, baixa e simples** (não as muralhas altas de andares da cidade grande); fechada só a N/L, **trechos O/S ainda em obras** — gancho físico do v4, gap atravessável visível, a vila pobre demais pra fechar o anel |
 | **① Portão NE** | `(40,2)` | → vau → Brumal — "a estrada da fronteira" |
 | **② Portão Sul** | `(20,58)` | → ponte dos bandidos → Charneca — "a estrada do arco (via perigo)" |
 | **③ Portão Oeste** | `(2,30)` | → granja/planícies — "o campo manso, saída do novato" |
@@ -105,26 +107,26 @@ Linhas tracejadas do v4. Saem dos 4 portões:
 
 ### 3.2 Distritos
 
-- **ALTO** (`cy ~6..30`, norte da cidade) — fé e arcano; weenie da cidade (silhuetas do Templo + Torre).
-- **BAIXA** (`cy ~28..52`, centro/sul) — praça, mercado, ofícios; o **cluster de utilidade** (Depot + lojas + poço) — o hub de rotina.
-- **CAIS** (`cx ~44..58`, leste, junto à Porta d'Água/afluente) — taverna, becos, armazéns, balsa; onde "o valor se esconde nos cantos".
+- **ALTO** (`cy ~6..30`, norte da vila) — fé e arcano em escala humilde; weenie da vila (a **Capela** de tábuas + a **Casa do Mago** na parte alta, não silhuetas monumentais).
+- **BAIXA** (`cy ~28..52`, centro/sul) — praça, mercado, ofícios; o **cluster de utilidade** (Armazém + lojas + poço) — o hub de rotina.
+- **CAIS** (`cx ~44..58`, leste, junto à Porta d'Água/afluente) — taverna, becos, barracões, balsa; onde "o valor se esconde nos cantos".
 
 ### 3.3 Edifícios-âncora (cada um com 1 porta = tile de entrada)
 
 | Edifício | Distrito | Porta (coord-cidade) ✏️ | Papel / quest |
 |---|---|---|---|
-| **Estalagem do Vau** | Baixa | `(20,42)` | Bartolo (Q1) + Bento cozinheiro (Q6); **porão** dos ratos; fogueira fixa (cozinha) |
-| **Loja Geral** | Baixa | `(24,38)` | Nina (Q2); vendor geral (vendor floor); corda/pá/tochas |
+| **Estalagem do Vau** | Baixa | `(20,42)` | **Bartolo** (Q1 + Q6) — estalajadeiro **e cozinheiro** (Bento fundido nele, jun/2026); vende comida + pratos; **porão** dos ratos; fogueira fixa (cozinha) |
+| **Loja Geral** | Baixa | `(24,38)` | Nina (Q2); vendor geral (vendor floor); **só utilitários** — corda/pá/tochas/flechas/sacola; **não vende armas** (vão no Ferreiro) |
 | **Boticário** (loja de Poções) | Baixa | `(31,38)` | Silas (Q3); vende Vida Pequena; compra reagentes pós-quest |
-| **Ferreiro** | Baixa | `(20,28)` | Duarte (Q4, Q9); compra sucata/armas pós-quest |
-| **Depot** | Baixa | `(38,32)` | banco/armazém — cluster de utilidade; R2 (Mage) busca o tomo aqui |
+| **Ferreiro** | Baixa | `(20,28)` | Duarte (Q4, Q9); **fonte única de gear de combate** — armas + escudo + armadura (✏️ templates de armadura/escudo a criar); compra sucata pós-quest |
+| **Armazém** *(the Storehouse)* | Baixa | `(38,32)` | barracão comunal de tábuas que **faz as vezes de Depot** (banco/guarda-volumes do sistema) — cluster de utilidade; R2 (Mage) busca o tomo aqui |
 | **Praça do Poço** (+ **bueiro**) | Baixa | centro `(36,34)`; **bueiro `(36,38)`** | hub; o **bueiro** = boca de esgoto principal (Q1 aponta) |
-| **Câmara** (Augusto, prefeito) | Baixa | `(46,46)` | civismo/flavor; ✏️ futura quest-hub |
+| **Câmara** (sem prefeito no MVP) | Baixa | `(46,46)` | cenário/flavor — **Augusto cortado** (jun/2026); a vibe da muralha inacabada foi pro Capitão Vidal; ✏️ futura quest-hub |
 | **Quartel da Guarda** | embutido na muralha O | `(8,36)` | Capitão Vidal (Q5, Q8, Q9-elo); bounty de orelhas |
-| **Capela do Coveiro** (+ cemitério) | Alto, junto muralha N | `(15,12)` | Abel (Q10); gancho do arco na capital; boca de esgoto "Capela" |
-| **Templo** (+ **Santuário** de respawn) | Alto | Templo `(20,14)`; **Santuário `(16,22)`** | Gabriel — R4 (Priest): oferenda+chama no Santuário; respawn da fatia |
-| **Torre Arcana** | Alto | `(30,18)` | Leonor — R2 (Mage): braseiro × cristal (fogo/gelo) |
-| **Guilda dos Guerreiros** (+ pátio) | Alto-Leste | `(44,18)` | Ricardo — R1 (Knight): instrutor + boneco de treino no pátio |
+| **Capela do Coveiro** (+ cemitério) | Alto, junto à muralha N | `(15,12)` | Abel (Q10); gancho do arco no povoado; boca de esgoto "Capela" |
+| **Capela** *(the Chapel)* (+ **Santuário** de respawn) | Alto | Capela `(20,14)`; **Santuário `(16,22)`** | capela de tábuas (não templo de pedra); Gabriel — R4 (Priest): oferenda+chama no Santuário; respawn da fatia |
+| **Casa do Mago** *(the Mage's House)* | Alto | `(30,18)` | choupana do único arcanista da vila (não torre); Leonor — R2 (Mage): braseiro × cristal (fogo/gelo) |
+| **Pátio da Milícia** *(the Militia Yard)* (+ pátio de treino) | Alto-Leste | `(44,18)` | pátio da milícia local (não guilda); Ricardo — R1 (Knight): instrutor veterano + boneco de treino |
 | **Taverna do Cais** | Cais | `(50,30)` | Tobias o bêbado (Q12); Telmo taverneiro (elo Q9) |
 | **Beco dos Ladinos** | Cais | entrada `(52,38)`; esconderijo `(54,40)`✏️ | Vincente "Gralha" — R3 (Rogue): "terceira pedra contando da sarjeta" |
 | **Armazéns** | Cais | `(50,46)` | flavor; ✏️ |
@@ -167,11 +169,10 @@ cy  +----+----+----+----+----+----+----+----+
 
 | NPC | Papel | Distrito | Posição ✏️ | Quests / comércio |
 |---|---|---|---|---|
-| **Bartolo** | Estalajadeiro | Baixa (Estalagem) | `(20,42)` | Q1 Ratos no Porão |
-| **Bento** | Cozinheiro da estalagem | Baixa (Estalagem, cozinha) | `(22,43)` | Q6; trade ingredientes/pratos; receita do Ensopado |
-| **Nina** | Lojista (Loja Geral) | Baixa | `(24,38)` | Q2 A Mochila; vendor geral |
+| **Bartolo** | Estalajadeiro-cozinheiro | Baixa (Estalagem) | `(20,42)` | Q1 Ratos no Porão + Q6 Prato do Cozinheiro; vende comida/pratos; compra ingredientes (Bento fundido nele, jun/2026) |
+| **Nina** | Lojista (Loja Geral) | Baixa | `(24,38)` | Q2 A Mochila; vendor geral — **só utilitários** (sem armas) |
 | **Silas** | Boticário | Baixa | `(31,38)` | Q3 Reagentes; vende Vida Pequena; compra reagentes |
-| **Duarte** | Ferreiro | Baixa | `(20,28)` | Q4 Entrega, Q9 Estrada Roubada; compra sucata/armas |
+| **Duarte** | Ferreiro | Baixa | `(20,28)` | Q4 Entrega, Q9 Estrada Roubada; **vende todo o gear** (armas+escudo+armadura ✏️); compra sucata |
 | **Capitão Vidal** | Guarda-capitão | Muralha O (Quartel) | `(8,36)` | Q5, Q8, elo de Q9; bounty de orelhas |
 | **Abel** | Coveiro | Alto (Capela) | `(15,12)` | Q10 Água do Poço; ✏️ trade de restos (fatia ②) |
 | **Amaro** | Caçador-peleteiro (civil) | Cais | `(48,42)` ✏️ | Q7 A Caçada do Peleteiro; trade de peles/couro/presas |
@@ -195,16 +196,16 @@ cy  +----+----+----+----+----+----+----+----+
 
 | # | Spot | Área `[x0..x1]×[y0..y1]` ✏️ | Tier | Espécie(s) | Spawns ✏️ | Conexões / refs |
 |---|---|---|---|---|---|---|
-| S1 | **Planícies** (O/SO) | `[10..70]×[60..200]` | T1 | Rato Lanhoso, Lobo Cinzento | 8–10 espalhados | estrada O; transição com Granja |
-| S2 | **Granja** (celeiros) | `[20..55]×[80..100]` | T1 | Rato Lanhoso | 4–6 | Q2 (fardo); portão O |
-| S3 | **Gruta dos Morcegos** | âncora `(135,58)`, gruta `[125..150]×[48..68]` | T1 | Morcego Sanguessuga | 6–8 | Q3; barranco N da colina |
-| S4 | **Toca dos Lobos** | âncora `(185,68)`, `[172..200]×[55..80]` | T1 | Lobo Cinzento | 6–8 | Q5; orla NE da mata (fora da muralha); Q6 (carne) |
-| S5 | **Acampamento Goblin** | `[185..230]×[35..70]` | T1 | Goblin Batedor | 8–10 | Q8 ato 2; trilha do vau |
-| S6 | **Caverna dos Goblins** | boca `(240,40)`✏️ (dungeon/mapa sep. ou bolsão) | T1→T2 | Goblin Batedor; **Orc Soldado** (fundo, named-ish) | 8–12 + 1 Orc | Q8 ato 3; **baú guardado** no fundo |
+| S1 | **Planícies** (O/SO) | `[10..70]×[60..200]` | T1 | Rato, Lobo | 8–10 espalhados | estrada O; transição com Granja |
+| S2 | **Granja** (celeiros) | `[20..55]×[80..100]` | T1 | Rato | 4–6 | Q2 (fardo); portão O |
+| S3 | **Gruta dos Morcegos** | âncora `(135,58)`, gruta `[125..150]×[48..68]` | T1 | Morcego | 6–8 | Q3; barranco N da colina |
+| S4 | **Toca dos Lobos** | âncora `(185,68)`, `[172..200]×[55..80]` | T1 | Lobo | 6–8 | Q5; orla NE da mata (fora da muralha); Q6 (carne) |
+| S5 | **Acampamento Goblin** | `[185..230]×[35..70]` | T1 | Goblin | 8–10 | Q8 ato 2; trilha do vau |
+| S6 | **Caverna dos Goblins** | boca `(240,40)`✏️ (dungeon/mapa sep. ou bolsão) | T1→T2 | Goblin; **Orc Soldado** (fundo, named-ish) | 8–12 + 1 Orc | Q8 ato 3; **baú guardado** no fundo |
 | S7 | **Ninho de Aranhas** | `[260..300]×[60..90]`, sem trilha | T2 | Aranha-das-Cavernas | 5–7 | fundo da mata NE; caminho curioso |
 | S8 | **Minas Perdidas** | boca `(330,30)`✏️ NE remoto (dungeon/bolsão) | T1→T2 | ✏️ (T1→T2; sons que "respondem") | 6–8 | Q13; **baú guardado** no fundo; carrinhos enferrujados na boca |
 | S9 | **Juncal dos Fundeiros** | `[175..205]×[150..185]` | T1→T2 | Goblin Fundeiro (ranged através da água) | 6–8 | Q14 (pedras ④); atiram do outro lado |
-| S10 | **Matagal dos Javalis** | `[235..275]×[230..270]` | T2 | Javali de Presas (territoriais); **Javali Velho/Presa-Torta** (named, respawn lento ✏️20–30min) | 6–8 + 1 named | Q6 (carne), Q7 (peles + named) |
+| S10 | **Matagal dos Javalis** | `[235..275]×[230..270]` | T2 | Javali (territoriais); **Javali Velho/Presa-Torta** (named, respawn lento ✏️20–30min) | 6–8 + 1 named | Q6 (carne), Q7 (peles + named) |
 | S11 | **Bandidos da Ponte** | `[150..185]×[260..290]` | T2 | Bandido da Estrada | 5–7 | Q9 (recuperar carga); ponte ③; Q11 (carta-loot) |
 | S12 | **Moinho Velho** (corvos) | âncora `(60,250)`, porão (interação ⬇) | — caça leve | corvos (ambiente, sobrevoam); **porão** = baú | — | Q12; silhueta-weenie sul; sinais de bandido → ponte |
 
@@ -215,6 +216,23 @@ cy  +----+----+----+----+----+----+----+----+
 > O lugar mais seguro (cidade/Planícies coladas) **não** é o mais lucrativo — os T2 longe pagam mais (regra de ouro 4).
 
 > **Esgoto (spots subterrâneos)** ficam no §7 (A1 ratos T1, A2 escaravelhos/aranhas T2, A3 ghouls T3).
+
+### 5.1 Padrão de spawn por spot (decidido jun/2026 — gramática de `design/mundo/EXPLORACAO.md`)
+
+A coluna "Spawns" acima dá o **nº de pontos** (máx. simultâneo + parte do teto de exp/h). Ortogonal a ele, o **padrão** (Sentinela / Bando / Pool / Territorial) diz a INTENÇÃO — todos usam o mesmo modelo (pontos fixos + respawn-timer; **o timer É o teto de exp/h**, sem refil infinito). Regras do criador: **pull descuidado ≈ 2**; **nada de pack colado no portão**; perigo sobe radialmente.
+
+| Spot | Padrão | Intenção |
+|---|---|---|
+| **Sentinelas** (NOVOS, nos caminhos) | **Sentinela** | 1 batedor goblin na trilha NE (telegrafa S5); 1 lobo solo na estrada O (telegrafa S1). Linguagem, não farm. Fora do portão, no caminho. |
+| S1 Planícies | **Bandos** (rato em pares) + 1 Bando lobo no fundo O | o "salário" do novato; tier sobe rumo à Árvore Sagrada |
+| S2 Granja · S4 Toca Lobos | **Bando** | farm de superfície |
+| S3 Gruta Morcegos | **Pool pequeno** | enxame no escuro, circuito curto |
+| **S5 Acampamento Goblin** | **Pool** ⭐ | a "cidade dos goblins" — destino de caça, fim do gradiente NE |
+| S10 Matagal Javalis | **Territorial** (solo espalhado) | neutro até provocado; cada javali é ameaça solo, não pack |
+| S6 Caverna · S8 Minas · S9 Juncal · S7 Ninho · S11 Bandidos | **Pool** (dungeon/escondido) | dependem de arte (Camada C) e/ou mapa separado — futuros |
+| Esgoto A1 | **Pool** ⭐ intro | o 1º "limpar e circular" (ratos+morcego); a **adega** da Q1 é contida (8 ratos fixos, NÃO-pool) — `ESGOTOS.md §3.5` |
+
+> **Respawn por-spot ✏️ (achado de implementação):** hoje `respawnMs` é por-ESPÉCIE (`bestiary.ts`), não por-spot — então o teto de exp/h não dá pra afinar zona-a-zona. Pra realizar o modelo "respawn limite da zona", `MapMonster` precisa de um **override opcional de respawn** (designer-de-sistemas + Balancista). Pequeno, mas é o que dá o controle fino do teto.
 
 ---
 
@@ -247,7 +265,7 @@ cy  +----+----+----+----+----+----+----+----+
 
 ### 7.2 ANDAR 1 — galerias rasas (T1)
 - **Planta ✏️:** `~[0..150]×[0..40]` (corredor largo conectando as 5 bocas — **atalho urbano** por baixo).
-- **Spawns:** Rato Lanhoso, ~6–8. **Morcego Sanguessuga** nas partes mais ao N (transição com a Gruta) ✏️.
+- **Spawns:** Rato, ~6–8. **Morcego** nas partes mais ao N (transição com a Gruta) ✏️.
 - **Saídas:** as 5 bocas (subida) + **deságua na margem leste** (saída secreta `(255,165)`) + 2 descidas para A2.
 - **Descidas A1→A2 ✏️:** `(40,38)` e `(110,38)` (escadas; o v4 mostra duas).
 
@@ -348,16 +366,16 @@ cy  +----+----+----+----+----+----+----+----+
 
 | Quest | Lugares exigidos (QUESTS.md) | POI/coord no GRID | ✓ |
 |---|---|---|---|
-| R1 Knight | Guilda + pátio/boneco | Guilda `(44,18)` §3.3 | ✓ |
-| R2 Mage | Torre Arcana + Depot + braseiro/cristal | Torre `(30,18)`, Depot `(38,32)` | ✓ |
+| R1 Knight | Pátio da Milícia + pátio/boneco | Pátio `(44,18)` §3.3 | ✓ |
+| R2 Mage | Casa do Mago + Armazém + braseiro/cristal | Casa do Mago `(30,18)`, Armazém `(38,32)` | ✓ |
 | R3 Rogue | Beco dos Ladinos + esconderijo | Beco `(52,38)` / esconderijo `(54,40)` | ✓ |
-| R4 Priest | Templo + Santuário | Templo `(20,14)` / Santuário `(16,22)` | ✓ |
+| R4 Priest | Capela + Santuário | Capela `(20,14)` / Santuário `(16,22)` | ✓ |
 | Q1 Ratos no Porão | porão da Estalagem + bueiro da praça | Estalagem `(20,42)`, bueiro E01 `(36,38)` | ✓ |
 | Q2 A Mochila | portão O + Granja (fardo) | Portão O P04, Granja P11 | ✓ |
 | Q3 Reagentes | Boticário + Gruta dos Morcegos | Boticário `(31,38)`, Gruta P13 | ✓ |
 | Q4 A Entrega | Ferreiro + Ponte de Alvorada + estrada leste + Atalaia + balsa/Pontal | Ferreiro `(20,28)`, P06, P24, vigia `(340,150)`, balsa `(58,48)` | ✓ |
 | Q5 Lobos Demais | Quartel + Toca dos Lobos + vau NE | Quartel `(8,36)`, Toca P14, vau P07 | ✓ |
-| Q6 O Prato | Cozinheiro + fogueira (estalagem) + Toca/Matagal (carne) | Bento `(22,43)`, Toca P14, Matagal P20 | ✓ |
+| Q6 O Prato | Bartolo (cozinha) + fogueira (estalagem) + Toca/Matagal (carne) | Bartolo `(20,42)`, Toca P14, Matagal P20 | ✓ |
 | Q7 Peleteiro | Caçador (Cais) + Matagal + Javali Velho | Amaro `(48,42)`, Matagal/named P20 | ✓ |
 | Q8 Cadeia Goblin | Capitão + vau + Acampamento + Caverna + Orc (fundo) | Vidal `(8,36)`, vau P07, Acamp P15, Caverna+Orc P16 | ✓ |
 | Q9 Estrada Roubada | Ferreiro→Capitão→Taverneiro→ponte dos bandidos (acampamento/carga) | Duarte, Vidal, Taverneiro `(51,29)`, Bandidos P21 / ponte P08 | ✓ |
