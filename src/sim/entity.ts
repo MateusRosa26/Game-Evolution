@@ -1,4 +1,4 @@
-import type { CreatureFamily, Dir8, Facing, Vec2 } from "../shared/types";
+import type { CreatureFamily, DamageType, Dir8, Facing, Vec2 } from "../shared/types";
 import type { EntityKind } from "../shared/types";
 import type { OutfitState } from "../shared/outfits";
 import type { StatusEffect } from "./skills/status";
@@ -59,6 +59,8 @@ export interface SimEntity {
   nextAttackAt: number;
   /** Dano do ataque básico. */
   attackDamage: number;
+  /** Tipo de dano do ataque básico (mob; vem do template do bestiário). */
+  attackType?: DamageType;
   /** Cooldown de ataque, em ms. */
   attackCooldownMs: number;
   /**

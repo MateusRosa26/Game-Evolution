@@ -224,8 +224,12 @@ export function physicalDamage(
  * calibrado se mantém; muda só o feel (AD imprevisível, AP confiável). ✏️ spread.
  */
 export const PHYSICAL_DAMAGE_SPREAD = 0.4; // ±40% — AD bem swingy
-export function physicalVariance(avg: number, roll: number): number {
-  const f = 1 - PHYSICAL_DAMAGE_SPREAD + roll * 2 * PHYSICAL_DAMAGE_SPREAD;
+// Spread do MOVE/slam telegrafado dos mobs: menor que o básico de propósito. O
+// telegraph promete um número (o desvio é a mecânica, não a sorte), então a
+// faixa é apertada — varia o feel sem roubar a didática posicional do "saí tarde".
+export const MONSTER_MOVE_DAMAGE_SPREAD = 0.2; // ±20% — slam quase-confiável
+export function physicalVariance(avg: number, roll: number, spread: number = PHYSICAL_DAMAGE_SPREAD): number {
+  const f = 1 - spread + roll * 2 * spread;
   return Math.max(1, Math.floor(avg * f));
 }
 

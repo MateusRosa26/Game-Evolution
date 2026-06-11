@@ -33,7 +33,7 @@ import { CREATURES, type CreatureTemplate } from "./bestiary";
 import { applyDamage, chebyshev, type CombatCtx, type WeaponSource } from "./combat";
 import type { SimEntity } from "./entity";
 import { EventBus, type KillEvent } from "./events";
-import { attackCooldownMs, maxCarry, physicalDamage, physicalVariance, statPointCost, wandDamage, xpForLevel } from "./formulas";
+import { attackCooldownMs, maxCarry, MONSTER_MOVE_DAMAGE_SPREAD, physicalDamage, physicalVariance, statPointCost, wandDamage, xpForLevel } from "./formulas";
 import {
   ItemRegistry,
   attachItemLedger,
@@ -442,6 +442,7 @@ export class Simulation {
       targetId: null,
       nextAttackAt: 0,
       attackDamage: template.attackDamage,
+      attackType: template.attackType,
       // Quantizado à grade de ticks (mesma razão do stepMs/cooldown do player).
       attackCooldownMs: this.quantizeToTickMs(template.attackCooldownMs),
       nextItemUseAt: 0,
@@ -960,7 +961,10 @@ export class Simulation {
         if (occId == null || occId === monster.id) continue; // tile vazio ou o próprio caster
         const victim = this.entities.get(occId);
         if (victim && !victim.dead && victim.kind === "player") {
-          applyDamage(ctx, monster, victim, am.def.damage ?? 0, am.def.damageType ?? "physical", null, null);
+          // Slam telegrafado varia POUCO (±20%): o telegraph promete um número, o
+          // desvio é a mecânica — faixa apertada não rouba a didática posicional.
+          const slamDmg = physicalVariance(am.def.damage ?? 0, this.combatRng(), MONSTER_MOVE_DAMAGE_SPREAD);
+          applyDamage(ctx, monster, victim, slamDmg, am.def.damageType ?? "physical", null, null);
         }
       }
     }
