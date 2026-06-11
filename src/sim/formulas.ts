@@ -57,10 +57,14 @@ export const CLASS_GROWTH: Record<PlayerClass, ClassGrowth> = {
   // classes derivam por analogia da razão de hpPerLevel (knight>rogue>priest>mage),
   // ✏️ ainda não medidas. manaRegenPerLevel = ✏️ placeholder (sem âncora de dreno
   // de mana ainda). T3–T5 confirmam a curva na bateria #11 quando o bestiário crescer.
+  // MATRIZ DE CLASSES (decidido criador jun/2026): sustain (Knight/Priest) durável,
+  // damage (Rogue/Mage) frágil. hpPerLevel reflete a durabilidade: Knight(AD sustain)
+  // > Priest(AP sustain) > Rogue(AD dmg) > Mage(AP dmg). Antes rogue(9)>priest(7) estava
+  // INVERTIDO (carry mais durável que sustain). ✏️ Balancista afina os números.
   knight: { hpPerLevel: 15, manaPerLevel: 2, capPerLevel: 25, hpRegenPerLevel: 0.10, manaRegenPerLevel: 0.02 },
   mage: { hpPerLevel: 5, manaPerLevel: 12, capPerLevel: 10, hpRegenPerLevel: 0.04, manaRegenPerLevel: 0.10 },
-  rogue: { hpPerLevel: 9, manaPerLevel: 5, capPerLevel: 18, hpRegenPerLevel: 0.07, manaRegenPerLevel: 0.04 },
-  priest: { hpPerLevel: 7, manaPerLevel: 10, capPerLevel: 12, hpRegenPerLevel: 0.06, manaRegenPerLevel: 0.08 },
+  rogue: { hpPerLevel: 7, manaPerLevel: 5, capPerLevel: 18, hpRegenPerLevel: 0.07, manaRegenPerLevel: 0.04 },
+  priest: { hpPerLevel: 12, manaPerLevel: 10, capPerLevel: 12, hpRegenPerLevel: 0.06, manaRegenPerLevel: 0.08 },
 };
 
 /** Atributos iniciais por classe (nível 1). ✏️ placeholder — calibrar no M2. */
@@ -181,8 +185,8 @@ const DEX_DAMAGE_K = 0.05; // Destreza (adagas): mesma régua; identidade = cad�
 // base ALTA (> arma) e multiplicador BAIXO → dano front-loaded e estável (o poder
 // do mago vem das MAGIAS, não de empilhar Int); martial é base-baixa-mult-alto
 // (cresce com investimento). Equilibra com o alcance/AoE/status do caster. ✏️ Balancista.
-const INT_DAMAGE_K = 0.02; // Inteligência: metade do martial
-const SPIRIT_DAMAGE_K = 0.02; // Sagrado ofensivo (Espírito): mesma régua do caster
+const INT_DAMAGE_K = 0.05; // SIMÉTRICO ao martial (decisão criador): gap estável,
+const SPIRIT_DAMAGE_K = 0.05; // a vantagem do caster vem da BASE, não do k (não inverte)
 const SPIRIT_HEAL_FACTOR = 1.3; // ✏️ CURA segue ADITIVA (não é dano) — calibrar M2
 
 /**
