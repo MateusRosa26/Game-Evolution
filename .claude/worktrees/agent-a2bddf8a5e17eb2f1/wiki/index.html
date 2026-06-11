@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Codex — Wiki de Design</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>⚔️</text></svg>" />
+  <link rel="stylesheet" href="./wiki.css" />
+</head>
+<body>
+  <aside id="sidebar">
+    <header id="brand">
+      <h1><a href="#/">⚔ Codex</a></h1>
+      <p>wiki de design — leitura</p>
+    </header>
+    <div id="search-box">
+      <input id="search" type="search" placeholder="Buscar no codex…" autocomplete="off" />
+      <div id="search-results" hidden></div>
+    </div>
+    <nav id="nav"></nav>
+    <footer id="sidebar-footer">
+      <p>Edição: via repositório (arquivos <code>DESIGN-*.md</code>)</p>
+    </footer>
+  </aside>
+  <main id="content">
+    <article id="doc">Carregando…</article>
+  </main>
+  <script type="module" src="./wiki.js"></script>
+</body>
+</html>

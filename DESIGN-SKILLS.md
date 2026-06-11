@@ -9,7 +9,8 @@
 | Tema | Estado |
 |---|---|
 | Gating por **atributo + nível** (nunca por classe) | ✅ decidido (jun/2026) |
-| **Cura tipo *exura*** universal, escala Espírito — todos conjuram | ✅ decidido |
+| **Heal / Cura** universal, escala Espírito — todos conjuram | ✅ decidido |
+| **Nomes**: pares EN/PT, descritivos, **sem palavra de encantamento inventada** (magia = mutação biológica, não fala — ver §7) | ✅ decidido (jun/2026) |
 | Eixo **dano = gear + atributos**; eixo **novidade = skills** | ✅ decidido (jun/2026) |
 | Anti-treadmill **puro Koster: skill nova = verbo novo**, nunca "versão maior" | ✅ decidido (jun/2026) |
 | **Espinho de 5 bandas** (abertura → caixa de ferramentas → 2º eixo → AoE → maestria) | ✅ estrutura decidida; níveis exatos ✏️ Balancista |
@@ -17,7 +18,8 @@
 | Assimetria de contagem **Int > Esp > Des > For** (emerge do espaço de cada atributo) | ✅ decidido |
 | Catálogo-alvo **~35 skills** (5 universais + ~30 por afinidade) | ✅ decidido (jun/2026) |
 | Cada **elemento** carrega um status distinto (senão é reskin) | ✏️ atribuir status por elemento (designer + Balancista) |
-| **Curar Ferimentos** sob a regra "puro Koster" — reframe pra verbo distinto ou corte | ✏️ ver §3 (criador) |
+| 2ª cura = **cura em grupo** (verbo distinto: área, gate Esp/lvl maior, mana maior) — NÃO "Heal maior" | ✅ decidido (jun/2026) · ver §3 |
+| **Conjuração = hotkey/action-bar (Apogea)**, não digitação de encantamento (Tibia) | ✅ decidido (jun/2026) |
 | Níveis exatos, custo, cooldown, dano de cada skill | ✏️ Balancista |
 | Nomes finais | ✏️ Loremaster |
 | Fonte concreta (NPC/drop/quest, onde no mapa) | ✏️ world-design, nas specs de fatia |
@@ -68,7 +70,7 @@ Uma skill se justifica quando **muda como você joga ou farma** — não quando 
 
 > Pilar 7 + Koster (`design/ESTUDO-REFERENCIAS.md` §2): recompensa boa = "vara nova pra cutucar a colmeia" (interação nova), nunca "Fireball VI" (mesma magia, número maior).
 
-**Regra:** **nenhuma skill é a "versão maior" de outra.** Não existe par exura→exura gran→exura vita. A escala numérica mora em stat+gear (§2); a lista de skills é uma coleção de **verbos distintos**.
+**Regra:** **nenhuma skill é a "versão maior" de outra.** Não existe escada Heal → Heal Grande → Heal Supremo (o vício do *exura gran* do Tibia). A escala numérica mora em stat+gear (§2); a lista de skills é uma coleção de **verbos distintos**.
 
 Isto já é prática do projeto: *Passo das Sombras* e *Leque de Facas* foram **removidas** (jun/2026) por sobreporem verbos que o Rogue já tinha. Esta regra só formaliza o critério.
 
@@ -82,10 +84,12 @@ Isto já é prática do projeto: *Passo das Sombras* e *Leque de Facas* foram **
 | Raio | hit instantâneo (sem viagem de projétil) **ou** salta entre alvos próximos |
 | Morte | lifedrain **ou** maldição (reduz cura recebida) |
 
-**Corolário B — consequência sobre *Curar Ferimentos* (✏️ criador).** Com a *Cura* (exura) universal escalando Espírito, "cura grande do Priest" vira *exura gran* = treadmill puro. Duas saídas, escolha do criador:
-- **(a) Cortar** *Curar Ferimentos* — o Priest cura mais porque a *Cura* escala com o Espírito altíssimo dele. Mais limpo, mais Koster-puro.
-- **(b) Reframe pra verbo distinto** — vira **cura em área/grupo** (estilo *mass healing*, brilha no online) **ou** cura-ao-longo-do-tempo (HoT). Mantém a fantasia sem ser "exura maior".
-> Recomendação do designer: **(b) cura em grupo** — verbo genuinamente novo, encosta no pilar do online, e diferencia o Priest do "spam de exura forte".
+**Corolário B — a 2ª cura é a CURA EM GRUPO (decidido jun/2026).** O Priest não ganha "Heal maior" (seria treadmill). Ganha um **verbo distinto: cura em área/grupo** — alvo-em-área ≠ alvo-único, exatamente como AoE-dano ≠ dano single. Diferenciação por **mecanismo + gate**, não por número:
+- **Gate maior:** exige **mais Espírito + nível** que o Heal individual.
+- **Custo maior:** **mais mana** por cast.
+- **Verbo:** cura todos os aliados numa área (brilha no online; solo cura só você no raio). O Heal individual continua o spam barato do dia a dia.
+
+Passa no puro-Koster: não é um Heal inflado, é uma ferramenta com regra própria (posicionamento do grupo). Nome ✏️ Loremaster.
 
 ---
 
@@ -123,20 +127,52 @@ A ordem que o criador quer — **Mage > Priest > Rogue > Knight**, Knight com me
 
 ---
 
-## 6. Regra de gating do AoE — unlock de meio-jogo (decidido jun/2026)
+## 6. Gating de AoE + a virada de meio-jogo (decidido jun/2026)
 
-**Toda magia de DANO em área tem gate de nível ALTO (~lvl 20)**, para QUALQUER classe. AoE-de-dano é o *power spike* de eficiência de farm, não ferramenta de early.
+O **power spike** de farm — deletar packs — é o prêmio de meio-jogo (~lvl 20), não ferramenta de early. Mas "AoE" não é uma coisa só. **Três vias:**
 
-- **AoE de DANO (deleta o pack)** → gate ~lvl 20. Ex.: *Redemoinho*, *Onda de Chamas*, *Chuva de Lâminas*, *Explosão de Luz*, variantes em área de Terra/Raio/Morte.
-- **AoE de CONTROLE/utilidade (gerencia, não deleta)** → liberada cedo (banda ②). Ex.: *Nevasca* (campo de lentidão), *Grito de Guerra* (taunt), *Muralha* (funil), *Consagrar* (zona). Dano nulo/desprezível por design — quem dá dano de área entra na categoria acima.
+| Via | Quando | Quem | Exemplos |
+|---|---|---|---|
+| **Controle / utilidade** (gerencia, dano desprezível) | cedo (banda ②) | qualquer atributo | *Nevasca* (slow-field), *Grito de Guerra* (taunt), *Muralha* (funil), *Consagrar* (zona) |
+| **Chip fraco** (lasca/tagueia o grupo, **não deleta**) | cedo (banda ②) | **só Int (Mage)** — é o diferenciador da classe-AoE | *Sparks / Fagulhas* — chain fraco entre 2–3 alvos |
+| **Deleter** (limpa o pack) | **~lvl 20** | qualquer atributo | *Whirlwind*, *Flame Wave*, *Storm*, *Steelstorm*, *Burst of Light*, variantes em área |
 
-**Consequência (pilar 2):** packs no intervalo lvl 10–20 **não se deletam, se administram** — a resposta é *skill* (posicionamento, single-pull, kite, funil, defensivas). O counterplay é justo e legível; o pack continua perigoso até você merecer o AoE.
+**Por que o chip fraco do Mage não fura a regra:** ele **não deleta** — só amacia/marca, então packs continuam exigindo posicionamento (a regra do pilar 2 vale igual). É a *fantasia* da classe-AoE chegando cedo em **dose**, não em **poder**. ⚠️ **Guardrail do Balancista:** o chip-AoE tem teto de dano / escala **sublinear** com Int — não pode virar deleter num Mage de Int alto (senão fura o gate ~20).
+
+**A virada do ~lvl 20 — caça em *pools*.** Aos 20 a classe-AoE ganha **vários** AoE-deleter que **combinam** (ex.: *Garras da Terra* prende o pool → *Flame Wave* + *Storm* deletam; os Caminhos elementais — *Senhor dos Extremos* — amplificam o combo). Isso destrava um **estilo de caça novo**: empilhar X mobs num *pool* e ceifar — eficiência de farm que o single-pull não dá.
+
+**Consequência (pilar 2):** packs no intervalo lvl 10–20 **não se deletam, se administram** (single-pull, kite, funil, defensivas; o Mage *amacia* com o chip). O pack continua perigoso até você merecer o deleter @20.
+
+### Topologia de spawn ↔ classe (pós-20 — princípio de world-design)
+
+A partir do ~lvl 20, os **hunting grounds se diferenciam por classe via a FORMA do spawn** (não por "loot de classe" — pilar 8). O mesmo tier tem spots com assinaturas diferentes:
+
+- **Pool denso / sala aberta** (muitos mobs juntos) → paraíso de **AoE** (Mage, Priest com *Burst of Light*): empilha e ceifa.
+- **Corredor / single-file / spawn esparso** → **single-target / burst** (Rogue, Knight): mata um a um, rápido.
+- **Spawn de alto dano / poucos mas perigosos** → **tank/sustain** (Knight out-last, Priest cura).
+
+O jogador não é trancado — qualquer classe caça em qualquer lugar —, mas **o spot mais eficiente para VOCÊ depende da sua classe**, e descobrir isso é jogar bem (pilar 1/4). **Detalhado no world-design:** `design/mundo/EXPLORACAO.md` §"Topologia de spawn ↔ classe" (com as regras anti-lock e o lean de região). O mapeamento concreto por-spot fica ✏️ nas specs de fatia. Aqui no hub fica só o que o kit assume.
+
+---
+
+## 7. Nomes & idioma (decidido jun/2026)
+
+**Nada de palavra de encantamento inventada (estilo *exura*/*utevo lux*).** No cânone (`DESIGN-LORE.md`), magia é **mutação biológica** dos humanos no planeta novo — manifestação do corpo, não fórmula recitada. Logo o nome descreve o **ato/efeito**, não um vocábulo arcano falso. (Bônus: foge do gimmick — e do plágio — do Tibia.)
+
+**Conjuração = hotkey / action-bar (modelo Apogea), não digitação (modelo Tibia).** A skill mora num slot da barra (`SkillBar.ts`); o jogador **aperta a tecla** e ela dispara (no alvo/cursor), gate de uso = cooldown. Isso reforça o ponto acima: não existe "palavra mágica" a digitar — então o nome é só rótulo de UI, e tem que ser limpo e legível.
+
+- **Par EN/PT obrigatório** (metodologia de `DESIGN-MUNDO.md` §Nomenclatura): toda skill nasce com os dois nomes; o jogador vê o do seu idioma. Ex.: *Heal / Cura*, *Fireball / Bola de Fogo*, *Blade Rain / Chuva de Lâminas*. Nome que só funciona numa língua → trocar.
+- **Registro:** funcional-evocativo, **legível** (a skill é camada sólida, clara por contrato) — 1–3 palavras. O peso mítico/críptico (FromSoft) fica **reservado às Mutações** (*Fogo Voraz*, *Mão Vazia*) e Marcas, não aos nomes-base.
+- **Invariantes** (a mesma palavra soa nas duas línguas) são bem-vindos quando elegantes: *Lume*.
+- **Confirmados (criador, jun/2026):** Heal/Cura · Lume · Conjure Arrow/Conjurar Flechas · Blessing/Bênção · Rend/Retalho · Steelstorm/Vendaval de Aço · Earthen Grasp/Garras da Terra · Life Drain/Dreno Vital · Sacred Aura/Aura Sagrada. Demais pares EN = draft no catálogo (✏️ refinar com Loremaster). Fonossemântica e nomes das Mutações/Caminhos seguem em `design/skills/CATALOGO.md` + `DESIGN-EVOLUCAO.md`.
 
 ---
 
 ## Arquitetura
 
 Toda skill nasce como **dado declarativo** (`src/sim/skills/` — `SkillDef` em `types.ts`, números em `numbers.ts`). Adicionar skill = adicionar uma entrada, não código. Determinístico/serializável; zero pixi/browser. O perfil de uso rastreado no evento `skill_use` alimenta as **Mutações** (ver `DESIGN-EVOLUCAO.md` §Mutações de Skill).
+
+> **Primitivos novos a implementar** (o catálogo ~38 pede targetings/mecânicas que a engine ainda não tem — hoje só meleeTarget/meleePositional/projectileTarget/lineThrough/healTarget): **cast-time, skillshot de área (`groundTarget`), burst radial (`selfRadius`), chain, lifedrain, status declarativo** (+ root/bleed/poison). Spec-de-dados completa (campos, mapa skill→primitivo, mudanças de protocolo): `docs/reports/2026-06-11-spec-targetings-novos.md`. Números: `docs/reports/2026-06-11-briefing-balancista-skills.md`.
 
 → **Catálogo completo (roster + fichas):** `design/skills/CATALOGO.md`
 → **Aquisição (sem árvore de pontos) + Mutações:** `DESIGN-EVOLUCAO.md`

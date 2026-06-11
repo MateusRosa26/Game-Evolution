@@ -39,6 +39,24 @@ Os tipos acima dizem *que LUGAR* é o spot. Ortogonal a eles, um segundo eixo di
 
 > **Reconciliação com o termo "Covil"** (tabela anterior): "Covil" é um *tipo de lugar* (átomo de farm com identidade) e escala nos dois padrões — um covil pequeno roda **Bando**; uma toca grande que justifica caçada longa roda **Pool** (mais pontos, não refil). Sem colisão: lugar × padrão compõem.
 
+## Topologia de spawn ↔ classe (decidido jun/2026 — afia a partir do ~lvl 20)
+
+Um terceiro eixo, ortogonal a *tipo de lugar* e *padrão de densidade*: a **FORMA física do spawn** (disposição espacial + densidade) faz um spot ser **mais eficiente para uma classe que para outra**. Isso é a contraparte de mundo do espinho de skills (`DESIGN-SKILLS.md` §6): aos ~20 os kits divergem (a classe-AoE ganha *deleters* que combinam; o single-target afia o burst), e o mapa passa a **recompensar a identidade de classe pela ESCOLHA DE SPOT**.
+
+| Forma do spot | Favorece | Por quê |
+|---|---|---|
+| **Pool denso / sala aberta** (muitos mobs empilháveis num raio) | **AoE** — Mage (*Flame Wave*/*Storm*), Priest (*Burst of Light*) | empilha o pool e ceifa; o combo de AoE bate no teto de respawn rápido |
+| **Corredor / single-file / spawn esparso** | **single-target / burst** — Rogue (*Backstab*/*Rend*), Knight | mata um a um, sem aglomerar; o AoE desperdiça num alvo só |
+| **Poucos mas perigosos / alto dano** | **tank / sustain** — Knight (out-last), Priest (cura) | sobrevive ao que mata o glass-cannon; troca de bater por aguentar |
+
+**Regras (não fere pilar 8 — o mundo não é do jogador):**
+- **Não é loot-de-classe nem lock.** Qualquer classe caça em qualquer spot; o que muda é a **eficiência** (exp/h, mortes/h). Nada de "spot só pra Mage" — é "spot ONDE o Mage rende mais".
+- **Descobrir é jogar bem (pilar 1/4):** o jogo **não rotula** "spot de AoE". A forma do spawn é a pista — sala lotada *diz* "traga AoE" pela cena, não por label. O jogador (e a comunidade) mapeia os melhores spots por classe jogando.
+- **A identidade de região (lean, não lei) já carrega isso:** Charneca puxa **Pool** escuro de undead (paraíso de AoE/Priest anti-profano); uma região de emboscada/corredor puxa single-target. O *lean* macro de cada região (acima) é também um *lean* de classe — sem nunca virar cota.
+- **Pré-20 é fraco de propósito:** antes dos kits divergirem, a diferenciação por spot mal existe (o chip-AoE *Sparks* do Mage só amacia). O eixo **afia conforme os deleters/burst chegam** — é progressão sentida, não interruptor.
+
+**✏️ Concreto por fatia (nas specs `design/fatia-*`):** quais spots têm qual forma, e a calibração (nº de pontos × disposição × chokepoints) que produz o *feel* de cada classe — Balancista mede exp/h por classe por spot.
+
 ## Como a gramática funciona — princípios operacionais (decidido — jun/2026)
 
 A gramática é uma **gramática, não um checklist**. Quatro princípios a sustentam — cada um vira mecânica, prática ou gate, nunca só valor declarado:

@@ -52,22 +52,23 @@ export interface ClassGrowth {
 export const CLASS_GROWTH: Record<PlayerClass, ClassGrowth> = {
   // hpRegenPerLevel do KNIGHT = CALIBRADO em 2 âncoras (bateria 2026-06-10): 0.10
   // segura a razão "regen saciado (carne) ≈ 68% do DPS no nível-alvo" nos DOIS
-  // tiers que existem (rato T1@lvl1 69%, esqueleto T2@lvl8 68%) — invariante OK
-  // (nunca out-heala no nível; crossover rato lvl11, esqueleto lvl21). As OUTRAS
-  // classes derivam por analogia da razão de hpPerLevel (knight>rogue>priest>mage),
-  // ✏️ ainda não medidas. manaRegenPerLevel = ✏️ placeholder (sem âncora de dreno
-  // de mana ainda). T3–T5 confirmam a curva na bateria #11 quando o bestiário crescer.
-  // MATRIZ DE CLASSES (decidido criador jun/2026): sustain (Knight/Priest) durável,
-  // damage (Rogue/Mage) frágil. hpPerLevel reflete a durabilidade: Knight(AD sustain)
-  // > Priest(AP sustain) > Rogue(AD dmg) > Mage(AP dmg). Antes rogue(9)>priest(7) estava
-  // INVERTIDO (carry mais durável que sustain). ✏️ Balancista afina os números.
+  // tiers que existem (rato T1@lvl1 69%, esqueleto@lvl8) — invariante OK (NUNCA
+  // out-heala on-level: verificado 4 classes L1/L8 em 42–84% do DPS; só vs morcego-
+  // piso chega a 84%). MATRIZ DE CLASSES (decidido criador jun/2026): sustain
+  // (Knight/Priest) durável, damage (Rogue/Mage) frágil → hpRegenPerLevel segue
+  // K>P>R>M. ALINHADO 2026-06-11 (bateria regen-core): priest 0.06→0.08, rogue
+  // 0.07→0.06 — antes rogue(damage) > priest(sustain), a MESMA inversão já corrigida
+  // no hpPerLevel. ✏️ EM ABERTO (farm-loop sim): rogue/mage regen ainda menor? — o
+  // glass cannon mata rápido (perde MENOS HP/kill), então downtime baixo pode já
+  // compensar o regen baixo; decidir com downtime-por-kill MEDIDO, não no olho (risco
+  // de dupla-punição: pool baixo + refill lento). T2/T3 re-ancoram o 68% (gate do bestiário).
   knight: { hpPerLevel: 15, manaPerLevel: 2, capPerLevel: 25, hpRegenPerLevel: 0.10, manaRegenPerLevel: 0.02 },
   // manaRegenPerLevel: Priest (AP SUSTAIN) > Mage (AP DAMAGE/burst) — endurance de
   // mana é a identidade do sustain; o dano do mage vem do BURST (pool+base), não do
   // regen sustentado. (Afeta níveis altos; L1 usa a base compartilhada.) ✏️ Balancista.
   mage: { hpPerLevel: 5, manaPerLevel: 12, capPerLevel: 10, hpRegenPerLevel: 0.04, manaRegenPerLevel: 0.06 },
-  rogue: { hpPerLevel: 7, manaPerLevel: 5, capPerLevel: 18, hpRegenPerLevel: 0.07, manaRegenPerLevel: 0.04 },
-  priest: { hpPerLevel: 12, manaPerLevel: 10, capPerLevel: 12, hpRegenPerLevel: 0.06, manaRegenPerLevel: 0.10 },
+  rogue: { hpPerLevel: 7, manaPerLevel: 5, capPerLevel: 18, hpRegenPerLevel: 0.06, manaRegenPerLevel: 0.04 },
+  priest: { hpPerLevel: 12, manaPerLevel: 10, capPerLevel: 12, hpRegenPerLevel: 0.08, manaRegenPerLevel: 0.10 },
 };
 
 /** Atributos iniciais por classe (nível 1). ✏️ placeholder — calibrar no M2. */
@@ -372,19 +373,22 @@ export function manaRegenPerSecond(cls: PlayerClass, level: number, spirit: numb
 // pro alvo de horas). Método Luban: desenhar pelo tempo, ancorar no XP/h MEDIDO.
 // Report: docs/reports/2026-06-11-curva-xp-exponencial.md
 //
-// CALIBRAÇÃO (re-pinável — XP/h muda quando a COMIDA entrar na sim, backlog #7):
+// CALIBRAÇÃO (re-pinável):
 //   total(n) = round( SCALE · (n−1)^EXP )
 //   SCALE pina o TOTAL ao alvo de horas; EXP pina o FORMATO (early × late).
-//   Âncora de XP/h: 6.597 medido (M1.2, early, 73% descanso). Com SCALE=125 o
-//   1→25 cai em ~30,5h (XP/h crescente) a ~44h (XP/h plano) — bracketa 30-45h.
-//   ⚠️ comida sobe o XP/h → provavelmente subir SCALE ~1,3-1,6× no re-pin.
-const XP_CURVE_SCALE = 125; // K — escala (pino de TEMPO; subir = jogo mais longo)
+//   RE-PINADO 2026-06-11 pela BATERIA DE FARM-LOOP (sim real, rotação skill+auto,
+//   saciado-carne): XP/h MEDIDO = ~8.9k early (L1) / ~12,3k mid (L8) — ~35% acima
+//   do modelo estimado antes. Com SCALE=175 o 1→25 cai em ~35h eficientes (split
+//   2,5/8,6/10,1/13,7h; últimos 5 = 39%) — centrado no alvo 30-45h. Casual = 2-3×.
+//   ⚠️ late (15→25) ainda EXTRAPOLADO (XP/h ~14,5-16k) — re-ancorar quando mobs
+//   T2/T3 existirem on-level. Report: docs/reports/2026-06-11-curva-xp-exponencial.md
+const XP_CURVE_SCALE = 175; // K — escala (pino de TEMPO; subir = jogo mais longo)
 const XP_CURVE_EXPONENT = 2.5; // p — formato (cúbica=3 = late íngreme + early raso)
 
 /**
  * XP TOTAL acumulado necessário para ATINGIR `level` (level 1 = 0).
  * Lei de potência calibrada por tempo (ver bloco acima). total(1)=0 (pow(0,p)=0),
- * total(8)≈16,2k, total(15)≈91k, total(20)≈195k, total(25)≈353k.
+ * total(8)≈22,7k, total(15)≈128k, total(20)≈275k, total(25)≈494k.
  */
 export function xpForLevel(level: number): number {
   const n = Math.max(1, Math.floor(level));
