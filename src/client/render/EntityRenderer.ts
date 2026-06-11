@@ -29,6 +29,8 @@ const BODY_SOUTH_BIAS: Record<string, 1 | -1> = {
 const IDLE_RESET_MS = 90;
 /** Duração da animação de ataque (4 frames ~95ms cada — golpe seco, estilo Apogea). */
 const ATTACK_DUR_MS = 380;
+/** Morte: o sprite "esvanece" (sobe + dissolve) enquanto solta a poeira/alma. */
+const DEATH_DUR_MS = 440;
 
 /** Floating damage text — sobe e some. */
 const FLOAT_DUR_MS = 900;
@@ -130,6 +132,12 @@ interface Particle {
   life: number;
 }
 
+/** Efeito de morte: fantasma (último frame do mob) que sobe e dissolve. */
+interface DeathFx {
+  spr: Sprite;
+  elapsed: number;
+}
+
 interface CastProjectile {
   gfx: Graphics;
   fromX: number;
@@ -201,6 +209,8 @@ export class EntityRenderer {
   private casts: CastProjectile[] = [];
   /** Partículas de impacto de combate ativas. */
   private particles: Particle[] = [];
+  /** Fantasmas de morte ativos (sprite dissolvendo). */
+  private deaths: DeathFx[] = [];
   /** Balões de fala ativos (presos às entidades). */
   private speeches: { text: Text; elapsed: number }[] = [];
   /** Cadáveres saqueáveis (sprite do mob deitado/escurecido), por containerId. */
@@ -368,6 +378,15 @@ export class EntityRenderer {
       if (e.telegraph?.tiles) dangerTiles.push(...e.telegraph.tiles); // área (slam)
     }
     this.drawDangerTiles(dangerTiles);
+    // Efeito de morte: captura o visual ANTES do diff de remoção o destruir
+    // (o mob morto sai do snapshot no mesmo tick). Genérico por morte — kill que
+    // conta pra Marca NÃO tem feedback especial (DESIGN-VISUAL.md/constituição).
+    for (const ev of snap.events) {
+      if (ev.kind === "death") {
+        const dv = this.visuals.get(ev.entityId);
+        if (dv) this.spawnDeath(dv);
+      }
+    }
     // remove quem saiu
     for (const [id, v] of this.visuals) {
       if (!seen.has(id)) {
@@ -548,6 +567,46 @@ export class EntityRenderer {
     }
   }
 
+  /**
+   * Efeito de morte (DESIGN-VISUAL.md "mob esvanece + partículas"): clona o
+   * último frame do mob num sprite-fantasma que sobe e dissolve, e solta uma
+   * baforada de poeira/alma pálida subindo. Texturas são compartilhadas (cache),
+   * então destruir o visual original depois não afeta o fantasma.
+   */
+  private spawnDeath(v: EntityVisual): void {
+    const ghost = new Sprite(v.sprite.texture);
+    ghost.anchor.set(0.5, 1);
+    // posição de mundo = base do container + offset local do sprite (baseline/voo)
+    ghost.position.set(
+      v.container.position.x + v.sprite.position.x,
+      v.container.position.y + v.sprite.position.y,
+    );
+    ghost.scale.copyFrom(v.sprite.scale); // preserva escala do char e espelho
+    ghost.zIndex = v.container.position.y;
+    this.layer.addChild(ghost);
+    this.deaths.push({ spr: ghost, elapsed: 0 });
+    this.spawnDeathBurst(ghost.position.x, ghost.position.y - TILE_SIZE * 0.4);
+  }
+
+  /** Baforada pálida e fria (poeira/alma) subindo do ponto de morte. */
+  private spawnDeathBurst(worldX: number, worldY: number): void {
+    for (let i = 0; i < 8; i++) {
+      const spr = new Sprite(this.sprites.spark);
+      spr.anchor.set(0.5);
+      spr.tint = 0xc2cdd8; // pálido frio — leitura de "alma/poeira", não elemento
+      spr.blendMode = "add";
+      spr.scale.set(0.7 + Math.random() * 0.7);
+      spr.position.set(worldX + (Math.random() - 0.5) * 14, worldY + (Math.random() - 0.5) * 10);
+      spr.zIndex = 1e9 - 1;
+      this.layer.addChild(spr);
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 14 * (0.4 + Math.random());
+      const vx = Math.cos(ang) * sp;
+      const vy = Math.sin(ang) * sp * 0.5 - 26; // viés pra cima (a alma sobe)
+      this.particles.push({ spr, vx, vy, gravity: -8, elapsed: 0, life: 560 });
+    }
+  }
+
   /** Floating text VERDE de cura sobre o alvo (segue o padrão do dano). */
   private spawnHealText(amount: number, worldX: number, worldY: number): void {
     const text = new Text({
@@ -698,6 +757,21 @@ export class EntityRenderer {
     this.particles = this.particles.filter((p) => {
       if (p.elapsed >= p.life) {
         p.spr.destroy();
+        return false;
+      }
+      return true;
+    });
+
+    // fantasmas de morte: sobem ~12px e dissolvem (fade quadrático)
+    for (const d of this.deaths) {
+      d.elapsed += deltaMS;
+      const t = Math.min(d.elapsed / DEATH_DUR_MS, 1);
+      d.spr.y -= (12 / DEATH_DUR_MS) * deltaMS;
+      d.spr.alpha = 1 - t * t;
+    }
+    this.deaths = this.deaths.filter((d) => {
+      if (d.elapsed >= DEATH_DUR_MS) {
+        d.spr.destroy();
         return false;
       }
       return true;
