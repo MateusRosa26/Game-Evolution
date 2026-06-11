@@ -876,20 +876,26 @@ export class Simulation {
     const range = w.range ?? MELEE_RANGE;
     if (chebyshev(player.pos, target.pos) > range) return; // fora de alcance
     if (now < player.nextAttackAt) return;
-    // Buff de refeição ("Saciado", COZINHA.md): +N na BASE DE DANO DA ARMA — e como
-    // o dano final = base_da_arma + atributo, isso é +N flat no golpe (espada 6→7
-    // ⇒ 14→15). Aplicado AQUI (no golpe), não no recompute — expira sem recalcular.
-    const bonusDmg = mealBuffDamage(player);
-    let damage = player.attackDamage + bonusDmg;
+    // Buff de refeição ("Saciado", COZINHA.md): +N na BASE DE DANO DA ARMA. No
+    // modelo híbrido (dano = base × (1 + atributo×k)), +N na base passa PELO
+    // multiplicador → escala com o personagem (não é flat). Por isso recalculamos
+    // com a base buffada em vez de somar no fim.
+    const bonusBase = mealBuffDamage(player);
+    const prog = this.progressions.get(player.id);
+    let damage: number;
     if (w.magic) {
       // Tiro mágico: custa mana (sem mana = não dispara, e NÃO consome o cooldown
       // — retenta no próximo tick assim que a mana regenerar). Dano rola na faixa
-      // FIXA da arma (não escala atributo). Decidido 09/jun/2026 (modelo Tibia).
+      // FIXA da arma (não escala atributo) — o buff +N soma flat ao tiro.
       const cost = w.manaCost ?? 0;
       if (player.mp < cost) return;
       player.mp -= cost;
-      // Wand: +N na "base" da arma = +N no tiro rolado.
-      damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng()) + bonusDmg;
+      damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng()) + bonusBase;
+    } else {
+      damage =
+        prog && bonusBase > 0
+          ? physicalDamage(prog.attributes, w.baseDamage + bonusBase, w.usesDexterity)
+          : player.attackDamage;
     }
     player.facing = this.facingToward(player.pos, target.pos);
     // Auto-attack alimenta o ledger da arma equipada (DESIGN-EVOLUCAO.md §"Magias

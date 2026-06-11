@@ -147,10 +147,10 @@ export type ConsumeEffect =
 
 /**
  * Buff de refeição (comida preparada — COZINHA.md). `damage` = +N na BASE DE DANO
- * DA ARMA; como o dano final = base_da_arma + atributo, isso é +N flat no golpe
- * (espada base 6 + buff 1 = 7 ⇒ 14→15). amount 1 = Sopa, 2 = Carne Curada.
- * `attackSpeed` = fração de redução do cooldown (0.1 = 10% mais rápido).
- * ✏️ Balancista (magnitudes).
+ * DA ARMA; no modelo híbrido (dano = base × (1 + atributo×k)), +N na base PASSA
+ * pelo multiplicador → escala com o personagem (espada base 10 + buff 1 = 11 ⇒
+ * 14→15 no T1, e mais no late). amount 1 = Sopa, 2 = Carne Curada. `attackSpeed`
+ * = fração de redução do cooldown (0.1 = 10% mais rápido). ✏️ Balancista.
  */
 export type MealBuff =
   | { stat: "damage"; amount: number }
@@ -227,7 +227,7 @@ export const ESPADA_CURTA: ItemTemplate = {
   slot: "weapon",
   tags: ["espada"],
   rarity: "common",
-  weapon: { baseDamage: 6, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 10, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false }, // base ×1.67 (modelo híbrido)
 };
 
 /** Espada Cega — kit de NASCIMENTO (casa inicial, classless). A régua do zero:
@@ -240,7 +240,7 @@ export const ESPADA_CEGA: ItemTemplate = {
   slot: "weapon",
   tags: ["espada"],
   rarity: "common",
-  weapon: { baseDamage: 4, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 7, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false }, // base ×1.67
 };
 
 /** Machado de Mão — rito/vendor. Golpe pesado: o único perfil T1 que separa o
@@ -252,7 +252,7 @@ export const MACHADO_DE_MAO: ItemTemplate = {
   slot: "weapon",
   tags: ["machado"],
   rarity: "common",
-  weapon: { baseDamage: 8, baseCooldownMs: 2400, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 13, baseCooldownMs: 2400, damageType: "physical", usesDexterity: false }, // base ×1.67
 };
 
 /** Clava — rito/vendor. Intermediária; a identidade "impacto" mora no subtipo
@@ -264,7 +264,7 @@ export const CLAVA: ItemTemplate = {
   slot: "weapon",
   tags: ["maca"],
   rarity: "common",
-  weapon: { baseDamage: 6, baseCooldownMs: 2100, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 10, baseCooldownMs: 2100, damageType: "physical", usesDexterity: false }, // base ×1.67
 };
 
 /** Cajado simples — kit do Mage. Auto-attack MÁGICO: dano FIXO em faixa, não
@@ -302,7 +302,7 @@ export const ADAGA: ItemTemplate = {
   slot: "weapon",
   tags: ["adaga"],
   rarity: "common",
-  weapon: { baseDamage: 5, baseCooldownMs: 1600, damageType: "physical", usesDexterity: true },
+  weapon: { baseDamage: 8, baseCooldownMs: 1600, damageType: "physical", usesDexterity: true }, // base ×1.67 (✏️ rogue battery)
 };
 
 /** Cetro — kit do Priest. Auto-attack MÁGICO igual à wand (faixa fixa, sem
@@ -345,7 +345,7 @@ export const PUNHOS: ItemTemplate = {
   slot: "weapon",
   tags: ["desarmado"],
   rarity: "common",
-  weapon: { baseDamage: 2, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false },
+  weapon: { baseDamage: 3, baseCooldownMs: 2000, damageType: "physical", usesDexterity: false }, // punhos ×1.67
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -481,8 +481,8 @@ export const SOPA: ItemTemplate = {
   stackable: true,
   weight: 8,
   rarity: "common",
-  // Sopa: o buff de combate mais BÁSICO — +1 na base de dano da arma (espada 6→7
-  // ⇒ golpe 14→15). ✏️ Balancista (magnitude).
+  // Sopa: o buff de combate mais BÁSICO — +1 na base de dano da arma (espada
+  // 10→11 ⇒ golpe 14→15 no T1; escala pelo multiplicador no late). ✏️ Balancista.
   consume: { kind: "food", regenMult: 3.0, durationMs: 180_000, buffs: [{ stat: "damage", amount: 1 }] },
 };
 

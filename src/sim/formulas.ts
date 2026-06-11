@@ -165,18 +165,25 @@ export function maxCarry(attrs: Attributes, cls: PlayerClass, level: number): nu
 //  Dano
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Coeficientes de dano. ✏️ placeholder — calibrar no M2. */
-const STRENGTH_DAMAGE_FACTOR = 1.0; // ✏️ placeholder — calibrar no M2
-const DEXTERITY_DAGGER_FACTOR = 1.2; // ✏️ placeholder — calibrar no M2 (adagas escalam com Des)
-const INTELLIGENCE_DAMAGE_FACTOR = 1.1; // ✏️ placeholder — calibrar no M2
+/**
+ * MODELO DE DANO FÍSICO — HÍBRIDO quadrático-suave (decidido criador jun/2026):
+ * `dano = base_da_arma × (1 + atributo×k)`. A arma é o PISO aditivo (loot importa:
+ * achar arma melhor escala tudo); o atributo AMPLIFICA (sinergia gear×stat, feel
+ * Tibia). `k` é PEQUENO de propósito — o crescimento (base sobe por tier × atributo
+ * sobe por nível) é quadrático SUAVE, não explode (≠ `arma×Str` puro). As BASES das
+ * armas foram re-escaladas (×~1,67) na migração p/ preservar o dano T1 (knight/
+ * espada = 14, rato em 2 golpes — zero ripple na calibração M1). ✏️ Balancista
+ * afina k + bases + curva de HP dos mobs por tier.
+ */
+const STR_DAMAGE_K = 0.05; // Força: +5% do dano-base da arma por ponto
+const DEX_DAMAGE_K = 0.05; // Destreza (adagas): mesma régua; identidade = cadência
+const INTELLIGENCE_DAMAGE_FACTOR = 1.1; // ✏️ magia (skill) segue ADITIVA por ora
 const SPIRIT_HEAL_FACTOR = 1.3; // ✏️ placeholder — calibrar no M2
 const SPIRIT_DAMAGE_FACTOR = 1.1; // ofensiva SAGRADA escala Espírito (decidido 09/jun) — ✏️ calibrar
 
 /**
- * Dano físico de uma arma. `weaponBase` é o dano-base da arma (M1: do bestiário
- * para mobs; placeholder para o jogador). Adagas escalam com Destreza; demais
- * armas melee com Força. A próxima wave de armas decidirá o `usesDexterity`
- * a partir da arma equipada.
+ * Dano físico de uma arma (modelo híbrido — ver acima). Adagas escalam com
+ * Destreza; demais armas melee com Força. `usesDexterity` vem da arma equipada.
  */
 export function physicalDamage(
   attrs: Attributes,
@@ -184,9 +191,8 @@ export function physicalDamage(
   usesDexterity = false,
 ): number {
   const attr = usesDexterity ? attrs.dexterity : attrs.strength;
-  const factor = usesDexterity ? DEXTERITY_DAGGER_FACTOR : STRENGTH_DAMAGE_FACTOR;
-  // ✏️ placeholder — calibrar no M2: escala linear simples sobre a base da arma.
-  return Math.floor(weaponBase + attr * factor);
+  const k = usesDexterity ? DEX_DAMAGE_K : STR_DAMAGE_K;
+  return Math.floor(weaponBase * (1 + attr * k));
 }
 
 /**
