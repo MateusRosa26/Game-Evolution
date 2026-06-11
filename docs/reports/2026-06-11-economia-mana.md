@@ -41,3 +41,23 @@ Alvo da matriz: mage (carry) ~16 (≈rogue), priest (sustain) ~12 (≈knight). C
 2. **Upside do caster não medido aqui** (AoE da Bola, alcance, burn DoT) — o mage single-target 16,7 + AoE/range é forte, balanceado pela fragilidade (135 HP). Re-checar vs grupos.
 3. **Poção/comida de mana** (sustain de emergência do caster) — não existe; entra se o food-gating de mana pesar demais.
 4. **Custos das magias** (Bola 14, Lança 16, Luz 12) seguem ✏️ — ajustáveis junto do regen.
+
+## ADENDO — Rogue (single) × Mage (AoE) e o early (2026-06-11)
+
+Correção do criador: **Bola de Fogo é SINGLE-TARGET**; o AoE do mago vem das skills
+FORTES futuras — é aí que o mago se destaca. Logo, no early (só Bola), o **rogue é o
+carry single-target** e o **mago deve ficar ABAIXO dele** (e brilhar depois, no AoE).
+
+A medição anterior (mage 16,7 > rogue 15,2 single-target) estava INVERTIDA. Ajuste:
+**Bola `power` 15 → 12** → mage single-target 14,6 < rogue 15,2 (rogue "um pouco
+melhor cedo", como pedido), ainda acima dos sustains (priest 12,8, knight 11,6).
+
+Paridade final (single-target / HP L10):
+- Rogue 15,2 / 161 — AD damage, rei single-target.
+- Mage 14,6 / 135 — AP damage, single fraco; **AoE = skills futuras** (aí destaca).
+- Priest 12,8 / 198 — AP sustain.
+- Knight 11,6 / 249 — AD sustain.
+
+Reforça "early do mage levemente mais difícil": single-fraco + frágil + gestão de mana.
+✏️ quando as skills AoE do mago entrarem, medir o destaque dele vs matilha (deve virar
+o rei de pack, mantendo o single abaixo do rogue).
