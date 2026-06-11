@@ -54,6 +54,21 @@ export const GOBLIN_LEAP: MoveDef = {
 };
 
 /**
+ * Investida do Abutre (mergulho) — gap-closer aéreo: o carniceiro recua a leitura
+ * e MERGULHA sobre o alvo. Variante de `leap` (pura movimentação; a mordida é o
+ * melee normal no pouso), com alcance MAIOR (até 5 tiles — o abutre cobre o céu) e
+ * windup um tico mais curto (600ms — ave ágil; ainda ≥ reação 250 + passo + buffer).
+ */
+export const ABUTRE_INVESTIDA: MoveDef = {
+  id: "leap", // mesmo efeito de movimento do leap base (engine não muda)
+  kind: "leap",
+  windupMs: 600,
+  cooldownMs: 5000,
+  rangeMin: 2,
+  rangeMax: 5,
+};
+
+/**
  * Estouro (Slam) — AOE telegrafado: o mob marca a ÁREA onde o alvo ESTÁ (BASE =
  * 1×1, só o tile dele) e bate depois do windup. O jogador desvia SAINDO da área
  * (sair 1 tile antes = imune; resolução lê a ocupação no tick final). É o
