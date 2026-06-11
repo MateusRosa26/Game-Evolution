@@ -61,3 +61,21 @@ Paridade final (single-target / HP L10):
 Reforça "early do mage levemente mais difícil": single-fraco + frágil + gestão de mana.
 ✏️ quando as skills AoE do mago entrarem, medir o destaque dele vs matilha (deve virar
 o rei de pack, mantendo o single abaixo do rogue).
+
+## ADENDO 2 — Sagrado especialista + AD variável × AP constante (2026-06-11)
+
+Duas decisões do criador que mudam o combate:
+
+**1. Sagrado REDUZIDO fora de undead** (`HOLY_NONUNDEAD_MULT = 0.5` no executor):
+holy bate cheio vs profano (undead/demon), metade vs o resto. Resolve o priest
+over-loaded — vira ESPECIALISTA anti-undead (a fraqueza que faltava):
+- priest DPS vs não-undead: 17,6 → **8,3** (geral baixo = sustain/suporte).
+- priest DPS vs undead: **19,5** (nuke do nicho).
+✏️ magnitude (0.5 talvez duro demais — priest fica < knight no geral; testar 0.6–0.7).
+
+**2. Físico (AD) VARIÁVEL × Mágico (AP) CONSTANTE** (`physicalVariance`,
+`PHYSICAL_DAMAGE_SPREAD = 0.4`): diferença gigante AD×AP (Tibia/Apogea). O físico
+(auto + skills) rola ±40% em torno da média; a magia é fixa. Knight (média 14):
+golpes 8–17 (swingy). Média preservada (balance se mantém); muda o FEEL — AD
+imprevisível/gear-chase, AP confiável/planejável. (Nota: `floor` enviesa a média
+~−0,5; ✏️ trocar por round se quiser preservar exata.)

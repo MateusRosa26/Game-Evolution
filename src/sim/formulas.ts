@@ -207,6 +207,19 @@ export function physicalDamage(
 }
 
 /**
+ * Variância do dano FÍSICO (AD): diferença gigante AD×AP (decidido criador jun/2026,
+ * estilo Tibia/Apogea) — físico ROLA um range largo (swingy), mágico é CONSTANTE.
+ * `physicalDamage` dá a MÉDIA; isto rola em [méd×(1−spread), méd×(1+spread)] com
+ * `roll`∈[0,1) do RNG seedado da sim. Média preservada → o balance (DPS médio)
+ * calibrado se mantém; muda só o feel (AD imprevisível, AP confiável). ✏️ spread.
+ */
+export const PHYSICAL_DAMAGE_SPREAD = 0.4; // ±40% — AD bem swingy
+export function physicalVariance(avg: number, roll: number): number {
+  const f = 1 - PHYSICAL_DAMAGE_SPREAD + roll * 2 * PHYSICAL_DAMAGE_SPREAD;
+  return Math.max(1, Math.floor(avg * f));
+}
+
+/**
  * Dano mágico de uma skill. `spellBase` é o dano-base da magia (vem do design da
  * skill na próxima wave). Escala com Inteligência.
  */

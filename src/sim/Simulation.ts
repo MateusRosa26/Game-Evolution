@@ -32,7 +32,7 @@ import { CREATURES, type CreatureTemplate } from "./bestiary";
 import { applyDamage, chebyshev, type CombatCtx, type WeaponSource } from "./combat";
 import type { SimEntity } from "./entity";
 import { EventBus, type KillEvent } from "./events";
-import { attackCooldownMs, maxCarry, physicalDamage, statPointCost, wandDamage, xpForLevel } from "./formulas";
+import { attackCooldownMs, maxCarry, physicalDamage, physicalVariance, statPointCost, wandDamage, xpForLevel } from "./formulas";
 import {
   ItemRegistry,
   attachItemLedger,
@@ -780,6 +780,8 @@ export class Simulation {
         weaponSource: this.weaponSourceOf(caster),
         // AoE/linha só atinge entidades do andar do caster.
         enemiesInWorld: [...this.entities.values()].filter((en) => en.z === caster.z),
+        // RNG seedado p/ variância do dano físico (skills AD).
+        roll: this.combatRng,
       };
       castSkill(skillCtx, caster, req.skillId, target);
     }
@@ -895,10 +897,13 @@ export class Simulation {
       player.mp -= cost;
       damage = wandDamage(w.damageMin ?? 0, w.damageMax ?? 0, this.combatRng()) + bonusBase;
     } else {
-      damage =
+      // FÍSICO (AD) é VARIÁVEL (Tibia/Apogea): a média vem da fórmula, mas o golpe
+      // rola num range largo (swingy) — ≠ mágico, que é constante.
+      const avg =
         prog && bonusBase > 0
           ? physicalDamage(prog.attributes, w.baseDamage + bonusBase, w.usesDexterity)
           : player.attackDamage;
+      damage = physicalVariance(avg, this.combatRng());
     }
     player.facing = this.facingToward(player.pos, target.pos);
     // Auto-attack alimenta o ledger da arma equipada (DESIGN-EVOLUCAO.md §"Magias

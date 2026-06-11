@@ -1,7 +1,7 @@
 import type { CreatureFamily, Facing, Vec2 } from "../../shared/types";
 import type { SimEntity } from "../entity";
 import { actorRef, applyDamage, applyHeal, chebyshev, type CombatCtx, type WeaponSource } from "../combat";
-import { magicDamage, physicalDamage, healPower, holyDamage } from "../formulas";
+import { magicDamage, physicalDamage, physicalVariance, healPower, holyDamage } from "../formulas";
 import type { Progression } from "../progression";
 import type { SkillDef } from "./types";
 import { SKILLS } from "./definitions";
@@ -39,6 +39,8 @@ export interface SkillCastCtx extends CombatCtx {
   weaponSource: WeaponSource | null;
   /** Famílias dadas como alvos válidos de um line/projétil (entidades vivas). */
   enemiesInWorld: SimEntity[];
+  /** RNG seedado [0,1) da sim — variância do dano FÍSICO (AD swingy). Mágico não usa. */
+  roll: () => number;
 }
 
 /** Resultado de um cast: alvos atingidos + perfil capturado ANTES de aplicar status. */
@@ -56,6 +58,8 @@ export interface CastResult {
 }
 
 const UNHOLY_FAMILIES: CreatureFamily[] = ["undead", "demon"];
+/** Sagrado bate REDUZIDO fora de undead/demon (especialista anti-undead). ✏️ Balancista. */
+const HOLY_NONUNDEAD_MULT = 0.5;
 
 /** Vetor unitário do facing (para checar costas no Apunhalar). */
 function facingVec(f: Facing): Vec2 {
@@ -117,18 +121,19 @@ function applySkillStatus(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, t
 /** Dano calculado de uma skill ofensiva contra `target` (já com multiplicadores). */
 function computeDamage(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: SimEntity): number {
   if (def.effect === "physical") {
+    // Skills FÍSICAS (AD) também rolam variância (swingy); só o mágico é constante.
     if (def.id === "golpe_forte") {
       // Golpe Forte: ~1.8× o dano da ARMA equipada (ficha).
       const base = physicalDamage(ctx.prog.attributes, ctx.weaponBase);
-      return Math.floor(base * GOLPE_FORTE.weaponMultiplier);
+      return physicalVariance(Math.floor(base * GOLPE_FORTE.weaponMultiplier), ctx.roll());
     }
     if (def.id === "apunhalar") {
       // Apunhalar: usa a adaga como base (Destreza) + 2× pelas costas (ficha).
-      let dmg = physicalDamage(ctx.prog.attributes, ctx.weaponBase + def.power, true);
+      let dmg = physicalVariance(physicalDamage(ctx.prog.attributes, ctx.weaponBase + def.power, true), ctx.roll());
       if (isBehind(caster, target)) dmg = Math.floor(dmg * APUNHALAR.backstabMultiplier);
       return dmg;
     }
-    return physicalDamage(ctx.prog.attributes, ctx.weaponBase + def.power);
+    return physicalVariance(physicalDamage(ctx.prog.attributes, ctx.weaponBase + def.power), ctx.roll());
   }
   // mágico — ofensiva SAGRADA (damageType "holy") escala ESPÍRITO; demais
   // elementos escalam Inteligência. (Decidido 09/jun/2026 — o Priest é o melhor
@@ -136,8 +141,15 @@ function computeDamage(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, targ
   let dmg = def.damageType === "holy"
     ? holyDamage(ctx.prog.attributes, def.power)
     : magicDamage(ctx.prog.attributes, def.power);
-  if (def.id === "luz_sagrada" && isUnholy(target)) {
-    dmg = Math.floor(dmg * LUZ_SAGRADA.unholyMultiplier);
+  // SAGRADO é ESPECIALISTA ANTI-UNDEAD (decidido criador jun/2026): cheio vs profano
+  // (undead/demon), REDUZIDO vs o resto. É a fraqueza clara do Priest — dano alto só
+  // no nicho; fora dele vira sustain/utilidade (não "forte em tudo"). ✏️ % Balancista.
+  if (def.damageType === "holy") {
+    if (isUnholy(target)) {
+      if (def.id === "luz_sagrada") dmg = Math.floor(dmg * LUZ_SAGRADA.unholyMultiplier);
+    } else {
+      dmg = Math.floor(dmg * HOLY_NONUNDEAD_MULT);
+    }
   }
   return dmg;
 }
