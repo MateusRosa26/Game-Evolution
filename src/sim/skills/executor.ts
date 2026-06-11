@@ -7,12 +7,10 @@ import type { SkillDef } from "./types";
 import { SKILLS } from "./definitions";
 import {
   APUNHALAR,
-  BOLA_DE_FOGO,
   GOLPE_FORTE,
-  LANCA_DE_GELO,
   LUZ_SAGRADA,
 } from "./numbers";
-import { applyDot, applySlow, hasStatus } from "./status";
+import { applyDot, applySlow, applyRoot, hasStatus } from "./status";
 
 /**
  * Executores GENÉRICOS por tipo de targeting (DESIGN-EVOLUCAO.md §"Magias e
@@ -98,24 +96,49 @@ function lineTiles(origin: Vec2, dir: Vec2, range: number): Vec2[] {
   return tiles;
 }
 
-/** Aplica o status declarado da skill em um alvo atingido. */
+/**
+ * Aplica o status declarado da skill em um alvo atingido. GENÉRICO: os
+ * parâmetros vêm da PRÓPRIA `applyStatus` (union discriminada — dado, não código
+ * hardcoded por skill). Cada `kind` chama o helper de status com seus campos.
+ */
 function applySkillStatus(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: SimEntity): void {
-  if (!def.applyStatus || target.dead) return;
-  if (def.applyStatus.kind === "burn") {
-    applyDot(target, ctx.tick, caster, def.id, {
-      kind: "burn",
-      damagePerTick: BOLA_DE_FOGO.burn.damagePerTick,
-      durationMs: BOLA_DE_FOGO.burn.durationMs,
-      intervalMs: BOLA_DE_FOGO.burn.intervalMs,
-      damageType: "fire",
-    });
-  } else if (def.applyStatus.kind === "slow") {
-    applySlow(target, ctx.tick, {
-      durationMs: LANCA_DE_GELO.slow.durationMs,
-      stepMsMultiplier: LANCA_DE_GELO.slow.stepMsMultiplier,
-    });
+  const st = def.applyStatus;
+  if (!st || target.dead) return;
+  switch (st.kind) {
+    case "burn":
+      applyDot(target, ctx.tick, caster, def.id, {
+        kind: "burn",
+        damagePerTick: st.damagePerTick,
+        durationMs: st.durationMs,
+        intervalMs: st.intervalMs,
+        damageType: st.damageType,
+      });
+      break;
+    case "bleed":
+      applyDot(target, ctx.tick, caster, def.id, {
+        kind: "bleed",
+        damagePerTick: st.damagePerTick,
+        durationMs: st.durationMs,
+        intervalMs: st.intervalMs,
+        damageType: "physical", // sangramento = DoT físico
+      });
+      break;
+    case "poison":
+      applyDot(target, ctx.tick, caster, def.id, {
+        kind: "poison",
+        damagePerTick: st.damagePerTick,
+        durationMs: st.durationMs,
+        intervalMs: st.intervalMs,
+        damageType: "poison",
+      });
+      break;
+    case "slow":
+      applySlow(target, ctx.tick, { durationMs: st.durationMs, stepMsMultiplier: st.stepMsMultiplier });
+      break;
+    case "root":
+      applyRoot(target, ctx.tick, { durationMs: st.durationMs });
+      break;
   }
-  // "poison" tipado p/ Rogue T2 — nenhuma skill M1 o aplica ainda.
 }
 
 /** Dano calculado de uma skill ofensiva contra `target` (já com multiplicadores). */
@@ -272,6 +295,17 @@ export function executeSkill(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity
       return execLine(ctx, def, caster, target);
     case "healTarget":
       return execHeal(ctx, def, caster, target);
+    // ── Stubs de targeting (superfície de dados pronta; executores em waves futuras) ──
+    case "groundTarget":
+      // TODO(T2): área num tile mirado (Storm, Garras da Terra). Usa def.areaRadius
+      // e o `aim` do casting (Vec2). Por ora não resolve nada.
+      return miss();
+    case "selfRadius":
+      // TODO(T3): área ao redor do caster (def.areaRadius). Por ora não resolve nada.
+      return miss();
+    case "chain":
+      // TODO(T4): salta entre alvos (def.chainMax/chainRange/chainFalloff). Por ora não resolve nada.
+      return miss();
   }
 }
 

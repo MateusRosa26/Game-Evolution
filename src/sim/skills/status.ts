@@ -8,9 +8,10 @@ import { applyDamage } from "../combat";
 
 /**
  * Sistema de status effects da sim (DESIGN-EVOLUCAO.md §"Magias e Skills"):
- * queimadura (DoT fogo), lentidão (slow), veneno (tipado para o futuro — Rogue
- * T2). Tudo TICK-BASED, com duração, aplicado/expirado na sim e VISÍVEL no
- * snapshot (lista de status por entidade) para o client futuro animar.
+ * queimadura (DoT fogo), sangramento (DoT físico), veneno (DoT próprio),
+ * lentidão (slow), enraizamento (root — não anda). Tudo TICK-BASED, com duração,
+ * aplicado/expirado na sim e VISÍVEL no snapshot (lista de status por entidade)
+ * para o client futuro animar.
  *
  * Determinístico: nada de RNG/timers aqui — só contadores de tick.
  */
@@ -20,7 +21,7 @@ import { applyDamage } from "../combat";
  * Envenenada). `wellFed` ("Bem Alimentado") é o buff de saciedade da comida —
  * multiplica o regen de HP/mana enquanto ativo (loop de sustain Tibia).
  */
-export type StatusKind = "burn" | "slow" | "poison" | "wellFed" | "meal";
+export type StatusKind = "burn" | "bleed" | "poison" | "slow" | "root" | "wellFed" | "meal";
 
 /**
  * Teto de saciedade: comer ACUMULA duração de "Bem Alimentado" só até aqui —
@@ -58,9 +59,9 @@ export interface StatusEffect {
   skillId: string | null;
 }
 
-/** Parâmetros para aplicar um DoT (burn/poison). Tempos em ms (design). */
+/** Parâmetros para aplicar um DoT (burn/bleed/poison). Tempos em ms (design). */
 export interface DotParams {
-  kind: "burn" | "poison";
+  kind: "burn" | "bleed" | "poison";
   damagePerTick: number;
   /** Duração total do DoT, em ms. */
   durationMs: number;
@@ -142,6 +143,46 @@ export function applySlow(e: SimEntity, currentTick: number, p: SlowParams): voi
     });
   }
   recomputeStepMs(e);
+}
+
+/** Parâmetros para aplicar root (enraizamento). Tempo em ms (design). */
+export interface RootParams {
+  /** Duração do root, em ms. */
+  durationMs: number;
+}
+
+/**
+ * Aplica/refresca root (enraizamento — não anda enquanto ativo). Documentado:
+ * não empilha — refaz a duração (root mais longo vence). Diferente do slow, NÃO
+ * mexe no stepMs: o bloqueio é uma porta no movimento (ver `isRooted` /
+ * Simulation), então o stepMs continua refletindo só o slow.
+ */
+export function applyRoot(e: SimEntity, currentTick: number, p: RootParams): void {
+  const durationTicks = msToTicks(p.durationMs);
+  const existing = e.status.find((s) => s.kind === "root");
+  if (existing) {
+    existing.expiresAtTick = Math.max(existing.expiresAtTick, currentTick + durationTicks);
+    return;
+  }
+  e.status.push({
+    kind: "root",
+    expiresAtTick: currentTick + durationTicks,
+    damagePerTick: 0,
+    tickEveryTicks: 0,
+    nextDamageTick: Number.MAX_SAFE_INTEGER,
+    damageType: "physical",
+    stepMsMultiplier: 1,
+    regenMultiplier: 1,
+    buffDamage: 0,
+    buffAttackSpeedPct: 0,
+    sourceId: 0,
+    skillId: null,
+  });
+}
+
+/** True se a entidade está enraizada (não pode dar passo). */
+export function isRooted(e: SimEntity): boolean {
+  return e.status.some((s) => s.kind === "root");
 }
 
 /** Parâmetros para aplicar/estender "Bem Alimentado" (comida). Tempo em ms. */

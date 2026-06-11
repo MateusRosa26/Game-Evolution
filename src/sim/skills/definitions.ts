@@ -47,7 +47,14 @@ export const SKILL_BOLA_DE_FOGO: SkillDef = {
   cooldownMs: BOLA_DE_FOGO.cooldownMs,
   range: BOLA_DE_FOGO.range,
   power: BOLA_DE_FOGO.power,
-  applyStatus: { kind: "burn" },
+  // Queimadura (DoT de fogo) — parâmetros carregados no dado (antes hardcoded no executor).
+  applyStatus: {
+    kind: "burn",
+    damagePerTick: BOLA_DE_FOGO.burn.damagePerTick,
+    durationMs: BOLA_DE_FOGO.burn.durationMs,
+    intervalMs: BOLA_DE_FOGO.burn.intervalMs,
+    damageType: "fire",
+  },
 };
 
 /** Lança de Gelo (Mage) — projétil perfurante (linha) + slow em cada alvo. */
@@ -63,7 +70,12 @@ export const SKILL_LANCA_DE_GELO: SkillDef = {
   cooldownMs: LANCA_DE_GELO.cooldownMs,
   range: LANCA_DE_GELO.range,
   power: LANCA_DE_GELO.power,
-  applyStatus: { kind: "slow" },
+  // Lentidão (slow) — parâmetros carregados no dado (antes hardcoded no executor).
+  applyStatus: {
+    kind: "slow",
+    stepMsMultiplier: LANCA_DE_GELO.slow.stepMsMultiplier,
+    durationMs: LANCA_DE_GELO.slow.durationMs,
+  },
 };
 
 /** Apunhalar (Rogue) — melee posicional, ~2× pelas costas. */

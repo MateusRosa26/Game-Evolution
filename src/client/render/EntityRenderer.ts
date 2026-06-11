@@ -105,8 +105,10 @@ const CAST_MAX_DUR_MS = 320;
 /** Cor por tipo de status effect (apresentação dos ícones sobre a HP bar). */
 const STATUS_COLOR: Record<StatusEffectState["kind"], number> = {
   burn: 0xff7a32,
-  slow: 0x6fc8e8,
+  bleed: 0xc0392b, // sangramento (DoT físico): vermelho-sangue
   poison: 0x7ad15a,
+  slow: 0x6fc8e8,
+  root: 0x8a6d3b, // enraizamento (terra): marrom-raiz
   wellFed: 0xe8b54a, // "Bem Alimentado": dourado quente de saciedade
   meal: 0xd2773a, // "Saciado" (buff de prato preparado): âmbar/assado, mais quente
 };
