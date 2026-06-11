@@ -1,5 +1,6 @@
 import { applyDamage, chebyshev, type CombatCtx } from "./combat";
 import type { SimEntity } from "./entity";
+import { tryStartMove } from "./moves";
 import { findPath } from "./pathfinding";
 import type { World } from "./World";
 
@@ -79,6 +80,15 @@ export function updateChaser(
 
   monster.ai = "chasing";
   const dist = chebyshev(monster.pos, target.pos);
+
+  // Mecânica telegrafada (MECANICAS-DE-MOB.md): se um move está pronto e o alvo
+  // está na faixa, inicia o windup — o mob ENCARA o alvo e TRAVA (não anda nem
+  // ataca) até a Simulation resolver. Prioridade sobre perseguir/atacar.
+  if (tryStartMove(monster, target, now)) {
+    monster.facing = facingToward(monster, target);
+    monster.intent = null;
+    return;
+  }
 
   if (dist <= 1) {
     // Adjacente (incl. diagonal): para e ataca no cooldown.

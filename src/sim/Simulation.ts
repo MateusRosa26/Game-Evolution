@@ -420,6 +420,8 @@ export class Simulation {
       aggroRadius: template.aggroRadius,
       spawnPos: { x: pos.x, y: pos.y },
       respawnMs, // override por-spot (undefined = usa template.respawnMs no death)
+      moves: template.moves, // mecânicas telegrafadas (MECANICAS-DE-MOB.md)
+      moveCooldowns: {},
       npcKey: null,
       quests: new Map(),
       activeDialogue: null,
@@ -819,7 +821,13 @@ export class Simulation {
     for (const e of this.entities.values()) {
       e.justMoved = false;
       if (e.kind === "monster" && e.ai !== null && !e.dead) {
-        updateChaser(ctx, this.world, e, players, now, this.blockedFor(e));
+        if (e.activeMove) {
+          // Em WINDUP: travado (não persegue/ataca). Resolve quando vence; o mob
+          // age de novo no tick seguinte (MECANICAS-DE-MOB.md §1).
+          if (now >= e.activeMove.resolveAt) this.resolveMove(e);
+        } else {
+          updateChaser(ctx, this.world, e, players, now, this.blockedFor(e));
+        }
       }
     }
 
@@ -845,6 +853,33 @@ export class Simulation {
     this.pruneDialogues();
     this.pruneCorpsesAndContainers();
     this.emitSnapshot(pending);
+  }
+
+  /**
+   * Resolve o move em windup de um monstro: aplica o efeito e limpa o
+   * `activeMove`. Resolução determinística em unidade de tile (MECANICAS-DE-MOB).
+   * (1ª fatia: só "leap"; efeitos de dano-em-tiles entram quando as variantes/T2
+   * existirem — novo ramo aqui + `MoveKind` em `moves.ts`.)
+   */
+  private resolveMove(monster: SimEntity): void {
+    const am = monster.activeMove;
+    monster.activeMove = undefined;
+    if (!am) return;
+    const target = this.entities.get(am.targetId);
+    if (!target || target.dead || target.z !== monster.z) return; // alvo sumiu → aborta
+    if (am.def.kind === "leap") {
+      // Gap-closer anti-kite: pousa num tile LIVRE adjacente ao alvo. nearestFree
+      // devolve `target.pos` se nada livre em r≤3 → nesse caso não pousa no alvo.
+      const landing = this.nearestFree(monster, target.pos);
+      if (landing.x === target.pos.x && landing.y === target.pos.y) return;
+      this.occupancy.delete(this.tileKey(monster.pos.x, monster.pos.y, monster.z));
+      monster.pos = { x: landing.x, y: landing.y };
+      this.occupancy.set(this.tileKey(landing.x, landing.y, monster.z), monster.id);
+      const dx = target.pos.x - landing.x;
+      const dy = target.pos.y - landing.y;
+      monster.facing = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? "e" : "w") : dy >= 0 ? "s" : "n";
+      monster.intent = null; // chegou colado; ataca no próximo tick
+    }
   }
 
   /** Auto-attack: com alvo vivo no ALCANCE da arma, ataca a cada cooldown. */
@@ -1479,6 +1514,11 @@ export class Simulation {
         maxMp: e.maxMp,
         status: projectStatus(e, this.tickCount),
       };
+      // Telegraph de mecânica (MECANICAS-DE-MOB.md): move em windup — info PÚBLICA
+      // por design (o client DEVE poder desenhar o aviso). ≠ condição secreta.
+      if (e.activeMove) {
+        state.telegraph = { moveId: e.activeMove.def.id, kind: e.activeMove.def.kind, resolveAt: e.activeMove.resolveAt };
+      }
       const prog = this.progressions.get(e.id);
       if (prog) state.progress = this.projectProgress(prog);
       if (e.kind === "player") {

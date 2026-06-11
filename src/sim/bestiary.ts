@@ -1,4 +1,5 @@
 import type { CreatureFamily, DamageType } from "../shared/types";
+import { GOBLIN_LEAP, type MoveDef } from "./moves";
 
 /**
  * Bestiário como DADOS, não código caso-a-caso.
@@ -49,6 +50,9 @@ export interface CreatureTemplate {
   respawnMs: number;
   /** Loot do cadáver: gold (faixa) + itens por chance. */
   loot?: LootTable;
+  /** Moves de mecânica telegrafados (MECANICAS-DE-MOB.md). undefined/[] = só
+   *  ataque básico (`chaser` puro). Copiados pra entidade no spawn. */
+  moves?: MoveDef[];
 }
 
 /**
@@ -177,6 +181,9 @@ export const GOBLIN: CreatureTemplate = {
   family: "humanoid",
   tier: "T1",
   behavior: "chaser",
+  // Mecânica do ecossistema (MECANICAS-DE-MOB.md §5): o goblin é o mob late-T1
+  // com MOVESET — salto gap-closer anti-kite (você não escapa só andando).
+  moves: [GOBLIN_LEAP],
   maxHp: 38,
   attackDamage: 11,
   attackType: "physical",

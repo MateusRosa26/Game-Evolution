@@ -2,6 +2,7 @@ import type { CreatureFamily, Dir8, Facing, Vec2 } from "../shared/types";
 import type { EntityKind } from "../shared/types";
 import type { OutfitState } from "../shared/outfits";
 import type { StatusEffect } from "./skills/status";
+import type { MoveDef } from "./moves";
 import type { QuestState } from "./quests";
 import type { EquipSlot } from "../shared/protocol";
 
@@ -135,4 +136,12 @@ export interface SimEntity {
   /** Respawn em ms deste spawn específico (override por-spot do template —
    *  EXPLORACAO.md §teto de exp/h). undefined = usa `template.respawnMs`. */
   respawnMs?: number;
+
+  // ── Moves de mecânica (telegrafados — MECANICAS-DE-MOB.md; null p/ player/NPC) ──
+  /** Moves disponíveis (copiados do template no spawn). */
+  moves?: MoveDef[];
+  /** Move em windup AGORA — trava passo/ataque até `resolveAt` (ms lógico). */
+  activeMove?: { def: MoveDef; targetId: number; resolveAt: number };
+  /** Próximo instante (ms lógico) em que cada move sai do cooldown. */
+  moveCooldowns?: Record<string, number>;
 }
