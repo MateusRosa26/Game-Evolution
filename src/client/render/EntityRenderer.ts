@@ -53,6 +53,9 @@ const DAMAGE_COLOR: Record<DamageType, number> = {
   bleed: 0xd83a32,
   holy: 0xffd86a,
   arcane: 0x9a6ad8,
+  earth: 0x9b7b44, // marrom-terra (Garras da Terra)
+  lightning: 0xeae27a, // amarelo-elétrico (raio)
+  death: 0x6a4a7a, // roxo-fúnebre (Dreno Vital)
 };
 
 /**
@@ -91,6 +94,12 @@ const IMPACT: Record<DamageType, ImpactStyle> = {
   arcane: { tex: "spark", color: 0xb083e0, count: 5, speed: 24, vy0: -22, gravity: 18, life: 440, size: 1, additive: true },
   // respingo de sangue: cai forte, sólido
   bleed: { tex: "spark", color: 0xd83a32, count: 5, speed: 30, vy0: 4, gravity: 280, life: 360, size: 0.9, additive: false },
+  // torrão de terra: estilhaços terrosos que caem, sólidos
+  earth: { tex: "shard", color: 0xa07b45, count: 5, speed: 40, vy0: -6, gravity: 240, life: 340, size: 1, additive: false },
+  // centelha elétrica: rápida e brilhante, dispersa
+  lightning: { tex: "spark", color: 0xf0e98a, count: 6, speed: 60, vy0: -16, gravity: 60, life: 300, size: 1, additive: true },
+  // sopro fúnebre: motes roxos que sobem e dissolvem
+  death: { tex: "spark", color: 0x9a6ad8, count: 5, speed: 22, vy0: -20, gravity: -10, life: 460, size: 1, additive: true },
 };
 
 /**

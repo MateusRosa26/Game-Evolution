@@ -94,3 +94,60 @@ export const CURAR_FERIMENTOS = {
   power: 18, // base de cura ✏️ placeholder
   range: 6, // alcance até o aliado (self = 0) ✏️ placeholder
 } as const;
+
+// ── Garras da Terra (Mage/Int) — groundTarget mirado + root (terra) ──
+export const GARRAS_DA_TERRA = {
+  manaCost: 18, // ✏️ Balancista
+  cooldownMs: 4000, // ✏️ Balancista
+  power: 9, // dano modesto — o valor é o CONTROLE (root), não o nuke ✏️ Balancista
+  range: 6, // alcance da MIRA (até onde dá pra mirar o tile) ✏️ Balancista
+  castTimeMs: 800, // conjuração mirada (cancela ao mover/tomar dano)
+  areaRadius: 1, // 3×3 ao redor do tile mirado ✏️ Balancista
+  root: { durationMs: 1500 }, // enraíza os pegos (terra = root) ✏️ Balancista
+} as const;
+
+// ── Tempestade (Mage/Int) — groundTarget mirado, raio (lightning), AoE de dano ──
+export const TEMPESTADE = {
+  manaCost: 28, // ✏️ Balancista
+  cooldownMs: 6000, // ✏️ Balancista
+  power: 16, // AoE de dano alta (sem status) — o nuke de área ✏️ Balancista
+  range: 6, // alcance da mira ✏️ Balancista
+  castTimeMs: 1000, // ✏️ Balancista
+  areaRadius: 1, // 3×3 ✏️ Balancista
+} as const;
+
+// ── Redemoinho (Knight/For) — selfRadius físico, escala a ARMA (tag arma) ──
+export const REDEMOINHO = {
+  manaCost: 14, // ✏️ Balancista
+  cooldownMs: 5000, // ✏️ Balancista
+  power: 4, // bônus FLAT sobre o dano da arma (instant burst) ✏️ Balancista
+  areaRadius: 1, // tudo adjacente (3×3) ✏️ Balancista
+} as const;
+
+// ── Aura Sagrada (Priest/Esp) — selfRadius de cura (caster + aliados) ──
+export const AURA_SAGRADA = {
+  manaCost: 22, // > custo da cura individual (cura em área é premium) ✏️ Balancista
+  cooldownMs: 6000, // ✏️ Balancista
+  power: 14, // base de cura por alvo (< cura individual; o valor é o alcance) ✏️ Balancista
+  areaRadius: 2, // 5×5 ao redor do caster ✏️ Balancista
+} as const;
+
+// ── Fagulhas (Mage/Int) — chain (raio), chip-AoE FRACO; NÃO deve deletar um pack ──
+export const FAGULHAS = {
+  manaCost: 10, // ✏️ Balancista
+  cooldownMs: 2500, // ✏️ Balancista
+  power: 6, // dano-base BAIXO — chip; o teto da cadeia é sublinear (Balancista) ✏️
+  range: 6, // alcance até o alvo primário ✏️ Balancista
+  chainMax: 3, // primário + 2 saltos ✏️ Balancista
+  chainRange: 2, // distância máxima de cada salto ✏️ Balancista
+  chainFalloff: 0.6, // −40% de dano por salto ✏️ Balancista
+} as const;
+
+// ── Dreno Vital (Mage/Int) — projétil de morte (death), lifedrain 50% ──
+export const DRENO_VITAL = {
+  manaCost: 16, // ✏️ Balancista
+  cooldownMs: 3000, // ✏️ Balancista
+  power: 11, // dano single-target; metade volta como cura ✏️ Balancista
+  range: 6, // ✏️ Balancista
+  lifedrainPct: 0.5, // cura o caster por 50% do dano causado ✏️ Balancista
+} as const;

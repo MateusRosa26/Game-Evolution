@@ -133,7 +133,9 @@ export function resolveCast(ctx: SkillCastCtx, caster: SimEntity, target: SimEnt
   if (!c) return;
   const def = SKILLS[c.skillId];
   if (!def) return;
-  const result = executeSkill(ctx, def, caster, target);
+  // `aim` (tile mirado) só importa para groundTarget — true skillshot: resolve no
+  // tile FIXO mirado no início, não rastreia o alvo. Demais targetings ignoram.
+  const result = executeSkill(ctx, def, caster, target, c.aim);
   // Conectou ou não, o uso de cast-time já pagou no início; só emite perfil se
   // houve hit válido (mesma regra de contagem do `castSkill` — spam não conta).
   if (result.validHit) emitSkillUse(ctx, def, caster, target, result);

@@ -1,11 +1,17 @@
 import type { SkillDef } from "./types";
 import {
   APUNHALAR,
+  AURA_SAGRADA,
   BOLA_DE_FOGO,
   CURAR_FERIMENTOS,
+  DRENO_VITAL,
+  FAGULHAS,
+  GARRAS_DA_TERRA,
   GOLPE_FORTE,
   LANCA_DE_GELO,
   LUZ_SAGRADA,
+  REDEMOINHO,
+  TEMPESTADE,
 } from "./numbers";
 
 /**
@@ -123,6 +129,108 @@ export const SKILL_CURAR_FERIMENTOS: SkillDef = {
   power: CURAR_FERIMENTOS.power,
 };
 
+/** Garras da Terra (Mage/Int) — groundTarget mirado (cast-time) + root (terra). */
+export const SKILL_GARRAS_DA_TERRA: SkillDef = {
+  id: "earthen_grasp",
+  name: "Garras da Terra",
+  cls: "mage",
+  targeting: "groundTarget",
+  effect: "magic",
+  damageType: "earth",
+  tags: ["terra", "root"],
+  manaCost: GARRAS_DA_TERRA.manaCost,
+  cooldownMs: GARRAS_DA_TERRA.cooldownMs,
+  range: GARRAS_DA_TERRA.range,
+  power: GARRAS_DA_TERRA.power,
+  castTimeMs: GARRAS_DA_TERRA.castTimeMs,
+  areaRadius: GARRAS_DA_TERRA.areaRadius,
+  // Enraíza os pegos — controle é o valor da skill, não o nuke (terra = root).
+  applyStatus: { kind: "root", durationMs: GARRAS_DA_TERRA.root.durationMs },
+};
+
+/** Tempestade (Mage/Int) — groundTarget mirado (cast-time), raio, AoE de dano puro. */
+export const SKILL_TEMPESTADE: SkillDef = {
+  id: "storm",
+  name: "Tempestade",
+  cls: "mage",
+  targeting: "groundTarget",
+  effect: "magic",
+  damageType: "lightning",
+  tags: ["raio"],
+  manaCost: TEMPESTADE.manaCost,
+  cooldownMs: TEMPESTADE.cooldownMs,
+  range: TEMPESTADE.range,
+  power: TEMPESTADE.power,
+  castTimeMs: TEMPESTADE.castTimeMs,
+  areaRadius: TEMPESTADE.areaRadius,
+};
+
+/** Redemoinho (Knight/For) — selfRadius físico; escala a ARMA (tag arma → ledger). */
+export const SKILL_REDEMOINHO: SkillDef = {
+  id: "whirlwind",
+  name: "Redemoinho",
+  cls: "knight",
+  targeting: "selfRadius",
+  effect: "physical",
+  damageType: "physical",
+  tags: ["fisico", "arma"],
+  manaCost: REDEMOINHO.manaCost,
+  cooldownMs: REDEMOINHO.cooldownMs,
+  range: 1, // melee (self-centered)
+  power: REDEMOINHO.power,
+  areaRadius: REDEMOINHO.areaRadius,
+};
+
+/** Aura Sagrada (Priest/Esp) — selfRadius de cura (caster + aliados no raio). */
+export const SKILL_AURA_SAGRADA: SkillDef = {
+  id: "sacred_aura",
+  name: "Aura Sagrada",
+  cls: "priest",
+  targeting: "selfRadius",
+  effect: "heal",
+  damageType: "holy", // irrelevante p/ cura, mas tipado
+  tags: ["sagrado", "cura"],
+  manaCost: AURA_SAGRADA.manaCost,
+  cooldownMs: AURA_SAGRADA.cooldownMs,
+  range: 0, // self-centered
+  power: AURA_SAGRADA.power,
+  areaRadius: AURA_SAGRADA.areaRadius,
+};
+
+/** Fagulhas (Mage/Int) — chain (raio); chip-AoE FRACO (NÃO deve deletar um pack). */
+export const SKILL_FAGULHAS: SkillDef = {
+  id: "sparks",
+  name: "Fagulhas",
+  cls: "mage",
+  targeting: "chain",
+  effect: "magic",
+  damageType: "lightning",
+  tags: ["raio", "chip"],
+  manaCost: FAGULHAS.manaCost,
+  cooldownMs: FAGULHAS.cooldownMs,
+  range: FAGULHAS.range,
+  power: FAGULHAS.power,
+  chainMax: FAGULHAS.chainMax,
+  chainRange: FAGULHAS.chainRange,
+  chainFalloff: FAGULHAS.chainFalloff,
+};
+
+/** Dreno Vital (Mage/Int) — projétil de morte, lifedrain 50% do dano causado. */
+export const SKILL_DRENO_VITAL: SkillDef = {
+  id: "life_drain",
+  name: "Dreno Vital",
+  cls: "mage",
+  targeting: "projectileTarget",
+  effect: "magic",
+  damageType: "death",
+  tags: ["morte"],
+  manaCost: DRENO_VITAL.manaCost,
+  cooldownMs: DRENO_VITAL.cooldownMs,
+  range: DRENO_VITAL.range,
+  power: DRENO_VITAL.power,
+  lifedrainPct: DRENO_VITAL.lifedrainPct,
+};
+
 /** Registro de todas as skills por ID — ponto único de lookup. */
 export const SKILLS: Record<string, SkillDef> = {
   [SKILL_GOLPE_FORTE.id]: SKILL_GOLPE_FORTE,
@@ -131,4 +239,10 @@ export const SKILLS: Record<string, SkillDef> = {
   [SKILL_APUNHALAR.id]: SKILL_APUNHALAR,
   [SKILL_LUZ_SAGRADA.id]: SKILL_LUZ_SAGRADA,
   [SKILL_CURAR_FERIMENTOS.id]: SKILL_CURAR_FERIMENTOS,
+  [SKILL_GARRAS_DA_TERRA.id]: SKILL_GARRAS_DA_TERRA,
+  [SKILL_TEMPESTADE.id]: SKILL_TEMPESTADE,
+  [SKILL_REDEMOINHO.id]: SKILL_REDEMOINHO,
+  [SKILL_AURA_SAGRADA.id]: SKILL_AURA_SAGRADA,
+  [SKILL_FAGULHAS.id]: SKILL_FAGULHAS,
+  [SKILL_DRENO_VITAL.id]: SKILL_DRENO_VITAL,
 };

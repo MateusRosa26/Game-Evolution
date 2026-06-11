@@ -301,9 +301,9 @@ export function tickStatus(ctx: CombatCtx, e: SimEntity): void {
     if (s.damagePerTick <= 0) continue;
     while (tick >= s.nextDamageTick && tick < s.expiresAtTick) {
       const source = ctx.lookup(s.sourceId) ?? e;
-      const fatal = applyDamage(ctx, source, e, s.damagePerTick, s.damageType, null, s.skillId);
+      applyDamage(ctx, source, e, s.damagePerTick, s.damageType, null, s.skillId);
       s.nextDamageTick += s.tickEveryTicks;
-      if (fatal) return; // morreu pelo DoT — resolveDeaths cuida do resto
+      if (e.dead) return; // morreu pelo DoT — resolveDeaths cuida do resto
     }
   }
 

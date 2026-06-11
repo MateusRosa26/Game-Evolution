@@ -34,7 +34,12 @@ export type SkillTag =
   | "sagrado"
   | "anti-profano"
   | "cura"
-  | "posicional";
+  | "posicional"
+  | "terra" // Garras da Terra (groundTarget + root)
+  | "root" // enraizamento
+  | "raio" // Tempestade / Fagulhas (lightning)
+  | "chip" // dano-chip de AoE fraca (Fagulhas)
+  | "morte"; // Dreno Vital (lifedrain)
 
 /**
  * Aplicação de status que a skill faz no(s) alvo(s) atingido(s) — union

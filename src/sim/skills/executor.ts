@@ -141,6 +141,37 @@ function applySkillStatus(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, t
   }
 }
 
+/**
+ * Aplica o dano de uma skill ofensiva em UM alvo: calcula → `applyDamage`
+ * (events damage/kill com skillId) → `applySkillStatus`. Retorna o dano
+ * EFETIVAMENTE aplicado (pós-mitigação) para o caller somar e alimentar o
+ * lifedrain (DESIGN: morte=dreno vital). `weapon` = arma p/ ledger (skills de
+ * arma físicas) ou null (magias).
+ */
+function hitTarget(
+  ctx: SkillCastCtx,
+  def: SkillDef,
+  caster: SimEntity,
+  target: SimEntity,
+  weapon: WeaponSource | null,
+): number {
+  const dmg = computeDamage(ctx, def, caster, target);
+  const dealt = applyDamage(ctx, caster, target, dmg, def.damageType, weapon, def.id);
+  applySkillStatus(ctx, def, caster, target);
+  return dealt;
+}
+
+/**
+ * Lifedrain (morte = dreno vital): cura o caster por `floor(totalDealt *
+ * lifedrainPct)` do dano causado pela skill (clampado a maxHp pelo applyHeal).
+ * No-op se a skill não tem `lifedrainPct` ou nada foi causado.
+ */
+function applyLifedrain(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, totalDealt: number): void {
+  if (!def.lifedrainPct || totalDealt <= 0 || caster.dead) return;
+  const heal = Math.floor(totalDealt * def.lifedrainPct);
+  if (heal > 0) applyHeal(ctx, caster, caster, heal, def.id);
+}
+
 /** Dano calculado de uma skill ofensiva contra `target` (já com multiplicadores). */
 function computeDamage(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: SimEntity): number {
   if (def.effect === "physical") {
@@ -197,13 +228,12 @@ function execMelee(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: 
   if (chebyshev(caster.pos, target.pos) > def.range) return miss();
   const pre = profileBefore(target);
   const behind = def.targeting === "meleePositional" && isBehind(caster, target);
-  const dmg = computeDamage(ctx, def, caster, target);
   caster.facing = facingTo(caster.pos, target.pos);
   // Skill FÍSICA de arma (Golpe Forte/Apunhalar, tag `arma`/`posicional`) alimenta
   // o ledger da arma equipada; sem efeito físico, não há arma envolvida.
   const weapon = def.effect === "physical" ? ctx.weaponSource : null;
-  applyDamage(ctx, caster, target, dmg, def.damageType, weapon, def.id);
-  applySkillStatus(ctx, def, caster, target);
+  const dealt = hitTarget(ctx, def, caster, target, weapon);
+  applyLifedrain(ctx, def, caster, dealt);
   ctx.pending.push({ kind: "cast", skillId: def.id, casterId: caster.id, from: { ...caster.pos }, to: { ...target.pos } });
   return { validHit: true, targets: [target], hitFromBehind: behind, ...pre };
 }
@@ -213,10 +243,9 @@ function execProjectile(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, tar
   if (!target || target.dead || target.kind !== "monster") return miss();
   if (chebyshev(caster.pos, target.pos) > def.range) return miss();
   const pre = profileBefore(target);
-  const dmg = computeDamage(ctx, def, caster, target);
   caster.facing = facingTo(caster.pos, target.pos);
-  applyDamage(ctx, caster, target, dmg, def.damageType, null, def.id);
-  applySkillStatus(ctx, def, caster, target);
+  const dealt = hitTarget(ctx, def, caster, target, null);
+  applyLifedrain(ctx, def, caster, dealt); // Dreno Vital (lifedrainPct) cura o caster
   ctx.pending.push({ kind: "cast", skillId: def.id, casterId: caster.id, from: { ...caster.pos }, to: { ...target.pos } });
   return { validHit: true, targets: [target], hitFromBehind: false, ...pre };
 }
@@ -239,11 +268,9 @@ function execLine(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: S
     }
   }
   const pre = profileBefore(hit[0] ?? null);
-  for (const e of hit) {
-    const dmg = computeDamage(ctx, def, caster, e);
-    applyDamage(ctx, caster, e, dmg, def.damageType, null, def.id);
-    applySkillStatus(ctx, def, caster, e);
-  }
+  let dealt = 0;
+  for (const e of hit) dealt += hitTarget(ctx, def, caster, e, null);
+  applyLifedrain(ctx, def, caster, dealt);
   ctx.pending.push({ kind: "cast", skillId: def.id, casterId: caster.id, from: { ...caster.pos }, to: lastTile });
   if (hit.length === 0) return miss();
   return { validHit: true, targets: hit, hitFromBehind: false, ...pre };
@@ -259,6 +286,116 @@ function execHeal(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: S
   const amount = healPower(ctx.prog.attributes, def.power);
   applyHeal(ctx, caster, tgt, amount, def.id); // empurra o snapshot-event "heal"
   return { validHit: true, targets: [tgt], hitFromBehind: false, ...pre };
+}
+
+/** Monstros vivos no mundo (no andar do caster, já filtrado pela Simulation). */
+function livingMonsters(ctx: SkillCastCtx): SimEntity[] {
+  return ctx.enemiesInWorld.filter((e) => !e.dead && e.kind === "monster");
+}
+
+/**
+ * T2 — groundTarget: skillshot de área que resolve no tile FIXO `aim` mirado no
+ * início (true skillshot — NÃO rastreia alvo). Todos os monstros vivos dentro de
+ * `areaRadius` (Chebyshev) do `aim` levam dano + status. (Storm, Garras da Terra.)
+ */
+function execGroundTarget(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, aim: Vec2 | undefined): CastResult {
+  if (!aim) return miss(); // sem mira não há onde resolver
+  const radius = def.areaRadius ?? 0;
+  const hit = livingMonsters(ctx).filter((e) => chebyshev(e.pos, aim) <= radius);
+  const pre = profileBefore(hit[0] ?? null);
+  caster.facing = facingTo(caster.pos, aim);
+  let dealt = 0;
+  for (const e of hit) dealt += hitTarget(ctx, def, caster, e, null);
+  applyLifedrain(ctx, def, caster, dealt);
+  // Telegraph/animação no tile mirado (o client desenha o estouro de área lá).
+  ctx.pending.push({ kind: "cast", skillId: def.id, casterId: caster.id, from: { ...caster.pos }, to: { ...aim } });
+  if (hit.length === 0) return miss();
+  return { validHit: true, targets: hit, hitFromBehind: false, ...pre };
+}
+
+/**
+ * T3 — selfRadius: burst INSTANTÂNEO ao redor do caster (`areaRadius` Chebyshev).
+ *  - ofensiva (physical/magic): atinge todos os monstros vivos no raio (Redemoinho).
+ *  - heal: cura o caster + aliados vivos (não-monstro) no raio (Aura Sagrada;
+ *    solo = só o caster, correto).
+ */
+function execSelfRadius(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity): CastResult {
+  const radius = def.areaRadius ?? 0;
+  ctx.pending.push({ kind: "cast", skillId: def.id, casterId: caster.id, from: { ...caster.pos }, to: { ...caster.pos } });
+
+  if (def.effect === "heal") {
+    // Aliados = entidades vivas não-monstro no raio (inclui o próprio caster).
+    const allies = ctx.enemiesInWorld.filter(
+      (e) => !e.dead && e.kind !== "monster" && chebyshev(e.pos, caster.pos) <= radius,
+    );
+    if (!allies.includes(caster)) allies.push(caster); // caster sempre se cura
+    const amount = healPower(ctx.prog.attributes, def.power);
+    for (const a of allies) applyHeal(ctx, caster, a, amount, def.id);
+    const pre = profileBefore(caster);
+    return { validHit: true, targets: allies, hitFromBehind: false, ...pre };
+  }
+
+  // Ofensiva: monstros vivos no raio. Skill de arma (tag `arma`) alimenta o ledger.
+  const hit = livingMonsters(ctx).filter((e) => chebyshev(e.pos, caster.pos) <= radius);
+  const pre = profileBefore(hit[0] ?? null);
+  const weapon = def.effect === "physical" ? ctx.weaponSource : null;
+  let dealt = 0;
+  for (const e of hit) dealt += hitTarget(ctx, def, caster, e, weapon);
+  applyLifedrain(ctx, def, caster, dealt);
+  if (hit.length === 0) return miss();
+  return { validHit: true, targets: hit, hitFromBehind: false, ...pre };
+}
+
+/**
+ * T4 — chain: salta entre alvos. Atinge o primário (alvo selecionado) e pula para
+ * o monstro vivo NÃO-atingido MAIS PRÓXIMO dentro de `chainRange` (Chebyshev) do
+ * último atingido, até `chainMax` alvos no total. O dano decai por `chainFalloff`
+ * a cada salto (×falloff por salto). Desempate determinístico = menor id.
+ * (Fagulhas — chip-AoE FRACO: NÃO deve deletar um pack; teto sublinear do Balancista.)
+ */
+function execChain(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: SimEntity | null): CastResult {
+  if (!target || target.dead || target.kind !== "monster") return miss();
+  if (chebyshev(caster.pos, target.pos) > def.range) return miss();
+  const maxTargets = Math.max(1, def.chainMax ?? 1);
+  const jumpRange = def.chainRange ?? 1;
+  const falloff = def.chainFalloff ?? 1;
+  const pre = profileBefore(target);
+  caster.facing = facingTo(caster.pos, target.pos);
+
+  const chain: SimEntity[] = [target];
+  let last = target;
+  while (chain.length < maxTargets) {
+    // Candidatos: monstros vivos ainda não atingidos, dentro do alcance de salto.
+    let next: SimEntity | null = null;
+    let bestDist = Infinity;
+    for (const e of livingMonsters(ctx)) {
+      if (chain.includes(e)) continue;
+      const d = chebyshev(last.pos, e.pos);
+      if (d > jumpRange) continue;
+      // Desempate determinístico: distância menor; empate → menor id.
+      if (d < bestDist || (d === bestDist && (next == null || e.id < next.id))) {
+        bestDist = d;
+        next = e;
+      }
+    }
+    if (!next) break;
+    chain.push(next);
+    last = next;
+  }
+
+  // Dano com decaimento por salto: alvo i recebe power base × falloff^i.
+  // (computeDamage usa def.power; escalamos por um power efetivo por salto.)
+  const basePower = def.power;
+  let dealt = 0;
+  for (let i = 0; i < chain.length; i++) {
+    const e = chain[i];
+    const scaled: SkillDef = { ...def, power: Math.floor(basePower * Math.pow(falloff, i)) };
+    dealt += hitTarget(ctx, scaled, caster, e, null);
+  }
+  applyLifedrain(ctx, def, caster, dealt);
+  // Telegraph: origem → último alvo da cadeia (caminho simples/serializável p/ o client).
+  ctx.pending.push({ kind: "cast", skillId: def.id, casterId: caster.id, from: { ...caster.pos }, to: { ...chain[chain.length - 1].pos } });
+  return { validHit: true, targets: chain, hitFromBehind: false, ...pre };
 }
 
 function miss(): CastResult {
@@ -284,7 +421,7 @@ function facingTo(from: Vec2, to: Vec2): Facing {
  * Resolve um cast pelo tipo de targeting da skill. NÃO valida mana/cooldown
  * (isso é da Simulation, antes de chamar). Retorna os alvos atingidos.
  */
-export function executeSkill(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: SimEntity | null): CastResult {
+export function executeSkill(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: SimEntity | null, aim?: Vec2): CastResult {
   switch (def.targeting) {
     case "meleeTarget":
     case "meleePositional":
@@ -295,17 +432,15 @@ export function executeSkill(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity
       return execLine(ctx, def, caster, target);
     case "healTarget":
       return execHeal(ctx, def, caster, target);
-    // ── Stubs de targeting (superfície de dados pronta; executores em waves futuras) ──
     case "groundTarget":
-      // TODO(T2): área num tile mirado (Storm, Garras da Terra). Usa def.areaRadius
-      // e o `aim` do casting (Vec2). Por ora não resolve nada.
-      return miss();
+      // T2: área no tile FIXO mirado (`aim`) — Storm, Garras da Terra.
+      return execGroundTarget(ctx, def, caster, aim);
     case "selfRadius":
-      // TODO(T3): área ao redor do caster (def.areaRadius). Por ora não resolve nada.
-      return miss();
+      // T3: burst ao redor do caster — Redemoinho (dano) / Aura Sagrada (cura).
+      return execSelfRadius(ctx, def, caster);
     case "chain":
-      // TODO(T4): salta entre alvos (def.chainMax/chainRange/chainFalloff). Por ora não resolve nada.
-      return miss();
+      // T4: salta entre alvos com decaimento — Fagulhas (chip-AoE).
+      return execChain(ctx, def, caster, target);
   }
 }
 

@@ -59,7 +59,9 @@ export interface WeaponSource {
 
 /**
  * Aplica dano de `source` em `target`. Emite `damage` sempre; se matar,
- * emite `kill` e marca `target.dead`. Retorna true se o golpe foi fatal.
+ * emite `kill` e marca `target.dead`. Retorna o DANO EFETIVAMENTE APLICADO
+ * (pós-mitigação, >= 0) — o chamador deriva "foi fatal?" de `target.dead`.
+ * (Lifedrain — DESIGN: morte=dreno vital — usa este retorno p/ curar o caster.)
  *
  * `weapon` (null = não-arma) propaga a instância equipada aos payloads `damage`/
  * `kill` para o ledger (auto-attack e skills físicas de arma a passam; projéteis/
@@ -73,8 +75,8 @@ export function applyDamage(
   damageType: DamageType,
   weapon: WeaponSource | null,
   skillId: string | null,
-): boolean {
-  if (target.dead) return false;
+): number {
+  if (target.dead) return 0;
 
   // ── Mitigação do ALVO (ordem decidida: bloqueio% → Def SORTEADA (0..Def) → piso
   // 1). Só o player carrega armadura/escudo (mob: armorDef 0, block null), então o
@@ -119,7 +121,7 @@ export function applyDamage(
   // Tomar dano CANCELA a conjuração do alvo (decisão do task: move OU dano).
   if (amount > 0) ctx.onDamaged?.(target, amount);
 
-  if (target.hp > 0) return false;
+  if (target.hp > 0) return amount;
 
   // ── Golpe fatal: morte + evento kill rico ──
   target.dead = true;
@@ -142,7 +144,7 @@ export function applyDamage(
     entityId: target.id,
     pos: { x: target.pos.x, y: target.pos.y },
   });
-  return true;
+  return amount;
 }
 
 /**
