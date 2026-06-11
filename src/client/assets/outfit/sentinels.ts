@@ -76,38 +76,38 @@ function rotateToward(h: number, target: number, amount: number): number {
 const COOL_HUE = 230; // sombras puxam para azul (usado pelo ramp de 6 tons)
 const WARM_HUE = 50; // luzes puxam para amarelo (usado pelo ramp de 6 tons)
 
-const SAT_CAP = 0.6; // teto de saturação — "moderado", nunca neon (veredito do criador)
-const smoothstep = (a: number, b: number, x: number) => {
-  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
+// Brilho branco do topo do gradiente: 0 = fosco/pintado (a cor domina, estilo Tibia),
+// 1 = metálico (a luz lava pro branco, "reflexo no aço"). Calibrado no olho = 0.2.
+const DYE_SHINE = 0.2;
 
 /**
- * LUT de dye estilo Tibia/Apogea (método validado — ver
- * docs/reports/2026-06-11-dye-greyscale-pipeline.md): a cor MODULA a luz que já
- * existe, não a substitui. Por luminância (0..255):
- *  - PRESERVA a luminância original (sombreado intacto) → lightness = lum/255;
- *  - troca só o MATIZ (da cor alvo);
- *  - saturação MODERADA com sino no meio (`bell`) e teto SAT_CAP, ESCALADA pela
- *    saturação da própria cor → cor neutra (aço #777) continua neutra, não vira
- *    colorida; cor viva tinge moderado;
- *  - PRESERVA o contorno: `gate` zera a saturação na faixa escura (< ~50/255) →
- *    outline preto fica preto (preto × cor = preto).
- * O método antigo (substituía a luz por um ramp saturado) perdia o outline e
- * ficava extremo/chapado — ver o report.
+ * LUT de dye = GRADIENT MAP estilo Tibia/Apogea (multiply). Em vez de reconstruir
+ * a cor em HSL (que ou deixava o brilho branco = "reflexo", ou comprimia demais =
+ * "agressivo"), mapeia a luminância da peça greyscale por um gradiente
+ *   preto → COR (no valor próprio da cor) → branco(por DYE_SHINE).
+ * Confirmado na fonte do OTClient: Tibia colore por multiply de um template
+ * greyscale; a cor MAIS forte aparece na luz, preto×cor=preto (outline grátis),
+ * e nunca vira neon (multiply só escurece). A saturação vem da PRÓPRIA cor do dye
+ * (paleta moderada), não de um boost artificial → cor neutra (aço) = gradiente
+ * preto→cinza→branco = greyscale intacto. Aplicada por PEÇA: a máscara da peça
+ * define ONDE tinge (couro/escudo/arma são peças/overlays próprios, sem respingo).
  */
 export function shadeLutFromColor(hex: string): Uint8ClampedArray {
-  const [h, s] = hexToHsl(hex);
-  const satTarget = Math.min(SAT_CAP, s); // a cor escolhe a saturação (até o teto)
+  const cr = parseInt(hex.slice(1, 3), 16);
+  const cg = parseInt(hex.slice(3, 5), 16);
+  const cb = parseInt(hex.slice(5, 7), 16);
+  const Lc = Math.max(0.001, (0.299 * cr + 0.587 * cg + 0.114 * cb) / 255); // valor próprio da cor
   const lut = new Uint8ClampedArray(256 * 3);
   for (let lum = 0; lum < 256; lum++) {
-    const Ln = lum / 255; // luminância preservada = lightness de saída
-    // sino: pico no meio, →0 nos extremos (outline escuro e brilho claro ficam neutros).
-    const bell = Math.sin(Math.PI * Ln);
-    // gate: garante o outline preto preservado (sat=0 abaixo de ~20/255, sobe até ~55/255).
-    const gate = smoothstep(0.08, 0.22, Ln);
-    const si = satTarget * bell * gate;
-    const [r, g, b] = hslToRgb(h, si, Ln);
+    const L = lum / 255;
+    let r: number, g: number, b: number;
+    if (L <= Lc) {
+      const f = L / Lc; // sombra/outline: escurece a cor até o preto
+      r = cr * f; g = cg * f; b = cb * f;
+    } else {
+      const f = ((L - Lc) / (1 - Lc)) * DYE_SHINE; // luz: clareia a cor até o branco por SHINE
+      r = cr + (255 - cr) * f; g = cg + (255 - cg) * f; b = cb + (255 - cb) * f;
+    }
     lut[lum * 3] = r;
     lut[lum * 3 + 1] = g;
     lut[lum * 3 + 2] = b;
