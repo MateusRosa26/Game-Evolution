@@ -12,6 +12,8 @@ export {
   type MarkDef,
   type MutationDef,
   type PathDef,
+  type Accumulator,
+  type EffectSpec,
   type TrackingEffect,
   type TrackingFlavor,
 } from "./types";
@@ -22,6 +24,7 @@ export {
   type SkillMutationProgress,
   type PathStyleProgress,
   type PathConductProgress,
+  type PathRatioProgress,
   createTrackingState,
   characterTracking,
 } from "./state";

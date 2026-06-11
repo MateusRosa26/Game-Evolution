@@ -32,7 +32,7 @@
 | Escala de números | **Tudo baixo (decidido — criador, jun/2026)**: dano/Def/gold/drops em números pequenos estilo Tibia old-school (dano de um dígito no T1, gold contado em moedas, up lento). Razão técnica (bateria M1.2): dano estável + mobs de HP baixo = o jogo é **contagem de golpes** — em escala baixa, ±1 é sentido e legível; inflação numérica destrói isso. Régua para TODO número novo do Balancista |
 | Velocidade de movimento | **Base plana p/ todos — NÃO sobe com nível (decidido jun/2026)**. Variação só de **itens** (botas), **magia** (haste/*Disparada*) e **comida** (✏️ buff simples vs sistema de stamina — sessão de consumíveis). Razão: o movimento na sim é quantizado em degraus de tick (estilo Tibia, breakpoints de 50ms), e MS-por-nível é o treadmill que o Pilar 7 veta; nas referências, **OSRS deixa o teto plano de propósito** (PvP justo, profundidade vem de energia/freeze/posição) e o **Tibia** mantém o per-level minúsculo com gear/haste como swing real. Mobilidade vira **loot/escolha** (Pilar 5/6), não barra de XP; anti-Sirlin (ninguém inalcançável só por ser high-level). Relatório: `docs/reports/2026-06-10-velocidade-movimento.md` |
 | Unidade de tempo | **Tudo em ms (decidido + refatorado jun/2026)**: cooldowns, durações de status, respawn, regen (agora por-segundo) são números de DESIGN em ms; a sim converte p/ ticks via `msToTicks` (`shared/constants.ts`). O **tick (50ms) é só a resolução interna** — mudá-lo reescala tudo sem tocar no balance. Tick fino (25/10ms) fica **reservado** (só vale a pena se algum dia o movimento exigir curva fina) |
-| Mutações | Nomeadas e qualitativas (não ranks); o **perfil de uso** decide qual mutação nasce; 2–4 por skill, autorais. **Ganho pequeno + condicionador de estilo, nunca power spike.** **100% comportamental** (por uso) — tomo/drop/quest gateiam só a skill *base* (modelo R1, jun/2026). **1ª = onramp grátis** (fora do escalador); **da 2ª em diante já começa bem difícil.** Substitui a original (decidido) |
+| Mutações | Nomeadas e qualitativas (não ranks); o **perfil de uso** decide qual mutação nasce — **atribuição = contador absoluto por perfil (decidido jun/2026)**: cada perfil tem meta própria, só casts que casam o perfil contam pra ela, casts fora de perfil não contam nada, **1º perfil a cruzar resolve** (a substituição da skill fecha a corrida — não é timing-trap); generalista que não concentra **nunca muta**. 2–4 por skill, autorais. **Ganho pequeno + condicionador de estilo, nunca power spike.** **100% comportamental** (por uso) — tomo/drop/quest gateiam só a skill *base* (modelo R1, jun/2026). **1ª = onramp grátis** (fora do escalador); **da 2ª em diante já começa bem difícil.** Substitui a original (decidido) |
 | Thresholds | **Entrada descobrível, aprofundamento brutal** (decidido jun/2026): a 1ª mutação é barata (onramp que ensina o sistema); Marca de arma, Caminhos e mutações profundas são brutais (ordem de 10–20k repetições / condutas por dezenas de níveis). Números ✏️ calibrar com combate real |
 | Eixos do emergente | **Dois eixos ortogonais** (jun/2026): **GEAR** (Marca de arma — independente, auto-gateada pela troca de tier) × **COMPORTAMENTAL** (Mutação + Caminho/título — **escalador único e competitivo**: magia dificulta título e vice-versa → traço único; **soft, não pool gasto**; 1ª mutação fica fora) |
 | Escada de camadas | 4 camadas por raridade: ① 1ª Mutação (onramp/descoberta) · ② mutações profundas + Marca de arma · ③ Caminhos/classes escondidas · ④ **Criação de Skill** (pós-lançamento) |
@@ -258,14 +258,19 @@ Skill usada em volume extremo **muta**: muda qualitativamente e ganha nome. Não
 
 **O "como" importa tanto quanto o "quanto":** a sim rastreia o **perfil de uso**, e ele decide **qual** mutação nasce. A mesma Bola de Fogo pode virar coisas diferentes:
 
-| Perfil de uso (10k usos) | Mutação | Efeito |
+| Perfil de uso (meta própria por perfil) | Mutação | Efeito |
 |---|---|---|
-| Maioria dos usos à distância máxima | **Meteoro Distante** | alcance maior, dano cresce com a distância |
-| Maioria à queima-roupa | **Eclosão Ígnea** | explosão centrada no caster, empurra inimigos |
-| Maioria em alvos já queimando | **Fogo Voraz** | reacende e espalha queimadura em área |
+| N casts à distância máxima (≥4 tiles) | **Meteoro Distante** | alcance maior, dano cresce com a distância |
+| N casts à queima-roupa (≤2 tiles) | **Eclosão Ígnea** | explosão centrada no caster, empurra inimigos |
+| N casts em alvos já queimando | **Fogo Voraz** | reacende e espalha queimadura em área |
 
+- **Atribuição = contador absoluto por perfil (decidido jun/2026).** Cada perfil tem **meta própria** (N casts que casam o filtro dele); só casts do perfil contam pra ela; **casts fora de qualquer perfil não contam nada**. O **1º perfil a cruzar a meta resolve** a skill. Como a mutação **substitui** a skill base, completar um perfil **encerra** a Bola de Fogo base — você não consegue mais acumular os outros perfis, então só um vence: aquele em que você se especializou primeiro. **Não é timing-trap** (o estado-final reflete seu histórico real, sem custo arbitrário — distinto do classless). Generalista que espalha o uso e nunca concentra N em perfil algum **nunca muta** (mutação é prêmio de commitment, não de volume).
+- **Perfis mutuamente exclusivos (regra de autoria).** Filtros não devem se sobrepor; o espaço entre eles (ex.: distância 3) é **zona morta** (casts ali não contam) — ou se cobre o espaço todo (`≥3` vs `≤3`), ou a zona morta é intencional. Se dois perfis casarem o mesmo cast, **desempate = ordem de definição** (determinístico).
+- **Hint por perfil (não genérico).** Cada perfil tem seu próprio hint atmosférico aos ~50% da meta dele — e ele **telegrafa pra onde você está indo** (max-dist: *"o fogo anseia pelo horizonte"*; queima-roupa: *"as chamas latejam perto da pele"*). ✏️ Loremaster.
+- **Threshold por-perfil ≫ threshold total.** N casts *de um perfil específico* é muito mais jogo que N casts no total — Balancista recalibra os números reais por perfil (provavelmente menores que seriam num modelo de share). ✏️
 - Cada skill tem **2–4 mutações possíveis** desenhadas à mão (✏️ por skill). Procedural não — nome e efeito são autorais.
 - **Mutação substitui** a skill original (decidido jun/2026): o gatilho é um **perfil de uso sustentado** (não um evento avulso), então você **nunca muta por acidente** — substituir é seguro, permanente e identitário.
+- ✅ **Migração feita (jun/2026):** `src/sim/tracking/engine.ts` (`advanceMutations`) agora usa **contador absoluto por perfil** (sem `minShare`/denominador): cada perfil tem `threshold` próprio, o 1º a cruzar resolve (ordem de definição desempata). Verificado em smoke headless. Spec da expansão de sensores: `docs/reports/2026-06-11-spec-sensores-tracking.md`.
 
 ## 3. Caminhos do Personagem
 
@@ -277,7 +282,7 @@ Padrões de comportamento do **personagem inteiro**. Dois sabores:
 |---|---|---|
 | Lvl 20 usando uma única magia ofensiva | **Devoto do Único Verbo** | a magia ganha mutação exclusiva impossível de obter por uso |
 | Lvl 30 sem nunca equipar armadura | **Pele de Ferro** | defesa base escala com nível |
-| Lvl 25 sem nunca usar arma (só punhos/magia) | **Mão Vazia** | dano desarmado real + skills desarmadas |
+| Lvl ~20 sem nunca equipar **arma primária** (luva/off-hand liberados; só punhos/magia) | **Mão Vazia** | dano desarmado real + skills desarmadas |
 
 **b) Estilo (padrão dominante):**
 
@@ -340,7 +345,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
   1. *Senhor dos Extremos* — ≥95% do dano via fogo+gelo por 20 níveis → choque térmico (combo novo)
   2. *Coração de Cinzas* — mono-elemento fogo por 25 níveis → queimaduras não expiram, fogo upado / (variantes para cada elemento)
   3. *Devoto do Único Verbo* — lvl 20 com uma única magia ofensiva → mutação exclusiva dela
-  4. *Intocado* — lvl 20 sem nunca causar dano físico (nem auto-attack) → mana regenera em combate
+  4. *Intocado* — ✏️ **EM REVISÃO (Lote 1, jun/2026):** o efeito antigo "mana regen em combate" é **base hoje** (não é prêmio); a condição "sem nunca causar dano físico" é impraticável (auto-attack inicial). Nova direção em estudo: efeito = **mana ao matar com magia** ("a magia se alimenta"); condição = **vencer N combates 100% mágicos**. Ver `docs/reports/2026-06-11-catalogo-emergente-lote1-engine.md` §6 ⑥.
 
 ### Rogue
 - **Fantasia:** a lâmina que você não viu — posição, timing e veneno.
@@ -359,7 +364,7 @@ Quarteto base: **Knight / Mage / Rogue / Priest** (decidido). Sem 5ª classe "Mo
 - **Atributos-chave:** **Espírito** (cura, regen de mana **e dano sagrado** — decidido 09/jun/2026: a ofensiva sagrada escala Esp, não Int; é por isso que o Priest é o melhor conjurador sagrado, alinhado ao de-classing). Inteligência só se quiser hibridizar com elemental.
 - **Lentes de rastreamento:** **cura total realizada**, kills vs mortos-vivos/demônios **com dano sagrado**, dano tomado **no lugar de aliados** (online), conduta de **nunca equipar arma**, conduta de pacifismo.
 - **Caminhos típicos:**
-  1. **Monge** (*Mão Vazia*) — lvl 25 sem nunca equipar arma, matando desarmado → dano desarmado real escala com nível + destrava skills marciais. **A "5ª classe" do jogo, que ninguém escolhe.**
+  1. **Monge** (*Mão Vazia*) — lvl ~20 sem nunca equipar **arma primária** (main-hand; **luva e off-hands liberados** — luta de punho/luva), matando desarmado → dano desarmado real escala com nível + destrava skills marciais. **A "5ª classe" do jogo, que ninguém escolhe.** *(Ajustado de lvl 25/“qualquer arma” para lvl ~20/“só arma primária” — criador, jun/2026, revisão Lote 1.)*
   2. *Exorcista* — 15k mortos-vivos/demônios mortos com dano sagrado → holy ignora resistências profanas
   3. *Mártir* — volume extremo de dano absorvido protegendo aliados → cura a si ao curar outros (online)
   4. *Voto de Silêncio* ✏️ — lvl 20 só com cura e Luz Sagrada (nenhuma outra magia) → ✏️
@@ -414,6 +419,7 @@ O sistema de skills foi extraído para um hub próprio (spin-out jun/2026, padr�
 
 ### Decididos recentemente (histórico)
 
+- ✅ **Atribuição de mutação = contador absoluto por perfil** (jun/2026): cada perfil tem meta própria (N casts que casam o filtro); casts fora de perfil não contam; 1º perfil a cruzar resolve (a substituição da skill fecha a corrida — não é timing-trap); generalista nunca muta. Substitui o modelo *share* que o `engine.ts` implementa hoje (handoff de código ✏️). Sessão de design jun/2026.
 - ✅ **Sem kit inicial — nenhuma skill é dada** (jun/2026): rito dá só a arma; aquisição **espalhada pelo mundo** (NPC / drop de mob / NPC+drop / quest raríssima). Skill vira loot/descoberta (pilares 1/3/4).
 - ✅ **Tomo de skill = tradeable + guardável** (jun/2026): possuir/negociar sem gate; aprender (consome, permanente) exige atributo+nível; sem requisito, guarda até poder. Cria mercado de tomos.
 - ✅ **Skills gateadas por requisito (atributo + nível), não por classe** (jun/2026, modelo PoE-gems) — anda com o custo-crescente. Gate de uso = cooldown (Apogea), mana secundária.

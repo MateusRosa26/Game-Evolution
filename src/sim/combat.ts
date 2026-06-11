@@ -3,6 +3,9 @@ import type { SnapshotEvent } from "../shared/protocol";
 import type { CombatActorRef, EventBus } from "./events";
 import type { SimEntity } from "./entity";
 import { armorMitigation } from "./formulas";
+import type { EffectSpec } from "./tracking/types";
+import type { Facts } from "./tracking/filters";
+import { evalOutgoing, rollFullBlock, collectOnKill, matchStatusCombos } from "./tracking/effects";
 
 /**
  * Lógica de combate da sim: aplicação de dano, morte e emissão dos eventos
@@ -25,6 +28,12 @@ export interface CombatCtx {
   lookup: (id: number) => SimEntity | undefined;
   /** RNG seedado (combatRng da Simulation) — rola o bloqueio de escudo. */
   rng: () => number;
+  /** Efeitos MECÂNICOS ativos de uma entidade (motor de Marcas/Caminhos). */
+  effectsOf?: (entityId: number) => EffectSpec[];
+  /** Fatos extras de sessão p/ as condições de efeito (firstHitOfCombat/inCombat). */
+  sessionFacts?: (entityId: number) => Facts;
+  /** Dano em área SEM re-disparar efeitos (P2 onKill) — Simulation fornece. */
+  areaDamage?: (centerId: number, sourceId: number, amount: number, radius: number, damageType: DamageType) => void;
 }
 
 /** Identidade de combate de uma entidade (para os payloads de evento). */
@@ -67,29 +76,54 @@ export function applyDamage(
   damageType: DamageType,
   weapon: WeaponSource | null,
   skillId: string | null,
+  suppressEffects = false,
 ): boolean {
   if (target.dead) return false;
+
+  // ── P1 (damageMult) + P4 (crit): dano de SAÍDA do atacante. `suppressEffects`
+  // evita recursão quando o próprio efeito (P2 onKill) causa dano em área. ──
+  if (!suppressEffects && ctx.effectsOf) {
+    const effects = ctx.effectsOf(source.id);
+    if (effects.length > 0) {
+      const facts: Facts = {
+        "target.family": target.family,
+        attackerHpPct: source.maxHp > 0 ? source.hp / source.maxHp : 0,
+        damageType,
+        ...(ctx.sessionFacts ? ctx.sessionFacts(source.id) : {}),
+      };
+      const mod = evalOutgoing(effects, facts);
+      if (mod.mult !== 1) amount = amount * mod.mult;
+    }
+  }
 
   // ── Mitigação do ALVO (ordem decidida: bloqueio% → Def SORTEADA (0..Def) → piso
   // 1). Só o player carrega armadura/escudo (mob: armorDef 0, block null), então o
   // golpe DO player no mob não muda — só o golpe NO player é reduzido. ──
-  if (target.block && ctx.rng() < target.block.chance) {
-    const blocked = Math.round(amount * target.block.chunkPct);
-    amount -= blocked;
-    ctx.bus.emit("block", {
-      blocker: actorRef(target),
-      attacker: actorRef(source),
-      blocked,
-      damageType,
-      context: { tick: ctx.tick, night: ctx.night },
-    });
+  if (target.block) {
+    // P3 (blockFull): chance de absorver 100% (Inabalável) — senão, bloqueio normal.
+    const tEffects = !suppressEffects && ctx.effectsOf ? ctx.effectsOf(target.id) : [];
+    const full = tEffects.length > 0 ? rollFullBlock(tEffects, ctx.rng) : false;
+    if (full || ctx.rng() < target.block.chance) {
+      const blocked = full ? Math.round(amount) : Math.round(amount * target.block.chunkPct);
+      amount -= blocked;
+      ctx.bus.emit("block", {
+        blocker: actorRef(target),
+        attacker: actorRef(source),
+        blocked,
+        damageType,
+        context: { tick: ctx.tick, night: ctx.night },
+      });
+    }
   }
   if (damageType === "physical" && target.armorDef > 0) {
     amount -= armorMitigation(target.armorDef, ctx.rng()); // sorteio 0..Def (Tibia-puro)
   }
   amount = Math.max(1, Math.round(amount));
 
+  // HP da vítima ANTES do golpe (base de overkill/execução) e fatalidade.
+  const hpBefore = target.hp;
   target.hp = Math.max(0, target.hp - amount);
+  const fatal = target.hp <= 0;
 
   ctx.bus.emit("damage", {
     source: actorRef(source),
@@ -101,6 +135,7 @@ export function applyDamage(
     skillId,
     weaponInstanceId: weapon ? weapon.instanceId : null,
     weaponTemplateId: weapon ? weapon.templateId : null,
+    wasFatal: fatal,
     context: { tick: ctx.tick, night: ctx.night },
   });
   ctx.pending.push({
@@ -111,7 +146,26 @@ export function applyDamage(
     pos: { x: target.pos.x, y: target.pos.y },
   });
 
-  if (target.hp > 0) return false;
+  // ── P6 (statusCombo): reage ao status do alvo + tipo de dano (Senhor dos
+  // Extremos: fogo em alvo `slow`/gelo em alvo `burn` → choque térmico). Só em
+  // alvo VIVO; o burst é `suppressEffects` (não re-dispara combo nem cascata). ──
+  if (!suppressEffects && !fatal && ctx.effectsOf) {
+    const effects = ctx.effectsOf(source.id);
+    if (effects.length > 0) {
+      const kinds = target.status.map((s) => s.kind as string);
+      const combos = matchStatusCombos(effects, kinds, damageType);
+      for (const combo of combos) {
+        // Consome os status casados + recomputa o stepMs (slow pode ter saído).
+        target.status = target.status.filter((s) => !combo.consumes.includes(s.kind));
+        const slow = target.status.find((s) => s.kind === "slow");
+        target.baseStepMs = Math.round(target.naturalStepMs * (slow ? slow.stepMsMultiplier : 1));
+        applyDamage(ctx, source, target, combo.burst, damageType, null, null, true);
+        if (target.dead) break;
+      }
+    }
+  }
+
+  if (!fatal) return false;
 
   // ── Golpe fatal: morte + evento kill rico ──
   target.dead = true;
@@ -123,6 +177,12 @@ export function applyDamage(
     weaponInstanceId: weapon ? weapon.instanceId : null,
     weaponTemplateId: weapon ? weapon.templateId : null,
     finalBlow: { amount, damageType },
+    victimHpBeforeBlow: hpBefore,
+    victimMaxHp: target.maxHp,
+    overkill: Math.max(0, amount - hpBefore),
+    overkillRatio: hpBefore > 0 ? amount / hpBefore : amount,
+    victimHpPctBeforeBlow: target.maxHp > 0 ? hpBefore / target.maxHp : 0,
+    statusesOnVictim: target.status.length,
     attackerHpPct: source.maxHp > 0 ? source.hp / source.maxHp : 0,
     attackerPos: { x: source.pos.x, y: source.pos.y },
     victimPos: { x: target.pos.x, y: target.pos.y },
@@ -134,6 +194,23 @@ export function applyDamage(
     entityId: target.id,
     pos: { x: target.pos.x, y: target.pos.y },
   });
+
+  // ── P2 (onKill): ações ao matar (ex: Exagero respinga o overkill em área).
+  // `suppressEffects` no splash evita cascata infinita. ──
+  if (!suppressEffects && ctx.effectsOf && ctx.areaDamage) {
+    const effects = ctx.effectsOf(source.id);
+    if (effects.length > 0) {
+      const facts: Facts = {
+        overkill: Math.max(0, amount - hpBefore),
+        overkillRatio: hpBefore > 0 ? amount / hpBefore : amount,
+        "victim.family": target.family,
+        finalBlowAmount: amount,
+      };
+      for (const a of collectOnKill(effects, facts)) {
+        ctx.areaDamage(target.id, source.id, a.amount, a.radius, (a.damageType as DamageType) ?? damageType);
+      }
+    }
+  }
   return true;
 }
 

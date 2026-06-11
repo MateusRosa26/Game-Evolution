@@ -13,14 +13,13 @@
  */
 
 /**
- * Progresso de mutações de UMA skill para UM personagem. O perfil de uso decide
- * qual mutação nasce: `totalValidUses` é o denominador; `profileCounts[defId]` é
- * quantos usos válidos casaram o perfil daquela mutação concorrente.
+ * Progresso de mutações de UMA skill para UM personagem. **Modelo contador
+ * absoluto por perfil** (jun/2026): `profileCounts[defId]` conta os casts que
+ * casaram o perfil daquela mutação; o 1º a cruzar a PRÓPRIA meta resolve. Sem
+ * denominador/share (o antigo `totalValidUses` saiu na migração).
  */
 export interface SkillMutationProgress {
-  /** Total de usos VÁLIDOS da skill (denominador do share). */
-  totalValidUses: number;
-  /** Usos válidos que casaram o perfil de cada mutação concorrente (defId → n). */
+  /** Casts válidos que casaram o perfil de cada mutação concorrente (defId → n). */
   profileCounts: Record<string, number>;
   /** Definições de mutação cujo hint dos ~50% já foi mostrado (one-shot). */
   hinted: Record<string, boolean>;
@@ -28,9 +27,27 @@ export interface SkillMutationProgress {
   resolved: string | null;
 }
 
-/** Progresso de UM Caminho de ESTILO (acúmulo) para um personagem. */
+/**
+ * Progresso de UM Caminho de ESTILO para um personagem. `value` é o VALOR REDUZIDO
+ * pelo acumulador (count/set.size/soma/max). `seen` só existe para `distinct`
+ * (conjunto serializado como array, JSON-safe).
+ */
 export interface PathStyleProgress {
-  count: number;
+  /** Valor reduzido corrente (compara com `threshold`). */
+  value: number;
+  /** [distinct] Valores já vistos (cardinalidade = `value`). */
+  seen?: string[];
+  hinted: boolean;
+  unlocked: boolean;
+}
+
+/**
+ * Progresso de UM Caminho de PROPORÇÃO (`ratio`) para um personagem. Dois
+ * somatórios; desbloqueia no milestone de level se `num/den ≥ minRatio`.
+ */
+export interface PathRatioProgress {
+  num: number;
+  den: number;
   hinted: boolean;
   unlocked: boolean;
 }
@@ -58,6 +75,14 @@ export interface CharacterTracking {
   pathsStyle: Record<string, PathStyleProgress>;
   /** Condutas por defId. */
   pathsConduct: Record<string, PathConductProgress>;
+  /** Caminhos de proporção (ratio) por defId. */
+  pathsRatio: Record<string, PathRatioProgress>;
+  /**
+   * MEMÓRIA DE ALGOZ (nêmesis): espécie que deu o golpe fatal neste personagem
+   * por último (null = nunca morreu). O próximo kill dessa espécie marca o fato
+   * `avengesDeath` (Caminho da Vingança). Reescrita a cada morte.
+   */
+  lastKillerSpecies?: string | null;
 }
 
 /**
@@ -78,7 +103,7 @@ export function createTrackingState(): TrackingState {
 export function characterTracking(state: TrackingState, entityId: number): CharacterTracking {
   let ct = state.byCharacter[entityId];
   if (!ct) {
-    ct = { mutations: {}, pathsStyle: {}, pathsConduct: {} };
+    ct = { mutations: {}, pathsStyle: {}, pathsConduct: {}, pathsRatio: {}, lastKillerSpecies: null };
     state.byCharacter[entityId] = ct;
   }
   return ct;

@@ -22,6 +22,7 @@ import {
   facingFromDir,
   isDiagonal,
   type AttributeKey,
+  type DamageType,
   type Dir8,
   type MapData,
   type PlayerClass,
@@ -31,7 +32,7 @@ import { DEFAULT_PLAYER_CLASS, MELEE_RANGE, RITO_COST_GOLD, RITO_QUEST_BY_CLASS 
 import { CREATURES, type CreatureTemplate } from "./bestiary";
 import { applyDamage, chebyshev, type CombatCtx, type WeaponSource } from "./combat";
 import type { SimEntity } from "./entity";
-import { EventBus, type KillEvent } from "./events";
+import { EventBus, type KillEvent, type DamageEvent } from "./events";
 import { attackCooldownMs, maxCarry, physicalDamage, physicalVariance, statPointCost, wandDamage, xpForLevel } from "./formulas";
 import {
   ItemRegistry,
@@ -76,6 +77,8 @@ import {
 } from "./progression";
 import { findPath, nearestWalkable } from "./pathfinding";
 import { TrackingEngine, DUMMY_TRACKING_DEFS } from "./tracking";
+import type { Facts } from "./tracking/filters";
+import { evalRegenMult } from "./tracking/effects";
 import { World } from "./World";
 
 /** Respawn pendente de um monstro morto (template + posição). */
@@ -88,6 +91,28 @@ interface PendingRespawn {
   respawnMs?: number;
   atTick: number;
 }
+
+/**
+ * Sessão de combate ABERTA de um jogador (agregador do evento `combat_end`). O
+ * emissor agrega os fatos INTRÍNSECOS (a engine só compara). Abre no 1º dano
+ * envolvendo o jogador; fecha por inatividade (`COMBAT_IDLE_MS` sem dano) ou morte.
+ */
+interface CombatSession {
+  startMs: number;
+  lastActivityMs: number;
+  damageTaken: number;
+  damageDealt: number;
+  kills: number;
+  /** Menor HP% atingido na sessão (comeback). */
+  lowestHpPct: number;
+  /** Maior nº de hostis mirando o jogador ao mesmo tempo. */
+  maxEnemiesFaced: number;
+  /** Já causou dano nesta sessão? (fato `firstHitOfCombat` para o crit P4). */
+  dealtDamageThisSession: boolean;
+}
+
+/** Janela de inatividade que fecha uma sessão de combate (ms lógicos). */
+const COMBAT_IDLE_MS = 4000;
 
 /**
  * Simulação autoritativa do jogo. Roda em ticks discretos com tempo lógico
@@ -126,6 +151,8 @@ export class Simulation {
   private snapshotListeners: ((snap: Snapshot) => void)[] = [];
   private playerIds = new Set<number>();
   private respawns: PendingRespawn[] = [];
+  /** Sessões de combate abertas por jogador (combat_end). */
+  private combatSessions = new Map<number, CombatSession>();
   /** Progressão por jogador (level/XP/atributos) — só na sim. */
   private progressions = new Map<number, Progression>();
   /**
@@ -222,8 +249,140 @@ export class Simulation {
       attackerLevelOf: (id) => this.progressions.get(id)?.level ?? null,
       equippedWeaponInstanceId: (id) => this.entities.get(id)?.equippedWeaponId ?? null,
       isPlayer: (id) => this.playerIds.has(id),
+      enemiesNear: (pos, range, excludeId) => this.countHostilesNear(pos, range, excludeId),
+      // terrainAt: deferido — exige o z no payload de kill (kill é 2D); ✏️ wave futura.
+      grantSkills: (id, skills) => {
+        const e = this.entities.get(id);
+        if (e) for (const sk of skills) if (!e.knownSkills.includes(sk)) e.knownSkills.push(sk);
+      },
     });
     this.tracking.attach(this.bus);
+    // Sessões de combate (combat_end): alimentadas pelos eventos do bus.
+    this.bus.on("damage", (ev) => this.feedCombatSessionDamage(ev));
+    this.bus.on("kill", (ev) => this.feedCombatSessionKill(ev));
+  }
+
+  /** Nº de monstros vivos a ≤ `range` (Chebyshev, mesmo andar) de `pos`, exceto `excludeId`. */
+  private countHostilesNear(pos: Vec2, range: number, excludeId: number): number {
+    const ref = this.entities.get(excludeId);
+    const z = ref?.z ?? this.world.baseZ;
+    let n = 0;
+    for (const e of this.entities.values()) {
+      if (e.id === excludeId || e.dead || e.kind !== "monster" || e.z !== z) continue;
+      if (chebyshev(e.pos, pos) <= range) n++;
+    }
+    return n;
+  }
+
+  // ── Sessões de combate (combat_end) ────────────────────────────────────
+
+  /** Sessão aberta do jogador (cria sob demanda no 1º dano envolvido). */
+  private sessionFor(playerId: number): CombatSession {
+    let s = this.combatSessions.get(playerId);
+    if (!s) {
+      const now = this.now();
+      s = { startMs: now, lastActivityMs: now, damageTaken: 0, damageDealt: 0, kills: 0, lowestHpPct: 1, maxEnemiesFaced: 0, dealtDamageThisSession: false };
+      this.combatSessions.set(playerId, s);
+    }
+    return s;
+  }
+
+  /** Marca atividade + atualiza lowestHpPct e maxEnemiesFaced. */
+  private touchSession(playerId: number, s: CombatSession): void {
+    s.lastActivityMs = this.now();
+    const e = this.entities.get(playerId);
+    if (e && e.maxHp > 0) s.lowestHpPct = Math.min(s.lowestHpPct, e.hp / e.maxHp);
+    let engaged = 0;
+    for (const m of this.entities.values()) {
+      if (m.kind === "monster" && !m.dead && m.targetId === playerId) engaged++;
+    }
+    s.maxEnemiesFaced = Math.max(s.maxEnemiesFaced, engaged);
+  }
+
+  private feedCombatSessionDamage(ev: DamageEvent): void {
+    if (this.playerIds.has(ev.target.id)) {
+      const s = this.sessionFor(ev.target.id);
+      s.damageTaken += ev.amount;
+      this.touchSession(ev.target.id, s);
+    }
+    if (this.playerIds.has(ev.source.id)) {
+      const s = this.sessionFor(ev.source.id);
+      s.damageDealt += ev.amount;
+      s.dealtDamageThisSession = true; // fecha o "1º golpe" para o crit P4
+      this.touchSession(ev.source.id, s);
+    }
+  }
+
+  private feedCombatSessionKill(ev: KillEvent): void {
+    if (!this.playerIds.has(ev.attacker.id)) return;
+    const s = this.combatSessions.get(ev.attacker.id);
+    if (s) { s.kills++; this.touchSession(ev.attacker.id, s); }
+  }
+
+  /** Fecha sessões paradas há ≥ COMBAT_IDLE_MS (vitória — combate resolvido). */
+  private flushIdleCombatSessions(now: number): void {
+    for (const [playerId, s] of this.combatSessions) {
+      if (now - s.lastActivityMs < COMBAT_IDLE_MS) continue;
+      this.emitCombatEnd(playerId, s, now, "victory");
+      this.combatSessions.delete(playerId);
+    }
+  }
+
+  private endCombatSession(playerId: number, endedBy: "victory" | "flee" | "death", now: number): void {
+    const s = this.combatSessions.get(playerId);
+    if (!s) return;
+    this.emitCombatEnd(playerId, s, now, endedBy);
+    this.combatSessions.delete(playerId);
+  }
+
+  // ── Motor de efeitos — closures injetadas no CombatCtx ─────────────────
+
+  /** Instâncias equipadas de uma entidade (p/ resolver Marcas ativas). */
+  private equippedInstanceIdsOf(entityId: number): number[] {
+    const e = this.entities.get(entityId);
+    if (!e) return [];
+    const ids: number[] = [];
+    for (const slot in e.equipment) {
+      const id = e.equipment[slot as EquipSlot];
+      if (id != null) ids.push(id);
+    }
+    return ids;
+  }
+
+  /** Fatos de sessão p/ as condições de efeito (firstHitOfCombat/inCombat). */
+  private effectSessionFacts(entityId: number): Facts {
+    const e = this.entities.get(entityId);
+    const s = this.combatSessions.get(entityId);
+    return {
+      inCombat: !!(e && e.targetId != null),
+      firstHitOfCombat: s ? !s.dealtDamageThisSession : true,
+    };
+  }
+
+  /** Dano em área (P2 onKill) sem re-disparar efeitos (suppressEffects=true). */
+  private dealAreaDamage(ctx: CombatCtx, centerId: number, sourceId: number, amount: number, radius: number, damageType: DamageType): void {
+    const center = this.entities.get(centerId);
+    const src = this.entities.get(sourceId);
+    if (!center || !src) return;
+    for (const m of this.entities.values()) {
+      if (m.id === centerId || m.dead || m.kind !== "monster" || m.z !== center.z) continue;
+      if (chebyshev(m.pos, center.pos) <= radius) applyDamage(ctx, src, m, amount, damageType, null, null, true);
+    }
+  }
+
+  private emitCombatEnd(playerId: number, s: CombatSession, now: number, endedBy: "victory" | "flee" | "death"): void {
+    const e = this.entities.get(playerId);
+    this.bus.emit("combat_end", {
+      entity: { id: playerId, species: e?.species ?? null, family: e?.family ?? null },
+      durationMs: now - s.startMs,
+      damageTaken: s.damageTaken,
+      damageDealt: s.damageDealt,
+      kills: s.kills,
+      lowestHpPct: s.lowestHpPct,
+      maxEnemiesFaced: s.maxEnemiesFaced,
+      endedBy,
+      context: { tick: this.tickCount, night: false },
+    });
   }
 
   /** Monta o `WeaponSource` (p/ payloads/ledger) da arma equipada de `e`. */
@@ -851,7 +1010,12 @@ export class Simulation {
       night: false,
       lookup: (id) => this.entities.get(id),
       rng: this.combatRng,
+      effectsOf: (id) => this.tracking.activeEffects(id, this.equippedInstanceIdsOf(id)),
+      sessionFacts: (id) => this.effectSessionFacts(id),
     };
+    // areaDamage referencia `ctx` (já construído) — atribuído após o literal.
+    ctx.areaDamage = (centerId, sourceId, amount, radius, dt) =>
+      this.dealAreaDamage(ctx, centerId, sourceId, amount, radius, dt);
 
     // Aponta o SINK da engine de tracking para o `pending` DESTE tick: hints/
     // unlocks viram SnapshotEvents one-shot, sem JAMAIS carregar progresso
@@ -896,7 +1060,17 @@ export class Simulation {
       if (!e) continue;
       this.updatePlayerAttack(ctx, e, now);
       const prog = this.progressions.get(id);
-      if (prog) regenTick(prog, e); // regen de HP/mana por fórmula
+      if (prog) {
+        // P5 (regen): multiplicador condicional dos EffectSpec ativos (ex: Intocável).
+        const effects = this.tracking.activeEffects(id, this.equippedInstanceIdsOf(id));
+        let hpMult = 1, manaMult = 1;
+        if (effects.length > 0) {
+          const facts = this.effectSessionFacts(id);
+          hpMult = evalRegenMult(effects, "hp", facts);
+          manaMult = evalRegenMult(effects, "mana", facts);
+        }
+        regenTick(prog, e, hpMult, manaMult); // regen de HP/mana por fórmula
+      }
     }
 
     // ── 3. Movimento (player + monstros) ──
@@ -905,6 +1079,9 @@ export class Simulation {
       if (e.intent.kind === "dir") this.stepInDirection(e, e.intent.dir, now);
       else this.stepAlongPath(e, now);
     }
+
+    // ── 3.5 Fecha sessões de combate paradas (emite combat_end → tracking) ──
+    this.flushIdleCombatSessions(now);
 
     // ── 4. Mortes: remover/respawnar ──
     this.resolveDeaths(now);
@@ -1096,6 +1273,8 @@ export class Simulation {
       return;
     }
     if (!applyRitoTransition(prog, target)) return;
+    // Condutas de Caminho contam DA aquisição da classe; ratio `sinceClass` zera aqui.
+    this.tracking.onClassAcquired(e.id);
     this.containers.withdrawGold(bp, RITO_COST_GOLD);
     // Concede o kit inicial da classe (skills já conhecidas permanecem).
     for (const sk of STARTER_KITS[target]) {
@@ -1196,7 +1375,8 @@ export class Simulation {
       consume = () => { delete e.equipment[ref.slot]; };
     }
     if (instanceId == null || !consume) return;
-    const tpl = getItemTemplate(this.items.get(instanceId)?.templateId ?? "");
+    const templateId = this.items.get(instanceId)?.templateId ?? "";
+    const tpl = getItemTemplate(templateId);
     const effect = tpl?.consume;
     if (!tpl || !effect) return; // nada de efeito de uso → ignora
 
@@ -1220,6 +1400,7 @@ export class Simulation {
       });
       e.nextItemUseAt = now + this.quantizeToTickMs(effect.exhaustMs);
       consume();
+      this.emitConsume(e, "potion", templateId);
       this.sysMessage(e.id, `Você usou ${tpl.name}.`);
       return;
     }
@@ -1231,7 +1412,18 @@ export class Simulation {
       applyMealBuff(e, this.tickCount, { buffs: effect.buffs, durationMs: effect.durationMs });
     }
     consume();
+    this.emitConsume(e, "food", templateId);
     this.sysMessage(e.id, `Você comeu ${tpl.name}.`);
+  }
+
+  /** Emite `consume` no bus (Gourmet/Survivalista). */
+  private emitConsume(e: SimEntity, kind: "food" | "potion", templateId: string): void {
+    this.bus.emit("consume", {
+      entity: { id: e.id, species: e.species, family: e.family },
+      kind,
+      itemTemplateId: templateId,
+      context: { tick: this.tickCount, night: false },
+    });
   }
 
   /** Quantas instâncias de `templateId` o jogador tem no bolso. */
@@ -1391,6 +1583,7 @@ export class Simulation {
       if (e.equipment[to.slot] != null) return; // slot ocupado (swap ✏️ wave 2)
       c.slots[from.slot] = null;
       e.equipment[to.slot] = inst.id;
+      this.emitEquip(e, "equip", to.slot, inst.id);
       this.afterEquipChange(e);
       return;
     }
@@ -1402,6 +1595,7 @@ export class Simulation {
       const dst = this.containers.get(to.containerId);
       if (!dst || dst.slots[to.slot] !== null || to.slot >= dst.capacity) return;
       dst.slots[to.slot] = { kind: "item", instanceId: instId };
+      this.emitEquip(e, "unequip", from.slot, instId);
       delete e.equipment[from.slot];
       this.afterEquipChange(e);
       return;
@@ -1425,6 +1619,22 @@ export class Simulation {
     if (t.slot === "legs") return slot === "legs";
     if (t.slot === "boots") return slot === "boots";
     return false;
+  }
+
+  /** Emite `equip`/`unequip` no bus (destrava condutas: Pele de Ferro/Mão Vazia). */
+  private emitEquip(e: SimEntity, action: "equip" | "unequip", slot: EquipSlot, instId: number): void {
+    if (e.kind !== "player") return;
+    const templateId = this.items.get(instId)?.templateId ?? "";
+    const tpl = getItemTemplate(templateId);
+    if (!tpl) return;
+    this.bus.emit("equip", {
+      entity: { id: e.id, species: e.species, family: e.family },
+      action,
+      slot,
+      itemCategory: tpl.slot ?? "",
+      itemTemplateId: templateId,
+      context: { tick: this.tickCount, night: false },
+    });
   }
 
   /** Pós-equip: arma de mão sincroniza o combate (equippedWeaponId) + derivados. */
@@ -1464,6 +1674,8 @@ export class Simulation {
     for (const e of [...this.entities.values()]) {
       if (!e.dead) continue;
       if (e.kind === "player") {
+        // Fecha a sessão de combate como MORTE (combat_end) antes do respawn.
+        this.endCombatSession(e.id, "death", now);
         // Penalidade de morte (macro do MVP): perde 10% do XP TOTAL ANTES do
         // refill do respawn — pode dar level-down (o teto de recursos desce, e o
         // refill abaixo enche já no novo máximo). Se o nível caiu, dano/cooldown

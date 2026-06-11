@@ -28,14 +28,16 @@ const MARK_ROEDOR_DE_FERRO: TrackingDef = {
     unlock: "A lâmina aprendeu o cheiro das bestas — e não esquece.",
   },
   effect: {
-    description: "+dano contra criaturas bestiais (aplicação mecânica é wave futura ✏️).",
+    description: "+10% dano contra criaturas bestiais (P1 damageMult).",
     payload: { damageVsFamily: "bestial", bonusPct: 10 },
+    spec: { kind: "damageMult", mult: 1.1, when: [{ field: "target.family", op: "==", value: "bestial" }] },
   },
 };
 
 /**
  * 2 MUTAÇÕES da Bola de Fogo com PERFIS OPOSTOS — PROVAM que o perfil decide
- * a mutação. Mesmo skillId, mesmo threshold de usos; vence quem dominar ≥50%.
+ * a mutação. Mesmo skillId; contador ABSOLUTO por perfil, o 1º a cruzar a própria
+ * meta vence (não há mais share/denominador).
  */
 const MUTATION_ECLOSAO_IGNEA: TrackingDef = {
   category: "mutation",
@@ -45,8 +47,7 @@ const MUTATION_ECLOSAO_IGNEA: TrackingDef = {
   event: "skill_use",
   // Perfil QUEIMA-ROUPA: distância do cast ≤ 2 tiles.
   filter: [{ field: "castDistance", op: "<=", value: 2 }],
-  threshold: 10, // DUMMY (real: ~10k) ✏️
-  minShare: 0.5, // maioria decide (≥50% dos usos válidos)
+  threshold: 10, // DUMMY (real: ~10k) — meta PRÓPRIA deste perfil ✏️
   flavor: {
     hint: "As chamas latejam mais perto da sua pele.",
     unlock: "A Bola de Fogo implode em volta de você: Eclosão Ígnea.",
@@ -65,8 +66,7 @@ const MUTATION_METEORO_DISTANTE: TrackingDef = {
   event: "skill_use",
   // Perfil DISTÂNCIA: distância do cast ≥ 4 tiles.
   filter: [{ field: "castDistance", op: ">=", value: 4 }],
-  threshold: 10, // DUMMY — DEVE casar o threshold da outra mutação da skill ✏️
-  minShare: 0.5,
+  threshold: 10, // DUMMY — meta PRÓPRIA (não precisa casar a outra) ✏️
   flavor: {
     hint: "As chamas latejam mais perto da sua pele.", // hint da SKILL é compartilhado
     unlock: "A Bola de Fogo cai como um meteoro do horizonte: Meteoro Distante.",
@@ -123,14 +123,89 @@ const PATH_PUNHO_BRUTO: TrackingDef = {
   },
 };
 
+/** NATURALISTA — Caminho de DISTINCT: matou N FAMÍLIAS distintas (amplitude). */
+const PATH_NATURALISTA: TrackingDef = {
+  category: "path",
+  id: "path_naturalista", // DUMMY ✏️
+  name: "O Naturalista",
+  flavorKind: "style",
+  event: "kill",
+  filter: [], // qualquer kill válido conta a sua família
+  accumulator: { kind: "distinct", field: "victim.family" }, // cardinalidade do conjunto
+  threshold: 3, // DUMMY (real: nº de famílias do bestiário) ✏️
+  flavor: {
+    hint: "Você começa a reconhecer o jeito de cada besta morrer.",
+    unlock: "Nenhuma criatura te é estranha. Caminho: O Naturalista.",
+  },
+  effect: {
+    description: "Bônus contra famílias recém-encontradas (wave futura ✏️).",
+    payload: { adaptiveBonus: 1 },
+  },
+};
+
+/** EXAGERO — Marca de overkill: golpes que matam com dano MUITO sobrando. */
+const MARK_EXAGERO: TrackingDef = {
+  category: "mark",
+  id: "mark_exagero", // DUMMY ✏️
+  name: "Exagero",
+  event: "kill",
+  filter: [{ field: "overkillRatio", op: ">=", value: 3 }], // matou com ≥3× o HP restante
+  threshold: 10, // DUMMY (real: milhares) ✏️
+  flavor: {
+    hint: "A arma não conhece a palavra 'suficiente'.",
+    unlock: "Você não mata: você apaga. Marca: Exagero.",
+  },
+  effect: {
+    description: "Metade do dano excedente (overkill) respinga em inimigos adjacentes (P2 onKill).",
+    payload: { overkillSplash: 1 },
+    spec: { kind: "onKill", action: "areaDamage", scaleField: "overkill", scale: 0.5, radius: 1 },
+  },
+};
+
+/**
+ * SENHOR DOS EXTREMOS — Caminho de RATIO (resolve o achado D): ≥95% do dano via
+ * fogo+gelo, medido pelo fluxo de `damage`, avaliado no milestone de level.
+ */
+const PATH_SENHOR_DOS_EXTREMOS: TrackingDef = {
+  category: "path",
+  id: "path_senhor_dos_extremos", // DUMMY ✏️
+  name: "Senhor dos Extremos",
+  flavorKind: "ratio",
+  event: "damage",
+  filter: [], // não usado no ratio (numerator/denominator decidem)
+  numerator: [{ field: "damageType", op: "in", value: "fire|ice" }],
+  denominator: [], // todo dano causado
+  ratioField: "amount", // soma o DANO, não ocorrências
+  minRatio: 0.95, // DUMMY ✏️
+  milestoneLevel: 5, // DUMMY (real: ~20) ✏️
+  resetScope: "sinceClass",
+  threshold: 0, // ratio não usa threshold de acúmulo
+  flavor: {
+    hint: "O quente e o frio obedecem só a você.",
+    unlock: "Fogo e gelo são a mesma língua na sua boca. Caminho: Senhor dos Extremos.",
+  },
+  effect: {
+    description: "Fogo em alvo lento (gelado) ou gelo em alvo queimando → choque térmico (P6).",
+    payload: { thermalShock: 1 },
+    // Dois combos direcionais: gelo aplica `slow`, fogo aplica `burn` (status.ts).
+    spec: [
+      { kind: "statusCombo", ifTargetStatus: "slow", onDamageType: "fire", burst: 10, consumes: ["slow", "burn"] },
+      { kind: "statusCombo", ifTargetStatus: "burn", onDamageType: "ice", burst: 10, consumes: ["slow", "burn"] },
+    ],
+  },
+};
+
 /**
  * Conjunto DUMMY de definições carregado pela engine. Em produção, este array é
  * substituído pelas definições reais do criador (mesmo shape, thresholds reais).
  */
 export const DUMMY_TRACKING_DEFS: TrackingDef[] = [
   MARK_ROEDOR_DE_FERRO,
+  MARK_EXAGERO,
   MUTATION_ECLOSAO_IGNEA,
   MUTATION_METEORO_DISTANTE,
   PATH_CHAMA_VIVA,
   PATH_PUNHO_BRUTO,
+  PATH_NATURALISTA,
+  PATH_SENHOR_DOS_EXTREMOS,
 ];

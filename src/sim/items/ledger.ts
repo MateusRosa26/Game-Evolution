@@ -82,8 +82,13 @@ export interface ItemLedger {
 
 /** Progresso de UMA Marca numa instância de item (JSON-safe). */
 export interface MarkProgress {
-  /** Ocorrências válidas acumuladas (golpe final qualificado da arma). */
+  /**
+   * VALOR REDUZIDO acumulado pelo acumulador da definição (count/set.size/soma/
+   * max). Nome legado `count`; com `accumulator:"count"` (default) é a contagem.
+   */
   count: number;
+  /** [distinct] Valores já vistos por esta instância (cardinalidade = `count`). */
+  seen?: string[];
   /** Hint dos ~50% já mostrado? (one-shot — DESIGN-EVOLUCAO.md §"Visibilidade"). */
   hinted: boolean;
   /** Marca já desbloqueada nesta instância? (permanente — nunca se perde). */

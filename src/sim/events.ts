@@ -59,6 +59,8 @@ export interface DamageEvent {
   weaponInstanceId: number | null;
   /** Template da arma-instância acima (conveniência p/ consumidores). */
   weaponTemplateId: string | null;
+  /** Este golpe MATOU o alvo? (ponte p/ overkill via fluxo de `damage`). */
+  wasFatal: boolean;
   context: CombatContext;
 }
 
@@ -89,6 +91,18 @@ export interface KillEvent {
   weaponTemplateId: string | null;
   /** Dano do golpe final e seu tipo. */
   finalBlow: { amount: number; damageType: DamageType };
+  /** HP da vítima ANTES do golpe fatal (>0). Base do overkill. */
+  victimHpBeforeBlow: number;
+  /** HP máximo da vítima (normaliza overkill/execução). */
+  victimMaxHp: number;
+  /** Dano SOBRANDO: max(0, finalBlow − victimHpBeforeBlow) — "exagero" (glass cannon). */
+  overkill: number;
+  /** finalBlow / victimHpBeforeBlow (≥1; 5 = matou com 5× o HP restante). */
+  overkillRatio: number;
+  /** HP% da vítima antes do golpe (execução <X% vs abertura em HP cheio). */
+  victimHpPctBeforeBlow: number;
+  /** Nº de status ativos na vítima no momento da morte (combo). */
+  statusesOnVictim: number;
   /** HP% do atacante NO MOMENTO do kill (0..1) — ex.: Marca "Última Resposta". */
   attackerHpPct: number;
   /** Posições (tile) no momento do kill. */
@@ -122,6 +136,12 @@ export interface SkillUseEvent {
   targets: CombatActorRef[];
   /** Nº de alvos atingidos (ficha: Bola de Fogo/Lança de Gelo rastreiam isso). */
   targetsHit: number;
+  /** Nº de alvos que MORRERAM com este cast (identidade de AoE-deleter). */
+  targetsKilled: number;
+  /** Nº de status ativos no alvo primário no momento do cast (combo). */
+  statusesOnTarget: number;
+  /** Caster lançou em movimento? (kite/caster móvel). */
+  castWhileMoving: boolean;
   /** Distância Chebyshev do cast até o alvo (ficha: distância do cast). */
   castDistance: number;
   /** HP% do caster ao usar (0..1) — fichas Golpe Forte/Luz Sagrada/Curar. */
@@ -146,8 +166,9 @@ export interface SkillUseEvent {
 }
 
 /**
- * `block` — defesa que mitigou dano (escudo/parry). Tipo completo definido
- * agora; ainda NÃO emitido no M1.
+ * `block` — defesa que mitigou dano (escudo/parry). EMITIDO em `combat.applyDamage`
+ * quando o bloqueio% do escudo rola. A engine de tracking consome (Marca
+ * *Inabalável*); o ledger ainda não (cai no weapon equipado — ✏️ shieldInstanceId).
  */
 export interface BlockEvent {
   blocker: CombatActorRef;
@@ -159,13 +180,66 @@ export interface BlockEvent {
 }
 
 /**
- * `level_up` — personagem subiu de nível. Tipo completo definido agora;
- * ainda NÃO emitido no M1 (level/XP chega em wave futura).
+ * `level_up` — personagem subiu de nível. EMITIDO em `progression.applyLevelUps`
+ * (um por nível). Gatilho das CONDUTAS (milestone) e dos Caminhos de RATIO.
  */
 export interface LevelUpEvent {
   entity: CombatActorRef;
   fromLevel: number;
   toLevel: number;
+  context: CombatContext;
+}
+
+/**
+ * `equip` / `unequip` — item entrou/saiu de um slot de equipamento. Destrava as
+ * CONDUTAS de restrição (Pele de Ferro quebra ao equipar armadura; Mão Vazia ao
+ * equipar arma). `action` distingue equipar de desequipar no mesmo evento.
+ */
+export interface EquipEvent {
+  entity: CombatActorRef;
+  action: "equip" | "unequip";
+  /** Slot de equipamento afetado (ex.: "armor", "hand1"). */
+  slot: string;
+  /** Categoria do item (`armor`|`shield`|`weapon`|`helmet`|`legs`|`boots`). */
+  itemCategory: string;
+  itemTemplateId: string;
+  context: CombatContext;
+}
+
+/**
+ * `consume` — jogador consumiu um item de efeito (comida/poção). Abre o
+ * arquétipo Gourmet/Survivalista (distinct de receitas, sum de poções…).
+ */
+export interface ConsumeEvent {
+  entity: CombatActorRef;
+  /** Natureza do consumível (alimenta o filtro declarativo). */
+  kind: "food" | "potion";
+  itemTemplateId: string;
+  context: CombatContext;
+}
+
+/**
+ * `combat_end` — uma SESSÃO de combate do jogador terminou. Carrega os agregados
+ * INTRÍNSECOS já calculados (o emissor agrega; a engine só compara). Resolve
+ * Intocável (damageTaken==0), Sobrevivente (lowestHpPct baixo), Velocista
+ * (kills/durationMs), Encurralado (maxEnemiesFaced).
+ */
+export interface CombatEndEvent {
+  entity: CombatActorRef;
+  /** Duração da sessão em ms lógicos. */
+  durationMs: number;
+  /** Dano total tomado pelo jogador na sessão. */
+  damageTaken: number;
+  /** Dano total causado pelo jogador na sessão. */
+  damageDealt: number;
+  /** Kills de criatura na sessão. */
+  kills: number;
+  /** Menor HP% que o jogador atingiu durante a sessão (comeback). */
+  lowestHpPct: number;
+  /** Maior nº de hostis enfrentados simultaneamente. */
+  maxEnemiesFaced: number;
+  /** Como terminou: vitória (sem hostil), fuga (saiu de combate) ou morte. */
+  endedBy: "victory" | "flee" | "death";
   context: CombatContext;
 }
 
@@ -176,6 +250,9 @@ export interface SimEventMap {
   skill_use: SkillUseEvent;
   block: BlockEvent;
   level_up: LevelUpEvent;
+  equip: EquipEvent;
+  consume: ConsumeEvent;
+  combat_end: CombatEndEvent;
 }
 
 export type SimEventName = keyof SimEventMap;
@@ -192,6 +269,9 @@ export class EventBus {
     skill_use: [],
     block: [],
     level_up: [],
+    equip: [],
+    consume: [],
+    combat_end: [],
   };
 
   on<E extends SimEventName>(event: E, cb: Listener<E>): void {

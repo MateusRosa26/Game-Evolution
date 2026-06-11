@@ -245,7 +245,7 @@ export function allocateStatPoint(
  * corre mesmo sem comida/sem dano (próximo pulso cai no boundary de 5s). Não
  * regenera entidade morta. Chamado a cada tick para o jogador.
  */
-export function regenTick(prog: Progression, entity: SimEntity): void {
+export function regenTick(prog: Progression, entity: SimEntity, hpMult = 1, manaMult = 1): void {
   if (entity.dead) return;
   prog.regenTimerMs += TICK_MS;
   if (prog.regenTimerMs < REGEN_INTERVAL_MS) return;
@@ -253,12 +253,14 @@ export function regenTick(prog: Progression, entity: SimEntity): void {
   const fed = wellFedRegenMult(entity);
   if (fed <= 0) return; // sem comida = sem regen (pulso vazio)
   const intervalSec = REGEN_INTERVAL_MS / 1000;
+  // `hpMult`/`manaMult`: P5 (Caminho `regen`, ex: Intocável = ×mana em combate).
+  // Default 1 = sem efeito; a Simulation calcula dos EffectSpec ativos.
   if (entity.hp < entity.maxHp) {
-    const chunk = Math.round(hpRegenPerSecond(prog.cls, prog.level) * fed * intervalSec);
+    const chunk = Math.round(hpRegenPerSecond(prog.cls, prog.level) * fed * intervalSec * hpMult);
     entity.hp = Math.min(entity.maxHp, entity.hp + chunk);
   }
   if (entity.mp < entity.maxMp) {
-    const chunk = Math.round(manaRegenPerSecond(prog.cls, prog.level, prog.attributes.spirit) * fed * intervalSec);
+    const chunk = Math.round(manaRegenPerSecond(prog.cls, prog.level, prog.attributes.spirit) * fed * intervalSec * manaMult);
     entity.mp = Math.min(entity.maxMp, entity.mp + chunk);
   }
 }
