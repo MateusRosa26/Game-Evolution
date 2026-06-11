@@ -36,19 +36,22 @@ classes (alvo ~10%). ✏️ se quiser −10% firme, baixar levemente o growth cl
 **C) Gates OK:** uma-via (re-rito bloqueado), gate de gold (rito sem ouro
 bloqueado), cobrança 200→50, kit concedido. ✓
 
-**B) ACHADO — furo de timing (banca de stat barato):** o custo de stat é RO-banda
+**B) [RESOLVIDO] Furo de timing (banca de stat barato):** o custo de stat é RO-banda
 por VALOR ABSOLUTO; o classless começa em 5 (banda barata) e a classe em 11+ (banda
 cara). Resultado: ficar classless mais tempo acumula increments mais baratos, e o
 rito os transfere → personagem final MAIS FORTE quanto mais tarde o rito. Medido:
 classless L6 (20 pts banked) → knight HP **229** vs knight nativo L6 HP **205**
 (~12% a mais). **Contradiz a timing-independence pedida.** Opções no fim do report.
 
-## Decisão pendente (timing-independence) ✏️
+## Resolução — RE-CUSTO NA TRANSIÇÃO (opção do criador)
 
-1. **Aceitar** — classless é mais fraco AGORA mas banca stats baratos; tradeoff, não
-   exploit puro. Custo zero estrutural. (Mas incentiva adiar o rito.)
-2. **Custo por índice de alocação** (não por valor absoluto) — todo mundo paga igual
-   pelo N-ésimo ponto alocado → timing/classe-independente E preserva alocação do
-   classless. PORÉM muda o modelo de custo calibrado (M1.2) — re-rodar a bateria.
-3. **Classless não aloca** — banca freeStatPoints e gasta tudo no rito ao custo da
-   classe → simétrico com nativo. Remove agência de build durante o classless.
+`applyRitoTransition` re-custa os pontos GASTOS pela estrutura de custo da CLASSE:
+para cada atributo, soma o custo RO acumulado que o classless gastou (da base 5 até
+o valor atual), reseta pra base da classe e RE-GASTA esse mesmo total a partir da
+base da classe (onde a base já é alta, rende menos increments). O troco que não fecha
+um increment volta como ponto livre. NÃO muda o modelo de custo calibrado (M1.2) e
+mantém a alocação livre do classless.
+
+**Verificado (bateria):**
+- classless L6 (+vit) → knight == knight NATIVO L6 (+vit): vit 15 / free 2 / HP 245 idênticos.
+- ritar@L2 e upar até L6 == ritar@L6: idênticos. **Timing 100% independente.** ✓

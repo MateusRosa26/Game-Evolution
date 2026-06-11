@@ -83,7 +83,21 @@ export function applyRitoTransition(prog: Progression, target: PlayerClass): boo
   const tgt = CLASS_BASE_ATTRIBUTES[target];
   const a = prog.attributes;
   for (const k of Object.keys(a) as AttributeKey[]) {
-    a[k] = tgt[k] + (a[k] - base[k]);
+    // Pontos que o classless GASTOU pra subir este atributo (custo RO acumulado
+    // da base classless até o valor atual).
+    let pointsSpent = 0;
+    for (let v = base[k]; v < a[k]; v++) pointsSpent += statPointCost(v);
+    // Re-gasta o MESMO total a partir da base da CLASSE — onde a base já é alta,
+    // o custo por ponto é maior, então rende menos increments (timing-independente:
+    // bate com um nativo que investiu os mesmos pontos). O troco que não fecha um
+    // increment volta como ponto livre (justo: o jogador ganhou aqueles pontos).
+    let value = tgt[k];
+    while (pointsSpent >= statPointCost(value)) {
+      pointsSpent -= statPointCost(value);
+      value++;
+    }
+    a[k] = value;
+    prog.freeStatPoints += pointsSpent;
   }
   prog.cls = target;
   return true;
