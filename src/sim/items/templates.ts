@@ -624,7 +624,7 @@ export const STARTER_WEAPON_BY_CLASS: Record<PlayerClass, string> = {
   mage: CAJADO_SIMPLES.id,
   rogue: ADAGA.id,
   priest: CETRO.id,
-  classless: CLAVA.id, // tutorial neutro (porrete) — sem viés de classe
+  classless: ESPADA_CEGA.id, // item de NASCIMENTO (casa inicial); NÃO é kit de classe
 };
 
 /** ID do template dos punhos (desarmado) — fonte de verdade. */
