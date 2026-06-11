@@ -318,6 +318,8 @@ export interface MapData {
   id?: string;
   /** NPCs plantados pelo gerador do mapa (opcional). */
   npcSpawns?: NpcSpawnDef[];
+  /** Baús plantados no mundo (loot fixo + gates opcionais). Ver `ChestDef`. */
+  chests?: ChestDef[];
   /**
    * FONTES DE CALOR (fogão/fogueira) — gate de cozinha (COZINHA.md): receitas
    * cozidas/premium exigem estar perto de uma. Pontos no overworld (baseZ).
@@ -336,4 +338,44 @@ export interface MapData {
   openings?: MapOpening[];
   /** Andares ADICIONAIS (z ≠ base): esgotos/cavernas (z<0), telhados (z>0). Esparsos. */
   floors?: FloorLayer[];
+}
+
+/**
+ * Loot de um baú: lista FIXA e determinística (baú de quest/tesouro = conteúdo
+ * conhecido, ≠ corpo de mob que rola por chance). Concede direto ao bolso.
+ */
+export interface ChestLoot {
+  /** Itens concedidos (qty default = 1). */
+  items?: { templateId: string; qty?: number }[];
+  /** Ouro concedido (funde na pilha do bolso). */
+  gold?: number;
+  /**
+   * Concede uma CHAVE abstrata ao abrir — a fonte de chave por exploração
+   * ("achei a chave"). Chave não é item: é um flag permanente no personagem
+   * que abre 1 fechadura específica (ver `ChestDef.keyReq`).
+   */
+  grantsKey?: string;
+}
+
+/**
+ * Baú do mundo (DEFINIÇÃO ESTÁTICA — imutável; o estado "já saqueei" vive no
+ * PERSONAGEM, não aqui: single-use POR jogador, modelo baú-de-quest do Tibia).
+ * Todos os gates são opcionais e ortogonais — qualquer combinação.
+ */
+export interface ChestDef {
+  /** Id único no mapa — chave do registro de saque do personagem. */
+  id: string;
+  pos: Vec2;
+  z: number;
+  loot: ChestLoot;
+  /** Nível MÍNIMO pra abrir (ausente = qualquer nível). */
+  levelReq?: number;
+  /**
+   * keyId necessária (ausente = destrancado). A chave é abstrata e vem de quest
+   * ou exploração; quem a possui abre. Cobre o caso "baú de quest" sem gate de
+   * quest separado: a quest concede a chave.
+   */
+  keyReq?: string;
+  /** Nome exibível ("Baú", "Baú do Bando"). default "Baú". */
+  name?: string;
 }

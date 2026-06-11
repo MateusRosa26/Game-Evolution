@@ -99,6 +99,14 @@ export interface SimEntity {
   backpackContainerId: number | null;
   /** Containers ABERTOS por este jogador (janelas na UI). */
   openContainers: Set<number>;
+  /**
+   * CHAVES abstratas ganhas (não-item; flag permanente). Cada keyId abre 1
+   * fechadura específica (baú/porta). Concedidas por quest ou exploração; não
+   * ocupam espaço nem se interage com elas — só "existem". Ver `ChestDef.keyReq`.
+   */
+  keys: Set<string>;
+  /** Baús já SAQUEADOS por este personagem (single-use por jogador). chestId. */
+  lootedChests: Set<string>;
 
   // ── Equipamento (fundação de itens — DESIGN-EVOLUCAO.md §"Itens são instâncias") ──
   /**
