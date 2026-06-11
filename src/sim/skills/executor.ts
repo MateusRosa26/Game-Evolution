@@ -59,7 +59,7 @@ export interface CastResult {
 
 const UNHOLY_FAMILIES: CreatureFamily[] = ["undead", "demon"];
 /** Sagrado bate REDUZIDO fora de undead/demon (especialista anti-undead). ✏️ Balancista. */
-const HOLY_NONUNDEAD_MULT = 0.5;
+const HOLY_NONUNDEAD_MULT = 0.65;
 
 /** Vetor unitário do facing (para checar costas no Apunhalar). */
 function facingVec(f: Facing): Vec2 {

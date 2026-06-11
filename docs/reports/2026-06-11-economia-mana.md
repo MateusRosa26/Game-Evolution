@@ -79,3 +79,18 @@ over-loaded — vira ESPECIALISTA anti-undead (a fraqueza que faltava):
 golpes 8–17 (swingy). Média preservada (balance se mantém); muda o FEEL — AD
 imprevisível/gear-chase, AP confiável/planejável. (Nota: `floor` enviesa a média
 ~−0,5; ✏️ trocar por round se quiser preservar exata.)
+
+## ADENDO 3 — gap single-target rogue↔mage + holy 0,65 (2026-06-11)
+
+- **HOLY_NONUNDEAD_MULT 0,5 → 0,65**: priest geral ~12,7 (≈ knight, contribui sem
+  nukear) e **28,1 vs undead** (especialista). 0,5 deixava o priest peso-morto.
+- **Bola power 12 → 7**: o físico variável baixou o rogue (floor da variância, ~−8%)
+  pra 18,9, e o mage no power 12 ficava acima (19,9) — invertido. Bola 7 → mage
+  single **15,4** (~18% abaixo do rogue). Rogue = rei single-target; mage = #2 de
+  dano (acima dos sustains), com o destaque dele reservado pro **AoE (skills futuras)**.
+
+Paridade final L6 (single-target, não-undead) / HP:
+- Rogue 18,9 / 133 — AD damage, rei single.
+- Mage 15,4 / 115 — AP damage, single fraco de propósito (AoE futuro).
+- Priest 12,7 (28,1 undead) / 150 — AP sustain especialista anti-undead + cura.
+- Knight 10,8 / ~245 — AD sustain tanque.

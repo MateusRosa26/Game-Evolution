@@ -39,7 +39,7 @@ export const GOLPE_FORTE = {
 export const BOLA_DE_FOGO = {
   manaCost: 14, // ✏️ placeholder
   cooldownMs: 1500, // ✏️ placeholder
-  power: 12, // base single-target ABAIXO do rogue (carry AD single); mago brilha no AoE (skills futuras) ✏️
+  power: 7, // single-target FRACO de propósito (carry de AoE, skills futuras); rogue é o rei single ✏️
   range: 6, // ✏️ placeholder
   /** Queimadura (DoT): aplica `damagePerTick` a cada `intervalMs`, por `durationMs`. */
   burn: { damagePerTick: 3, durationMs: 3000, intervalMs: 500 }, // ✏️ placeholder
