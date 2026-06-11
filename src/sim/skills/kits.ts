@@ -16,6 +16,10 @@ export const STARTER_KITS: Record<PlayerClass, string[]> = {
   mage: ["bola_de_fogo", "lanca_de_gelo"],
   rogue: ["apunhalar"],
   priest: ["luz_sagrada", "curar_ferimentos"],
+  // Classless = lousa em branco: luta no auto-attack até o rito conceder o kit da
+  // classe escolhida (skills seguem gate atributo+nível, sem exclusividade). ✏️ kit
+  // tutorial mínimo é decisão de design/loremaster.
+  classless: [],
 };
 
 /** True se `skillId` é uma skill conhecida do jogo (existe na definição). */

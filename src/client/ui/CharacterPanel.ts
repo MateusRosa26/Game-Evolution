@@ -161,7 +161,11 @@ export class CharacterPanel {
     // do nível atual (relativo a `xpLevelFloor`, que vem da sim).
     const xpInto = Math.max(0, p.xp - p.xpLevelFloor);
     const xpNeeded = Math.max(0, p.xpForNextLevel - p.xpLevelFloor);
+    const CLASS_LABEL: Record<string, string> = {
+      knight: "Cavaleiro", mage: "Mago", rogue: "Ladino", priest: "Sacerdote", classless: "Sem Classe",
+    };
     this.summaryText.text =
+      `${CLASS_LABEL[p.cls] ?? p.cls}\n` +
       `Nível ${p.level}\n` +
       `XP ${xpInto} / ${xpNeeded}\n` +
       `Cap ${p.cap.current} / ${p.cap.max}\n` +

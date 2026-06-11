@@ -562,7 +562,16 @@ export function generateAlvoradaMap(): MapData {
 
   // NPCs da fatia (elenco NPCS.md — só os necessários pra quest implementada).
   // Bartolo: Estalagem do Vau, atrás do balcão — city(20,39) → local (120,119).
-  const npcSpawns = [{ npcId: "bartolo", name: "Bartolo", x: 120, y: 119 }];
+  // Treinadores de classe (ritos R1-R4): posições PROVISÓRIAS na rua aberta ao sul
+  // da casa-tutorial (andável, alcançável do spawn). ✏️ world-designer realoca pros
+  // distritos canônicos (Pátio da Milícia / Casa do Mago / Beco dos Ladinos / Capela).
+  const npcSpawns = [
+    { npcId: "bartolo", name: "Bartolo", x: 120, y: 119 },
+    { npcId: "ricardo", name: "Ricardo", x: 125, y: 128 },
+    { npcId: "leonor", name: "Leonor", x: 131, y: 128 },
+    { npcId: "vincente", name: "Vincente", x: 125, y: 129 },
+    { npcId: "gabriel", name: "Gabriel", x: 131, y: 129 },
+  ];
 
   // Cozinha (COZINHA.md): fonte de calor = fogão da Estalagem do Vau (interior,
   // cozinha do Bento); água-doce = o Poço, centro da Praça do Poço. Placement

@@ -18,8 +18,28 @@ import type { PlayerClass } from "../shared/types";
  */
 
 /** Player */
-/** Classe padrão de um novo jogador enquanto não há seleção de classe (HUD/UI). */
-export const DEFAULT_PLAYER_CLASS: PlayerClass = "knight";
+/** Classe padrão de um novo jogador: nasce CLASSLESS (escolhe a classe no rito). */
+export const DEFAULT_PLAYER_CLASS: PlayerClass = "classless";
+
+/** Rito de classe */
+/**
+ * Custo em ouro do rito de classe (sink — escolher a classe é um marco). Sem
+ * requisito de nível (criador): qualquer nível, paga gold + quest. ✏️ Balancista
+ * calibra vs gold/h da caça T1 (deve custar uma sessão real, não trivial).
+ */
+export const RITO_COST_GOLD = 150;
+/**
+ * Quest que destrava o rito de cada classe (gate quest+gold). `null` = ainda sem
+ * trilha de rito implementada → só o gold gateia (plumbing pronto). ✏️ wirar os 4
+ * ritos do QUESTS.md (giver = treinador da classe) quando a trilha for desenhada.
+ */
+export const RITO_QUEST_BY_CLASS: Record<PlayerClass, string | null> = {
+  knight: "rito_knight",
+  mage: "rito_mage",
+  rogue: "rito_rogue",
+  priest: "rito_priest",
+  classless: null, // n/a — classless não tem rito de "virar classless"
+};
 
 /** Morte */
 /**

@@ -190,4 +190,10 @@ export const DEFAULT_OUTFIT_BY_CLASS: Record<string, OutfitState> = {
     torso: { part: "tunica_aurora", color: 7 },
     legs: { part: "saia_aurora", color: 5 },
   },
+  // Classless = cidadão comum (sem insígnia de classe). O rito é que dá identidade.
+  classless: {
+    head: { part: "cabeca_cidadao", color: 7 },
+    torso: { part: "camisa_cidadao", color: 5 },
+    legs: { part: "calca_cidadao", color: 1 },
+  },
 };

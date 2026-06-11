@@ -19,6 +19,11 @@ export type ClientCommand =
   /** Distribui 1 ponto de atributo livre (a sim valida se há ponto). */
   | { type: "allocateStatPoint"; attr: AttributeKey }
   /**
+   * Rito de classe: o jogador classless escolhe uma classe (gate quest+gold; a
+   * sim valida). Uma via — não dá pra ritar de novo. `cls` nunca é "classless".
+   */
+  | { type: "chooseClass"; cls: PlayerClass }
+  /**
    * Usa uma skill. `targetId` é o alvo selecionado (monstro p/ ofensivas;
    * aliado/self p/ cura — omitido = self). A sim valida conhecida/mana/cooldown
    * e RESOLVE instantaneamente (estilo runa de Tibia). Spam no ar não custa nada.

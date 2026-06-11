@@ -27,7 +27,7 @@ import {
   type PlayerClass,
   type Vec2,
 } from "../shared/types";
-import { DEFAULT_PLAYER_CLASS, MELEE_RANGE } from "./balance";
+import { DEFAULT_PLAYER_CLASS, MELEE_RANGE, RITO_COST_GOLD, RITO_QUEST_BY_CLASS } from "./balance";
 import { CREATURES, type CreatureTemplate } from "./bestiary";
 import { applyDamage, chebyshev, type CombatCtx, type WeaponSource } from "./combat";
 import type { SimEntity } from "./entity";
@@ -65,6 +65,7 @@ import {
 } from "./skills";
 import {
   allocateStatPoint,
+  applyRitoTransition,
   applyDeathPenalty,
   createProgression,
   creatureLevelForTier,
@@ -576,6 +577,13 @@ export class Simulation {
         }
         break;
       }
+      case "chooseClass": {
+        if (e.kind !== "player") break;
+        const prog = this.progressions.get(entityId);
+        if (!prog) break;
+        this.performRito(e, prog, cmd.cls);
+        break;
+      }
       case "useSkill": {
         if (e.kind !== "player") break;
         // Bufferiza: resolvido no próximo tick (com ctx/pending corretos).
@@ -601,7 +609,8 @@ export class Simulation {
         if (npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) break; // alcance de conversa (mesmo andar)
         const dlg = DIALOGUES[npc.npcKey];
         if (!dlg) break;
-        e.activeDialogue = { npcEntityId: npc.id, view: dlg.root(e.quests) };
+        const talkerCls = this.progressions.get(e.id)?.cls ?? "classless";
+        e.activeDialogue = { npcEntityId: npc.id, view: dlg.root(e.quests, talkerCls) };
         this.pendingChat.push({
           kind: "chat", channel: "npc", text: e.activeDialogue.view.text,
           speakerId: npc.id, speakerName: npc.name, recipientId: e.id,
@@ -618,7 +627,8 @@ export class Simulation {
         }
         // opção precisa estar na visão atual (anti-exploit: nada de pular nós)
         if (!e.activeDialogue.view.options.some((o) => o.id === cmd.optionId)) break;
-        const res = dlg.choose(cmd.optionId, e.quests);
+        const chooserCls = this.progressions.get(e.id)?.cls ?? "classless";
+        const res = dlg.choose(cmd.optionId, e.quests, chooserCls);
         // efeitos ANTES da próxima visão (o texto seguinte já reflete o estado)
         if (res.effects?.acceptQuest) {
           const def = QUESTS[res.effects.acceptQuest];
@@ -645,6 +655,12 @@ export class Simulation {
               this.recomputePlayerDerived(e, prog);
             }
           }
+        }
+        // Rito de classe: o treinador dispara a transição (valida gold+quest e
+        // cobra dentro de performRito; a mensagem de sistema dá o resultado).
+        if (res.effects?.performRito) {
+          const prog = this.progressions.get(e.id);
+          if (prog) this.performRito(e, prog, res.effects.performRito);
         }
         // Abrir loja: substitui a janela de diálogo pela de comércio.
         if (res.effects?.openShop && npc.npcKey && COMMERCE[npc.npcKey]) {
@@ -708,7 +724,8 @@ export class Simulation {
             if (d <= 3 && d < bestD) { best = npc; bestD = d; }
           }
           if (best && best.npcKey) {
-            e.activeDialogue = { npcEntityId: best.id, view: DIALOGUES[best.npcKey].root(e.quests) };
+            const sayerCls = this.progressions.get(e.id)?.cls ?? "classless";
+            e.activeDialogue = { npcEntityId: best.id, view: DIALOGUES[best.npcKey].root(e.quests, sayerCls) };
             this.pendingChat.push({
               kind: "chat", channel: "npc", text: e.activeDialogue.view.text,
               speakerId: best.id, speakerName: best.name, recipientId: e.id,
@@ -1050,6 +1067,59 @@ export class Simulation {
   }
 
   /** Compra 1 unidade do sortimento: ouro do bolso → instância nova no bolso. */
+  /**
+   * Rito de classe (classless → classe escolhida). Gate quest+gold, UMA VIA
+   * (decisão criador). Troca o inato preservando os pontos alocados
+   * (`applyRitoTransition`), concede o kit inicial da classe e recalcula os
+   * pools pela classe no nível ATUAL. Os ITENS do jogador permanecem (o rito dá
+   * identidade — corpo/atributos/kit —, não equipamento).
+   */
+  private performRito(e: SimEntity, prog: Progression, target: PlayerClass): void {
+    const NAMES: Record<PlayerClass, string> = {
+      knight: "Cavaleiro", mage: "Mago", rogue: "Ladino", priest: "Sacerdote", classless: "Sem Classe",
+    };
+    if (prog.cls !== "classless") {
+      this.sysMessage(e.id, "Você já trilhou seu caminho — o rito é uma só vez.");
+      return;
+    }
+    if (target === "classless") return;
+    // Gate de quest (quando wirado): exige a trilha do rito concluída.
+    const reqQuest = RITO_QUEST_BY_CLASS[target];
+    if (reqQuest && e.quests.get(reqQuest)?.stage !== "completed") {
+      this.sysMessage(e.id, "O rito desta classe ainda não está ao seu alcance.");
+      return;
+    }
+    // Gate de gold (ouro é item no bolso).
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (!bp || this.containers.totalGold(bp) < RITO_COST_GOLD) {
+      this.sysMessage(e.id, `O rito custa ${RITO_COST_GOLD} de ouro.`);
+      return;
+    }
+    if (!applyRitoTransition(prog, target)) return;
+    this.containers.withdrawGold(bp, RITO_COST_GOLD);
+    // Concede o kit inicial da classe (skills já conhecidas permanecem).
+    for (const sk of STARTER_KITS[target]) {
+      if (!e.knownSkills.includes(sk)) e.knownSkills.push(sk);
+    }
+    // O rito ENTREGA a arma do kit (DESIGN-EVOLUCAO §Classes): equipa a arma
+    // inicial da classe. A Espada Cega de nascimento é CONSUMIDA pelo rito; se o
+    // jogador já a trocou por outra arma, essa vai pro bolso (não sobrescreve a
+    // escolha dele) — e só se perde no caso raro de bolso cheio.
+    const kitWeapon = this.items.create(STARTER_WEAPON_BY_CLASS[target]);
+    const prevId = e.equipment.hand1 ?? null;
+    const prevIsBirthBlade =
+      prevId != null && this.items.get(prevId)?.templateId === STARTER_WEAPON_BY_CLASS.classless;
+    const bp2 = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (prevId != null && !prevIsBirthBlade && bp2 && this.containers.freeSlot(bp2) >= 0) {
+      this.containers.add(bp2, { kind: "item", instanceId: prevId });
+    }
+    e.equipment.hand1 = kitWeapon.id;
+    this.afterEquipChange(e); // sincroniza equippedWeaponId + derivados de combate
+    // Pools recalculam pela classe no nível atual (clamp, sem cura grátis).
+    syncMaxResources(e, prog, false);
+    this.sysMessage(e.id, `O rito se completa. Você agora é ${NAMES[target]}.`);
+  }
+
   private buyItem(e: SimEntity, templateId: string): void {
     const npc = this.shopNpc(e);
     if (!npc || !npc.npcKey) return;
