@@ -63,6 +63,60 @@ export const QUESTS: Record<string, QuestDef> = {
     journalCompleted:
       "O estalajadeiro jura que os ratos sobem de algum lugar. O bueiro da praça?",
   },
+
+  // ── Ritos de classe (R1-R4, NPCS.md) ────────────────────────────────────
+  // Trial do rito: feito ENQUANTO classless (só auto-attack), então é kill-based
+  // e flavored pela classe pretendida. Gateia o `chooseClass` via
+  // RITO_QUEST_BY_CLASS. Falas/alvos = rascunho ✏️ Loremaster + world-designer
+  // (ajustar espécie/contagem quando os distritos e spawns temáticos entrarem).
+  rito_knight: {
+    id: "rito_knight",
+    name: "Prova de Aço",
+    layer: "direta",
+    giverNpcId: "ricardo",
+    kill: { species: "rato", count: 6 },
+    rewards: { xp: 40, gold: 15 },
+    journalActive:
+      "Ricardo cruzou os braços: “Caminho do Cavaleiro não começa com juramento, começa com calo. Traz seis ratos a menos no mundo. Aço aprende é apanhando.”",
+    journalCompleted:
+      "Seis golpes que não tremeram. Ricardo não elogiou — só assentiu. Dizem que o aceno dele vale mais que medalha.",
+  },
+  rito_mage: {
+    id: "rito_mage",
+    name: "Asa e Cinza",
+    layer: "direta",
+    giverNpcId: "leonor",
+    kill: { species: "morcego", count: 5 },
+    rewards: { xp: 40, gold: 15 },
+    journalActive:
+      "Leonor mal ergueu os olhos do tomo: “Magia? Primeiro a disciplina de COLHER. Cinco morcegos — a asa deles guarda um eco que eu uso. Abata-os; o resto é comigo.”",
+    journalCompleted:
+      "Cinco asas pesadas em olhos que já calculavam outra coisa. “Serve”, foi tudo — mas Leonor anotou seu nome.",
+  },
+  rito_rogue: {
+    id: "rito_rogue",
+    name: "Conta Saldada",
+    layer: "direta",
+    giverNpcId: "vincente",
+    kill: { species: "rato", count: 6 },
+    rewards: { xp: 40, gold: 15 },
+    journalActive:
+      "Vincente sorriu de canto: “O Beco tem um problema de roedores que ninguém quer resolver — o que diz muito de quem resolve. Seis. Sem alarde.”",
+    journalCompleted:
+      "Seis problemas resolvidos, nenhum barulho. Vincente não viu você fazer — e é por isso que aprovou.",
+  },
+  rito_priest: {
+    id: "rito_priest",
+    name: "Descanso",
+    layer: "direta",
+    giverNpcId: "gabriel",
+    kill: { species: "esqueleto", count: 5 },
+    rewards: { xp: 40, gold: 15 },
+    journalActive:
+      "Gabriel estendeu a mão aos ossos inquietos sem uma palavra; depois, baixo: “Há mortos que não dormem. Cinco deles. Devolva-os ao silêncio — não por ódio, por piedade.”",
+    journalCompleted:
+      "Cinco que vagavam, agora quietos. Gabriel apenas inclinou a cabeça. A piedade, você aprendeu, também tem gume.",
+  },
 };
 
 /** Crédito de kill: avança quests ativas que pedem essa espécie/mapa. */

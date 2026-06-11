@@ -34,10 +34,10 @@ export const RITO_COST_GOLD = 150;
  * ritos do QUESTS.md (giver = treinador da classe) quando a trilha for desenhada.
  */
 export const RITO_QUEST_BY_CLASS: Record<PlayerClass, string | null> = {
-  knight: null,
-  mage: null,
-  rogue: null,
-  priest: null,
+  knight: "rito_knight",
+  mage: "rito_mage",
+  rogue: "rito_rogue",
+  priest: "rito_priest",
   classless: null, // n/a — classless não tem rito de "virar classless"
 };
 

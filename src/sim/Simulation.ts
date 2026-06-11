@@ -609,7 +609,8 @@ export class Simulation {
         if (npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) break; // alcance de conversa (mesmo andar)
         const dlg = DIALOGUES[npc.npcKey];
         if (!dlg) break;
-        e.activeDialogue = { npcEntityId: npc.id, view: dlg.root(e.quests) };
+        const talkerCls = this.progressions.get(e.id)?.cls ?? "classless";
+        e.activeDialogue = { npcEntityId: npc.id, view: dlg.root(e.quests, talkerCls) };
         this.pendingChat.push({
           kind: "chat", channel: "npc", text: e.activeDialogue.view.text,
           speakerId: npc.id, speakerName: npc.name, recipientId: e.id,
@@ -626,7 +627,8 @@ export class Simulation {
         }
         // opção precisa estar na visão atual (anti-exploit: nada de pular nós)
         if (!e.activeDialogue.view.options.some((o) => o.id === cmd.optionId)) break;
-        const res = dlg.choose(cmd.optionId, e.quests);
+        const chooserCls = this.progressions.get(e.id)?.cls ?? "classless";
+        const res = dlg.choose(cmd.optionId, e.quests, chooserCls);
         // efeitos ANTES da próxima visão (o texto seguinte já reflete o estado)
         if (res.effects?.acceptQuest) {
           const def = QUESTS[res.effects.acceptQuest];
@@ -653,6 +655,12 @@ export class Simulation {
               this.recomputePlayerDerived(e, prog);
             }
           }
+        }
+        // Rito de classe: o treinador dispara a transição (valida gold+quest e
+        // cobra dentro de performRito; a mensagem de sistema dá o resultado).
+        if (res.effects?.performRito) {
+          const prog = this.progressions.get(e.id);
+          if (prog) this.performRito(e, prog, res.effects.performRito);
         }
         // Abrir loja: substitui a janela de diálogo pela de comércio.
         if (res.effects?.openShop && npc.npcKey && COMMERCE[npc.npcKey]) {
@@ -716,7 +724,8 @@ export class Simulation {
             if (d <= 3 && d < bestD) { best = npc; bestD = d; }
           }
           if (best && best.npcKey) {
-            e.activeDialogue = { npcEntityId: best.id, view: DIALOGUES[best.npcKey].root(e.quests) };
+            const sayerCls = this.progressions.get(e.id)?.cls ?? "classless";
+            e.activeDialogue = { npcEntityId: best.id, view: DIALOGUES[best.npcKey].root(e.quests, sayerCls) };
             this.pendingChat.push({
               kind: "chat", channel: "npc", text: e.activeDialogue.view.text,
               speakerId: best.id, speakerName: best.name, recipientId: e.id,

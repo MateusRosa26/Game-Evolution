@@ -57,3 +57,25 @@ mantém a alocação livre do classless.
 **Verificado (bateria):**
 - classless L6 (+vit) → knight == knight NATIVO L6 (+vit): vit 15 / free 2 / HP 245 idênticos.
 - ritar@L2 e upar até L6 == ritar@L6: idênticos. **Timing 100% independente.** ✓
+
+## ADENDO — UI/NPC do rito (treinadores + quest gate) — 2026-06-11
+
+Fechado o gate quest+gold E os 4 treinadores (escopo cheio, escolha do criador).
+
+- **4 quests de rito** (`rito_knight/mage/rogue/priest`) em `quests.ts` — kill-based
+  (feitas ENQUANTO classless, só auto-attack), flavored pela classe: Ricardo/6 ratos,
+  Leonor/5 morcegos, Vincente/6 ratos, Gabriel/5 esqueletos (undead, tema do priest).
+  `RITO_QUEST_BY_CLASS` agora aponta pra elas → `chooseClass` exige a quest concluída.
+- **`performRito` effect** no `dialogue.ts` + handler no `Simulation` (dialogueChoice).
+  Diálogo agora é CIENTE DE CLASSE (`root/choose` recebem `cls`): classless vê o
+  caminho, quem já é classe ouve banter.
+- **4 treinadores** via factory `makeTrainer(cls, questId, voz)` — fluxo idêntico
+  (pitch → aceita trial → andamento → reporta [conclui quest] → cerimônia → confirma
+  [performRito]). Falas-rascunho ✏️ Loremaster. Sem UI nova: flui pela `DialogueWindow`.
+- **Placement** provisório na rua ao sul da casa-tutorial (andável, ✏️ world-designer
+  realoca pros distritos). **CharacterPanel** mostra a classe ("Sem Classe" p/ classless).
+
+**Bateria (fluxo e2e, mapa real):** classless fala c/ Ricardo → aceita Prova de Aço →
+6 ratos → reporta (quest completed) → paga 150 → vira Cavaleiro (Espada Curta equipada,
+Golpe Forte concedido); banter pós-rito não reoferece; `chooseClass` sem a quest =
+BLOQUEADO. ✓ Tudo verde.
