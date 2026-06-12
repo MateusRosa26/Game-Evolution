@@ -16,7 +16,8 @@ import { UI } from "./theme";
 
 const SLOT = 38;
 const GAP = 6;
-const MAX_SLOTS = 6;
+/** Slots visíveis na barra. Hotkeys 1–9 alcançam os 9 primeiros (ver Game.ts). */
+const MAX_SLOTS = 12;
 
 interface Slot {
   cell: Container;

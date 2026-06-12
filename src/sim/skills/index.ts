@@ -1,4 +1,5 @@
 import { msToTicks } from "../../shared/constants";
+import type { Vec2 } from "../../shared/types";
 import type { SimEntity } from "../entity";
 import { executeSkill, emitSkillUse, type SkillCastCtx } from "./executor";
 import { SKILLS } from "./definitions";
@@ -12,6 +13,7 @@ export {
   projectStatus,
   recomputeStepMs,
   hasStatus,
+  isRooted,
   applyFood,
   wellFedRegenMult,
   applyMealBuff,
@@ -68,4 +70,73 @@ export function castSkill(
   caster.skillCooldowns[skillId] = ctx.tick + msToTicks(def.cooldownMs);
   emitSkillUse(ctx, def, caster, target, result);
   return { ok: true, def, targetsHit: result.targets.length };
+}
+
+/** Resultado de iniciar um cast (instantâneo OU armado com cast-time). */
+export type BeginOutcome =
+  | { ok: true; kind: "instant"; def: SkillDef; targetsHit: number }
+  | { ok: true; kind: "casting"; def: SkillDef; endTick: number }
+  | { ok: false; reason: CastReject };
+
+/**
+ * Ponto de entrada do `useSkill`: decide entre RESOLUÇÃO INSTANTÂNEA (estilo runa
+ * de Tibia — comportamento M1, sem `castTimeMs`) e CONJURAÇÃO COM CAST-TIME.
+ *
+ * Sem cast-time → delega ao `castSkill` (valida known/cooldown/mana → executa →
+ *   cobra mana/cooldown só se conectou).
+ * Com cast-time → valida known/cooldown/mana, COBRA A MANA NO INÍCIO (decisão do
+ *   task), arma o cooldown, e ARMA o `casting` (a sim resolve ao chegar no
+ *   `endTick` via `resolveCast`). NÃO executa o efeito aqui — sem alvo/hit ainda.
+ *   ✏️ POLÍTICA DE REEMBOLSO (cast cancelado): decisão do Balancista. Default
+ *      ATUAL = NÃO reembolsa a mana de um cast cancelado por mover/tomar dano.
+ */
+export function beginOrCastSkill(
+  ctx: SkillCastCtx,
+  caster: SimEntity,
+  skillId: string,
+  target: SimEntity | null,
+  aim?: Vec2,
+): BeginOutcome {
+  const def = SKILLS[skillId];
+  if (!def) return { ok: false, reason: "unknown" };
+
+  const castTimeMs = def.castTimeMs ?? 0;
+  if (castTimeMs <= 0) {
+    const out = castSkill(ctx, caster, skillId, target);
+    return out.ok
+      ? { ok: true, kind: "instant", def: out.def, targetsHit: out.targetsHit }
+      : { ok: false, reason: out.reason };
+  }
+
+  // ── Cast-time: valida e cobra NO INÍCIO ──
+  if (!caster.knownSkills.includes(skillId)) return { ok: false, reason: "not_known" };
+  const readyAt = caster.skillCooldowns[skillId] ?? 0;
+  if (ctx.tick < readyAt) return { ok: false, reason: "on_cooldown" };
+  if (caster.mp < def.manaCost) return { ok: false, reason: "no_mana" };
+
+  caster.mp -= def.manaCost; // mana no INÍCIO do cast (não no fim)
+  caster.skillCooldowns[skillId] = ctx.tick + msToTicks(def.cooldownMs);
+  const endTick = ctx.tick + msToTicks(castTimeMs);
+  caster.casting = { skillId, startTick: ctx.tick, endTick, targetId: target?.id ?? null, aim };
+  return { ok: true, kind: "casting", def, endTick };
+}
+
+/**
+ * Resolve uma conjuração ARMADA cujo `casting.endTick` foi alcançado. Executa o
+ * efeito agora (mana/cooldown já cobrados no início) e limpa o `casting`. A sim
+ * chama isto por tick para cada caster com `casting && tick >= endTick`. Retorna
+ * o `CastResult` (ou null se a skill sumiu/estado inválido).
+ */
+export function resolveCast(ctx: SkillCastCtx, caster: SimEntity, target: SimEntity | null): void {
+  const c = caster.casting;
+  caster.casting = null;
+  if (!c) return;
+  const def = SKILLS[c.skillId];
+  if (!def) return;
+  // `aim` (tile mirado) só importa para groundTarget — true skillshot: resolve no
+  // tile FIXO mirado no início, não rastreia o alvo. Demais targetings ignoram.
+  const result = executeSkill(ctx, def, caster, target, c.aim);
+  // Conectou ou não, o uso de cast-time já pagou no início; só emite perfil se
+  // houve hit válido (mesma regra de contagem do `castSkill` — spam não conta).
+  if (result.validHit) emitSkillUse(ctx, def, caster, target, result);
 }

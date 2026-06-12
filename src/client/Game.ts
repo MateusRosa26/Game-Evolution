@@ -25,7 +25,7 @@ import { CharacterPanel } from "./ui/CharacterPanel";
 import { OutfitPanel } from "./ui/OutfitPanel";
 import { SkillBar } from "./ui/SkillBar";
 import { TrackingToast } from "./ui/TrackingToast";
-import { ALL_SKILL_IDS, skillMeta } from "./ui/skillMeta";
+import { ALL_SKILL_IDS, T2_SKILL_IDS, skillMeta } from "./ui/skillMeta";
 
 /**
  * Topo da COLUNA DIREITA de janelas (estilo Tibia): abaixo do minimapa (~192px)
@@ -34,7 +34,7 @@ import { ALL_SKILL_IDS, skillMeta } from "./ui/skillMeta";
  */
 const RIGHT_COLUMN_TOP = 474;
 
-/** Hotkeys 1–6 → índice de slot da barra de skills. */
+/** Hotkeys 1–9 → índice de slot da barra de skills (Digit0 é o cicla-outfit). */
 const SKILL_HOTKEYS: Record<string, number> = {
   Digit1: 0,
   Digit2: 1,
@@ -42,6 +42,9 @@ const SKILL_HOTKEYS: Record<string, number> = {
   Digit4: 3,
   Digit5: 4,
   Digit6: 5,
+  Digit7: 6,
+  Digit8: 7,
+  Digit9: 8,
 };
 
 /**
@@ -135,6 +138,12 @@ export class Game {
   private lastEntities: EntityState[] = [];
   /** Alvo selecionado atual (do snapshot) — usado pelas hotkeys de skill. */
   private targetId: number | null = null;
+  /**
+   * Skill de chão (groundTarget) ARMADA esperando a mira: a hotkey arma o id; o
+   * PRÓXIMO clique no mundo manda `useSkill` com `aim` = tile clicado. Esc/2ª
+   * hotkey cancela. Apresentação pura — a sim valida tudo.
+   */
+  private aimingSkillId: string | null = null;
   private started = false;
   /** Último level visto no snapshot — para detectar subida (só apresentação). */
   private lastLevel = 0;
@@ -194,7 +203,9 @@ export class Game {
       // Esc: fecha loja/diálogo se abertos; senão cancela o alvo (estilo Tibia).
       if (ev.code === "Escape") {
         ev.preventDefault();
-        if (this.cookingOpen) {
+        if (this.aimingSkillId) {
+          this.aimingSkillId = null; // cancela a mira de skillshot armada
+        } else if (this.cookingOpen) {
           this.cookingOpen = false;
         } else if (this.playerState?.shop) {
           this.transport.send({ type: "closeShop" });
@@ -212,10 +223,18 @@ export class Game {
         this.useSkillSlot(slot);
         return;
       }
-      // F9 (DEV): concede as 6 skills ao player p/ testar a barra cheia.
+      // F9 (DEV): concede as 6 skills do kit M1 ao player p/ testar a barra.
       if (ev.code === "F9") {
         ev.preventDefault();
         for (const id of ALL_SKILL_IDS) {
+          this.transport.send({ type: "debugGrantSkill", skillId: id });
+        }
+      }
+      // F10 (DEV): concede o kit T2+ (skillshot/burst/cadeia/dreno) p/ testar o
+      // render novo. Caem nos slots após o M1 (hotkeys 7–9 alcançam os 3 primeiros).
+      if (ev.code === "F10") {
+        ev.preventDefault();
+        for (const id of T2_SKILL_IDS) {
           this.transport.send({ type: "debugGrantSkill", skillId: id });
         }
       }
@@ -236,6 +255,13 @@ export class Game {
       // o boneco não anda quando o jogador interage com uma janela.
       if (this.uiBlocksClick(sx, sy)) return;
       const tile = this.camera.screenToTile(sx, sy, this.app.screen.width, this.app.screen.height);
+      // Skillshot armada (groundTarget): o clique MIRA o tile e conjura — não anda
+      // nem seleciona alvo. A sim valida alcance/mana/cooldown.
+      if (this.aimingSkillId) {
+        this.transport.send({ type: "useSkill", skillId: this.aimingSkillId, aim: { x: tile.x, y: tile.y } });
+        this.aimingSkillId = null;
+        return;
+      }
       // Click num monstro = seleciona alvo (re-click no alvo atual = cancela,
       // toggle estilo Tibia); click no chão = só anda — andar NÃO cancela o
       // ataque (kitar/reposicionar mantendo o auto-attack, como em Tibia).
@@ -296,9 +322,16 @@ export class Game {
   private useSkillSlot(slot: number): void {
     const skillId = this.skillBar.skillIdForSlot(slot);
     if (!skillId) return;
-    if (skillMeta(skillId).target === "self") {
+    const mode = skillMeta(skillId).target;
+    if (mode === "ground") {
+      // Skillshot: arma a mira. Apertar de novo a MESMA arma → cancela (toggle).
+      this.aimingSkillId = this.aimingSkillId === skillId ? null : skillId;
+    } else if (mode === "self" || mode === "selfBurst") {
+      // Cura/burst centrado no caster: sem alvo nem aim.
+      this.aimingSkillId = null;
       this.transport.send({ type: "useSkill", skillId });
     } else {
+      this.aimingSkillId = null;
       this.transport.send({ type: "useSkill", skillId, targetId: this.targetId });
     }
   }
@@ -610,11 +643,18 @@ export class Game {
       this.worldRenderer?.updateRoofs(this.playerState.pos.x, this.playerState.pos.y, deltaMS);
     }
 
-    // cursor de tile sob o mouse
+    // cursor de tile sob o mouse — tingido quando há skillshot armada (mira de chão)
     if (this.mouse.insideCanvas) {
       const t = this.camera.screenToTile(this.mouse.screenX, this.mouse.screenY, screenW, screenH);
       this.tileCursor.visible = true;
       this.tileCursor.position.set(t.x * TILE_SIZE, t.y * TILE_SIZE);
+      if (this.aimingSkillId) {
+        this.tileCursor.tint = skillMeta(this.aimingSkillId).color;
+        this.tileCursor.alpha = 0.85;
+      } else {
+        this.tileCursor.tint = 0xffffff;
+        this.tileCursor.alpha = 0.55;
+      }
     } else {
       this.tileCursor.visible = false;
     }

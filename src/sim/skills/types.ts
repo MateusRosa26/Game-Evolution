@@ -15,7 +15,10 @@ export type TargetingKind =
   | "meleePositional" // melee posicional, bônus pelas costas (Apunhalar)
   | "projectileTarget" // projétil no alvo (Bola de Fogo, Luz Sagrada)
   | "lineThrough" // linha perfurante na direção do alvo (Lança de Gelo)
-  | "healTarget"; // cura self/aliado (Curar Ferimentos)
+  | "healTarget" // cura self/aliado (Curar Ferimentos)
+  | "groundTarget" // área num tile mirado (Storm, Garras da Terra) — executor T2 ✏️
+  | "selfRadius" // área ao redor do caster (nova/redemoinho) — executor T3 ✏️
+  | "chain"; // salta entre alvos com falloff (raio em cadeia) — executor T4 ✏️
 
 /** Como a fórmula de dano/cura é calculada (qual função de formulas.ts usa). */
 export type EffectKind = "physical" | "magic" | "heal";
@@ -31,12 +34,30 @@ export type SkillTag =
   | "sagrado"
   | "anti-profano"
   | "cura"
-  | "posicional";
+  | "posicional"
+  | "terra" // Garras da Terra (groundTarget + root)
+  | "root" // enraizamento
+  | "raio" // Tempestade / Fagulhas / Raio (lightning)
+  | "chip" // dano-chip de AoE fraca (Fagulhas)
+  | "morte" // Dreno Vital (lifedrain)
+  | "arcano" // Dardo Arcano (sem elemento — economia)
+  | "distancia" // Arremesso / Disparo Perfurante (ranged físico)
+  | "sangramento"; // Retalho (DoT físico = bleed)
 
-/** Aplicação de status que a skill faz no alvo (declarativo). */
-export interface SkillStatusApply {
-  kind: "burn" | "slow" | "poison";
-}
+/**
+ * Aplicação de status que a skill faz no(s) alvo(s) atingido(s) — union
+ * DISCRIMINADA que carrega os PRÓPRIOS parâmetros (declarativo: a skill é dado,
+ * o executor é genérico). Tempos em ms (a sim converte p/ ticks via `msToTicks`).
+ *  - burn/bleed/poison = DoT (burn fogo, bleed físico, poison o tipo próprio);
+ *  - slow = aumenta o stepMs por um fator, por um tempo;
+ *  - root = trava o movimento por um tempo (terra; DESIGN: morte=lifedrain à parte).
+ */
+export type SkillStatusApply =
+  | { kind: "burn"; damagePerTick: number; durationMs: number; intervalMs: number; damageType: DamageType }
+  | { kind: "bleed"; damagePerTick: number; durationMs: number; intervalMs: number } // DoT físico
+  | { kind: "poison"; damagePerTick: number; durationMs: number; intervalMs: number }
+  | { kind: "slow"; stepMsMultiplier: number; durationMs: number }
+  | { kind: "root"; durationMs: number };
 
 /** Definição declarativa de uma skill. */
 export interface SkillDef {
@@ -59,6 +80,24 @@ export interface SkillDef {
   range: number;
   /** Base de dano/cura passada à fórmula (✏️ vem de numbers.ts). */
   power: number;
-  /** Status aplicado no(s) alvo(s) atingido(s) — burn/slow/poison. */
+  /** Status aplicado no(s) alvo(s) atingido(s) — burn/bleed/poison/slow/root. */
   applyStatus?: SkillStatusApply;
+  /**
+   * Tempo de conjuração em ms (a sim converte p/ ticks via `msToTicks`).
+   * Ausente/0 = resolução INSTANTÂNEA (estilo runa de Tibia — comportamento M1).
+   * >0 = a sim arma um `casting` no caster e só resolve ao fim; mover ou tomar
+   * dano durante o cast CANCELA (sem resolução). Mana cobrada no INÍCIO do cast.
+   */
+  castTimeMs?: number;
+  // ── Superfície de dados dos executores T2+ (preenchida por tasks futuras) ──
+  /** Raio da área em tiles (Chebyshev) — groundTarget/selfRadius. ✏️ executor T2/T3. */
+  areaRadius?: number;
+  /** Máximo de saltos do raio em cadeia — chain. ✏️ executor T4. */
+  chainMax?: number;
+  /** Alcance de cada salto em tiles — chain. ✏️ executor T4. */
+  chainRange?: number;
+  /** Fração de dano perdida por salto (0.2 = −20%/salto) — chain. ✏️ executor T4. */
+  chainFalloff?: number;
+  /** Fração do dano causado devolvida como cura ao caster (morte = lifedrain). ✏️ aplicada por task futura. */
+  lifedrainPct?: number;
 }

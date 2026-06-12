@@ -132,7 +132,10 @@ export type DamageType =
   | "poison"
   | "bleed"
   | "holy"
-  | "arcane";
+  | "arcane"
+  | "earth" // Garras da Terra (groundTarget + root)
+  | "lightning" // Tempestade / Fagulhas (raio)
+  | "death"; // Dreno Vital (morte = lifedrain)
 
 /** Tiles lógicos do mundo. */
 export enum TileId {

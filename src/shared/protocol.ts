@@ -25,10 +25,13 @@ export type ClientCommand =
   | { type: "chooseClass"; cls: PlayerClass }
   /**
    * Usa uma skill. `targetId` é o alvo selecionado (monstro p/ ofensivas;
-   * aliado/self p/ cura — omitido = self). A sim valida conhecida/mana/cooldown
-   * e RESOLVE instantaneamente (estilo runa de Tibia). Spam no ar não custa nada.
+   * aliado/self p/ cura — omitido = self). `aim` é um TILE mirado, p/ skills de
+   * área no chão (groundTarget — Storm/Garras da Terra); ignorado pelas demais. A
+   * sim valida conhecida/mana/cooldown. Skill SEM cast-time resolve na hora
+   * (estilo runa de Tibia); com cast-time, a sim arma um `casting` e só resolve ao
+   * fim (mover/tomar dano cancela). Spam no ar não custa nada.
    */
-  | { type: "useSkill"; skillId: string; targetId?: number | null }
+  | { type: "useSkill"; skillId: string; targetId?: number | null; aim?: Vec2 }
   /**
    * DEV/teste: concede uma skill ao jogador (compra em NPC é M2+). Atalho do
    * harness para exercitar as 6 skills sem trocar de classe. ✏️ remover/gat em M2.
@@ -127,10 +130,11 @@ export interface PlayerProgressState {
  */
 export interface StatusEffectState {
   /**
-   * queimadura (fogo, DoT) / lentidão / veneno (tipado p/ Rogue T2) /
-   * "Bem Alimentado" (regen da comida) / "Saciado" (buff de stat de prato preparado).
+   * queimadura (fogo, DoT) / sangramento (físico, DoT) / veneno (DoT próprio) /
+   * lentidão / enraizamento (root — não anda) / "Bem Alimentado" (regen da comida) /
+   * "Saciado" (buff de stat de prato preparado).
    */
-  kind: "burn" | "slow" | "poison" | "wellFed" | "meal";
+  kind: "burn" | "bleed" | "poison" | "slow" | "root" | "wellFed" | "meal";
   /** ms restantes até expirar. */
   remainingMs: number;
 }
@@ -191,6 +195,15 @@ export interface EntityState {
    * janela de desvio. `resolveAt` = tempo lógico (ms) em que o efeito resolve.
    */
   telegraph?: { moveId: string; kind: string; resolveAt: number; tiles?: Vec2[] };
+  /**
+   * Skill em CONJURAÇÃO agora (cast-time) — info pública (o client desenha a barra
+   * de cast). `pct` = progresso 0..1 (0 = começou, 1 = prestes a resolver). `aim` é
+   * o TILE mirado de uma skill de área no chão (groundTarget) — presente só quando a
+   * conjuração tem mira de chão; deixa o client desenhar o telegraph (área alvo) onde
+   * a skill vai cair. Presente só enquanto a entidade conjura algo; null/undefined =
+   * nada sendo conjurado.
+   */
+  casting?: { skillId: string; pct: number; aim?: Vec2 } | null;
   /** Progressão — presente SOMENTE na entidade do jogador (undefined p/ mobs). */
   progress?: PlayerProgressState;
   /** Skills conhecidas — SOMENTE na entidade do jogador (undefined p/ mobs). */

@@ -34,6 +34,12 @@ export interface CombatCtx {
   sessionFacts?: (entityId: number) => Facts;
   /** Dano nos TILES dados SEM re-disparar efeitos (P2 onKill) — Simulation fornece. */
   areaDamage?: (tiles: Vec2[], sourceId: number, amount: number, damageType: DamageType) => void;
+  /**
+   * Chamado quando `target` SOFRE dano (após aplicado, > 0). A Simulation usa
+   * para cancelar a conjuração em andamento do alvo (cast-time cancela ao tomar
+   * dano). Opcional — DoT/dano ambiental sem este sink simplesmente não cancela.
+   */
+  onDamaged?: (target: SimEntity, amount: number) => void;
 }
 
 /** Identidade de combate de uma entidade (para os payloads de evento). */
@@ -62,7 +68,9 @@ export interface WeaponSource {
 
 /**
  * Aplica dano de `source` em `target`. Emite `damage` sempre; se matar,
- * emite `kill` e marca `target.dead`. Retorna true se o golpe foi fatal.
+ * emite `kill` e marca `target.dead`. Retorna o DANO EFETIVAMENTE APLICADO
+ * (pós-mitigação, >= 0) — o chamador deriva "foi fatal?" de `target.dead`.
+ * (Lifedrain — DESIGN: morte=dreno vital — usa este retorno p/ curar o caster.)
  *
  * `weapon` (null = não-arma) propaga a instância equipada aos payloads `damage`/
  * `kill` para o ledger (auto-attack e skills físicas de arma a passam; projéteis/
@@ -77,8 +85,8 @@ export function applyDamage(
   weapon: WeaponSource | null,
   skillId: string | null,
   suppressEffects = false,
-): boolean {
-  if (target.dead) return false;
+): number {
+  if (target.dead) return 0;
 
   // ── P1 (damageMult) + P4 (crit): dano de SAÍDA do atacante. `suppressEffects`
   // evita recursão quando o próprio efeito (P2 onKill) causa dano em área. ──
@@ -160,6 +168,8 @@ export function applyDamage(
     amount,
     pos: { x: target.pos.x, y: target.pos.y },
   });
+  // Tomar dano CANCELA a conjuração do alvo (decisão do task: move OU dano).
+  if (amount > 0) ctx.onDamaged?.(target, amount);
 
   // ── P6 (statusCombo): reage ao status do alvo + tipo de dano (Senhor dos
   // Extremos: fogo em alvo `slow`/gelo em alvo `burn` → choque térmico). Só em
@@ -180,7 +190,7 @@ export function applyDamage(
     }
   }
 
-  if (!fatal) return false;
+  if (!fatal) return amount;
 
   // ── Golpe fatal: morte + evento kill rico ──
   target.dead = true;
@@ -234,7 +244,7 @@ export function applyDamage(
       if (mana > 0 && source.maxMp > 0) source.mp = Math.min(source.maxMp, source.mp + mana);
     }
   }
-  return true;
+  return amount;
 }
 
 /**

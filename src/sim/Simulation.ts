@@ -58,8 +58,10 @@ import {
   applyMealBuff,
   mealBuffDamage,
   mealBuffAttackSpeedPct,
-  castSkill,
+  beginOrCastSkill,
+  resolveCast,
   isKnownSkillId,
+  isRooted,
   projectStatus,
   tickStatus,
   type SkillCastCtx,
@@ -165,7 +167,7 @@ export class Simulation {
    * eventos `cast`/`heal`/`skill_use` saiam no snapshot do tick correto e que a
    * resolução seja determinística (mesma ordem do tick).
    */
-  private pendingSkillCasts: { casterId: number; skillId: string; targetId: number | null }[] = [];
+  private pendingSkillCasts: { casterId: number; skillId: string; targetId: number | null; aim?: Vec2 }[] = [];
   /** Linhas de chat a emitir no próximo snapshot (say/sistema/npc). */
   private pendingChat: SnapshotEvent[] = [];
   /**
@@ -772,6 +774,7 @@ export class Simulation {
           casterId: entityId,
           skillId: cmd.skillId,
           targetId: cmd.targetId ?? e.targetId,
+          aim: cmd.aim ? { x: cmd.aim.x, y: cmd.aim.y } : undefined,
         });
         break;
       }
@@ -976,6 +979,22 @@ export class Simulation {
     }
   }
 
+  /** Monta o `SkillCastCtx` de um caster a partir do `CombatCtx` do tick. */
+  private buildSkillCtx(ctx: CombatCtx, caster: SimEntity, prog: Progression): SkillCastCtx {
+    return {
+      ...ctx,
+      prog,
+      // Dano-base da ARMA equipada (Golpe Forte/Apunhalar escalam a arma).
+      weaponBase: this.weaponStatsOf(caster).baseDamage,
+      // Instância da arma p/ atribuir dano/kill de skill física ao ledger.
+      weaponSource: this.weaponSourceOf(caster),
+      // AoE/linha só atinge entidades do andar do caster.
+      enemiesInWorld: [...this.entities.values()].filter((en) => en.z === caster.z),
+      // RNG seedado p/ variância do dano físico (skills AD).
+      roll: this.combatRng,
+    };
+  }
+
   /** Resolve os casts bufferizados no tick atual (após status, antes da IA). */
   private resolveSkillCasts(ctx: CombatCtx): void {
     if (this.pendingSkillCasts.length === 0) return;
@@ -984,6 +1003,8 @@ export class Simulation {
     for (const req of queue) {
       const caster = this.entities.get(req.casterId);
       if (!caster || caster.dead) continue;
+      // Já conjurando algo: ignora o novo pedido (sem fila de cast no M1).
+      if (caster.casting) continue;
       const prog = this.progressions.get(req.casterId);
       if (!prog) continue;
       // Zona segura: skill OFENSIVA não sai de dentro (cura pode — padrão PZ).
@@ -994,20 +1015,36 @@ export class Simulation {
       // Alvo só vale no MESMO ANDAR do caster (skill não atravessa andar).
       const rawTarget = req.targetId != null ? this.entities.get(req.targetId) ?? null : null;
       const target = rawTarget && rawTarget.z === caster.z ? rawTarget : null;
-      const skillCtx: SkillCastCtx = {
-        ...ctx,
-        prog,
-        // Dano-base da ARMA equipada (Golpe Forte/Apunhalar escalam a arma).
-        weaponBase: this.weaponStatsOf(caster).baseDamage,
-        // Instância da arma p/ atribuir dano/kill de skill física ao ledger.
-        weaponSource: this.weaponSourceOf(caster),
-        // AoE/linha só atinge entidades do andar do caster.
-        enemiesInWorld: [...this.entities.values()].filter((en) => en.z === caster.z),
-        // RNG seedado p/ variância do dano físico (skills AD).
-        roll: this.combatRng,
-      };
-      castSkill(skillCtx, caster, req.skillId, target);
+      const skillCtx = this.buildSkillCtx(ctx, caster, prog);
+      // Decide instantâneo (runa) vs. cast-time (arma `casting`, resolve depois).
+      beginOrCastSkill(skillCtx, caster, req.skillId, target, req.aim);
     }
+  }
+
+  /**
+   * Resolve conjurações ARMADAS (cast-time) cujo `endTick` venceu neste tick.
+   * Roda APÓS o movimento/dano deste tick: assim mover/tomar dano no tick do
+   * `endTick` ainda cancela antes da resolução (`casting` já foi limpo).
+   */
+  private tickCasts(ctx: CombatCtx): void {
+    for (const e of this.entities.values()) {
+      if (e.dead || !e.casting) continue;
+      if (this.tickCount < e.casting.endTick) continue;
+      const prog = this.progressions.get(e.id);
+      if (!prog) { e.casting = null; continue; }
+      // Alvo do cast revalidado (mesmo andar, vivo) no momento da resolução.
+      const raw = e.casting.targetId != null ? this.entities.get(e.casting.targetId) ?? null : null;
+      const target = raw && raw.z === e.z && !raw.dead ? raw : null;
+      const skillCtx = this.buildSkillCtx(ctx, e, prog);
+      resolveCast(skillCtx, e, target);
+    }
+  }
+
+  /** Cancela a conjuração em andamento de `e` (mover/tomar dano). Sem reembolso. */
+  private cancelCast(e: SimEntity): void {
+    // ✏️ POLÍTICA DE REEMBOLSO: decisão do Balancista. Default ATUAL = NÃO
+    // reembolsa a mana cobrada no início do cast cancelado.
+    e.casting = null;
   }
 
   onSnapshot(cb: (snap: Snapshot) => void): void {
@@ -1034,6 +1071,8 @@ export class Simulation {
       rng: this.combatRng,
       effectsOf: (id) => this.tracking.activeEffects(id, this.equippedInstanceIdsOf(id)),
       sessionFacts: (id) => this.effectSessionFacts(id),
+      // Tomar dano cancela a conjuração em andamento do alvo (cast-time).
+      onDamaged: (target) => { if (target.casting) this.cancelCast(target); },
     };
     // areaDamage referencia `ctx` (já construído) — atribuído após o literal.
     ctx.areaDamage = (tiles, sourceId, amount, dt) => this.dealAreaDamage(ctx, tiles, sourceId, amount, dt);
@@ -1097,11 +1136,18 @@ export class Simulation {
     // ── 3. Movimento (player + monstros) ──
     for (const e of this.entities.values()) {
       if (e.dead || !e.intent || now < e.nextMoveAt) continue;
+      // Enraizado (root): não dá passo enquanto o status estiver ativo (a
+      // intenção fica retida; volta a andar quando o root expira).
+      if (isRooted(e)) continue;
       if (e.intent.kind === "dir") this.stepInDirection(e, e.intent.dir, now);
       else this.stepAlongPath(e, now);
     }
 
-    // ── 3.5 Fecha sessões de combate paradas (emite combat_end → tracking) ──
+    // ── 3.5 Conjurações com cast-time que venceram: resolve AGORA (após
+    // movimento/dano deste tick — mover/tomar dano no tick do fim ainda cancela). ──
+    this.tickCasts(ctx);
+    // ── 3.6 Fecha sessões de combate paradas (emite combat_end → tracking).
+    // Depois do tickCasts: dano de cast resolvido refresca a sessão antes do idle. ──
     this.flushIdleCombatSessions(now);
 
     // ── 4. Mortes: remover/respawnar ──
@@ -1723,6 +1769,7 @@ export class Simulation {
         e.dead = false;
         e.intent = null;
         e.targetId = null;
+        e.casting = null; // morte cancela qualquer conjuração em andamento
         e.nextMoveAt = now;
         e.nextAttackAt = now;
         // limpa o aggro dos monstros sobre este jogador
@@ -1868,6 +1915,8 @@ export class Simulation {
     // Diagonal estilo Tibia (decidido jun/2026): só o destino importa —
     // cortar quina é permitido (mesma regra do A* em pathfinding.ts).
     if (!this.canEnter(e, nx, ny)) return false;
+    // Mover CANCELA a conjuração em andamento (decisão do task: move OU tomar dano).
+    if (e.casting) this.cancelCast(e);
     this.moveTo(e, nx, ny);
     e.facing = facingFromDir(dir);
     e.stepMs = this.quantizeToTickMs(e.baseStepMs * (isDiagonal(dir) ? DIAGONAL_FACTOR : 1));
@@ -1989,6 +2038,15 @@ export class Simulation {
           resolveAt: e.activeMove.resolveAt,
           tiles: e.activeMove.targetTiles, // área de perigo (slam) p/ o client desenhar
         };
+      }
+      // Conjuração em andamento (cast-time) — info pública p/ a barra de cast.
+      // pct = progresso 0..1 (start→end), clampado.
+      if (e.casting) {
+        const span = e.casting.endTick - e.casting.startTick;
+        const pct = span > 0 ? Math.min(1, Math.max(0, (this.tickCount - e.casting.startTick) / span)) : 1;
+        state.casting = { skillId: e.casting.skillId, pct };
+        // aim do chão (groundTarget): deixa o client telegrafar a ÁREA-alvo
+        if (e.casting.aim) state.casting.aim = { x: e.casting.aim.x, y: e.casting.aim.y };
       }
       const prog = this.progressions.get(e.id);
       if (prog) state.progress = this.projectProgress(prog);
