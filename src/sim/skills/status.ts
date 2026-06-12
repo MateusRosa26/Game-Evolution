@@ -4,7 +4,7 @@ import type { MealBuff } from "../items/templates";
 import type { StatusEffectState } from "../../shared/protocol";
 import type { SimEntity } from "../entity";
 import type { CombatCtx } from "../combat";
-import { applyDamage } from "../combat";
+import { applyDamage, applyHeal } from "../combat";
 
 /**
  * Sistema de status effects da sim (DESIGN-EVOLUCAO.md §"Magias e Skills"):
@@ -21,7 +21,13 @@ import { applyDamage } from "../combat";
  * Envenenada). `wellFed` ("Bem Alimentado") é o buff de saciedade da comida —
  * multiplica o regen de HP/mana enquanto ativo (loop de sustain Tibia).
  */
-export type StatusKind = "burn" | "bleed" | "poison" | "slow" | "root" | "wellFed" | "meal";
+export type StatusKind =
+  | "burn" | "bleed" | "poison" // DoTs
+  | "slow" | "root" | "stun" // controle (slow=lento, root=preso, stun=preso+não age)
+  | "armorShred" // debuff: recebe +dano por Xs
+  | "regenHoT" // cura-por-tick (inverso do DoT)
+  | "shield" // absorve N dano antes do HP
+  | "wellFed" | "meal"; // comida
 
 /**
  * Teto de saciedade: comer ACUMULA duração de "Bem Alimentado" só até aqui —
@@ -53,6 +59,12 @@ export interface StatusEffect {
   buffDamage: number;
   /** ── meal ── fração de redução do cooldown de ataque (0.1 = 10% mais rápido). */
   buffAttackSpeedPct: number;
+  /** ── armorShred ── multiplicador de dano RECEBIDO pelo alvo (>1 = leva mais). */
+  damageTakenMult?: number;
+  /** ── regenHoT ── HP curado por tique (usa a mesma cadência do DoT: tickEveryTicks). */
+  healPerTick?: number;
+  /** ── shield ── HP de absorção restante (consumido antes do HP; 0 → remove). */
+  shieldHp?: number;
   /** ID da entidade que aplicou (atribuição do dano do DoT/kill). */
   sourceId: number;
   /** Skill que originou o status (para o evento kill/damage do DoT). */
@@ -185,6 +197,81 @@ export function isRooted(e: SimEntity): boolean {
   return e.status.some((s) => s.kind === "root");
 }
 
+/** Esqueleto de StatusEffect com os campos zerados (reduz boilerplate). */
+function baseStatus(kind: StatusKind, expiresAtTick: number): StatusEffect {
+  return {
+    kind, expiresAtTick,
+    damagePerTick: 0, tickEveryTicks: 0, nextDamageTick: Number.MAX_SAFE_INTEGER,
+    damageType: "physical", stepMsMultiplier: 1, regenMultiplier: 1,
+    buffDamage: 0, buffAttackSpeedPct: 0, sourceId: 0, skillId: null,
+  };
+}
+
+// ── stun (preso + NÃO age — anda nem ataca) ────────────────────────────
+export interface StunParams { durationMs: number; }
+export function applyStun(e: SimEntity, currentTick: number, p: StunParams): void {
+  const dur = msToTicks(p.durationMs);
+  const ex = e.status.find((s) => s.kind === "stun");
+  if (ex) { ex.expiresAtTick = Math.max(ex.expiresAtTick, currentTick + dur); return; }
+  e.status.push(baseStatus("stun", currentTick + dur));
+}
+/** True se atordoado (não anda NEM age). */
+export function isStunned(e: SimEntity): boolean {
+  return e.status.some((s) => s.kind === "stun");
+}
+
+// ── armorShred (alvo recebe +dano por Xs) ──────────────────────────────
+export interface ArmorShredParams { durationMs: number; damageTakenMult: number; }
+export function applyArmorShred(e: SimEntity, currentTick: number, p: ArmorShredParams): void {
+  const dur = msToTicks(p.durationMs);
+  const ex = e.status.find((s) => s.kind === "armorShred");
+  if (ex) { ex.expiresAtTick = currentTick + dur; ex.damageTakenMult = Math.max(ex.damageTakenMult ?? 1, p.damageTakenMult); return; }
+  const s = baseStatus("armorShred", currentTick + dur); s.damageTakenMult = p.damageTakenMult; e.status.push(s);
+}
+/** Multiplicador de dano RECEBIDO pelo alvo (armorShred; 1 = sem debuff). */
+export function damageTakenMult(e: SimEntity): number {
+  let m = 1;
+  for (const s of e.status) if (s.kind === "armorShred") m *= s.damageTakenMult ?? 1;
+  return m;
+}
+
+// ── regenHoT (cura por tique — inverso do DoT) ─────────────────────────
+export interface HoTParams { healPerTick: number; durationMs: number; intervalMs: number; }
+export function applyHoT(e: SimEntity, currentTick: number, source: SimEntity, skillId: string | null, p: HoTParams): void {
+  const dur = msToTicks(p.durationMs); const iv = msToTicks(p.intervalMs);
+  const ex = e.status.find((s) => s.kind === "regenHoT");
+  if (ex) {
+    ex.expiresAtTick = currentTick + dur; ex.healPerTick = Math.max(ex.healPerTick ?? 0, p.healPerTick);
+    ex.tickEveryTicks = iv; ex.sourceId = source.id; ex.skillId = skillId; return;
+  }
+  const s = baseStatus("regenHoT", currentTick + dur);
+  s.healPerTick = p.healPerTick; s.tickEveryTicks = iv; s.nextDamageTick = currentTick + iv;
+  s.sourceId = source.id; s.skillId = skillId;
+  e.status.push(s);
+}
+
+// ── shield (absorve N dano antes do HP) ────────────────────────────────
+export interface ShieldParams { shieldHp: number; durationMs: number; }
+export function applyShield(e: SimEntity, currentTick: number, p: ShieldParams): void {
+  const dur = msToTicks(p.durationMs);
+  const ex = e.status.find((s) => s.kind === "shield");
+  if (ex) { ex.expiresAtTick = currentTick + dur; ex.shieldHp = Math.max(ex.shieldHp ?? 0, p.shieldHp); return; }
+  const s = baseStatus("shield", currentTick + dur); s.shieldHp = p.shieldHp; e.status.push(s);
+}
+/**
+ * Consome o escudo do alvo absorvendo `amount`. Retorna o dano RESTANTE após o
+ * escudo (>=0). Remove o status quando o escudo zera.
+ */
+export function absorbWithShield(e: SimEntity, amount: number): number {
+  const s = e.status.find((st) => st.kind === "shield");
+  const have = s?.shieldHp ?? 0;
+  if (!s || have <= 0) return amount;
+  const absorbed = Math.min(have, amount);
+  s.shieldHp = have - absorbed;
+  if ((s.shieldHp ?? 0) <= 0) e.status = e.status.filter((st) => st !== s);
+  return amount - absorbed;
+}
+
 /** Parâmetros para aplicar/estender "Bem Alimentado" (comida). Tempo em ms. */
 export interface FoodParams {
   /** Multiplicador do regen de HP/mana enquanto saciado (>1 = mais rápido). */
@@ -304,6 +391,16 @@ export function tickStatus(ctx: CombatCtx, e: SimEntity): void {
       applyDamage(ctx, source, e, s.damagePerTick, s.damageType, null, s.skillId);
       s.nextDamageTick += s.tickEveryTicks;
       if (e.dead) return; // morreu pelo DoT — resolveDeaths cuida do resto
+    }
+  }
+
+  // 1.5 regenHoT: cura por tique na MESMA cadência (Fôlego/Second Wind).
+  for (const s of e.status) {
+    if (s.kind !== "regenHoT" || !s.healPerTick || s.healPerTick <= 0) continue;
+    while (tick >= s.nextDamageTick && tick < s.expiresAtTick) {
+      const source = ctx.lookup(s.sourceId) ?? e;
+      applyHeal(ctx, source, e, s.healPerTick, s.skillId);
+      s.nextDamageTick += s.tickEveryTicks;
     }
   }
 

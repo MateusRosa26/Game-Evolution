@@ -164,6 +164,22 @@ export class TrackingEngine {
     }
   }
 
+  /**
+   * P7 (skillSwap): se o personagem tem uma Mutação RESOLVIDA para `baseSkillId`
+   * cujo efeito é `skillSwap`, devolve o `mutatedSkillId` (a skill efetiva do
+   * cast); senão `null` (usa a base). A contagem da mutação já parou na resolução,
+   * então o swap nunca interfere no gatilho.
+   */
+  resolvedMutationSkill(casterId: number, baseSkillId: string): string | null {
+    const resolved = this.state.byCharacter[casterId]?.mutations[baseSkillId]?.resolved;
+    if (!resolved) return null;
+    const def = this.mutations.find((m) => m.id === resolved);
+    const spec = def?.effect.spec;
+    const specs = Array.isArray(spec) ? spec : spec ? [spec] : [];
+    for (const s of specs) if (s.kind === "skillSwap") return s.mutatedSkillId;
+    return null;
+  }
+
   // ── MOTOR DE EFEITOS — quais EffectSpec estão ativos numa entidade ──────
 
   /** Invalida o cache de efeitos de uma entidade (chamar em equip/unequip). */

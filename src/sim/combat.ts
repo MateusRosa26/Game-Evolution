@@ -6,6 +6,7 @@ import { armorMitigation } from "./formulas";
 import type { EffectSpec } from "./tracking/types";
 import type { Facts } from "./tracking/filters";
 import { evalOutgoing, evalIncoming, rollFullBlock, collectOnKill, collectOnKillMana, matchStatusCombos, areaShapeTiles } from "./tracking/effects";
+import { damageTakenMult, absorbWithShield } from "./skills/status";
 
 /**
  * Lógica de combate da sim: aplicação de dano, morte e emissão dos eventos
@@ -119,6 +120,10 @@ export function applyDamage(
     }
   }
 
+  // ── armorShred (status): alvo debuffado recebe MAIS dano (Quebra-Guarda). ──
+  const shredMult = damageTakenMult(target);
+  if (shredMult !== 1) amount = amount * shredMult;
+
   // ── Mitigação do ALVO (ordem decidida: bloqueio% → Def SORTEADA (0..Def) → piso
   // 1). Só o player carrega armadura/escudo (mob: armorDef 0, block null), então o
   // golpe DO player no mob não muda — só o golpe NO player é reduzido. ──
@@ -142,6 +147,8 @@ export function applyDamage(
     amount -= armorMitigation(target.armorDef, ctx.rng()); // sorteio 0..Def (Tibia-puro)
   }
   amount = Math.max(1, Math.round(amount));
+  // shield (status): absorve antes do HP (pode zerar o dano efetivo — Transfusão/Barreira).
+  amount = absorbWithShield(target, amount);
 
   // HP da vítima ANTES do golpe (base de overkill/execução) e fatalidade.
   const hpBefore = target.hp;

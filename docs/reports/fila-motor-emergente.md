@@ -41,7 +41,10 @@ A consome de cima pra baixo; marca `FEITO` e move pro histórico no fim.
 - **DEPENDÊNCIA mapeada:** `docs/reports/2026-06-11-catalogo-emergente-lote2-mutacoes.md`
   §6 (harvest) — P7 precisa de selfRadius/dash/shield (skills-engine) + 4 status novos
   declarativos (`root`/`armorShred`/`bleed`/`regenHoT`). Zero sensor novo (✓ §7).
-- Status: FILA (aguarda merge + revisão do B)
+- Status: **DESBLOQUEADO — merge da `feat/skills-engine` FEITO (commit d5b3965, tsc 0/build 0).** Tree tem executores REAIS `selfRadius`/`groundTarget`/`chain` + `lifedrainPct`/`castTimeMs`/`radius`/`chainMax` + status `root`/`bleed`. **Faltam status novos p/ Lote 2/3:** `dash`, `shield`, `stun`, `armorShred`, `regenHoT`. P7 (wiring skillSwap) + mutações com primitivos disponíveis = buildável agora. (Merge: combat.ts applyDamage→`number`+`suppressEffects`; Simulation.ts ctx efeitos+onDamaged, tick tickCasts+flush.)
+  - **P7 WIRING FEITO (A):** `engine.resolvedMutationSkill(casterId, baseSkillId)` + tradução do skillId→efetivo em `Simulation.resolveSkillCasts` (cast-time herda; cai na base se a def mutada não existe). tsc 0 + smoke 4/4. **Inerte até existirem as DEFS mutadas** (conteúdo: formas B8/B3/B4 do Chat B + números Chat C).
+  - **STATUS PRIMITIVOS FEITOS (A):** `stun` (preso+não age — barra movimento/ataque do player E do mob), `armorShred` (alvo recebe ×dano), `regenHoT` (cura-por-tique, inverso do DoT), `shield` (absorve N antes do HP). status.ts + integração combat/Simulation/monsterAi/executor/protocol/client(cores). tsc 0 + build 0 + smoke 6/6. Falta só `dash`.
+  - **`dash` FEITO (A):** `SkillDef.dashBehindTarget` + `ctx.tryDashBehind` (executor chama antes de resolver) + `Simulation.dashBehind` (teleporta pro tile atrás do alvo, oposto ao facing; colisão via `canEnter`/`moveTo`; no-op se bloqueado/outro andar). tsc 0 + build 0 + smoke 3/3. **VOCABULÁRIO DE PRIMITIVOS COMPLETO** — toda mutação do Lote 2/3 agora é só DADO (forma=Chat B, número=Chat C). P7 cabeado, esperando as defs mutadas.
 
 ### [Q6] Lote 2 (Mutações) — AGUARDA revisão de SIGNIFICADO do Chat B — nova-ficha
 - Tipo: nova-ficha (design pronto pelo Chat A)
@@ -95,6 +98,16 @@ A consome de cima pra baixo; marca `FEITO` e move pro histórico no fim.
 - Nuance (decisão à parte): skills MELEE que usam a arma (Golpe Forte/Apunhalar escalam a arma) — SEGURO = só AA (`skillId==null`, recomendado pelo criador); expandir p/ weapon-skills depois se quiser (precisaria de um discriminador "skill usou arma" em vez de `skillId==null`).
 - Motivo: coerência de eixo (Marca de arma = só golpe da arma, não magia) + segurança de balance (não combina com burst de skill). **Decisão criador jun/2026.**
 - Status: FILA (Chat A — engine; depois Chat C confirma que nada vazou)
+
+### [C2] Comentários "Intocável"→"Intocado" na sim — reescrita semântica (não só rename) — doc/comentário
+- Tipo: correção de comentário (zero lógica) — **origem: designer-de-sistemas (jun/2026, A5 do report de fechamento)**
+- Alvo: 4 comentários na sim. **Achado:** NÃO é rename mecânico — 3 dos 4 referenciam o efeito/condição ANTIGOS do Intocado (mudou p/ mana-on-magic-kill + condição vitória-só-magia). Texto-alvo:
+  - `events.ts:224` "Resolve **Intocável (damageTaken==0)**…" → `damageTaken==0` hoje é o ⑤ **Sombra Sem Nome**, NÃO o Intocado. Usar "Sombra Sem Nome (damageTaken==0)" ou "Intocado (magicOnlyVictory)".
+  - `progression.ts:256` "ex: **Intocável = ×mana em combate**" → Intocado NÃO usa mais P5 regen (virou `onKill:restoreMana`). Trocar por outro exemplo de P5 `regen`, ou remover o "ex".
+  - `Simulation.ts:1128` "(ex: **Intocável**)" no P5 regen → idem.
+  - `tracking/engine.ts:428` "**Intocável**/Sobrevivente/Velocista" → rename limpo p/ "**Intocado**" (Intocado É resolvido via `combat_end`).
+- Motivo: cânone "Intocável→Intocado" (DESIGN-EVOLUCAO já atualizado) + os exemplos não podem descrever o efeito velho. Chat A faz no próximo toque nesses arquivos (2 já no working-set dele).
+- Status: FILA (Chat A — trivial, mas só A toca src/sim)
 
 > **Vindos da revisão Chat B (§6 do catálogo Lote 1).** Só os itens que TOCAM O EFEITO
 > entram aqui; renames/rótulos/flavor já foram editados no catálogo direto.
@@ -199,8 +212,9 @@ A consome de cima pra baixo; marca `FEITO` e move pro histórico no fim.
   - **Passo Sombrio (Apunhalar): CORTADA** — gatilho "cast de longe" impossível p/ melee + ressuscita skill removida. Não criar a def.
   - **Permafrost:** (já acima) root ~0.2s.
   - **Raio Solar (Luz Sagrada): CORTADA** — fraca/situacional. Não criar a def; Luz Sagrada fica só com Exorcismo; 2ª mutação a pensar depois.
-  - ⏳ **GARFO MELEE pendente (Quebra-Guarda + Hemorragia):** reframe proposto = "veto só ao FLAT INCONDICIONAL; dano CONDICIONAL é verbo". Candidatos: Hemorragia → **ignora armadura** (ou manter sangramento/bleed); Quebra-Guarda → **Vulnerável** (janela de combo). Aguarda escolha do criador (vale p/ Lote 3).
+  - **GARFO MELEE — RESOLVIDO (criador):** **Hemorragia** = backstab **ignora ~7-10% da armadura** (penetração pequena). **Quebra-Guarda** = **Vulnerável SELF-ONLY** (só os próprios follow-ups no alvo aberto ganham +dano por Xs; magnitude ~7-10%) — self-only evita meta de party. Regra-mãe: `DESIGN-SKILLS.md` §3 Corolário C (3 partes) + D (tier).
 - Status: FILA (depende de [Q1]; números ✏️ Balancista)
+- **AUDITORIA das ~40 mutações (regra de 3 partes) FEITA** — `docs/reports/2026-06-11-audit-mutacoes-regra-3-partes.md`. Consertos p/ Chat A embutir nas defs: **CORTAR** Luz Duradoura (Lume não muta) · Geada Perfurante (Lança de Gelo). **Reescrever:** Aljava Infinita = troca quantidade↔duração (renomear) · Graça Compartilhada = overheal→escudo (cap pequeno) · Reflexo Vital = +7-10% cura em HP baixo (máx 12-15%) · Golpe Súbito = +7-10% na abertura · Fervor(Luz Sagrada) = ramp pequeno capado + RENOMEAR (colisão c/ Bênção). **Manter pequeno:** Fogo Voraz/Fôlego/Transfusão/Permafrost. ✏️ Loremaster: renomes (Aljava, Fervor-Luz).
 
 ---
 

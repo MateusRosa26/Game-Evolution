@@ -62,6 +62,7 @@ import {
   resolveCast,
   isKnownSkillId,
   isRooted,
+  isStunned,
   projectStatus,
   tickStatus,
   type SkillCastCtx,
@@ -992,7 +993,27 @@ export class Simulation {
       enemiesInWorld: [...this.entities.values()].filter((en) => en.z === caster.z),
       // RNG seedado p/ variância do dano físico (skills AD).
       roll: this.combatRng,
+      // `dash` (Passo Sombrio): teleporta o caster pra trás do alvo (colisão aqui).
+      tryDashBehind: (c, t) => this.dashBehind(c, t),
     };
+  }
+
+  /**
+   * `dash`: teleporta `caster` pro tile ATRÁS de `target` (oposto ao facing dele).
+   * No-op se outro andar ou se o tile estiver bloqueado/ocupado (cai no golpe
+   * normal). Atualiza ocupação + encara o alvo. Determinístico.
+   */
+  private dashBehind(caster: SimEntity, target: SimEntity): void {
+    if (caster.z !== target.z) return;
+    const fv =
+      target.facing === "n" ? { x: 0, y: -1 } :
+      target.facing === "s" ? { x: 0, y: 1 } :
+      target.facing === "e" ? { x: 1, y: 0 } : { x: -1, y: 0 };
+    const bx = target.pos.x - fv.x;
+    const by = target.pos.y - fv.y;
+    if (!this.canEnter(caster, bx, by)) return; // bloqueado/ocupado → sem teleporte
+    this.moveTo(caster, bx, by);
+    caster.facing = this.facingToward(caster.pos, target.pos);
   }
 
   /** Resolve os casts bufferizados no tick atual (após status, antes da IA). */
@@ -1007,8 +1028,12 @@ export class Simulation {
       if (caster.casting) continue;
       const prog = this.progressions.get(req.casterId);
       if (!prog) continue;
+      // P7 (skillSwap): se há Mutação resolvida p/ esta skill, o cast resolve com
+      // a def MUTADA (cai na base se a def mutada não existir — seguro).
+      const swapped = this.tracking.resolvedMutationSkill(req.casterId, req.skillId);
+      const effectiveSkillId = swapped && SKILLS[swapped] ? swapped : req.skillId;
       // Zona segura: skill OFENSIVA não sai de dentro (cura pode — padrão PZ).
-      const def = SKILLS[req.skillId];
+      const def = SKILLS[effectiveSkillId];
       if (def && def.targeting !== "healTarget" && this.world.isSafeZone(caster.pos.x, caster.pos.y, caster.z)) {
         continue;
       }
@@ -1017,7 +1042,7 @@ export class Simulation {
       const target = rawTarget && rawTarget.z === caster.z ? rawTarget : null;
       const skillCtx = this.buildSkillCtx(ctx, caster, prog);
       // Decide instantâneo (runa) vs. cast-time (arma `casting`, resolve depois).
-      beginOrCastSkill(skillCtx, caster, req.skillId, target, req.aim);
+      beginOrCastSkill(skillCtx, caster, effectiveSkillId, target, req.aim);
     }
   }
 
@@ -1138,7 +1163,7 @@ export class Simulation {
       if (e.dead || !e.intent || now < e.nextMoveAt) continue;
       // Enraizado (root): não dá passo enquanto o status estiver ativo (a
       // intenção fica retida; volta a andar quando o root expira).
-      if (isRooted(e)) continue;
+      if (isRooted(e) || isStunned(e)) continue;
       if (e.intent.kind === "dir") this.stepInDirection(e, e.intent.dir, now);
       else this.stepAlongPath(e, now);
     }
@@ -1198,6 +1223,7 @@ export class Simulation {
   /** Auto-attack: com alvo vivo no ALCANCE da arma, ataca a cada cooldown. */
   private updatePlayerAttack(ctx: CombatCtx, player: SimEntity, now: number): void {
     if (player.dead || player.targetId == null) return;
+    if (isStunned(player)) return; // atordoado não ataca
     // Zona segura é zona SEM combate: não se ataca de dentro dela (a IA já é
     // cega para quem está dentro — atacar de lá seria abuso de mão única).
     if (this.world.isSafeZone(player.pos.x, player.pos.y, player.z)) return;

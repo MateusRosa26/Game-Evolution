@@ -118,6 +118,10 @@ const STATUS_COLOR: Record<StatusEffectState["kind"], number> = {
   poison: 0x7ad15a,
   slow: 0x6fc8e8,
   root: 0x8a6d3b, // enraizamento (terra): marrom-raiz
+  stun: 0xf2d24b, // atordoamento: amarelo-elétrico (estrelinhas)
+  armorShred: 0xb5651d, // armadura rachada: laranja-ferrugem
+  regenHoT: 0x7ae0a0, // cura-por-tick: verde-vida suave
+  shield: 0x9db4e8, // escudo: azul-claro (barreira)
   wellFed: 0xe8b54a, // "Bem Alimentado": dourado quente de saciedade
   meal: 0xd2773a, // "Saciado" (buff de prato preparado): âmbar/assado, mais quente
 };

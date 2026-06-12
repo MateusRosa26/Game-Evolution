@@ -91,6 +91,18 @@ Isto já é prática do projeto: *Passo das Sombras* e *Leque de Facas* foram **
 
 Passa no puro-Koster: não é um Heal inflado, é uma ferramenta com regra própria (posicionamento do grupo). Nome ✏️ Loremaster.
 
+**Corolário C — a REGRA DE 3 PARTES para Mutações (decidido jun/2026).** "Verbo vs número" é fuzzy na prática (até mutações de caster escorregam pra "base + bônus"). O teste operacional: **uma Mutação é válida se tiver PELO MENOS UMA das três** —
+
+1. **Condicional** — o ganho só vale às vezes (vs família, HP baixo, cercado, alvo já-em-status…). Não é always-on.
+2. **Tradeoff** — abre mão de algo da base (alcance, single-target, pierce, burst→DoT).
+3. **Decisão nova** — muda COMO se joga (posição, combo de setup, escolha de alvo).
+
+**Veta SÓ:** "+X% sempre, sem condição, sem tradeoff, sem decisão nova" (flat incondicional = treadmill + escolha falsa + zero identidade/nome). **Consequência libertadora:** dano CONDICIONAL é verbo — um melee pode "bater mais forte" como *ignora-armadura* (brilha vs blindado), *executar* (alvo em HP baixo), *Vulnerável* (janela de combo) sem cair no treadmill. Vale igual p/ caster e melee. **Por que não aceitar o número flat:** por-feature ele é mais fácil de balancear, mas no sistema ele infla (rescala o jogo inteiro), é sempre-pego (sem gameplay) e não vira nome (mata o Pilar 5). Auditoria de todas as mutações contra esta regra: `docs/reports/2026-06-11-audit-mutacoes-regra-3-partes.md`.
+
+- **Régua de magnitude (criador, jun/2026):** bônus condicional **pequeno** ancora em **~7-10%** (armor-pen, +cura, +dano de abertura). Vulnerável/debuffs de setup são **self-only** por padrão (evita virar imposto de party). Números finos = ✏️ Balancista.
+
+**Corolário D — a Mutação respeita o TIER da skill base (decidido jun/2026).** Skill de **entrada** muta **modesto**; **mecânica high-level** (CC forte, zonas de chão, links entre alvos, deslocamento forçado) fica **reservada às skills de tier alto**. Gastar um verbo caro numa skill básica (a) **desperdiça o verbo** e (b) **incha o pool** de uma skill que devia ser simples — e há skills de tier alto esperando justamente esses verbos (ex.: o leque de gelo *Blizzard/Wall/Frost Lance* — o CC/zona pesado mora nas de cima, não na lança de entrada). **Corolário operacional:** pools inchados (>3 mutações possíveis numa skill básica) são sinal de revisão; alvo **2-3 por skill**.
+
 ---
 
 ## 4. O espinho de progressão — 5 bandas (estrutura decidida; níveis ✏️ Balancista)

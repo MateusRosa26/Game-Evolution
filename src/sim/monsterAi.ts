@@ -1,4 +1,5 @@
 import { applyDamage, chebyshev, type CombatCtx } from "./combat";
+import { isStunned } from "./skills/status";
 import type { SimEntity } from "./entity";
 import { tryStartMove } from "./moves";
 import { findPath } from "./pathfinding";
@@ -58,6 +59,9 @@ export function updateChaser(
   isBlocked: (x: number, y: number) => boolean,
 ): void {
   if (monster.dead) return;
+  // Atordoado: não persegue NEM ataca (o movimento já é barrado na Simulation;
+  // aqui barramos o ataque). Volta a agir quando o stun expira.
+  if (isStunned(monster)) { monster.intent = null; return; }
 
   // ── Aquisição/perda de alvo ──
   let target = monster.targetId != null ? players.find((p) => p.id === monster.targetId) : undefined;

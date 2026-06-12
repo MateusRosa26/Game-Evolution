@@ -57,7 +57,11 @@ export type SkillStatusApply =
   | { kind: "bleed"; damagePerTick: number; durationMs: number; intervalMs: number } // DoT físico
   | { kind: "poison"; damagePerTick: number; durationMs: number; intervalMs: number }
   | { kind: "slow"; stepMsMultiplier: number; durationMs: number }
-  | { kind: "root"; durationMs: number };
+  | { kind: "root"; durationMs: number }
+  | { kind: "stun"; durationMs: number }
+  | { kind: "armorShred"; durationMs: number; damageTakenMult: number }
+  | { kind: "regenHoT"; healPerTick: number; durationMs: number; intervalMs: number }
+  | { kind: "shield"; shieldHp: number; durationMs: number };
 
 /** Definição declarativa de uma skill. */
 export interface SkillDef {
@@ -100,4 +104,10 @@ export interface SkillDef {
   chainFalloff?: number;
   /** Fração do dano causado devolvida como cura ao caster (morte = lifedrain). ✏️ aplicada por task futura. */
   lifedrainPct?: number;
+  /**
+   * `dash` (Passo Sombrio): antes de resolver, TELEPORTA o caster pro tile ATRÁS
+   * do alvo (oposto ao facing dele) — garante o ângulo de backstab. Cai no golpe
+   * normal se o tile estiver bloqueado/ocupado. Resolução = `ctx.tryDashBehind`.
+   */
+  dashBehindTarget?: boolean;
 }

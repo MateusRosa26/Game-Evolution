@@ -134,7 +134,7 @@ export interface StatusEffectState {
    * lentidão / enraizamento (root — não anda) / "Bem Alimentado" (regen da comida) /
    * "Saciado" (buff de stat de prato preparado).
    */
-  kind: "burn" | "bleed" | "poison" | "slow" | "root" | "wellFed" | "meal";
+  kind: "burn" | "bleed" | "poison" | "slow" | "root" | "stun" | "armorShred" | "regenHoT" | "shield" | "wellFed" | "meal";
   /** ms restantes até expirar. */
   remainingMs: number;
 }

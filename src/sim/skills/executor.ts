@@ -10,7 +10,7 @@ import {
   GOLPE_FORTE,
   LUZ_SAGRADA,
 } from "./numbers";
-import { applyDot, applySlow, applyRoot, hasStatus } from "./status";
+import { applyDot, applySlow, applyRoot, applyStun, applyArmorShred, applyHoT, applyShield, hasStatus } from "./status";
 
 /**
  * Executores GENÉRICOS por tipo de targeting (DESIGN-EVOLUCAO.md §"Magias e
@@ -39,6 +39,8 @@ export interface SkillCastCtx extends CombatCtx {
   enemiesInWorld: SimEntity[];
   /** RNG seedado [0,1) da sim — variância do dano FÍSICO (AD swingy). Mágico não usa. */
   roll: () => number;
+  /** `dash` (Passo Sombrio): teleporta o caster pro tile atrás do alvo (colisão na Simulation). */
+  tryDashBehind?: (caster: SimEntity, target: SimEntity) => void;
 }
 
 /** Resultado de um cast: alvos atingidos + perfil capturado ANTES de aplicar status. */
@@ -137,6 +139,18 @@ function applySkillStatus(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, t
       break;
     case "root":
       applyRoot(target, ctx.tick, { durationMs: st.durationMs });
+      break;
+    case "stun":
+      applyStun(target, ctx.tick, { durationMs: st.durationMs });
+      break;
+    case "armorShred":
+      applyArmorShred(target, ctx.tick, { durationMs: st.durationMs, damageTakenMult: st.damageTakenMult });
+      break;
+    case "regenHoT":
+      applyHoT(target, ctx.tick, caster, def.id, { healPerTick: st.healPerTick, durationMs: st.durationMs, intervalMs: st.intervalMs });
+      break;
+    case "shield":
+      applyShield(target, ctx.tick, { shieldHp: st.shieldHp, durationMs: st.durationMs });
       break;
   }
 }
@@ -422,6 +436,9 @@ function facingTo(from: Vec2, to: Vec2): Facing {
  * (isso é da Simulation, antes de chamar). Retorna os alvos atingidos.
  */
 export function executeSkill(ctx: SkillCastCtx, def: SkillDef, caster: SimEntity, target: SimEntity | null, aim?: Vec2): CastResult {
+  // `dash` (Passo Sombrio): reposiciona o caster ATRÁS do alvo antes de resolver
+  // (garante o backstab; no-op se bloqueado). Colisão/ocupação são da Simulation.
+  if (def.dashBehindTarget && target) ctx.tryDashBehind?.(caster, target);
   switch (def.targeting) {
     case "meleeTarget":
     case "meleePositional":
