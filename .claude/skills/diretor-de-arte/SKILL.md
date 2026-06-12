@@ -48,19 +48,31 @@ Você é o diretor de arte do projeto. Função tripla: **gerar** (PixelLab API 
 
 **Chave:** `~/.pixellab_key` (Bearer; fora do repo). **Base:** `https://api.pixellab.ai/v2/`. Docs LLM: `GET /v2/llms.txt`.
 
-### 💰 ORÇAMENTO — regras DURAS (incidente jun/2026: ~90 gerações queimadas num único mob)
+### 🚫 PROIBIDO: `/generate-with-style-v2` (o GRID de 16) — decisão DURA do criador (jun/2026)
+
+**NUNCA usar `/generate-with-style-v2`.** O criador proibiu explícita e repetidamente. Dois motivos:
+1. **Custo absurdo:** cospe um GRID de ~16 variações por chamada = **~20 gerações FIXAS** mesmo a 64px. Matar o poll NÃO cancela o custo.
+2. **Qualidade ruim pro char:** cada frame da grade nasce em resolução interna baixa → **o char não sai com os pixels/detalhe necessários** (sai "lavado"). O criador rejeitou o resultado.
+
+**Em vez do grid, gerar SEMPRE de 1 em 1 (uma imagem por chamada):**
+- `POST /create-image-pixflux` — text→pixel-art (1 imagem, ~1 geração). Workhorse. `init_image` (+ `init_image_strength` ~45-55) ancora num sprite de ref e preserva o look chunky; `style_image` NÃO existe aqui.
+- `POST /create-image-bitforge` — aceita `style_image` (transferência de estilo), mas **deu RUÍDO** nas tentativas jun/2026 (style_image transparente/pequeno colapsa) — usar com cautela, sondar.
+- Para N opções, faça **N chamadas single-image** com seeds diferentes. 4 opções = 4 chamadas = ~4 gerações (vs 20 do grid). É MAIS BARATO e dá MAIS pixels.
+
+### 💰 ORÇAMENTO — regras DURAS (incidente jun/2026: ~90 gerações queimadas num único mob; +20 no grid proibido)
 
 1. **Chamada-sonda obrigatória**: antes de QUALQUER lote, faça `GET /balance`, **1 única chamada** do endpoint pretendido, `GET /balance` de novo. O delta é o custo real por chamada — NUNCA assuma.
-2. **O custo escala INVERSO ao tamanho**: `/generate-with-style-v2` cobra por frame da grade interna (~512²/tamanho²): 40px → ~128 frames/chamada (~85 gerações!), 48px → ~32, 64px → ~16. **Prefira 64px** e reduza depois se preciso.
+2. **Single-image (pixflux/bitforge) = ~1 geração/chamada.** Gerar de 1 em 1; 4 opções = 4 chamadas. (O grid de 16 está PROIBIDO — ver acima.)
 3. **Teto por alvo: ~20 gerações** sem aprovação explícita do criador. Extrapolou na sonda? PARE e pergunte com o número na mão ("este lote custaria X de Y restantes — vai?").
-4. **1 chamada por alvo** — a grade já traz dezenas de variações; segunda chamada só se a primeira leva INTEIRA reprovar na régua.
+4. **1 imagem por chamada** — varie o seed pra ter opções; cada opção é uma chamada separada.
 5. Curadoria, contact sheets, filtros, integração = grátis. Na dúvida, processe o que já existe em vez de gerar mais.
 
 ### 📏 NORMA DE DENSIDADE — 1 pixel do sprite = 1 pixel do mundo (decidido jun/2026)
 
 **Exibição SEMPRE 1:1; escala fracionária (`scale.set(0.66)` etc.) é PROIBIDA** — mistura tamanhos de pixel na mesma cena (*mixels*). Escala só inteira (2× boss temporário) e raríssima.
 
-- **Canvas padrão de criatura: 64×64** (e o /rotate só aceita 16/32/64/128). A **figura** dentro do canvas é desenhada no tamanho natural da criatura — tamanho relativo vem do DESENHO, não de escala de render (modelo Tibia). Sprites menores herdados (40/48) são padded a 64 sem resample.
+- **⚠️ REMASTER 128px (branch ativa jun/2026):** o mundo virou 128px/tile, então **CHARS nascem em canvas 128×128** (não 64). Para gerar o CORPO BASE de um char no remaster, a fonte da verdade é **`PIPELINE-CHAR-128.md`** (nesta mesma pasta) — proporção naturalista esguia (~3,5 cabeças, NÃO chibi), figura ~92px com margem de pé/cabeça, single-image só. Os 64×64 abaixo valem pro mundo 32px legado e pra calibrar proporções RELATIVAS entre criaturas.
+- **Canvas padrão de criatura (mundo 32px legado): 64×64** (e o /rotate só aceita 16/32/64/128). A **figura** dentro do canvas é desenhada no tamanho natural da criatura — tamanho relativo vem do DESENHO, não de escala de render (modelo Tibia). Sprites menores herdados (40/48) são padded a 64 sem resample.
 - **Guia de proporções** (pesquisa Tibia/Apogea, aprovado jun/2026; "escala mob × player MUITO bem pensada" é exigência do criador): **char = ~48px de figura (1.5 tile, estilo Apogea) = 1.0**. Critter 0.5–0.6 · voador pequeno 0.7–0.8 · humanoide pequeno 0.9–1.0 · besta média 0.9–1.1 · elite/named 1.2–1.5 · boss 2.0+ (multi-tile 96–128). Toda criatura nova declara a categoria ANTES de gerar; mock de escala 1:1 com os vivos aprovados antes de integrar.
 - Objetos altos: árvores 64×96 (futuro 128 se o cenário "crescer"). Tiles 32×32.
 - Exceção transitória ÚNICA: knight 64@0.66 até a regen 1:1 (task da fase outfit).
@@ -72,6 +84,8 @@ Você é o diretor de arte do projeto. Função tripla: **gerar** (PixelLab API 
 - `design/pixellab-candidatos/` (STAGING, gitignored): `mobs/<nome>/` (com `gen/` para saída bruta da API) · `chars/` · `style-kit/` (refs de geração: knight1, rato-v2, árvore) · `tiles/`. **Limpar candidatos reprovados após cada curadoria** — só o aprovado fica.
 
 ### 🧍 METODOLOGIA DE PERSONAGEM (travada jun/2026 — após a semana de retrabalho do knight)
+
+> **🔴 REMASTER 128px: o CORPO BASE do char (estático canônico) segue `PIPELINE-CHAR-128.md` (canvas 128, proporção naturalista ~3,5 cabeças NÃO chibi, figura ~92px com margem de pé, single-image só, init greyscale, greyscale pro dye, mãos vazias). Quem gera char no remaster é o agente `gerador-de-char` — delegar a ele em vez de re-derivar à mão.** O resto desta seção (rotações, animação, paper-doll) continua valendo a partir do estático aprovado.
 
 **Lições pagas caro:** animação custom por texto re-inventa por direção (lança ao contrário, brilhos) — NUNCA usar; trocar de método a cada defeito multiplica bugs — re-rolar o MESMO método; construir em cima de base não-auditada contamina tudo (o walk antigo tinha 1.171 cores de ruído); "gerar personagem" não é tarefa recorrente.
 
@@ -90,18 +104,18 @@ Você é o diretor de arte do projeto. Função tripla: **gerar** (PixelLab API 
 
 ### O mecanismo de coerência (a regra mais importante)
 
-1. **Style kit canônico**: TODA geração usa `/generate-with-style-v2` com 1–4 `style_images` dos assets JÁ APROVADOS da mesma categoria (mob novo → rato + knight; objeto → árvore + tile aprovado). O universo se auto-referencia — é assim que asset de hoje e asset de daqui 6 meses parecem do mesmo jogo.
+1. **Style kit canônico**: para coerência, ancore a geração num asset JÁ APROVADO da mesma categoria via `init_image` do `/create-image-pixflux` (1 imagem/chamada — NUNCA o grid proibido). O `init_image` (strength ~45-55) começa da estrutura do sprite de ref e preserva o look chunky enquanto o prompt muda pose/equipamento. O universo se auto-referencia — é assim que asset de hoje e asset de daqui 6 meses parecem do mesmo jogo.
 2. **Vocabulário compartilhado** em todo prompt: `"dark medieval fantasy, black outline, cold desaturated tones, warm light accents, readable silhouette, low top-down"`.
 3. **Params padrão-ouro** (calibrados na árvore): `detail: "highly detailed"`, `shading: "detailed shading"`, `view: "low top-down"`.
 4. **Tamanhos**: ver a NORMA DE DENSIDADE acima — canvas 64 padrão, figura no tamanho natural, render 1:1 ancorado no pé · árvores 64×96 · edifícios/objetos grandes via `/map-objects` 128 · tiles 32×32.
-5. **Narrativa no prompt**: humilde pro mundo comum ("common, worn, modest"; negative: "heroic, epic, ornate"). Bestas: "on all fours, quadruped, seen from above" + negative "bipedal, anthropomorphic, hero pose". Humanoides hostis: mesma proporção chibi dos chars.
+5. **Narrativa no prompt**: humilde pro mundo comum ("common, worn, modest"; negative: "heroic, epic, ornate"). Bestas: "on all fours, quadruped, seen from above" + negative "bipedal, anthropomorphic, hero pose". Humanoides hostis: mesma proporção dos chars — **NATURALISTA esguia (~3,5 cabeças), NUNCA "chibi"** (a palavra "chibi" no prompt = cabeçudo reprovado; usar "realistic slender proportions, small head ~1/3 body, NOT chibi"). Ver `PIPELINE-CHAR-128.md`.
 6. `color_image`/`force_colors` aplica paleta LITERALMENTE (knight saiu verde-musgo) — só para variações intencionais, nunca para coerência geral.
 
 ### Endpoints por categoria
 
 | Categoria | Endpoint | Nota |
 |---|---|---|
-| Candidato estático (qualquer coisa) | `POST /generate-with-style-v2` | style_images = aprovados; barato; é o que vai pra curadoria |
+| Candidato estático (qualquer coisa) | `POST /create-image-pixflux` (1 img/chamada; `init_image` p/ ancorar no estilo de um aprovado) — **NUNCA `/generate-with-style-v2` (grid 16 = PROIBIDO)** | N opções = N chamadas com seeds diferentes; 1 geração cada; é o que vai pra curadoria |
 | Char/mob aprovado → direções | `POST /create-character-v3` (1 gen = 8 rotações; ref SUL obrigatória — `/rotate` antes se preciso, só 16/32/64/128px) | `template_id`: mannequin / dog / cat / bear / horse / lion; async → poll `/background-jobs/{id}`; export `/characters/{id}/zip` |
 | Animação (walk/attack/idle) | `POST /characters/animations` — template (~2 gens/direção) ou v3 custom via `action_description` (~1-2/dir) | só do APROVADO; gerar S,N,E (W = flip). ⚠️ v3 RÓTULA direções errado às vezes — classificar as 8 rotações NO OLHO e remapear; walk de quadrúpede = `walk-4-frames`, mannequin = `walking-4-frames`; mannequin NÃO tem ataque com arma → v3 custom ("thrusting spear attack"); identificar animação no zip via `GET /characters/{id}` (animation_type + group_id[:8] = sufixo da pasta `animating-*`) |
 | Objetos de mapa (baú, carrinho, poço…) | `POST /map-objects` | `background_image` = screenshot do mapa p/ style matching in-loco |
@@ -111,7 +125,7 @@ Você é o diretor de arte do projeto. Função tripla: **gerar** (PixelLab API 
 
 ### Fluxo completo (nenhum passo é pulável)
 
-1. **Gerar candidatos — UMA chamada por alvo.** `/generate-with-style-v2` devolve a grade INTEIRA de variações por chamada (32 imgs em 48px, 128 em 40px — quanto menor, mais frames, mais créditos). 1 seed basta; segunda chamada só se a primeira leva inteira reprovar na régua. → `design/pixellab-candidatos/<categoria>/`.
+1. **Gerar candidatos — DE 1 EM 1 (single-image).** `/create-image-pixflux` (ou `/create-image-bitforge`), **uma imagem por chamada, ~1 geração cada**. Quer 4 opções? 4 chamadas com seeds diferentes (~4 gerações). NUNCA o grid `/generate-with-style-v2` (PROIBIDO — 20 gerações + char lavado). → `design/pixellab-candidatos/<categoria>/`.
 2. **Auto-curadoria** pela régua (silhueta → valor → … → coerência): corte o que reprova ANTES de mostrar.
 3. **Curadoria do criador** — decisão visceral é dele; apresente lado a lado com o trio canônico.
 4. **Aprovado** → PNG pra `src/client/assets/img/` (gitignore tem exceção p/ PNG em src) + registry em `pixellab.ts` + fallback procedural mantido em `sprites.ts` (`PIXELLAB.x.length ? PIXELLAB.x : procedural`).
