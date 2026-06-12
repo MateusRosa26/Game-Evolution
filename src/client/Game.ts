@@ -447,6 +447,11 @@ export class Game {
 
     this.camera.setMapSize(map.width, map.height);
     this.camera.snapTo((map.spawn.x + 0.5) * TILE_SIZE, (map.spawn.y + 0.5) * TILE_SIZE);
+    // Prime síncrono dos chunks ao redor do spawn (sem teto) → primeiro frame já
+    // tem o chão pronto, sem flash de breu. Depois o streaming roda no frame loop.
+    this.worldRenderer.updateStreaming(
+      this.camera.x, this.camera.y, this.app.screen.width, this.app.screen.height, Infinity,
+    );
 
     if (!this.started) {
       this.started = true;
@@ -489,6 +494,11 @@ export class Game {
     this.lighting?.setAmbient(ambient);
     this.minimap.setMap(fmap); // minimapa segue o andar ativo (névoa por z)
     this.renderZ = z;
+    // Prime os chunks do andar novo ao redor da câmera (sem teto) → sem flash de
+    // breu na descida/subida. O cache de andar guarda os chunks já streamados.
+    cached.world.updateStreaming(
+      this.camera.x, this.camera.y, this.app.screen.width, this.app.screen.height, Infinity,
+    );
   }
 
   private onSnapshot(snap: Snapshot): void {
@@ -551,7 +561,14 @@ export class Game {
         Math.max(Math.abs(t.x - this.lastPlayerTile.x), Math.abs(t.y - this.lastPlayerTile.y)) > 1
       ) {
         const p = this.entityRenderer?.playerWorldPos();
-        if (p) this.camera.snapTo(p.x, p.y);
+        if (p) {
+          this.camera.snapTo(p.x, p.y);
+          // Teleporte cobre distância grande de uma vez → prime sem teto no destino
+          // pra não aparecer breu enquanto o orçamento por frame alcança a câmera.
+          this.worldRenderer?.updateStreaming(
+            this.camera.x, this.camera.y, this.app.screen.width, this.app.screen.height, Infinity,
+          );
+        }
       }
       this.lastPlayerTile = { x: t.x, y: t.y };
     }
@@ -636,6 +653,9 @@ export class Game {
       this.camera.follow(p.x, p.y, deltaMS, screenW, screenH);
       this.lighting?.setPlayerLightPos(p.x, p.y);
     }
+    // STREAMING de chunks de chão: constrói os visíveis (+margem), recicla os
+    // distantes. Orçamento por frame (default) evita hitch ao cruzar fronteira.
+    this.worldRenderer?.updateStreaming(this.camera.x, this.camera.y, screenW, screenH);
     this.camera.apply(this.worldContainer, screenW, screenH);
 
     // telhados: somem quando o player entra no edifício (tile autoritativo)

@@ -1,6 +1,6 @@
 import { Container, Graphics, RenderTexture, Sprite, type Renderer, type Texture } from "pixi.js";
 import { hash2D } from "../../sim/rng";
-import { TILE_SIZE } from "../../shared/constants";
+import { CAMERA_ZOOM, TILE_SIZE } from "../../shared/constants";
 import { TileId, type MapData, type MapRect } from "../../shared/types";
 import { makeRoof, ROOF_OVERHANG, type SpriteLibrary } from "../assets/sprites";
 
@@ -8,6 +8,14 @@ const WATER_FRAME_MS = 380;
 const TORCH_FRAME_MS = 140;
 /** Chunks de chão pré-renderizados (16×16 tiles → 1 sprite). */
 const CHUNK_TILES = 16;
+/**
+ * STREAMING (remaster 128px): a 128px/tile cada chunk é uma RenderTexture de
+ * 2048² = 16 MiB. Pré-renderizar os 484 chunks da Alvorada = ~7,7 GB de VRAM →
+ * thrashing. Construímos só os chunks que a câmera vê + uma margem, reciclando
+ * os distantes conforme o player anda. VRAM ~constante (~12 chunks ≈ 190 MiB).
+ */
+const STREAM_MARGIN = 1; // anéis de chunk pré-carregados além do visível
+const STREAM_BUILD_BUDGET = 2; // teto de chunks novos por frame (evita hitch na fronteira)
 
 /**
  * Nível de terreno por tile (dual-grid Wang). Maior = "mais por cima" (vaza no
@@ -29,6 +37,14 @@ function terrainLevel(tile: TileId): number {
 export class WorldRenderer {
   readonly ground = new Container();
   /**
+   * Chunks de chão (RenderTexture) — streaming. Sub-camada de `ground`, ABAIXO
+   * da água: chunks entram/saem ao longo do tempo, então a água precisa de um
+   * container próprio adicionado depois pra render por cima independe da ordem.
+   */
+  private readonly groundChunks = new Container();
+  /** Água animada + sombras de borda — acima dos chunks, dentro de `ground`. */
+  private readonly groundWater = new Container();
+  /**
    * Sombras de contato dos objetos estáticos. Camada PLANA entre o chão e os
    * objetos: toda sombra pinga no chão (e vaza pros tiles vizinhos) por baixo de
    * tudo. É a alavanca #1 de profundidade — objeto sem sombra "flutua".
@@ -47,13 +63,28 @@ export class WorldRenderer {
   private waterFrame = 0;
   private torchFrame = 0;
 
+  // Streaming de chunks: guardamos mapa/renderer para construir sob demanda.
+  private readonly map: MapData;
+  private readonly renderer: Renderer;
+  private readonly chunksX: number;
+  private readonly chunksY: number;
+  /** Chunks construídos e vivos, por chave `cy * chunksX + cx`. */
+  private readonly liveChunks = new Map<number, { sp: Sprite; rt: RenderTexture }>();
+
   constructor(
     private sprites: SpriteLibrary,
     map: MapData,
     renderer: Renderer,
   ) {
+    this.map = map;
+    this.renderer = renderer;
+    this.chunksX = Math.ceil(map.width / CHUNK_TILES);
+    this.chunksY = Math.ceil(map.height / CHUNK_TILES);
     this.objects.sortableChildren = true;
-    this.buildGround(map, renderer);
+    // ordem dentro de `ground`: chunks (streamados) embaixo, água por cima.
+    this.ground.addChild(this.groundChunks);
+    this.ground.addChild(this.groundWater);
+    this.buildWater(map); // água é barata (sprites de textura compartilhada) → eager
     this.buildObjects(map);
     this.buildRoofs(map);
     this.buildPortalMarkers(map);
@@ -146,121 +177,179 @@ export class WorldRenderer {
   }
 
   /**
+   * Constrói UM chunk de chão e devolve o sprite (RenderTexture) posicionado, ou
+   * `null` se o chunk for 100% Void (andar subsolo fora do footprint → sem RT).
+   *
    * DUAL-GRID Wang (jun/2026): o chão base sai por tile único; a TERRA entra
    * como camada deslocada meio-tile — cada display-tile lê os 4 cantos (células
    * lógicas NW/NE/SW/SE) e escolhe a Wang tile cujo código de cantos bate. O
    * full-lower (0000) é pulado (transparente) p/ a grama base aparecer.
    */
-  private buildGround(map: MapData, renderer: Renderer): void {
-    const chunksX = Math.ceil(map.width / CHUNK_TILES);
-    const chunksY = Math.ceil(map.height / CHUNK_TILES);
+  private buildChunk(cx: number, cy: number): Sprite | null {
+    const map = this.map;
+    const tilesW = Math.min(CHUNK_TILES, map.width - cx * CHUNK_TILES);
+    const tilesH = Math.min(CHUNK_TILES, map.height - cy * CHUNK_TILES);
+    const scratch = new Container();
 
-    for (let cy = 0; cy < chunksY; cy++) {
-      for (let cx = 0; cx < chunksX; cx++) {
-        const tilesW = Math.min(CHUNK_TILES, map.width - cx * CHUNK_TILES);
-        const tilesH = Math.min(CHUNK_TILES, map.height - cy * CHUNK_TILES);
-        const scratch = new Container();
-
-        // 1. BASE: tile único por célula (grama/stone/água/etc.)
-        for (let ty = 0; ty < tilesH; ty++) {
-          for (let tx = 0; tx < tilesW; tx++) {
-            const x = cx * CHUNK_TILES + tx;
-            const y = cy * CHUNK_TILES + ty;
-            const tex = this.groundTexture(map, x, y);
-            if (!tex) continue; // Void: não desenha nada (breu do fundo)
-            const sp = new Sprite(tex);
-            sp.position.set(tx * TILE_SIZE, ty * TILE_SIZE);
-            scratch.addChild(sp);
-          }
-        }
-
-        // 2. CAMADA TERRA (dual-grid procedural): terra (nível 1) transborda na
-        // grama. Display-tile no canto sup-esq lê os 4 cantos; código numérico.
-        // === 1 (terra exata): pedra (nível 2) NÃO conta aqui (entra no passo 2b).
-        const dirtT = this.sprites.dirtTransition;
-        for (let ty = 0; ty <= tilesH; ty++) {
-          for (let tx = 0; tx <= tilesW; tx++) {
-            const x = cx * CHUNK_TILES + tx;
-            const y = cy * CHUNK_TILES + ty;
-            const nw = this.terrainAt(map, x - 1, y - 1) === 1 ? 1 : 0;
-            const ne = this.terrainAt(map, x, y - 1) === 1 ? 2 : 0;
-            const sw = this.terrainAt(map, x - 1, y) === 1 ? 4 : 0;
-            const se = this.terrainAt(map, x, y) === 1 ? 8 : 0;
-            const code = nw | ne | sw | se;
-            if (code === 0 || code === 15) continue; // grama pura ou terra pura: base aparece
-            const sp = new Sprite(dirtT[code]);
-            sp.position.set(tx * TILE_SIZE - TILE_SIZE / 2, ty * TILE_SIZE - TILE_SIZE / 2);
-            scratch.addChild(sp);
-          }
-        }
-
-        // 2b. CAMADA PEDRA (dual-grid procedural): StoneFloor (nível 2) transborda
-        // sobre grama/terra. Mesmo offset meio-tile; código de cantos numérico.
-        const stoneWang = this.sprites.stoneTransition;
-        for (let ty = 0; ty <= tilesH; ty++) {
-          for (let tx = 0; tx <= tilesW; tx++) {
-            const x = cx * CHUNK_TILES + tx;
-            const y = cy * CHUNK_TILES + ty;
-            const nw = this.terrainAt(map, x - 1, y - 1) >= 2 ? 1 : 0;
-            const ne = this.terrainAt(map, x, y - 1) >= 2 ? 2 : 0;
-            const sw = this.terrainAt(map, x - 1, y) >= 2 ? 4 : 0;
-            const se = this.terrainAt(map, x, y) >= 2 ? 8 : 0;
-            const code = nw | ne | sw | se;
-            if (code === 0 || code === 15) continue; // sem borda (puro grama/terra ou pura pedra)
-            const sp = new Sprite(stoneWang[code]);
-            sp.position.set(tx * TILE_SIZE - TILE_SIZE / 2, ty * TILE_SIZE - TILE_SIZE / 2);
-            scratch.addChild(sp);
-          }
-        }
-
-        // 3. SCATTER (alavanca #2): decais espalhados e baked → o chão nunca
-        // fica pelado. Determinístico por tile (mesmo seed → mesma cena).
-        const scatter = this.sprites.scatter;
-        for (let ty = 0; ty < tilesH; ty++) {
-          for (let tx = 0; tx < tilesW; tx++) {
-            const x = cx * CHUNK_TILES + tx;
-            const y = cy * CHUNK_TILES + ty;
-            const tile = map.tiles[y * map.width + x];
-            const set =
-              tile === TileId.Grass ? scatter.grass :
-              tile === TileId.Dirt ? scatter.dirt :
-              tile === TileId.StoneFloor ? scatter.stone :
-              tile === TileId.SewerFloor ? scatter.sewer :
-              tile === TileId.CaveFloor ? scatter.cave : null;
-            if (!set) continue;
-            const density =
-              tile === TileId.Grass ? 0.62 :
-              tile === TileId.Dirt ? 0.42 :
-              tile === TileId.SewerFloor ? 0.34 :
-              tile === TileId.CaveFloor ? 0.28 : 0.3;
-            if (hash2D(x, y, 31) >= density) continue;
-            const count = hash2D(x, y, 32) < 0.22 ? 2 : 1;
-            for (let k = 0; k < count; k++) {
-              const dec = set[Math.floor(hash2D(x, y, 40 + k) * set.length)];
-              const ox = Math.floor(hash2D(x, y, 50 + k) * Math.max(1, TILE_SIZE - dec.width));
-              const oy = Math.floor(hash2D(x, y, 60 + k) * Math.max(1, TILE_SIZE - dec.height));
-              const sp = new Sprite(dec);
-              sp.position.set(tx * TILE_SIZE + ox, ty * TILE_SIZE + oy);
-              scratch.addChild(sp);
-            }
-          }
-        }
-
-        // chunk 100% Void (andar subsolo fora do footprint) → não gasta RT
-        if (scratch.children.length === 0) { scratch.destroy(); continue; }
-
-        const rt = RenderTexture.create({ width: tilesW * TILE_SIZE, height: tilesH * TILE_SIZE });
-        renderer.render({ container: scratch, target: rt, clear: true });
-        scratch.destroy({ children: true });
-
-        const chunk = new Sprite(rt);
-        chunk.position.set(cx * CHUNK_TILES * TILE_SIZE, cy * CHUNK_TILES * TILE_SIZE);
-        this.ground.addChild(chunk);
+    // 1. BASE: tile único por célula (grama/stone/água/etc.)
+    for (let ty = 0; ty < tilesH; ty++) {
+      for (let tx = 0; tx < tilesW; tx++) {
+        const x = cx * CHUNK_TILES + tx;
+        const y = cy * CHUNK_TILES + ty;
+        const tex = this.groundTexture(map, x, y);
+        if (!tex) continue; // Void: não desenha nada (breu do fundo)
+        const sp = new Sprite(tex);
+        sp.position.set(tx * TILE_SIZE, ty * TILE_SIZE);
+        scratch.addChild(sp);
       }
     }
 
-    // água animada: sprites individuais por cima do chão estático. Overworld +
-    // esgoto raso/fundo — cada tile puxa seu próprio frame-set.
+    // 2. CAMADA TERRA (dual-grid procedural): terra (nível 1) transborda na
+    // grama. Display-tile no canto sup-esq lê os 4 cantos; código numérico.
+    // === 1 (terra exata): pedra (nível 2) NÃO conta aqui (entra no passo 2b).
+    const dirtT = this.sprites.dirtTransition;
+    for (let ty = 0; ty <= tilesH; ty++) {
+      for (let tx = 0; tx <= tilesW; tx++) {
+        const x = cx * CHUNK_TILES + tx;
+        const y = cy * CHUNK_TILES + ty;
+        const nw = this.terrainAt(map, x - 1, y - 1) === 1 ? 1 : 0;
+        const ne = this.terrainAt(map, x, y - 1) === 1 ? 2 : 0;
+        const sw = this.terrainAt(map, x - 1, y) === 1 ? 4 : 0;
+        const se = this.terrainAt(map, x, y) === 1 ? 8 : 0;
+        const code = nw | ne | sw | se;
+        if (code === 0 || code === 15) continue; // grama pura ou terra pura: base aparece
+        const sp = new Sprite(dirtT[code]);
+        sp.position.set(tx * TILE_SIZE - TILE_SIZE / 2, ty * TILE_SIZE - TILE_SIZE / 2);
+        scratch.addChild(sp);
+      }
+    }
+
+    // 2b. CAMADA PEDRA (dual-grid procedural): StoneFloor (nível 2) transborda
+    // sobre grama/terra. Mesmo offset meio-tile; código de cantos numérico.
+    const stoneWang = this.sprites.stoneTransition;
+    for (let ty = 0; ty <= tilesH; ty++) {
+      for (let tx = 0; tx <= tilesW; tx++) {
+        const x = cx * CHUNK_TILES + tx;
+        const y = cy * CHUNK_TILES + ty;
+        const nw = this.terrainAt(map, x - 1, y - 1) >= 2 ? 1 : 0;
+        const ne = this.terrainAt(map, x, y - 1) >= 2 ? 2 : 0;
+        const sw = this.terrainAt(map, x - 1, y) >= 2 ? 4 : 0;
+        const se = this.terrainAt(map, x, y) >= 2 ? 8 : 0;
+        const code = nw | ne | sw | se;
+        if (code === 0 || code === 15) continue; // sem borda (puro grama/terra ou pura pedra)
+        const sp = new Sprite(stoneWang[code]);
+        sp.position.set(tx * TILE_SIZE - TILE_SIZE / 2, ty * TILE_SIZE - TILE_SIZE / 2);
+        scratch.addChild(sp);
+      }
+    }
+
+    // 3. SCATTER (alavanca #2): decais espalhados e baked → o chão nunca
+    // fica pelado. Determinístico por tile (mesmo seed → mesma cena).
+    const scatter = this.sprites.scatter;
+    for (let ty = 0; ty < tilesH; ty++) {
+      for (let tx = 0; tx < tilesW; tx++) {
+        const x = cx * CHUNK_TILES + tx;
+        const y = cy * CHUNK_TILES + ty;
+        const tile = map.tiles[y * map.width + x];
+        const set =
+          tile === TileId.Grass ? scatter.grass :
+          tile === TileId.Dirt ? scatter.dirt :
+          tile === TileId.StoneFloor ? scatter.stone :
+          tile === TileId.SewerFloor ? scatter.sewer :
+          tile === TileId.CaveFloor ? scatter.cave : null;
+        if (!set) continue;
+        const density =
+          tile === TileId.Grass ? 0.62 :
+          tile === TileId.Dirt ? 0.42 :
+          tile === TileId.SewerFloor ? 0.34 :
+          tile === TileId.CaveFloor ? 0.28 : 0.3;
+        if (hash2D(x, y, 31) >= density) continue;
+        const count = hash2D(x, y, 32) < 0.22 ? 2 : 1;
+        for (let k = 0; k < count; k++) {
+          const dec = set[Math.floor(hash2D(x, y, 40 + k) * set.length)];
+          const ox = Math.floor(hash2D(x, y, 50 + k) * Math.max(1, TILE_SIZE - dec.width));
+          const oy = Math.floor(hash2D(x, y, 60 + k) * Math.max(1, TILE_SIZE - dec.height));
+          const sp = new Sprite(dec);
+          sp.position.set(tx * TILE_SIZE + ox, ty * TILE_SIZE + oy);
+          scratch.addChild(sp);
+        }
+      }
+    }
+
+    // chunk 100% Void (andar subsolo fora do footprint) → não gasta RT
+    if (scratch.children.length === 0) { scratch.destroy(); return null; }
+
+    const rt = RenderTexture.create({ width: tilesW * TILE_SIZE, height: tilesH * TILE_SIZE });
+    this.renderer.render({ container: scratch, target: rt, clear: true });
+    scratch.destroy({ children: true });
+
+    const chunk = new Sprite(rt);
+    chunk.position.set(cx * CHUNK_TILES * TILE_SIZE, cy * CHUNK_TILES * TILE_SIZE);
+    return chunk;
+  }
+
+  /**
+   * STREAMING: garante que só os chunks dentro do retângulo visível da câmera
+   * (+ STREAM_MARGIN) estejam construídos, reciclando (destruindo a RT) os que
+   * saíram de vista. `centerX/Y` é o centro da câmera em pixels de mundo.
+   * `maxBuilds` limita construções por chamada (Infinity no prime de load/teleporte/
+   * troca de andar; STREAM_BUILD_BUDGET no frame normal pra não engasgar na fronteira).
+   */
+  updateStreaming(centerX: number, centerY: number, screenW: number, screenH: number, maxBuilds = STREAM_BUILD_BUDGET): void {
+    const chunkPx = CHUNK_TILES * TILE_SIZE;
+    const halfW = screenW / 2 / CAMERA_ZOOM;
+    const halfH = screenH / 2 / CAMERA_ZOOM;
+    const clamp = (v: number, hi: number) => Math.max(0, Math.min(hi, v));
+    const minCX = clamp(Math.floor((centerX - halfW) / chunkPx) - STREAM_MARGIN, this.chunksX - 1);
+    const maxCX = clamp(Math.floor((centerX + halfW) / chunkPx) + STREAM_MARGIN, this.chunksX - 1);
+    const minCY = clamp(Math.floor((centerY - halfH) / chunkPx) - STREAM_MARGIN, this.chunksY - 1);
+    const maxCY = clamp(Math.floor((centerY + halfH) / chunkPx) + STREAM_MARGIN, this.chunksY - 1);
+
+    // 1. descarrega chunks fora da janela (libera a VRAM da RT)
+    for (const [key, { sp, rt }] of this.liveChunks) {
+      const cx = key % this.chunksX;
+      const cy = (key - cx) / this.chunksX;
+      if (cx < minCX || cx > maxCX || cy < minCY || cy > maxCY) {
+        this.groundChunks.removeChild(sp);
+        sp.destroy();
+        rt.destroy(true); // libera a textura na GPU
+        this.liveChunks.delete(key);
+      }
+    }
+
+    // 2. constrói os que faltam, priorizando os mais perto do centro (até o teto)
+    const ccx = centerX / chunkPx, ccy = centerY / chunkPx;
+    const missing: { cx: number; cy: number; d: number }[] = [];
+    for (let cy = minCY; cy <= maxCY; cy++) {
+      for (let cx = minCX; cx <= maxCX; cx++) {
+        if (this.liveChunks.has(cy * this.chunksX + cx)) continue;
+        const dx = cx + 0.5 - ccx, dy = cy + 0.5 - ccy;
+        missing.push({ cx, cy, d: dx * dx + dy * dy });
+      }
+    }
+    missing.sort((a, b) => a.d - b.d);
+    for (let i = 0; i < missing.length && i < maxBuilds; i++) {
+      const { cx, cy } = missing[i];
+      const key = cy * this.chunksX + cx;
+      const sp = this.buildChunk(cx, cy);
+      // Mesmo Void (sp === null) marcamos como "vivo" (RT vazia) pra não reavaliar
+      // todo frame; usamos um sprite vazio leve como sentinela.
+      if (sp) {
+        this.groundChunks.addChild(sp);
+        this.liveChunks.set(key, { sp, rt: sp.texture as RenderTexture });
+      } else {
+        const empty = new Sprite();
+        this.liveChunks.set(key, { sp: empty, rt: RenderTexture.create({ width: 1, height: 1 }) });
+      }
+    }
+  }
+
+  /**
+   * Água animada: sprites individuais por cima do chão estático (não dá pra bakear
+   * num chunk porque o frame troca por tick). Overworld + esgoto raso/fundo; barata
+   * (textura compartilhada) → construída eager pro mapa todo, fora do streaming.
+   */
+  private buildWater(map: MapData): void {
     const isWater = (tx: number, ty: number): boolean => {
       if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) return false;
       const tt = map.tiles[ty * map.width + tx];
@@ -277,7 +366,7 @@ export class WorldRenderer {
         if (!frames) continue;
         const w = new Sprite(frames[0]);
         w.position.set(x * E, y * E);
-        this.ground.addChild(w);
+        this.groundWater.addChild(w);
         this.waterSprites.push({ sp: w, frames });
         // PROFUNDIDADE: onde a água encosta no chão ela é um REBAIXO — sombra interna
         // nas bordas (o lábio do chão projeta sombra na lâmina), mais forte no topo
@@ -290,7 +379,7 @@ export class WorldRenderer {
           if (rt) g.rect(E - 3, 0, 3, E).fill({ color: 0, alpha: 0.3 });
           if (bt) g.rect(0, E - 3, E, 3).fill({ color: 0, alpha: 0.3 });
           g.position.set(x * E, y * E);
-          this.ground.addChild(g);
+          this.groundWater.addChild(g);
         }
       }
     }
@@ -337,6 +426,15 @@ export class WorldRenderer {
         if (!tex) continue;
         const obj = new Sprite(tex);
         obj.anchor.set(0.5, 1);
+        // remaster 128: upscale inteiro temporário até regen nativa do PixelLab.
+        // Árvore PixelLab é 64px de largura (meio tile); escala inteira (=2) a leva
+        // a 128 largura. Os procedurais (makeTree/rocks/muros) já nascem em TILE_SIZE
+        // (largura ≥ TILE_SIZE → fator 1, intocados). Ancorada na base (0.5,1).
+        if (tile === TileId.Tree) {
+          const nw = tex.width || TILE_SIZE;
+          const up = Math.max(1, Math.round(TILE_SIZE / nw));
+          if (up !== 1) obj.scale.set(up);
+        }
         obj.position.set(cx, baseY);
         obj.zIndex = obj.position.y;
         this.objects.addChild(obj);

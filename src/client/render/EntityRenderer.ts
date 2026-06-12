@@ -5,9 +5,14 @@ import { DEFAULT_OUTFIT_BY_CLASS, OUTFIT_PART_BY_ID } from "../../shared/outfits
 import type { DamageType, Facing } from "../../shared/types";
 import { outfitTextures } from "../assets/outfit/compose";
 import { paperdollAttackTextures } from "../assets/outfit/paperdoll";
-import { FLYING_SPECIES, PIXELLAB, PIXELLAB_CHAR_SCALE } from "../assets/pixellab";
-import type { SpriteLibrary } from "../assets/sprites";
+import { FLYING_SPECIES, PIXELLAB } from "../assets/pixellab";
+import { makeProcKnight128, type SpriteLibrary } from "../assets/sprites";
 import { skillMeta } from "../ui/skillMeta";
+
+// TESTE remaster 128px: liga o char PROCEDURAL nativo (128×192) no player, no
+// lugar do knight PixelLab 64px. Trocar p/ false volta ao PixelLab.
+const PROC_CHAR_TEST = false; // teste concluído: PixelLab vence na qualidade; dye fica via paperdoll inpaint
+let PROC_KNIGHT_CACHE: Record<Facing, Texture[]> | null = null;
 
 /** Ciclo de caminhada: passo-esq, neutro, passo-dir, neutro. */
 const WALK_CYCLE = [1, 0, 2, 0];
@@ -280,6 +285,10 @@ export class EntityRenderer {
 
   /** Texturas certas: mob pela espécie; player pelo OUTFIT (compositor+cache). */
   private texturesFor(e: EntityState): Record<Facing, Texture[]> {
+    // TESTE 128: player (não-npc, não-mob) usa o knight procedural nativo.
+    if (PROC_CHAR_TEST && e.kind !== "npc" && !e.species) {
+      return (PROC_KNIGHT_CACHE ??= makeProcKnight128());
+    }
     // PixelLab primeiro (norma 1:1); procedural segue como fallback eterno.
     if (e.species && PIXELLAB.mobs[e.species]) return PIXELLAB.mobs[e.species];
     if (e.species === "rato") return this.sprites.rat;
@@ -540,7 +549,7 @@ export class EntityRenderer {
     });
     t.resolution = 3;
     t.anchor.set(0.5, 1);
-    t.position.set(0, -46);
+    t.position.set(0, -TILE_SIZE - 10);
     t.zIndex = 1e9;
     v.container.addChild(t);
     // dura mais que dano (leitura): 2.4s parado-ish + fade. Pool de speech.
@@ -562,7 +571,7 @@ export class EntityRenderer {
     });
     text.resolution = 4;
     text.anchor.set(0.5, 1);
-    text.position.set(0, -44);
+    text.position.set(0, -TILE_SIZE - 8);
     text.zIndex = 1e9;
     v.container.addChild(text);
     // Reusa o pool de floats: sobe e some sobre o player.
@@ -773,11 +782,12 @@ export class EntityRenderer {
         }
       }
       const cur = this.currentTilePos(v);
-      // Snap a meio-pixel de mundo (= 1px de tela no zoom 2×): mata o shimmer
-      // de subpixel do pixel art (nearest) em movimento, sem serrilhar o tween.
+      // Snap a pixel de mundo inteiro (remaster 64px, zoom 1× → 1px mundo = 1px
+      // tela): mata o shimmer de subpixel do pixel art (nearest) em movimento,
+      // sem serrilhar o tween. (No zoom 2× antigo era meio-pixel × 2.)
       v.container.position.set(
-        Math.round((cur.x + 0.5) * TILE_SIZE * 2) / 2,
-        Math.round((cur.y + 1) * TILE_SIZE * 2) / 2,
+        Math.round((cur.x + 0.5) * TILE_SIZE),
+        Math.round((cur.y + 1) * TILE_SIZE),
       );
       v.container.zIndex = v.container.position.y;
       if (moving) this.applyFrame(v, this.currentFrame(v));
@@ -974,23 +984,30 @@ export class EntityRenderer {
 
     const shadow = new Sprite(this.sprites.shadow);
     shadow.anchor.set(0.5, 0.5);
-    shadow.width = 28;
-    shadow.height = 13;
-    shadow.position.set(1, -2);
+    // Sombra de contato sob os pés — dimensionada pela base do tile (64px),
+    // não por literais de 32px. Elipse a ~85%×20% da largura do tile.
+    shadow.width = TILE_SIZE * 0.875;
+    shadow.height = TILE_SIZE * 0.2;
+    shadow.position.set(1, -4);
     container.addChild(shadow);
 
     const sprite = new Sprite(textures[e.facing][0]);
     sprite.anchor.set(0.5, 1);
     sprite.position.set(0, 0);
-    // Norma de densidade (jun/2026): mobs PixelLab 64px exibidos 1:1.
-    // Exceção transitória: o knight (char) segue a 0.66 até a regen 1:1.
-    if (!e.species && PIXELLAB.knight) sprite.scale.set(PIXELLAB_CHAR_SCALE);
+    // remaster 128: upscale inteiro temporário até regen nativa do PixelLab.
+    // Mobs PixelLab têm altura nativa < TILE_SIZE (64px = meio tile); escala
+    // inteira (=2 p/ 64px) os enche no tile sem shim fracionário. O char paperdoll
+    // já vem 128 (compose.ts) → altura nativa ≥ TILE_SIZE, fator 1 (intocado).
+    const nativeH = textures[e.facing][0]?.height || TILE_SIZE;
+    const upscale = e.species ? Math.max(1, Math.round(TILE_SIZE / nativeH)) : 1;
+    if (upscale !== 1) sprite.scale.set(upscale);
     // Grounding: voadores pairam (offset fixo); terrestres descem pelo padding
-    // transparente medido no load — sem isso o sprite 64px "flutuava" no tile.
+    // transparente medido no load — sem isso o sprite "flutuava" no tile. O baseline
+    // é medido em px NATIVOS, então escala junto com o sprite (position é pré-escala).
     if (e.species) {
       sprite.position.y = FLYING_SPECIES.has(e.species)
-        ? -6
-        : PIXELLAB.mobBaseline[e.species] ?? 0;
+        ? -6 * upscale
+        : (PIXELLAB.mobBaseline[e.species] ?? 0) * upscale;
     }
     container.addChild(sprite);
 
@@ -1016,23 +1033,25 @@ export class EntityRenderer {
     });
     nameText.resolution = 4;
     nameText.anchor.set(0.5, 1);
-    nameText.position.set(0, -38);
+    // Offsets de UI acima da cabeça: derivam da altura do tile (64px) — a figura
+    // ocupa ~1 tile, então nome/HP ficam logo acima de TILE_SIZE para não cobri-la.
+    nameText.position.set(0, -TILE_SIZE - 2);
     container.addChild(nameText);
 
     const hpBar = new Graphics();
-    hpBar.position.set(-14, -37);
+    hpBar.position.set(-14, -TILE_SIZE - 1);
     container.addChild(hpBar);
 
     // ícones de status: à direita da HP bar (HP bar vai de x=-14 a x=14)
     const statusIcons = new Graphics();
-    statusIcons.position.set(16, -37);
+    statusIcons.position.set(16, -TILE_SIZE - 1);
     container.addChild(statusIcons);
 
     // Telegraph: anel de alerta "carregando" acima da cabeça (mob em windup de
     // mecânica). Pulsa no tick; visível só enquanto há `telegraph` no snapshot.
     const telegraph = new Graphics();
     telegraph.circle(0, 0, 5).stroke({ color: 0xffcc33, width: 2 });
-    telegraph.position.set(0, -46);
+    telegraph.position.set(0, -TILE_SIZE - 10);
     telegraph.visible = false;
     container.addChild(telegraph);
 

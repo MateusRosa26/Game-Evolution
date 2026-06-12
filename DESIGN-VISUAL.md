@@ -5,21 +5,23 @@
 ## Pilares
 
 1. **"Charmoso sem ser bobo"** — o charme vem de luz, atmosfera e feedback, não de resolução de sprite (já em `DESIGN.md`).
-2. **Mundo pixel, UI limpa** — o mundo é pixel art 32px; a UI é moderna, escura e discreta **por cima**, nunca competindo com o jogo. Contraste proposital (estilo Apogea/Hades).
+2. **Mundo pixel, UI limpa** — o mundo é pixel art **128px/tile** (remaster jun/2026, era 32px — ver `docs/reports/2026-06-11-remaster-128px.md`); a UI é moderna, escura e discreta **por cima**, nunca competindo com o jogo. Contraste proposital (estilo Apogea/Hades).
 3. **Clean e intuitivo** — toda informação a no máximo 1 tecla de distância; nada de UI ocupando tela à toa.
 4. **Barato de produzir** — assets do mundo via **PixelLab + curadoria** (decidido jun/2026; style-references amarram a coerência), com procedural (canvas/Graphics) como fallback permanente; UI segue 100% procedural com tokens centrais. Bonito por consistência, não por ornamento.
 
 ## Mundo (pixel art) — regras já estabelecidas
 
-- Tiles **32px**; criaturas em canvas **64×64 exibido 1:1** (norma de densidade, jun/2026): 1 px do sprite = 1 px do mundo, escala fracionária proibida (*mixels*). O tamanho relativo vem da **figura desenhada dentro do canvas** (modelo Tibia). Exceção transitória: knight 64@0.66 até regen 1:1. Origem: **PixelLab + curadoria** (jun/2026), fallback procedural em `sprites.ts`; zoom 2x da câmera.
-- **Guia de proporções** (decidido jun/2026 após pesquisa Tibia/Apogea — Tibia: char = 1 tile, grandes 2, gigantes 3; Apogea: char transborda ~1.3–1.5 tile, nosso estilo): **char = ~48px de figura (1.5 tile) = 1.0**. Critter 0.5–0.6 (rato 26) · voador pequeno 0.7–0.8 (morcego 36) · humanoide pequeno 0.9–1.0 (goblin 48) · besta média 0.9–1.1 (lobo 46, javali 50) · elite/named 1.2–1.5 · boss 2.0+ (multi-tile 96–128) ✏️. Toda criatura nova declara a categoria ANTES de gerar.
+- Tiles **128px** (remaster jun/2026, era 32 — `docs/reports/2026-06-11-remaster-128px.md`); criaturas em canvas **128×128 exibido 1:1** (norma de densidade): 1 px do sprite = 1 px do mundo, escala fracionária proibida (*mixels*). O tamanho relativo vem da **figura desenhada dentro do canvas** (modelo Tibia). Origem: **PixelLab + curadoria** (jun/2026), fallback procedural em `sprites.ts`; **`CAMERA_ZOOM = 1`** (era 2 — a densidade subiu, a câmera não amplia).
+- **Guia de proporções** (Tibia/Apogea; **ATUALIZADA pro remaster 128**): ⚠️ **teto do PixelLab = 128px** (`/rotate` aceita só 16/32/64/128) → uma criatura cabe em **no máx. 1 tile**. **char = ~1 tile (≤128px) = 1.0** (modelo Tibia clássico; antes era 1.5 tile @32). Critter 0.5–0.6 · voador pequeno 0.7–0.8 · humanoide pequeno 0.9–1.0 · besta média 0.9–1.1 · **elite/named/boss >1 tile = composição multi-tile** (`/map-objects` lado a lado), não cabe num canvas só ✏️. Razão figura/tile é a régua, não o px absoluto. Toda criatura nova declara a categoria ANTES de gerar.
 - **Animações por criatura** (decidido jun/2026, flavor Apogea): walk 4f + **attack** (template do esqueleto ou v3 custom) nas 4 direções (W = flip de E). Ataque tocado pelo client no evento `damage` (~380ms). Skills de mob ✏️ por criatura.
 
 ## Identidade visual do personagem (decidido jun/2026 — modelo paper-doll)
 
 - **Contexto**: o jogador começa **classless** e se transforma numa classe (momento épico = troca de sprite inteiro). Cada classe tem visual próprio gerado (knight1 = guerreiro; trio mage/priest/rogue aprovado em candidatos; classless ✏️ a gerar).
 - **Tint por máscara no sprite inteiro: DESLIGADO e descartado** — o sprite de IA não tem zonas separáveis (1.172 cores, limites mudam por frame) → vazava e piscava. Não reativar.
-- **Individualidade = paper-doll de PEÇAS geradas** (motor validado jun/2026): peça de equipamento = camada separada extraída por `/inpaint` (zona fixa por corpo; corpo congelado fora da zona; peça = conteúdo da zona no resultado, frame a frame — alinhamento herdado). Client empilha corpo → pernas → torso → elmo → arma. **Tintura por peça** (LUT de luminância na camada isolada) é limpa por construção — vira sistema de dye/corante (economia!).
+- **Individualidade = paper-doll de PEÇAS geradas** (motor validado jun/2026): peça de equipamento = camada separada extraída por `/inpaint` (zona fixa por corpo; corpo congelado fora da zona; peça = conteúdo da zona no resultado, frame a frame — alinhamento herdado). Client empilha corpo → pernas → torso → elmo. **Tintura por peça** = sistema de dye/corante (economia!).
+- **MÉTODO DE DYE — validado jun/2026 (estilo Tibia/Apogea), ver `docs/reports/2026-06-11-dye-greyscale-pipeline.md`:** a cor **modula a luz que já existe**, NÃO substitui por ramp. Regra: por PEÇA · **preserva o contorno preto** (luminância < ~40 não é tingida) · **preserva a luminância original** (sombreado intacto) · troca só o MATIZ · saturação moderada (pico no meio). ⚠️ o `shadeLutFromColor` atual (`outfit/sentinels.ts`) é o método ANTIGO (substitui a luz → extremo, perde outline) — trocar pelo validado. Tentar tingir o personagem INTEIRO de uma cor = o erro que ficava horrível (colapsa materiais).
+- **PIPELINE DE GERAÇÃO do char (regra da regen 128):** **corpo-base** (pele/rosto/olhos em cor REAL, **nunca tingidos**, mãos vazias em **pose de grip**) + **peças de armadura/pano em GREYSCALE** (faixa tonal cheia = melhor base p/ tint; via prompt greyscale ou dessaturar pós-geração) tingidas em **RUNTIME** (cor-default por classe, **não bakear** variações) + **arma/escudo = overlay de EQUIPAMENTO por slot** (gerar o corpo SEM arma/escudo; entram por cima, agnóstico de item).
 - **Custo**: `/inpaint` não debita gerações do plano — guarda-roupa cresce de graça (curadoria é o único custo). 30–50 peças × grade de cores = milhares de combinações.
 - Zonas reutilizáveis por corpo em `design/pixellab-candidatos/chars/zones/`; peças staging em `chars/pieces/`. Salpicos de fronteira da zona = polimento manual único por corpo ✏️.
 - **Alpha (curto prazo)** ✏️: guarda-roupa de 3–5 looks gerados por classe + equipamento visível (arma/escudo já funciona) + nome.
@@ -40,7 +42,7 @@
 2. **Luz global única** (topo, leve NO); sombra → azul + perde saturação, luz → amarelo + ganha. Pillow-shading proibido.
 3. **Estrutura lê como vertical**: topo claro + face frontal escura; outline `#10141c` forte; junta de pedra em sombra fria (`wallJoint`).
 4. **Acento quente raro e pontual** (tocha, flor, cogumelo, fogueira) contra o frio dominante — é a identidade.
-5. **Densidade 1:1**: tiles 32×32; objetos 64×64 (altos 64×96); só escala inteira. Contact shadow (`makeShadow`) + âncora no pé em todo scatter (y-sort).
+5. **Densidade 1:1**: tiles 128×128; objetos 128×128 (altos 128×192); só escala inteira. Contact shadow (`makeShadow`) + âncora no pé em todo scatter (y-sort).
 
 **Catálogo (3 camadas, ordem de percepção do olho):**
 

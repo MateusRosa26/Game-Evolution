@@ -1,6 +1,6 @@
 # RPG — Tibia-like em TypeScript + PixiJS
 
-RPG top-down em grid (estilo Tibia/Apogea), pixel art procedural 32px, dark medieval. Ver `DESIGN.md` para decisões de design e roadmap.
+RPG top-down em grid (estilo Tibia/Apogea), pixel art **128px/tile** (remaster jun/2026, era 32px — ver `docs/reports/2026-06-11-remaster-128px.md`), dark medieval. Ver `DESIGN.md` para decisões de design e roadmap.
 
 ## Comandos
 
