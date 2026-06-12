@@ -102,6 +102,8 @@ interface CombatSession {
   lastActivityMs: number;
   damageTaken: number;
   damageDealt: number;
+  /** Dano FÍSICO causado na sessão (p/ Intocado = "só magia"; physical==0). */
+  physicalDamageDealt: number;
   kills: number;
   /** Menor HP% atingido na sessão (comeback). */
   lowestHpPct: number;
@@ -109,6 +111,8 @@ interface CombatSession {
   maxEnemiesFaced: number;
   /** Já causou dano nesta sessão? (fato `firstHitOfCombat` para o crit P4). */
   dealtDamageThisSession: boolean;
+  /** Já TOMOU dano nesta sessão? (fato `firstHitReceivedOfCombat` p/ B5 incomingMult). */
+  tookDamageThisSession: boolean;
 }
 
 /** Janela de inatividade que fecha uma sessão de combate (ms lógicos). */
@@ -248,6 +252,7 @@ export class Simulation {
       registry: this.items,
       attackerLevelOf: (id) => this.progressions.get(id)?.level ?? null,
       equippedWeaponInstanceId: (id) => this.entities.get(id)?.equippedWeaponId ?? null,
+      equippedShieldInstanceId: (id) => this.equippedShieldInstanceIdOf(id),
       isPlayer: (id) => this.playerIds.has(id),
       enemiesNear: (pos, range, excludeId) => this.countHostilesNear(pos, range, excludeId),
       // terrainAt: deferido — exige o z no payload de kill (kill é 2D); ✏️ wave futura.
@@ -281,7 +286,7 @@ export class Simulation {
     let s = this.combatSessions.get(playerId);
     if (!s) {
       const now = this.now();
-      s = { startMs: now, lastActivityMs: now, damageTaken: 0, damageDealt: 0, kills: 0, lowestHpPct: 1, maxEnemiesFaced: 0, dealtDamageThisSession: false };
+      s = { startMs: now, lastActivityMs: now, damageTaken: 0, damageDealt: 0, physicalDamageDealt: 0, kills: 0, lowestHpPct: 1, maxEnemiesFaced: 0, dealtDamageThisSession: false, tookDamageThisSession: false };
       this.combatSessions.set(playerId, s);
     }
     return s;
@@ -303,11 +308,13 @@ export class Simulation {
     if (this.playerIds.has(ev.target.id)) {
       const s = this.sessionFor(ev.target.id);
       s.damageTaken += ev.amount;
+      s.tookDamageThisSession = true; // fecha o "1º hit recebido" para o B5
       this.touchSession(ev.target.id, s);
     }
     if (this.playerIds.has(ev.source.id)) {
       const s = this.sessionFor(ev.source.id);
       s.damageDealt += ev.amount;
+      if (ev.damageType === "physical") s.physicalDamageDealt += ev.amount; // Intocado = só magia
       s.dealtDamageThisSession = true; // fecha o "1º golpe" para o crit P4
       this.touchSession(ev.source.id, s);
     }
@@ -337,6 +344,19 @@ export class Simulation {
 
   // ── Motor de efeitos — closures injetadas no CombatCtx ─────────────────
 
+  /** Instância do ESCUDO equipado (Marca de escudo Inabalável). null = sem escudo. */
+  private equippedShieldInstanceIdOf(entityId: number): number | null {
+    const e = this.entities.get(entityId);
+    if (!e) return null;
+    for (const slot of ["hand1", "hand2"] as EquipSlot[]) {
+      const id = e.equipment[slot];
+      if (id == null) continue;
+      const tpl = getItemTemplate(this.items.get(id)?.templateId ?? "");
+      if (tpl?.slot === "shield") return id;
+    }
+    return null;
+  }
+
   /** Instâncias equipadas de uma entidade (p/ resolver Marcas ativas). */
   private equippedInstanceIdsOf(entityId: number): number[] {
     const e = this.entities.get(entityId);
@@ -356,17 +376,18 @@ export class Simulation {
     return {
       inCombat: !!(e && e.targetId != null),
       firstHitOfCombat: s ? !s.dealtDamageThisSession : true,
+      firstHitReceivedOfCombat: s ? !s.tookDamageThisSession : true,
     };
   }
 
-  /** Dano em área (P2 onKill) sem re-disparar efeitos (suppressEffects=true). */
-  private dealAreaDamage(ctx: CombatCtx, centerId: number, sourceId: number, amount: number, radius: number, damageType: DamageType): void {
-    const center = this.entities.get(centerId);
+  /** Dano nos TILES dados (P2 onKill) sem re-disparar efeitos (suppressEffects=true). */
+  private dealAreaDamage(ctx: CombatCtx, tiles: Vec2[], sourceId: number, amount: number, damageType: DamageType): void {
     const src = this.entities.get(sourceId);
-    if (!center || !src) return;
+    if (!src) return;
+    const tileSet = new Set(tiles.map((t) => `${t.x},${t.y}`));
     for (const m of this.entities.values()) {
-      if (m.id === centerId || m.dead || m.kind !== "monster" || m.z !== center.z) continue;
-      if (chebyshev(m.pos, center.pos) <= radius) applyDamage(ctx, src, m, amount, damageType, null, null, true);
+      if (m.id === sourceId || m.dead || m.kind !== "monster" || m.z !== src.z) continue;
+      if (tileSet.has(`${m.pos.x},${m.pos.y}`)) applyDamage(ctx, src, m, amount, damageType, null, null, true);
     }
   }
 
@@ -377,6 +398,7 @@ export class Simulation {
       durationMs: now - s.startMs,
       damageTaken: s.damageTaken,
       damageDealt: s.damageDealt,
+      physicalDamageDealt: s.physicalDamageDealt,
       kills: s.kills,
       lowestHpPct: s.lowestHpPct,
       maxEnemiesFaced: s.maxEnemiesFaced,
@@ -1014,8 +1036,7 @@ export class Simulation {
       sessionFacts: (id) => this.effectSessionFacts(id),
     };
     // areaDamage referencia `ctx` (já construído) — atribuído após o literal.
-    ctx.areaDamage = (centerId, sourceId, amount, radius, dt) =>
-      this.dealAreaDamage(ctx, centerId, sourceId, amount, radius, dt);
+    ctx.areaDamage = (tiles, sourceId, amount, dt) => this.dealAreaDamage(ctx, tiles, sourceId, amount, dt);
 
     // Aponta o SINK da engine de tracking para o `pending` DESTE tick: hints/
     // unlocks viram SnapshotEvents one-shot, sem JAMAIS carregar progresso

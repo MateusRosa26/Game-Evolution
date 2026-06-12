@@ -232,6 +232,8 @@ export interface CombatEndEvent {
   damageTaken: number;
   /** Dano total causado pelo jogador na sessão. */
   damageDealt: number;
+  /** Dano FÍSICO causado na sessão (Intocado = "só magia": physical==0 com damageDealt>0). */
+  physicalDamageDealt: number;
   /** Kills de criatura na sessão. */
   kills: number;
   /** Menor HP% que o jogador atingiu durante a sessão (comeback). */

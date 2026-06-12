@@ -2,210 +2,223 @@ import type { TrackingDef } from "./types";
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
- *  DUMMY — substituir por conteúdo real ✏️
+ *  CATÁLOGO — Lote 1 (fichas reais) + mutações DUMMY (P7 bloqueado)
  * ════════════════════════════════════════════════════════════════════════════
  *
- * Definições de TESTE da camada emergente. Thresholds BAIXÍSSIMOS (10–15) só
- * para exercitar a engine — o design real pede 10–20 MIL (DESIGN-EVOLUCAO.md
- * §"Pilares"). Os EFEITOS aqui são só descrição + payload livre; a APLICAÇÃO
- * mecânica é wave futura de conteúdo (a engine não interpreta `effect.payload`).
+ * As Marcas/Caminhos do Lote 1 (①②③④⑤⑥⑦) são FICHAS REAIS: gatilho + spec +
+ * flavor finais (catálogo `2026-06-11-catalogo-emergente-lote1-engine.md` §1/§6,
+ * revisão Chat B). NÚMEROS: ①②④ calibrados pelo Chat C (bateria
+ * `2026-06-11-bateria-marcas-lote1-tipo1.md`, aguardam OK do criador); ⑤⑥⑦ e
+ * thresholds de tempo seguem ✏️ Balancista/Chat C.
  *
- * Tudo aqui é DADO declarativo. Adicionar conteúdo = adicionar uma entrada
- * abaixo (ver docs/reports §"Como adicionar conteúdo").
+ * As MUTAÇÕES (Eclosão/Meteoro) seguem DUMMY (sem `spec`): o P7 skillSwap depende
+ * do merge da `feat/skills-engine` + das defs mutadas (fila [Q1]).
  */
 
-/** 1 MARCA — vive no ledger da instância da arma equipada. */
-const MARK_ROEDOR_DE_FERRO: TrackingDef = {
+// ── ① Quebra-Ossos — Marca de ARMA (kill vs mortos-vivos) ──────────────────
+const MARK_QUEBRA_OSSOS: TrackingDef = {
   category: "mark",
-  id: "mark_roedor_de_ferro", // DUMMY — substituir por conteúdo real ✏️
-  name: "Roedor de Ferro",
+  id: "mark_quebra_ossos",
+  name: "Quebra-Ossos",
   event: "kill",
-  // 10 kills de criatura bestial com a MESMA arma equipada (o ledger é da instância).
-  filter: [{ field: "victim.family", op: "==", value: "bestial" }],
-  threshold: 10, // DUMMY (real: ~10–15k) ✏️
+  filter: [{ field: "victim.family", op: "==", value: "undead" }],
+  threshold: 15000, // Chat C (~35h dedicado; auto-gateada no T3) — aguarda OK ✏️
   flavor: {
-    hint: "Sua arma parece sedenta quando feras rondam por perto.",
-    unlock: "A lâmina aprendeu o cheiro das bestas — e não esquece.",
+    hint: "A lâmina fica fria quando há ossadas por perto.",
+    unlock: "As ossadas se lembram do seu nome. Marca: Quebra-Ossos.",
   },
   effect: {
-    description: "+10% dano contra criaturas bestiais (P1 damageMult).",
-    payload: { damageVsFamily: "bestial", bonusPct: 10 },
-    spec: { kind: "damageMult", mult: 1.1, when: [{ field: "target.family", op: "==", value: "bestial" }] },
+    description: "+12% dano contra mortos-vivos (P1 damageMult).",
+    payload: {},
+    spec: { kind: "damageMult", mult: 1.12, when: [{ field: "target.family", op: "==", value: "undead" }] },
   },
 };
 
-/**
- * 2 MUTAÇÕES da Bola de Fogo com PERFIS OPOSTOS — PROVAM que o perfil decide
- * a mutação. Mesmo skillId; contador ABSOLUTO por perfil, o 1º a cruzar a própria
- * meta vence (não há mais share/denominador).
- */
-const MUTATION_ECLOSAO_IGNEA: TrackingDef = {
-  category: "mutation",
-  id: "mut_bola_de_fogo_eclosao", // DUMMY ✏️
-  name: "Eclosão Ígnea",
-  skillId: "bola_de_fogo",
-  event: "skill_use",
-  // Perfil QUEIMA-ROUPA: distância do cast ≤ 2 tiles.
-  filter: [{ field: "castDistance", op: "<=", value: 2 }],
-  threshold: 10, // DUMMY (real: ~10k) — meta PRÓPRIA deste perfil ✏️
-  flavor: {
-    hint: "As chamas latejam mais perto da sua pele.",
-    unlock: "A Bola de Fogo implode em volta de você: Eclosão Ígnea.",
-  },
-  effect: {
-    description: "Explosão centrada no caster que empurra inimigos (wave futura ✏️).",
-    payload: { aoe: "self", knockback: 1 },
-  },
-};
-
-const MUTATION_METEORO_DISTANTE: TrackingDef = {
-  category: "mutation",
-  id: "mut_bola_de_fogo_meteoro", // DUMMY ✏️
-  name: "Meteoro Distante",
-  skillId: "bola_de_fogo",
-  event: "skill_use",
-  // Perfil DISTÂNCIA: distância do cast ≥ 4 tiles.
-  filter: [{ field: "castDistance", op: ">=", value: 4 }],
-  threshold: 10, // DUMMY — meta PRÓPRIA (não precisa casar a outra) ✏️
-  flavor: {
-    hint: "As chamas latejam mais perto da sua pele.", // hint da SKILL é compartilhado
-    unlock: "A Bola de Fogo cai como um meteoro do horizonte: Meteoro Distante.",
-  },
-  effect: {
-    description: "Alcance maior; dano cresce com a distância (wave futura ✏️).",
-    payload: { rangeBonus: 3, damageScalesWithDistance: 1 },
-  },
-};
-
-/** 1 CAMINHO de ESTILO — acúmulo de kills com skills de fogo. */
-const PATH_CHAMA_VIVA: TrackingDef = {
-  category: "path",
-  id: "path_chama_viva", // DUMMY ✏️
-  name: "Chama Viva",
-  flavorKind: "style",
-  event: "kill",
-  // Golpe final por dano de fogo (damageType do finalBlow).
-  filter: [{ field: "damageType", op: "==", value: "fire" }],
-  threshold: 15, // DUMMY (real: dezenas de níveis / milhares) ✏️
-  flavor: {
-    hint: "O fogo responde a você como a um velho conhecido.",
-    unlock: "Você não conjura o fogo — você é o fogo. Caminho: Chama Viva.",
-  },
-  effect: {
-    description: "Bônus a dano de fogo (wave futura ✏️).",
-    payload: { fireDamageBonusPct: 10 },
-  },
-};
-
-/**
- * 1 CAMINHO de CONDUTA — chegar ao level 3 sem NUNCA usar skill. Quebra ao usar
- * QUALQUER skill (skill_use com filtro vazio = qualquer uso). Intacta no level 3
- * → desbloqueia. Quebrada = perdida para sempre naquele personagem.
- */
-const PATH_PUNHO_BRUTO: TrackingDef = {
-  category: "path",
-  id: "path_punho_bruto", // DUMMY ✏️
-  name: "Punho Bruto",
-  flavorKind: "conduct",
-  event: "level_up", // o milestone é por level
-  filter: [], // não usado para condutas (a aquisição é por milestone)
-  threshold: 0, // condutas não usam threshold de acúmulo (usam milestoneLevel)
-  breakEvent: "skill_use",
-  breakFilter: [], // QUALQUER skill_use quebra a conduta
-  milestoneLevel: 3, // DUMMY (real: ~lvl 25) ✏️
-  flavor: {
-    hint: "Há força em recusar a magia fácil.",
-    unlock: "Suas mãos bastam. Caminho: Punho Bruto.",
-  },
-  effect: {
-    description: "Dano desarmado real escala com nível (wave futura ✏️).",
-    payload: { unarmedScaling: 1 },
-  },
-};
-
-/** NATURALISTA — Caminho de DISTINCT: matou N FAMÍLIAS distintas (amplitude). */
-const PATH_NATURALISTA: TrackingDef = {
-  category: "path",
-  id: "path_naturalista", // DUMMY ✏️
-  name: "O Naturalista",
-  flavorKind: "style",
-  event: "kill",
-  filter: [], // qualquer kill válido conta a sua família
-  accumulator: { kind: "distinct", field: "victim.family" }, // cardinalidade do conjunto
-  threshold: 3, // DUMMY (real: nº de famílias do bestiário) ✏️
-  flavor: {
-    hint: "Você começa a reconhecer o jeito de cada besta morrer.",
-    unlock: "Nenhuma criatura te é estranha. Caminho: O Naturalista.",
-  },
-  effect: {
-    description: "Bônus contra famílias recém-encontradas (wave futura ✏️).",
-    payload: { adaptiveBonus: 1 },
-  },
-};
-
-/** EXAGERO — Marca de overkill: golpes que matam com dano MUITO sobrando. */
-const MARK_EXAGERO: TrackingDef = {
+// ── ② Última Resposta — Marca de ARMA (golpe final em HP crítico) ──────────
+const MARK_ULTIMA_RESPOSTA: TrackingDef = {
   category: "mark",
-  id: "mark_exagero", // DUMMY ✏️
-  name: "Exagero",
+  id: "mark_ultima_resposta",
+  name: "Última Resposta",
+  event: "kill",
+  // Gatilho BRUTAL: golpe final com o próprio HP < 10%.
+  filter: [{ field: "attackerHpPct", op: "<", value: 0.1 }],
+  threshold: 2000, // Chat C (gatilho raro ~8-11%/kill → 2k ≈ 40-50h; NÃO usar ~10k) ✏️
+  flavor: {
+    hint: "O aço esquenta na sua mão quando o sangue escorre.",
+    unlock: "Encurralado, o aço responde. Marca: Última Resposta.",
+  },
+  effect: {
+    // Efeito numa banda mais LARGA que o gatilho (jogável): +20% com HP < 25%.
+    description: "+15% dano quando o próprio HP está abaixo de 25% (P1 damageMult).",
+    payload: {},
+    // Chat C: 1.20→1.15 (+20% flertava com pilar + incentivava ficar-no-HP-baixo; piso 1.12 = paridade c/ ①).
+    spec: { kind: "damageMult", mult: 1.15, when: [{ field: "attackerHpPct", op: "<", value: 0.25 }] },
+  },
+};
+
+// ── ③ Transbordo — Marca de ARMA (overkill atravessa pros lados) ───────────
+const MARK_TRANSBORDO: TrackingDef = {
+  category: "mark",
+  id: "mark_transbordo",
+  name: "Transbordo",
   event: "kill",
   filter: [{ field: "overkillRatio", op: ">=", value: 3 }], // matou com ≥3× o HP restante
-  threshold: 10, // DUMMY (real: milhares) ✏️
+  threshold: 5000, // ✏️ Balancista (régua de tempo das outras Marcas)
   flavor: {
-    hint: "A arma não conhece a palavra 'suficiente'.",
-    unlock: "Você não mata: você apaga. Marca: Exagero.",
+    hint: "O golpe não parece terminar onde devia.",
+    unlock: "Você não fere um corpo — atravessa-o. Marca: Transbordo.",
   },
   effect: {
-    description: "Metade do dano excedente (overkill) respinga em inimigos adjacentes (P2 onKill).",
-    payload: { overkillSplash: 1 },
-    spec: { kind: "onKill", action: "areaDamage", scaleField: "overkill", scale: 0.5, radius: 1 },
+    description: "Fração do overkill atravessa pros 2 tiles laterais ao golpe (B1; P2 onKill).",
+    payload: {},
+    // shape `lateral` = perpendicular ao golpe; damageType ausente = tipo do golpe fatal.
+    spec: { kind: "onKill", action: "areaDamage", scaleField: "overkill", scale: 0.5, shape: "lateral" },
   },
 };
 
-/**
- * SENHOR DOS EXTREMOS — Caminho de RATIO (resolve o achado D): ≥95% do dano via
- * fogo+gelo, medido pelo fluxo de `damage`, avaliado no milestone de level.
- */
+// ── ④ Inabalável — Marca de ESCUDO (acúmulo de bloqueios) ──────────────────
+const MARK_INABALAVEL: TrackingDef = {
+  category: "mark",
+  id: "mark_inabalavel",
+  name: "Inabalável",
+  event: "block", // atribuída ao ESCUDO equipado (engine.onBlock → equippedShieldInstanceId)
+  filter: [], // qualquer bloqueio conta
+  threshold: 30000, // Chat C (NÃO 50k; re-calibrar por bloqueios/hora × troca de escudo) ✏️
+  flavor: {
+    hint: "Os golpes contra o seu escudo soam cada vez mais surdos.",
+    unlock: "Nada te move. Marca: Inabalável.",
+  },
+  effect: {
+    description: "12% de chance de o bloqueio absorver 100% do golpe (P3 blockFull).",
+    payload: {},
+    spec: { kind: "blockFull", chance: 0.12 },
+  },
+};
+
+// ── ⑤ Sombra Sem Nome — Caminho de ESTILO (vencer sem tomar dano) ──────────
+const PATH_SOMBRA_SEM_NOME: TrackingDef = {
+  category: "path",
+  id: "path_sombra_sem_nome",
+  name: "Sombra Sem Nome",
+  flavorKind: "style",
+  event: "combat_end",
+  // Vitória sem tomar NENHUM dano na sessão.
+  filter: [
+    { field: "damageTaken", op: "==", value: 0 },
+    { field: "endedBy", op: "==", value: "victory" },
+  ],
+  threshold: 500, // ✏️ Balancista/Chat C (densidade de descoberta)
+  flavor: {
+    hint: "O primeiro bote contra você nunca encontra carne.",
+    unlock: "O primeiro golpe é o último que veem. Caminho: Sombra Sem Nome.",
+  },
+  effect: {
+    description: "O 1º golpe RECEBIDO ao entrar em combate sofre redução de dano (B5 incomingMult).",
+    payload: {},
+    spec: { kind: "incomingMult", mult: 0.5 /* ✏️ Balancista */, when: [{ field: "firstHitReceivedOfCombat", op: "==", value: true }] },
+  },
+};
+
+// ── ⑥ Intocado — Caminho de ESTILO (vencer só com magia) ───────────────────
+const PATH_INTOCADO: TrackingDef = {
+  category: "path",
+  id: "path_intocado",
+  name: "Intocado",
+  flavorKind: "style",
+  event: "combat_end",
+  // Vitória causando dano, mas NENHUM físico (mago-puro) — fato derivado no combatEndFacts.
+  filter: [{ field: "magicOnlyVictory", op: "==", value: true }],
+  threshold: 500, // ✏️ Balancista/Chat C
+  flavor: {
+    hint: "Quanto menos suas mãos tocam, mais o poder corre por elas.",
+    unlock: "O corpo não suja as mãos. Caminho: Intocado.",
+  },
+  effect: {
+    description: "O golpe final com MAGIA devolve mana à fonte (B6 restoreMana; 'a magia se alimenta').",
+    payload: {},
+    // ⚠️ Chat C: amount < mana gasta por kill (reembolso parcial, nunca net-positive).
+    spec: { kind: "onKill", action: "restoreMana", amount: 2 /* ✏️ Balancista */, when: [{ field: "damageType", op: "in", value: "fire|ice|arcane|holy" }] },
+  },
+};
+
+// ── ⑦ Senhor dos Extremos — Caminho de RATIO (dual-elemento) ───────────────
 const PATH_SENHOR_DOS_EXTREMOS: TrackingDef = {
   category: "path",
-  id: "path_senhor_dos_extremos", // DUMMY ✏️
+  id: "path_senhor_dos_extremos",
   name: "Senhor dos Extremos",
   flavorKind: "ratio",
   event: "damage",
-  filter: [], // não usado no ratio (numerator/denominator decidem)
+  filter: [],
   numerator: [{ field: "damageType", op: "in", value: "fire|ice" }],
-  denominator: [], // todo dano causado
-  ratioField: "amount", // soma o DANO, não ocorrências
-  minRatio: 0.95, // DUMMY ✏️
-  milestoneLevel: 5, // DUMMY (real: ~20) ✏️
+  // B7: piso POR ELEMENTO — cada um ≥30% do total (impede 94% fogo / 1% gelo). ✏️ Balancista.
+  subNumerators: [
+    { filter: [{ field: "damageType", op: "==", value: "fire" }], minRatio: 0.3 },
+    { filter: [{ field: "damageType", op: "==", value: "ice" }], minRatio: 0.3 },
+  ],
+  denominator: [],
+  ratioField: "amount",
+  minRatio: 0.95, // ✏️ Balancista — fogo+gelo ≥95% do total
+  milestoneLevel: 20, // ✏️ (catálogo: ~20)
   resetScope: "sinceClass",
-  threshold: 0, // ratio não usa threshold de acúmulo
+  threshold: 0,
   flavor: {
-    hint: "O quente e o frio obedecem só a você.",
+    hint: "O quente e o frio começam a se confundir nas suas mãos.",
     unlock: "Fogo e gelo são a mesma língua na sua boca. Caminho: Senhor dos Extremos.",
   },
   effect: {
     description: "Fogo em alvo lento (gelado) ou gelo em alvo queimando → choque térmico (P6).",
-    payload: { thermalShock: 1 },
-    // Dois combos direcionais: gelo aplica `slow`, fogo aplica `burn` (status.ts).
+    payload: {},
     spec: [
-      { kind: "statusCombo", ifTargetStatus: "slow", onDamageType: "fire", burst: 10, consumes: ["slow", "burn"] },
-      { kind: "statusCombo", ifTargetStatus: "burn", onDamageType: "ice", burst: 10, consumes: ["slow", "burn"] },
+      { kind: "statusCombo", ifTargetStatus: "slow", onDamageType: "fire", burst: 10 /* ✏️ */, consumes: ["slow", "burn"] },
+      { kind: "statusCombo", ifTargetStatus: "burn", onDamageType: "ice", burst: 10 /* ✏️ */, consumes: ["slow", "burn"] },
     ],
   },
 };
 
+// ── Mutações da Bola de Fogo — DUMMY (P7 bloqueado: merge skills-engine + defs) ──
+const MUTATION_ECLOSAO_IGNEA: TrackingDef = {
+  category: "mutation",
+  id: "mut_bola_de_fogo_eclosao",
+  name: "Eclosão Ígnea",
+  skillId: "bola_de_fogo",
+  event: "skill_use",
+  filter: [{ field: "castDistance", op: "<=", value: 2 }], // perfil queima-roupa
+  threshold: 10, // DUMMY (real ✏️) — meta PRÓPRIA deste perfil
+  flavor: {
+    hint: "As chamas latejam mais perto da sua pele.",
+    unlock: "A Bola de Fogo implode em volta de você: Eclosão Ígnea.",
+  },
+  effect: { description: "Knockback + burn-chip nos adjacentes (B8; via skillSwap — P7 ✏️).", payload: {} },
+};
+
+const MUTATION_METEORO_DISTANTE: TrackingDef = {
+  category: "mutation",
+  id: "mut_bola_de_fogo_meteoro",
+  name: "Meteoro Distante",
+  skillId: "bola_de_fogo",
+  event: "skill_use",
+  filter: [{ field: "castDistance", op: ">=", value: 4 }], // perfil distância
+  threshold: 10, // DUMMY (real ✏️)
+  flavor: {
+    hint: "O fogo anseia pelo horizonte.",
+    unlock: "A Bola de Fogo cai como um meteoro do horizonte: Meteoro Distante.",
+  },
+  effect: { description: "Dano-por-distância DOIS-LADOS (B3; via skillSwap — P7 ✏️).", payload: {} },
+};
+
 /**
- * Conjunto DUMMY de definições carregado pela engine. Em produção, este array é
- * substituído pelas definições reais do criador (mesmo shape, thresholds reais).
+ * Conjunto carregado pela engine: fichas REAIS do Lote 1 + mutações DUMMY.
+ * (Naturalista CORTADO — fila [B2]; Chama Viva/Punho Bruto removidos com a entrada
+ * das fichas reais. ⑨⑩⑪⑫ entram quando o P7/Monge destravarem.)
  */
 export const DUMMY_TRACKING_DEFS: TrackingDef[] = [
-  MARK_ROEDOR_DE_FERRO,
-  MARK_EXAGERO,
+  MARK_QUEBRA_OSSOS,
+  MARK_ULTIMA_RESPOSTA,
+  MARK_TRANSBORDO,
+  MARK_INABALAVEL,
+  PATH_SOMBRA_SEM_NOME,
+  PATH_INTOCADO,
+  PATH_SENHOR_DOS_EXTREMOS,
   MUTATION_ECLOSAO_IGNEA,
   MUTATION_METEORO_DISTANTE,
-  PATH_CHAMA_VIVA,
-  PATH_PUNHO_BRUTO,
-  PATH_NATURALISTA,
-  PATH_SENHOR_DOS_EXTREMOS,
 ];

@@ -248,9 +248,11 @@ Cada passo é aditivo e testável. Ao fim, **uma ponta-a-ponta provada** (ex: Qu
 - **REPENSAR condição E efeito (DECISÃO CRIADOR jun/2026):**
   - **Efeito velho era REDUNDANTE.** A mana **já regenera em combate hoje** (base — `regenTick` todo tick, `Simulation.ts:1072`). Atualizar DESIGN-EVOLUCAO:348 (lista esse efeito velho).
   - **Proposta "regen turbinado + ratio" REJEITADA pelo criador** — regen = número (anti-Koster); ratio = cópia do ⑦. Descartada.
-  - **NOVA DIREÇÃO (verbo — PENDENTE confirmação do criador):**
-    - **Efeito:** *"a magia se alimenta"* — ao dar o **golpe final com magia**, devolve um tanto de **mana** (loop condicional, não regen passivo). Coerente c/ "o corpo não suja as mãos — a magia se basta". Nova `action:"restoreMana"` no `onKill` → fila [B6] (tipo 2, Chat A).
-    - **Condição:** vencer ~N combates causando **só dano mágico** (físico=0 na sessão, via `combat_end` que já existe) — alcançável e **distinto do ratio do ⑦**.
+  - **DIREÇÃO CONFIRMADA (criador jun/2026 — mago-puro):**
+    - **Efeito:** *"a magia se alimenta"* — golpe final com magia devolve **~1-2 de mana** (loop condicional, não regen passivo). Nova `action:"restoreMana"` no `onKill` → fila [B6] (tipo 2, Chat A).
+    - **Condição:** vencer ~N combates causando **só dano mágico** (via `combat_end`) — distinto do ratio do ⑦ e do "sem dano" do ⑤.
+    - **Mago-puro:** Rogue de arco não qualifica (físico) nem se beneficiaria (arco não gasta mana). Um trait de kiteiro p/ o Rogue seria ficha futura própria (reembolso = flecha/stamina).
+    - **⚠️ Balancista:** mana-on-kill < mana gasta por kill (reembolso parcial, nunca net-positive) — senão fura o freio "caster mana-bound" e o kiting vira eterno. Rodar farm-loop de kite com o trait.
 - **Flavor (par EN/PT):** **Intocado / Untouched.**
   - hint (~50%): *"Quanto menos suas mãos tocam, mais o poder corre por elas."*
   - unlock: *"O corpo não suja as mãos. Caminho: Intocado."*
@@ -329,7 +331,7 @@ Cada passo é aditivo e testável. Ao fim, **uma ponta-a-ponta provada** (ex: Qu
 | ④ Inabalável | 1 | só threshold | P3 ✓ | **Chat C** (calibrar 50k) |
 | ③ Transbordo | 2 | forma respingo (lateral/cruz)+type | ✗ onKill só `radius` | **Chat A** [B1] |
 | ⑤ Sombra Sem Nome | 2 | efeito→mitigar 1º golpe recebido | ✗ só efeitos de saída | **Chat A** [B5] |
-| ⑥ Intocado | 2 | efeito→mana on magic-kill; cond→combat_end mágico | ✗ `onKill restoreMana` nova | **Chat A** [B6] *(direção a confirmar)* |
+| ⑥ Intocado | 2 | efeito→mana on magic-kill (1-2); cond→combat_end mágico | ✗ `onKill restoreMana` nova | **Chat A** [B6] (mago-puro, confirmado) |
 | ⑦ Senhor dos Extremos | 2 | obtenção→mínimo por elemento | ✗ ratio é 1 numerador | **Chat A** [B7] (+burst→C) |
 | ⑨ Eclosão Ígnea | 2 | knockback, sem AoE | ✗ P7+knockback | **Chat A** [Q1]/[B8] |
 | ⑩ Meteoro Distante | 2 | dano-por-distância 2-lados | ✗ P7+escala-distância | **Chat A** [Q1]/[B3] |
@@ -339,7 +341,7 @@ Cada passo é aditivo e testável. Ao fim, **uma ponta-a-ponta provada** (ex: Qu
 
 - **Chat C já liberado** (sem engine): **① ② ④**. (⑥ entra no C **depois** que o A construir o `restoreMana`.)
 - **Chat A** (engine): **③ ⑤ ⑥ ⑦ ⑨ ⑩ ⑪ ⑫**.
-- **Pendência aberta:** confirmar a direção-verbo do ⑥ ("a magia se alimenta" / mana on magic-kill) — se reprovada, ⑥ pode ser ADIADO.
+- **⑥ confirmado** (mago-puro, mana-on-kill 1-2) — sem pendências abertas no Lote 1.
 
 ### Veredito FINAL (jun/2026)
 - **Aprovadas direto:** ② ⑦(+2 regras) ⑩.

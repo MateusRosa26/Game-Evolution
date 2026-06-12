@@ -96,6 +96,8 @@ export interface TrackingDeps {
   attackerLevelOf: (entityId: number) => number | null;
   /** Instância de arma equipada de um personagem (p/ resolver a Marca da arma). */
   equippedWeaponInstanceId: (entityId: number) => number | null;
+  /** Instância do ESCUDO equipado (Marca de escudo, ex: Inabalável). null = sem escudo. */
+  equippedShieldInstanceId?: (entityId: number) => number | null;
   /** True se a entidade é um jogador (só players acumulam Caminhos/Mutações). */
   isPlayer: (entityId: number) => boolean;
   /** Nº de hostis vivos a ≤ `range` tiles de `pos` (excluindo `excludeId`) — fato `enemiesAdjacent`. */
@@ -309,11 +311,14 @@ export class TrackingEngine {
       durationMs: ev.durationMs,
       damageTaken: ev.damageTaken,
       damageDealt: ev.damageDealt,
+      physicalDamageDealt: ev.physicalDamageDealt,
       kills: ev.kills,
       lowestHpPct: ev.lowestHpPct,
       maxEnemiesFaced: ev.maxEnemiesFaced,
       endedBy: ev.endedBy,
       tookNoDamage: ev.damageTaken === 0,
+      // Intocado: causou dano mas NENHUM físico (vitória mágica pura).
+      magicOnlyVictory: ev.physicalDamageDealt === 0 && ev.damageDealt > 0 && ev.endedBy === "victory",
     };
   }
 
@@ -411,9 +416,12 @@ export class TrackingEngine {
   private onBlock(ev: BlockEvent): void {
     if (!this.deps.isPlayer(ev.blocker.id)) return;
     const facts = this.blockFacts(ev);
-    // `block` ainda não traz a instância do escudo no payload (wave de escudo).
-    // Por ora cai no escudo/arma equipada do blocker. ✏️
-    this.advanceMarks(ev.blocker.id, this.deps.equippedWeaponInstanceId(ev.blocker.id), "block", facts);
+    // Marca de bloqueio (Inabalável) vive no ESCUDO equipado; fallback p/ a arma
+    // se a Simulation não fornecer o lookup de escudo.
+    const shieldId = this.deps.equippedShieldInstanceId
+      ? this.deps.equippedShieldInstanceId(ev.blocker.id)
+      : this.deps.equippedWeaponInstanceId(ev.blocker.id);
+    this.advanceMarks(ev.blocker.id, shieldId, "block", facts);
     this.advanceStylePaths(ev.blocker.id, "block", facts);
     this.checkConductBreaks(ev.blocker.id, "block", facts);
   }
@@ -521,8 +529,16 @@ export class TrackingEngine {
       const prog: PathRatioProgress =
         ct.pathsRatio[def.id] ?? (ct.pathsRatio[def.id] = { num: 0, den: 0, hinted: false, unlocked: false });
       if (prog.unlocked) continue;
-      if (matchesFilter(def.denominator ?? [], facts)) prog.den += ratioAddend(def.ratioField, facts);
-      if (def.numerator && matchesFilter(def.numerator, facts)) prog.num += ratioAddend(def.ratioField, facts);
+      const add = ratioAddend(def.ratioField, facts);
+      if (matchesFilter(def.denominator ?? [], facts)) prog.den += add;
+      if (def.numerator && matchesFilter(def.numerator, facts)) prog.num += add;
+      // B7: piso por componente — acumula cada sub-numerador que casar.
+      if (def.subNumerators && def.subNumerators.length > 0) {
+        prog.subNum ??= new Array(def.subNumerators.length).fill(0);
+        for (let i = 0; i < def.subNumerators.length; i++) {
+          if (matchesFilter(def.subNumerators[i].filter, facts)) prog.subNum[i] += add;
+        }
+      }
     }
   }
 
@@ -534,12 +550,17 @@ export class TrackingEngine {
       const prog = ct.pathsRatio[def.id];
       if (!prog || prog.unlocked) continue;
       const ratio = prog.den > 0 ? prog.num / prog.den : 0;
-      // Hint atmosférico ao cruzar ~50% do milestone JÁ no rumo certo (ratio batendo).
-      if (!prog.hinted && level >= Math.ceil(def.milestoneLevel * HINT_FRACTION) && ratio >= def.minRatio) {
+      // B7: cada sub-numerador precisa alcançar seu próprio piso do TOTAL.
+      const subsOk =
+        !def.subNumerators ||
+        def.subNumerators.every((s, i) => prog.den > 0 && (prog.subNum?.[i] ?? 0) / prog.den >= s.minRatio);
+      const meets = ratio >= def.minRatio && subsOk;
+      // Hint atmosférico ao cruzar ~50% do milestone JÁ no rumo certo (gate batendo).
+      if (!prog.hinted && level >= Math.ceil(def.milestoneLevel * HINT_FRACTION) && meets) {
         prog.hinted = true;
         this.sink.hint(playerId, def.flavor.hint);
       }
-      if (level >= def.milestoneLevel && ratio >= def.minRatio) {
+      if (level >= def.milestoneLevel && meets) {
         prog.unlocked = true;
         this.onUnlock(playerId, def);
       }

@@ -46,8 +46,35 @@ export function rollFullBlock(effects: EffectSpec[], rng: () => number): boolean
 /** Uma ação de dano em área a executar no on-kill (P2). */
 export interface OnKillAreaAction {
   amount: number;
-  radius: number;
+  shape: "lateral" | "cross";
   damageType?: string;
+}
+
+/**
+ * Tiles atingidos por uma forma de respingo (B1), dados a vítima e o algoz.
+ * `cross` = 4 ortogonais da vítima. `lateral` = os 2 perpendiculares ao vetor
+ * algoz→vítima (rotação 90° do passo; fallback `cross` se não há direção).
+ */
+export function areaShapeTiles(
+  shape: "lateral" | "cross",
+  victim: { x: number; y: number },
+  attacker: { x: number; y: number },
+): { x: number; y: number }[] {
+  if (shape === "cross") {
+    return [
+      { x: victim.x + 1, y: victim.y },
+      { x: victim.x - 1, y: victim.y },
+      { x: victim.x, y: victim.y + 1 },
+      { x: victim.x, y: victim.y - 1 },
+    ];
+  }
+  const dx = Math.sign(victim.x - attacker.x);
+  const dy = Math.sign(victim.y - attacker.y);
+  if (dx === 0 && dy === 0) return areaShapeTiles("cross", victim, attacker);
+  return [
+    { x: victim.x + dy, y: victim.y - dx },
+    { x: victim.x - dy, y: victim.y + dx },
+  ];
 }
 
 /** Um combo de status disparado (P6). */
@@ -72,6 +99,17 @@ export function matchStatusCombos(effects: EffectSpec[], targetStatusKinds: stri
   return out;
 }
 
+/** B5 (`incomingMult`): multiplicador de dano RECEBIDO (redução), condicional. */
+export function evalIncoming(effects: EffectSpec[], facts: Facts): number {
+  let mult = 1;
+  for (const e of effects) {
+    if (e.kind === "incomingMult") {
+      if (!e.when || matchesFilter(e.when, facts)) mult *= e.mult;
+    }
+  }
+  return mult;
+}
+
 /** P5 (`regen`): multiplicador acumulado de regen de um recurso, condicional. */
 export function evalRegenMult(effects: EffectSpec[], resource: "mana" | "hp", facts: Facts): number {
   let mult = 1;
@@ -83,6 +121,17 @@ export function evalRegenMult(effects: EffectSpec[], resource: "mana" | "hp", fa
   return mult;
 }
 
+/** B6 (`onKill`/`restoreMana`): mana total a devolver à fonte neste kill (ex: kill mágico). */
+export function collectOnKillMana(effects: EffectSpec[], facts: Facts): number {
+  let mana = 0;
+  for (const e of effects) {
+    if (e.kind !== "onKill" || e.action !== "restoreMana") continue;
+    if (e.when && !matchesFilter(e.when, facts)) continue;
+    mana += e.amount;
+  }
+  return mana;
+}
+
 /** P2 (`onKill`): coleta as áreas de dano escaladas por um FATO do kill (ex: overkill). */
 export function collectOnKill(effects: EffectSpec[], facts: Facts): OnKillAreaAction[] {
   const out: OnKillAreaAction[] = [];
@@ -91,7 +140,7 @@ export function collectOnKill(effects: EffectSpec[], facts: Facts): OnKillAreaAc
     if (e.when && !matchesFilter(e.when, facts)) continue;
     const base = facts[e.scaleField];
     const scaled = typeof base === "number" ? base * e.scale : 0;
-    if (scaled >= 1) out.push({ amount: Math.round(scaled), radius: e.radius, damageType: e.damageType });
+    if (scaled >= 1) out.push({ amount: Math.round(scaled), shape: e.shape, damageType: e.damageType });
   }
   return out;
 }

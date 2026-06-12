@@ -48,6 +48,8 @@ export interface PathStyleProgress {
 export interface PathRatioProgress {
   num: number;
   den: number;
+  /** [B7] somatório por sub-numerador (piso por componente; paralelo a `subNumerators`). */
+  subNum?: number[];
   hinted: boolean;
   unlocked: boolean;
 }

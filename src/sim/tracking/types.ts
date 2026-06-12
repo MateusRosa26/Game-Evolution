@@ -12,8 +12,18 @@ import type { DamageType } from "../../shared/types";
 export type EffectSpec =
   /** P1 — multiplica o dano de saída quando `when` casa (×dano vs família, HP baixo…). */
   | { kind: "damageMult"; mult: number; when?: Filter }
-  /** P2 — ao matar: ação escalada por um FATO do kill (ex: overkill respinga em área). */
-  | { kind: "onKill"; action: "areaDamage"; scaleField: string; scale: number; radius: number; damageType?: DamageType; when?: Filter }
+  /** B5 — multiplica o dano RECEBIDO (efeito do ALVO; ex: Sombra Sem Nome mitiga a
+   *  abertura com `when:[firstHitReceivedOfCombat==true]`). 1º efeito de ENTRADA. */
+  | { kind: "incomingMult"; mult: number; when?: Filter }
+  /**
+   * P2 — ao matar: ação escalada por um FATO do kill. `shape` (B1): `cross` = 4
+   * ortogonais (N-S-E-W) da vítima; `lateral` = os 2 tiles perpendiculares ao vetor
+   * algoz→vítima (cleave que atravessa). `damageType` ausente = tipo do golpe fatal.
+   */
+  | { kind: "onKill"; action: "areaDamage"; scaleField: string; scale: number; shape: "lateral" | "cross"; damageType?: DamageType; when?: Filter }
+  /** B6 — ao matar (golpe final), devolve `amount` de mana à fonte. `when` filtra o
+   *  tipo de golpe (ex: só kill MÁGICO — Intocado "a magia se alimenta"). */
+  | { kind: "onKill"; action: "restoreMana"; amount: number; when?: Filter }
   /** P3 — chance de o bloqueio absorver 100% do golpe (Inabalável). */
   | { kind: "blockFull"; chance: number }
   /** P4 — crítico condicional (×mult) quando `when` casa (ex: 1º golpe do combate). */
@@ -183,6 +193,13 @@ export interface PathDef extends BaseDef {
   ratioField?: string;
   /** [ratio] Proporção mínima `num/den` para desbloquear (ex.: 0.95). */
   minRatio?: number;
+  /**
+   * [ratio] PISO POR COMPONENTE (B7): cada sub-numerador precisa ALCANÇAR seu
+   * próprio `minRatio` do total, ALÉM do `minRatio` geral. Ex: Senhor dos Extremos
+   * = `numerator` fogo|gelo ≥0.95 E cada `{fire≥0.3, ice≥0.3}` — impede "94% fogo /
+   * 1% gelo" passar como mestre dos DOIS. Ordem casa com `subNum[]` no estado.
+   */
+  subNumerators?: { filter: Filter; minRatio: number }[];
   /** [ratio] Quando zerar os somatórios. Ausente = nunca (vida toda do personagem). */
   resetScope?: "sinceClass";
 }

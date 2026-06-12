@@ -129,3 +129,54 @@ exatamente o que o Chat A implementa no P7** (após o merge + as defs deste doc)
   `targetWasSlowed`, `hitFromBehind`, `castDistance`, `targetsHit`, `targetSelf`,
   `casterHpPct`, `targetHpPctBefore`, `target.family`) — **zero sensor novo**. ✓
 - Thresholds por perfil = ✏️ Balancista; nomes/flavor = ✏️ Loremaster/Chat B.
+
+---
+
+## 8. Revisão de significado — Chat B (jun/2026)
+
+> Mesmo processo do Lote 1 §6 (designer-de-sistemas + loremaster). Veredito por mutação;
+> mudanças de EFEITO → fila `fila-motor-emergente.md`. **Direção/forma confirmada pelo
+> criador onde marcado.**
+
+### ⚠️ ACHADO MAIOR — divergência do `design/skills/CATALOGO.md`
+O Lote 2 desenhou mutações **diferentes** das rascunhadas no CATALOGO.md (a fonte das skills, parseada pela wiki):
+| Skill | CATALOGO.md (rascunho ✏️) | Lote 2 |
+|---|---|---|
+| Golpe Forte | Golpe Desesperado · Riposte · Lâmina do Fim | **Talho Amplo · Quebra-Guarda** |
+| Lança de Gelo | Estilhaço Profundo · Geada Perfurante · Muralha de Inverno | **Permafrost · Estilhaço** |
+| Apunhalar | Hemorragia · Golpe Súbito · Lâmina Suja | **Hemorragia · Passo Sombrio** |
+| Luz Sagrada | Chama Purificadora · Nova Sagrada · Fervor | **Exorcismo · Raio Solar** |
+| Curar/Heal | Reflexo Vital · Recuperação · Mãos Generosas | **Fôlego · Transfusão** |
+- **DECISÃO CRIADOR (jun/2026): ADICIONAIS.** As mutações do Lote 2 **somam** ao pool de cada skill (uma skill tem 2–4 mutações POSSÍVEIS; o perfil de uso decide qual você pega). → **Ação Chat B: mesclar as mutações do Lote 2 nas listas de mutação de cada skill no `design/skills/CATALOGO.md`** (dedup dos overlaps: *Estilhaço* L2 vs *Estilhaço Profundo* cat; *Exorcismo* L2 vs *Chama Purificadora* cat; *Hemorragia* coincide). A wiki parseia os bullets `- **Nome:**`.
+
+### Golpe Forte
+- **Talho Amplo / Cleave** (cercado→arco) — **APROVADO c/ ajuste (CRIADOR):** forma = **arco de 3 casas À FRENTE** (não todos os adjacentes — não é nova 360°; você mira o golpe). Condicionado à **aprovação do Balancista** (risco de AoE no Knight). Dano dividido. → [B11].
+- **Quebra-Guarda / Sunder** (abertura→?) — **PENDENTE direção (CRIADOR):** criador prefere "+3-5% dano" a quebrar armadura, mas flat % = **número, não verbo** (anti-Koster). Garfo: **(A)** abertura deixa o alvo **Vulnerável** (+dano por Xs = janela de combo, verbo) ou **(B)** flat +3-5% neste golpe (exceção consciente à constituição). Aguarda escolha.
+
+### Lança de Gelo
+- **Permafrost** (já-lento→root) — **APROVADO (CRIADOR):** root com duração **~0.2s** (guia firme pro Balancista — controle minúsculo, não deleta-pack). Nome "Permafrost" é loanword (considerar PT-nativo ✏️).
+- **Estilhaço / Shatter** (2+ na linha→estilhaça) — **APROVADO c/ ajuste (CRIADOR):** a base **já perfura** (`lineThrough`), então Estilhaço **TROCA o pierce** por **estilhaçar em 3 casas (lateral/atrás do 1º contato)** — perde a linha, ganha o cacho (sidegrade limpo). Dano dividido. → [B11]. **Reconciliar nome** com *Estilhaço Profundo* do CATALOGO.
+
+### Apunhalar
+- **Hemorragia** (costas→?) — **PENDENTE garfo de princípio (CRIADOR):** criador quer **+10-12% dano flat no backstab** (não o bleed). Flat % = número/anti-Koster + upgrade puro. **GARFO (vale p/ todo melee, inclui Quebra-Guarda):** (1) verbo com "sabor de dano" (backstab **ignora armadura**/true damage, ou **executa** em HP baixo) — mantém constituição; ou (2) **emenda a regra**: mutações de MELEE podem ser +% pequeno (exceção consciente registrada). Aguarda escolha.
+- **Passo Sombrio — CORTADA (CRIADOR).** Gatilho "cast de longe (≥3)" é **impossível** p/ skill melee (tiles colados); + ressuscita o "Passo das Sombras" removido → corte. (Apunhalar fica com 1 mutação; 2ª pode vir do CATALOGO — *Golpe Súbito*/*Lâmina Suja*.)
+
+### Luz Sagrada
+- **Exorcismo / Exorcism** (profano→explode em área) — **APROVADO c/ estrutura (CRIADOR):** (a) **obtenção mais difícil** (Priest caça profano naturalmente → senão todo Priest pega) — threshold alto, Balancista; (b) **sidegrade explícito**: single **100%→75%**, **~20% em AoE**, **~5% de perda líquida** (confirmar Balancista). ≈ *Chama Purificadora* do CATALOGO (reconciliar nome). Par EN = *Exorcism* (não "Banish").
+- **Raio Solar — CORTADA (CRIADOR).** Achou fraca/situacional. Luz Sagrada fica só com Exorcismo por ora; **2ª mutação nova a pensar depois** (candidatos do CATALOGO: *Nova Sagrada* queima-roupa, *Fervor* dano sobe sem tomar dano).
+
+### Curar Ferimentos
+- **Fôlego / Second Wind** (self sob pressão→instant+HoT) — **APROVADO (CRIADOR):** cura **instantânea** (mantém, clutch) + **rabo de HoT PEQUENO** = **3-7% da cura total** como bônus over-time (guia do criador p/ Balancista). → [B10].
+- **Transfusão / Transfusion** (aliado→heal+escudo) — **APROVADO (CRIADOR).** Brilha no online (como os Caminhos de Mártir); upgrade-risk leve mitigado pela condicional (só aliado). Nome ✓.
+
+### Transversais (constituição)
+1. **AoE-gate ~lvl 20** (Talho Amplo · Estilhaço · Exorcismo): mutação vira AoE-dano cedo. Mitigar com dano dividido/chip (Balancista) — mesma regra do Lote 1 ⑨⑪.
+2. **Upgrade-risk dos "adiciona-status"** (Quebra-Guarda · Permafrost · Passo Sombrio): garantir **tradeoff** pra serem sidegrade, não upgrade puro (lição do Meteoro ⑩). Balancista/design.
+3. **Verificar sensores** no `skill_use`: `targetHpPctBefore` (Quebra-Guarda), `hitFromBehind` (Passo Sombrio/Hemorragia), `targetWasSlowed` (Permafrost) — o catalog afirma "zero sensor novo"; confirmar que os menos óbvios são de fato emitidos.
+
+### Decisão de design — quantas mutações por skill (DECIDIDO jun/2026)
+- **1 no MVP** (cânone+engine atuais: 1º perfil vence, substitui, encerra a corrida). "2-4 possíveis no catálogo" = as OPÇÕES; o personagem GANHA **1**.
+- **2ª mutação = FEATURE FUTURA** (pós-lançamento, proposta do criador): liberada a partir de **lvl ~25+**, vinda como update — encaixa na "escada de 4 camadas" (a 2ª mutação por skill é um degrau mais fundo, opt-in). **Exige regra de COMPATIBILIDADE** (não empilhar contraditórias — ex. Eclosão queima-roupa + Meteoro distância se anulam). Sem mudança de engine agora.
+
+### Fila gerada
+- **[B10] Fôlego** — efeito = instantâneo + rabo de HoT (não só HoT). Único efeito que muda; o resto é nome/tradeoff (Balancista) ou decisão de canon (reconciliar com CATALOGO).

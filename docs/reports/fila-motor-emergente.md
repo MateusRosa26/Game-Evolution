@@ -49,7 +49,7 @@ A consome de cima pra baixo; marca `FEITO` e move pro histórico no fim.
   Golpe Forte / Lança de Gelo / Apunhalar / Luz Sagrada / Curar Ferimentos)
 - Mudança: **Chat B revisa o significado** (identidade, verbo↔fantasia, anti-treadmill,
   flavor EN/PT) quando fechar o Lote 1. Mudanças de efeito → voltam pra esta fila.
-- Status: FILA (handoff p/ B)
+- Status: **REVISADO pelo B (§8 do catálogo Lote 2)** — 9/10 aprovadas; efeito muda só em [B10] Fôlego. Pendências de DECISÃO do criador: reconciliar nomes c/ CATALOGO.md + confirmar Passo Sombrio. Falta: implementar (P7/merge skills-engine + 4 status novos).
 
 ### [Q7] Lote 3 (Mutações, 2ª leva) — AGUARDA revisão do Chat B — nova-ficha
 - Tipo: nova-ficha (design pronto pelo Chat A)
@@ -80,8 +80,21 @@ A consome de cima pra baixo; marca `FEITO` e move pro histórico no fim.
 - Alvo: `tracking/definitions.ts` (hoje DUMMY com thresholds de teste)
 - Mudança: criar as fichas ①②④⑤⑦⑧ com gatilho+spec reais (specs já desenhadas no catálogo §1). Thresholds ✏️ Balancista; flavor ✏️ Loremaster.
 - Motivo: hoje só ① Roedor/③ Exagero têm spec ligada; faltam as outras do Lote 1.
-- Status: FILA
+- Status: **FEITO (A) — ①②③④⑤⑥⑦** reescritas como fichas REAIS em `definitions.ts` (DUMMY Roedor/Chama-Viva/Naturalista/Punho-Bruto saíram; mutações Eclosão/Meteoro ficam DUMMY p/ P7). Flavor do §6; números do Chat C em ①(15000/1.12) ②(2000/1.20) ④(30000/0.12), ✏️ nos demais. **2 enablers feitos junto:** (a) ④ = Marca de ESCUDO — engine.onBlock agora usa `equippedShieldInstanceId` (não a arma); (b) ⑥ = `combat_end` ganhou `physicalDamageDealt` + fato `magicOnlyVictory` (vitória só-magia). tsc 0 + build 0 + smoke de fiação 5/5 (activeEffects devolve os specs). ⚠️ números do Chat C **aguardam OK do criador**. ⑨⑩⑪⑫ pendentes (P7/Monge).
 - **Nota da revisão Chat B (§6 do catálogo):** flavor/nomes/hints finalizados em §6 — usar de lá. Correções a embutir nas fichas reais: **①** usa `victim.family==undead` (DUMMY testa `bestial`); **⑨⑩⑪** têm **hint POR PERFIL distinto** (o DUMMY compartilha — errado por design: ⑨="latejam perto da pele" / ⑩="anseia pelo horizonte"); **⑥** = *Intocado* (não Intocável; alinhar comentários `events.ts`/`engine.ts`); **④** = Marca de escudo/acúmulo (NÃO conduta); **⑫** conduta com escopo `sinceClass` e SEM class-lock duro (auto-gateia ao Priest via Esp).
+- **NÚMEROS CALIBRADOS — Chat C (bateria `2026-06-11-bateria-marcas-lote1-tipo1.md`):** tipo-1 (①②④) com número final, prontos pra colar na ficha real (4 valores ✏️ aguardam OK do criador — faixas no report):
+  - **① Quebra-Ossos:** `threshold: 15000` · spec `{kind:"damageMult", mult:1.12, when:[{field:"target.family",op:"==",value:"undead"}, {field:"viaWeapon",op:"==",value:true}]}` (≈35 h; `viaWeapon` ver [C1] — não buffa magia).
+  - **② Última Resposta:** `threshold: 2000` (golpe final com `attackerHpPct<0.10`) · spec `{kind:"damageMult", mult:1.12, when:[{field:"attackerHpPct",op:"<",value:0.25}, {field:"viaWeapon",op:"==",value:true}]}` (mult 1.20→1.15→**1.12 = paridade c/ ①**, decisão criador: clutch vem da CONDIÇÃO não do número; multiplicador não escala c/ força do mob; `viaWeapon` ver [C1]). **⚠️ NÃO usar ~10k** — gatilho raro (~8–11% dos kills mesmo em pack imprudente, 0% em farm saudável) → 10k = ~250 h inalcançável; 2k dá ~40–50 h, alinhado em TEMPO às outras.
+  - **④ Inabalável:** `threshold: 30000` bloqueios (NÃO 50k — ~62 h destoa ~1,6× e arrisca passar da vida útil do escudo) · spec `{kind:"blockFull", chance:0.12}`.
+  - Re-pin proporcional (mesma régua de tempo) quando comida real / escudo T2 / undead T3 entrarem.
+
+### [C1] Marca de arma (damageMult) só no dano de ORIGEM-ARMA (não em magia) — modifica-primitivo
+- Tipo: modifica-primitivo (escopo do `when` de P1 damageMult p/ Marcas de arma) — **origem: Chat C / criador (jun/2026)**
+- Alvo: `combat.applyDamage` (facts de `evalOutgoing`, hoje em `combat.ts:88`) + `when` das Marcas ①② em `definitions.ts`.
+- Mudança: os `facts` de `evalOutgoing` NÃO carregam se o dano veio de AUTO-ATTACK ou de SKILL. `applyDamage` já recebe `weapon` e `skillId` (params) → expor fato, ex `viaWeapon: (weapon != null && skillId == null)` (= só auto-attack). Marcas de arma de DANO (①②③) ganham `{field:"viaWeapon",op:"==",value:true}` no `when` → o bônus NÃO vaza pra Bola de Fogo/Luz Sagrada.
+- Nuance (decisão à parte): skills MELEE que usam a arma (Golpe Forte/Apunhalar escalam a arma) — SEGURO = só AA (`skillId==null`, recomendado pelo criador); expandir p/ weapon-skills depois se quiser (precisaria de um discriminador "skill usou arma" em vez de `skillId==null`).
+- Motivo: coerência de eixo (Marca de arma = só golpe da arma, não magia) + segurança de balance (não combina com burst de skill). **Decisão criador jun/2026.**
+- Status: FILA (Chat A — engine; depois Chat C confirma que nada vazou)
 
 > **Vindos da revisão Chat B (§6 do catálogo Lote 1).** Só os itens que TOCAM O EFEITO
 > entram aqui; renames/rótulos/flavor já foram editados no catálogo direto.
@@ -93,7 +106,7 @@ A consome de cima pra baixo; marca `FEITO` e move pro histórico no fim.
   1. **Forma do respingo NÃO é mais raio-1 cheio (8 tiles).** Adicionar forma à `onKill`: **`lateral`** (os 2 tiles perpendiculares ao vetor algoz→vítima — cleave que atravessa, PREFERIDA) ou **`cross`** (N-S-E-W, 4 tiles, fallback que não precisa de direção). `lateral` exige o vetor do golpe (posições já em `finalBlow`/kill facts); `cross` não. Trocar `radius:1` por `shape:"lateral"|"cross"`.
   2. **`damageType` do respingo:** hoje undefined. Definir — **tipo do golpe fatal** (propagar `facts["damageType"]`) ou `physical` fixo.
 - Motivo: raio-1 cheio é forte demais E incoerente (explosão ≠ transbordar). Cleave lateral = cirúrgico + coerente. Fração do overkill segue ✏️ Balancista (NÃO fixar "metade").
-- Status: FILA
+- Status: **FEITO (A)** — `onKill.radius`→`shape:"lateral"|"cross"` + `areaShapeTiles()` + `dealAreaDamage` por tiles; def renomeada *Transbordo* (`shape:"lateral"`, damageType propaga o golpe fatal). Smoke 8/8. ✏️ scale/threshold Balancista.
 
 ### [B5] ⑤ Sombra Sem Nome — primitivo de redução de dano RECEBIDO (mitigação de abertura) — novo-primitivo
 - Tipo: novo-primitivo
@@ -103,7 +116,7 @@ A consome de cima pra baixo; marca `FEITO` e move pro histórico no fim.
   2. Novo flag na `CombatSession`: **"1º hit recebido desta sessão"** (análogo ao `dealtDamageThisSession` que já existe p/ o P4). O `when` da redução casa esse flag → só a abertura contra o player é reduzida.
   3. ⑤ deixa de usar `crit`/P4 (P4 permanece no motor p/ outro conteúdo — ex: Riposte).
 - Motivo: crit ×2 garantido = power-spike (fere "emergente=tempero"); mitigação de abertura é tempero defensivo e CASA o eixo do gatilho (vencer sem tomar dano). % ✏️ Balancista; janela `COMBAT_IDLE_MS` (hoje 4s) governa o re-arme — avaliar alongar p/ este Caminho.
-- Status: FILA
+- Status: **FEITO (A)** — novo `EffectSpec` `incomingMult` (1º efeito de ENTRADA) + `evalIncoming` + hook no `applyDamage` (ramo do alvo) + flag `tookDamageThisSession` + fato `firstHitReceivedOfCombat`. Smoke 8/8. P4/crit segue no motor p/ outro conteúdo. ✏️ % Balancista; ficha real do ⑤ no Q5.
 
 ### [B2] ⑧ O Naturalista — CORTADO (DECISÃO CRIADOR jun/2026) — decisão de conteúdo
 - Tipo: decisão de conteúdo (NÃO mexer no motor)
@@ -116,19 +129,20 @@ A consome de cima pra baixo; marca `FEITO` e move pro histórico no fim.
 - Tipo: novo-primitivo (ação nova de `onKill`)
 - Alvo: `EffectSpec` `onKill` (nova `action`) + `effects.ts` `collectOnKill` + aplicação na Simulation; ficha real em `definitions.ts`.
 - Achado: o efeito antigo ("mana regen em combate") é **no-op** — a mana JÁ regenera em combate (`regenTick` todo tick, `Simulation.ts:1072`). E a proposta "regen turbinado + ratio" foi **REJEITADA pelo criador** (regen = número/anti-Koster; ratio = cópia do ⑦).
-- Mudança (DIREÇÃO jun/2026 — PENDENTE confirmação do criador):
-  1. **Efeito (verbo):** ao dar o **golpe final com MAGIA**, devolve um tanto de **mana** ("a magia se alimenta"). Nova `action:"restoreMana"` no `onKill` (`{kind:"onKill", action:"restoreMana", amount/scale, when:[damageType é mágico]}`) — reusa o hook de onKill (P2), ação nova. Loop condicional, não número passivo.
-  2. **Condição:** vencer ~N combates causando **só dano mágico** (físico=0 na sessão, via `combat_end` `dmgByElement`/share físico==0 + `endedBy:victory`). Reusa `combat_end` (existe). Distinto do ratio do ⑦.
+- Mudança (DECISÃO CRIADOR jun/2026 — CONFIRMADA, mago-puro):
+  1. **Efeito (verbo):** ao dar o **golpe final com MAGIA**, devolve **~1-2 de mana** ("a magia se alimenta"). Nova `action:"restoreMana"` no `onKill` (`{kind:"onKill", action:"restoreMana", amount, when:[damageType é mágico]}`) — reusa o hook de onKill (P2), ação nova. Loop condicional, não número passivo. Magnitude 1-2 ✏️ Balancista.
+  2. **Condição:** vencer ~N combates causando **só dano mágico** (físico=0 na sessão, via `combat_end` `dmgByElement`/share físico==0 + `endedBy:victory`). Reusa `combat_end` (existe). Distinto do ratio do ⑦ e do "sem tomar dano" do ⑤. **Mago-puro** — Rogue de arco não qualifica (dano físico) e nem se beneficiaria (arco não gasta mana).
   3. Atualizar DESIGN-EVOLUCAO:348 (efeito velho) + comentários "Intocável"→"Intocado".
+- **⚠️ BRIEF BALANCISTA (crítico):** mana-on-kill é **sustento de mana** → ataca o freio "caster é mana-bound" que segura o kiting (`bateria-farm-loop.md`). Os 1-2 de mana/kill têm de ficar **MENORES que a mana gasta pra conseguir o kill** (reembolso parcial que suaviza downtime, **nunca** motor net-positive) — senão kiting vira sustentável pra sempre. Rodar o farm-loop de kite com o trait ligado.
 - Motivo: efeito velho no-op + condição velha impraticável; nova versão é verbo coerente ("o corpo não suja as mãos — a magia se basta").
-- Status: FILA (aguarda confirmação do criador da direção; se confirmada = tipo 2 Chat A)
+- Status: **FEITO (A)** — nova `action:"restoreMana"` no `onKill` + `collectOnKillMana` + aplicação em `source.mp` no ramo fatal de `applyDamage` (facts ganharam `damageType` p/ o `when` filtrar kill mágico). Smoke 4/4 (fire devolve, physical não). ✏️ **Chat C calibra a magnitude (1-2) + farm-loop de kite** (brief acima); ficha real do ⑥ no Q5.
 
 ### [B7] ⑦ Senhor dos Extremos — mínimo POR ELEMENTO no gate de ratio — modifica-primitivo
 - Tipo: modifica-primitivo (gate `ratio`)
 - Alvo: `PathDef` ratio (`types.ts` num/den/minRatio) + avaliação no `engine.ts`.
 - Mudança (DECISÃO CRIADOR jun/2026): o gate hoje exige só `(fogo+gelo)/tudo ≥ minRatio` — permite **94% fogo / 1% gelo** e ainda passa. Adicionar **piso por elemento** pra ser "mestre dos DOIS": ex. um `subMin` por numerador (fogo ≥X% E gelo ≥X% do total), ou cap na diferença `|fogo−gelo|`. Capacidade nova no `ratio` (hoje é um numerador só). Números ✏️ Balancista.
 - Motivo: sem isso, o Caminho é "quase-mono + tempero", não dual-elemento real. **Nota design:** garantir também que o KIT acessível no nível-alvo tenha dano NÃO-fogo/gelo (senão o ratio é satisfeito por falta de opção — não é compromisso). Choque térmico (burst) → Balancista.
-- Status: FILA
+- Status: **FEITO (A)** — `PathDef.subNumerators[]` (piso por componente) + `subNum[]` no estado + checagem no `checkRatioMilestones`. Senhor dos Extremos ligado (fogo≥30% E gelo≥30%, ✏️). Smoke 3/3 (94/1 e 95/5 falham, 50/50 passa).
 
 ### [B8] ⑨ Eclosão Ígnea — knockback é o ganho, SEM AoE-dano de área — afina skill-def
 - Tipo: modifica-primitivo (na DEF da skill mutada, via [Q1] skillSwap)
@@ -160,6 +174,33 @@ A consome de cima pra baixo; marca `FEITO` e move pro histórico no fim.
   3. Escopo `sinceClass`. Efeito (grantSkills+derivedMod) inalterado — ver [Q4].
 - Motivo: lvl 25 sem NENHUMA arma era o teto; criador relaxou p/ lvl 20 + permitir luva/off-hand (coerente com o punho/luva do Monge).
 - Status: FILA (bloqueado por: distinção de slot main-hand vs off-hand no equipamento)
+
+> **Lote 2 (Mutações) — revisão de significado do Chat B FEITA** (§8 do catálogo
+> `2026-06-11-catalogo-emergente-lote2-mutacoes.md`). 9/10 aprovadas; só 1 mudança de efeito ↓.
+> Pendências de DECISÃO do criador (não-engine): reconciliar nomes com `design/skills/CATALOGO.md`
+> (Lote 2 substitui os rascunhos?); confirmar o *Passo Sombrio* (ressuscita o "Passo das Sombras"
+> removido). Tradeoffs anti-upgrade-puro (Quebra-Guarda/Permafrost/Passo Sombrio) = Balancista.
+
+### [B10] Fôlego (mut. de Curar Ferimentos) — instantâneo + rabo de HoT, não só HoT — modifica skill-def
+- Tipo: modifica-primitivo (na DEF da skill mutada, via [Q1] skillSwap; usa o status novo `regenHoT` do harvest do Lote 2)
+- Alvo: skill def mutada de Fôlego.
+- Mudança (revisão Chat B + CRIADOR): o gatilho é *self-cast sob pressão (HP<40%)* mas o prêmio proposto era **só HoT** (cura lenta) — incoerente. **Fôlego = cura INSTANTÂNEA (mantém) + aplica `regenHoT` (rabo de regen)** = **3-7% da cura total** como bônus over-time (guia do criador). Clutch-viável + verbo novo. Números ✏️ Balancista.
+- Motivo: o prêmio não pode ser PIOR para o comportamento que o destrava (cura lenta para quem casta sob pressão).
+- Status: FILA (depende de [Q1] + status `regenHoT`)
+
+### [B11] Lote 2 — formas/efeitos das defs mutadas (decisões do criador na revisão 1-a-1) — modifica skill-def
+- Tipo: modifica-primitivo (nas DEFS mutadas, via [Q1]) — coletor das decisões da passada do criador.
+- Alvo: as `SkillDef` mutadas do Lote 2 (escrever junto com [Q1]).
+- Decisões (criador, jun/2026):
+  - **Talho Amplo (Golpe Forte):** forma = **arco de 3 casas À FRENTE** (precisa de facing), NÃO todos os adjacentes. Dano dividido. ⚠️ **condicionado à aprovação do Balancista** (risco de AoE no Knight).
+  - **Estilhaço (Lança de Gelo):** **REMOVE o pierce** (`lineThrough`) da mutada e troca por **estilhaçar em 3 casas (lateral/atrás do 1º contato)**. Dano dividido (aumento pequeno).
+  - **Permafrost (Lança de Gelo):** `root` com duração **~0.2s** (guia do criador p/ Balancista).
+  - **Exorcismo (Luz Sagrada):** sidegrade explícito — single **100%→75%** + **~20% em AoE** (só vs profano) + ~5% perda líquida; **threshold ALTO** (Priest caça profano naturalmente). Tudo ✏️ Balancista.
+  - **Passo Sombrio (Apunhalar): CORTADA** — gatilho "cast de longe" impossível p/ melee + ressuscita skill removida. Não criar a def.
+  - **Permafrost:** (já acima) root ~0.2s.
+  - **Raio Solar (Luz Sagrada): CORTADA** — fraca/situacional. Não criar a def; Luz Sagrada fica só com Exorcismo; 2ª mutação a pensar depois.
+  - ⏳ **GARFO MELEE pendente (Quebra-Guarda + Hemorragia):** reframe proposto = "veto só ao FLAT INCONDICIONAL; dano CONDICIONAL é verbo". Candidatos: Hemorragia → **ignora armadura** (ou manter sangramento/bleed); Quebra-Guarda → **Vulnerável** (janela de combo). Aguarda escolha do criador (vale p/ Lote 3).
+- Status: FILA (depende de [Q1]; números ✏️ Balancista)
 
 ---
 

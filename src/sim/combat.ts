@@ -5,7 +5,7 @@ import type { SimEntity } from "./entity";
 import { armorMitigation } from "./formulas";
 import type { EffectSpec } from "./tracking/types";
 import type { Facts } from "./tracking/filters";
-import { evalOutgoing, rollFullBlock, collectOnKill, matchStatusCombos } from "./tracking/effects";
+import { evalOutgoing, evalIncoming, rollFullBlock, collectOnKill, collectOnKillMana, matchStatusCombos, areaShapeTiles } from "./tracking/effects";
 
 /**
  * Lógica de combate da sim: aplicação de dano, morte e emissão dos eventos
@@ -32,8 +32,8 @@ export interface CombatCtx {
   effectsOf?: (entityId: number) => EffectSpec[];
   /** Fatos extras de sessão p/ as condições de efeito (firstHitOfCombat/inCombat). */
   sessionFacts?: (entityId: number) => Facts;
-  /** Dano em área SEM re-disparar efeitos (P2 onKill) — Simulation fornece. */
-  areaDamage?: (centerId: number, sourceId: number, amount: number, radius: number, damageType: DamageType) => void;
+  /** Dano nos TILES dados SEM re-disparar efeitos (P2 onKill) — Simulation fornece. */
+  areaDamage?: (tiles: Vec2[], sourceId: number, amount: number, damageType: DamageType) => void;
 }
 
 /** Identidade de combate de uma entidade (para os payloads de evento). */
@@ -93,6 +93,21 @@ export function applyDamage(
       };
       const mod = evalOutgoing(effects, facts);
       if (mod.mult !== 1) amount = amount * mod.mult;
+    }
+  }
+
+  // ── B5 (incomingMult): redução de dano RECEBIDO (efeito do ALVO; ex: Sombra Sem
+  // Nome mitiga a abertura). 1º efeito de ENTRADA do motor. ──
+  if (!suppressEffects && ctx.effectsOf) {
+    const tEffects = ctx.effectsOf(target.id);
+    if (tEffects.length > 0) {
+      const facts: Facts = {
+        "attacker.family": source.family,
+        damageType,
+        ...(ctx.sessionFacts ? ctx.sessionFacts(target.id) : {}),
+      };
+      const mult = evalIncoming(tEffects, facts);
+      if (mult !== 1) amount = amount * mult;
     }
   }
 
@@ -197,7 +212,7 @@ export function applyDamage(
 
   // ── P2 (onKill): ações ao matar (ex: Exagero respinga o overkill em área).
   // `suppressEffects` no splash evita cascata infinita. ──
-  if (!suppressEffects && ctx.effectsOf && ctx.areaDamage) {
+  if (!suppressEffects && ctx.effectsOf) {
     const effects = ctx.effectsOf(source.id);
     if (effects.length > 0) {
       const facts: Facts = {
@@ -205,10 +220,18 @@ export function applyDamage(
         overkillRatio: hpBefore > 0 ? amount / hpBefore : amount,
         "victim.family": target.family,
         finalBlowAmount: amount,
+        damageType, // B6: filtra kill MÁGICO (Intocado)
       };
-      for (const a of collectOnKill(effects, facts)) {
-        ctx.areaDamage(target.id, source.id, a.amount, a.radius, (a.damageType as DamageType) ?? damageType);
+      // P2 areaDamage (Transbordo) — precisa do sink de área.
+      if (ctx.areaDamage) {
+        for (const a of collectOnKill(effects, facts)) {
+          const tiles = areaShapeTiles(a.shape, target.pos, source.pos);
+          ctx.areaDamage(tiles, source.id, a.amount, (a.damageType as DamageType) ?? damageType);
+        }
       }
+      // B6 restoreMana (Intocado: golpe final mágico devolve mana à fonte).
+      const mana = collectOnKillMana(effects, facts);
+      if (mana > 0 && source.maxMp > 0) source.mp = Math.min(source.maxMp, source.mp + mana);
     }
   }
   return true;
