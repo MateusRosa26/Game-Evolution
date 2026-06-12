@@ -22,7 +22,7 @@ Move {
   id,                 // "slam", "beam", "leap"...
   shape,              // forma em TILES (ver §2)
   windupTicks,        // duração do aviso (janela de desvio)
-  damage,             // dano ao resolver (✏️ Balancista) — AMARRADO ao move
+  damage,             // dano ao resolver (✏️ Balancista; ROLA ±20%, ver §7) — AMARRADO ao move
   status?,            // slow/burn/etc no hit (opcional)
   cooldownTicks,      // entre usos
   range,              // alcance de início (tiles)
@@ -128,6 +128,7 @@ Conteúdo = dados (padrão do projeto). Sem skills caso-a-caso.
 - [x] ~~A tensão do T1~~ → **RESOLVIDA** (régua de ecossistema, §5): late-T1 ganha as mecânicas, 1 moveset + 1 comportamento por ecossistema. ✏️ atualizar o orçamento do DESIGN-BESTIARIO.
 - [x] ~~Salto do goblin: base ou variante?~~ → **BASE** (decidido criador): o "goblin que pula" é o base icônico; variantes empilham os moves de dano-desviável.
 - [x] ~~Escopo do rename `nome base`~~ → **species ID refactor APLICADO (2026-06-10)**: `rato_lanhoso`→`rato`, `goblin_batedor`→`goblin`, `lobo_cinzento`→`lobo`, `morcego_sanguessuga`→`morcego`, `javali_de_presas`→`javali` em código + pastas de sprite + FAMILIAS + docs da fatia. `esqueleto` já era plano. Os descritores (lanhoso/batedor/…) ficam livres p/ as VARIANTES. ✏️ Loremaster revisa o flavor dos docs; 1 comentário em `templates.ts` (agente de comida) pendente.
+- [x] ~~Dano do mob: fixo ou variável?~~ → **VARIÁVEL, mean-preserving (decidido criador, 2026-06-11; APLICADO commit `8e98d14`)**. Bater exato lê robótico; mob e player obedecem a mesma física *swingy*. **Básico ±40%** (`PHYSICAL_DAMAGE_SPREAD`, o mesmo do player). **Move telegrafado / slam ±20%** (`MONSTER_MOVE_DAMAGE_SPREAD`, faixa apertada **de propósito**: o telegraph promete um número, o desvio é a mecânica — não a sorte; ruído largo roubaria a didática posicional do "saí tarde"). Mean-preserving → `damage`/`attackDamage` do template **É a média**, nada recalibrado; o ✏️ Balancista mede por AMOSTRAGEM. Não é knob por-mob (uma língua só); se um arquétipo quiser ser mais/menos *swingy*, vira campo no template, não constante nova.
 - [ ] **Par late-T1 de Charneca** (1 moveset + 1 comportamento das famílias undead/aquático) — ✏️ world-designer + bestiário, fatia ②.
 - [ ] **Janela justa**: confirmar o piso de windup (~700–800ms básico) ✏️ Balancista mede o "feel" na sim.
 - [ ] **Grupos de incompatibilidade** — fechar a lista (`movimento-do-player`/`área`/`projétil`/`melee`).

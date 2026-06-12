@@ -1,5 +1,5 @@
 import type { CreatureFamily, DamageType } from "../shared/types";
-import { GOBLIN_LEAP, type MoveDef } from "./moves";
+import { ABUTRE_INVESTIDA, GOBLIN_LEAP, type MoveDef } from "./moves";
 
 /**
  * Bestiário como DADOS, não código caso-a-caso.
@@ -276,6 +276,136 @@ export const JAVALI: CreatureTemplate = {
   loot: { gold: { min: 1, max: 3 } }, // ✏️ + Presa de Javali/Couro Grosso/Carne de Caça quando os itens entrarem
 };
 
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * T2/T3 — constelação Alvorada (FAMILIAS.md §1/§2/§6 · QUESTS.md Q7/Q8/Q9/Q11).
+ * Todos `chaser` (+ moves telegrafados): nenhum exige AI nova (shooter/caster).
+ * NÚMEROS = seed ANCORADO no ladder T1→T2 (rato 7 → goblin 11 → lobo 14 → javali
+ * 16 → ...), ✏️ PROVISÓRIO até a bateria do Balancista (mesmo rito dos T1).
+ * Assinaturas declaradas no design e adiadas: Orc=autobuff(fúria), Bandido=
+ * autocura — entram quando o efeito de move existir (hoje só leap/slam).
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/**
+ * Orc Soldado — Humanoide, T2, Perseguidor (FAMILIAS.md §2). O fundo da Caverna
+ * dos Goblins (Q8 ato 3: "não era goblin — era um orc, armado, armadurado"),
+ * fecha a pendência do bestiário do Q8. "Defesa alta (escudo)" modelada como HP
+ * alto (mob não tem stat de armadura). Tanque deliberado: passo de jogador, golpe
+ * pesado, muito HP. ✏️ Autobuff (fúria) — a assinatura — quando o efeito existir.
+ */
+export const ORC_SOLDADO: CreatureTemplate = {
+  species: "orc_soldado",
+  name: "Orc Soldado",
+  family: "humanoid",
+  tier: "T2",
+  behavior: "chaser",
+  maxHp: 115, // "escudo" = parede de HP (sem stat de armadura no mob)
+  attackDamage: 20,
+  attackType: "physical",
+  attackCooldownMs: 2000,
+  xp: 95,
+  aggroRadius: 6,
+  baseStepMs: 250, // passo de jogador — soldado avança, não corre
+  respawnMs: 20000, // foe notável do fundo da caverna (não-named)
+  loot: { gold: { min: 3, max: 8 } }, // ✏️ + Sucata de Arma marcada (prova Q8)/peça T1 quando os itens entrarem
+};
+
+/**
+ * Bandido da Estrada — Humanoide, T2 (FAMILIAS.md §2: T2–T3, fixo T2 na orla da
+ * fatia ①). Fora-da-lei da ponte/estrada sul (Q9 A Estrada Roubada) e fonte da
+ * Carta Rabiscada (Q11, loot raro → Fortaleza). Skirmisher: menos HP que o orc,
+ * mais ágil. ✏️ Autocura ao recuar — a assinatura ("mate antes que se cure") —
+ * quando o efeito de move existir.
+ */
+export const BANDIDO: CreatureTemplate = {
+  species: "bandido",
+  name: "Bandido da Estrada",
+  family: "humanoid",
+  tier: "T2",
+  behavior: "chaser",
+  maxHp: 95,
+  attackDamage: 18,
+  attackType: "physical",
+  attackCooldownMs: 1800,
+  xp: 78,
+  aggroRadius: 6,
+  baseStepMs: 240,
+  respawnMs: 15000,
+  loot: { gold: { min: 4, max: 10 } }, // ✏️ + Carta Rabiscada (raro, Q11) + gear T1 quando os itens entrarem
+};
+
+/**
+ * Presa-Torta (*Crooktusk*) — Bestial, variante NAMED do Javali (T2+), Q7 ato 2.
+ * Mob ÚNICO do mundo, zero phasing: respawn contínuo LENTO (~25 min) — evento, não
+ * farm; o `kill` credita todos que contribuíram (já é o comportamento do bus).
+ * Stats = javali turbinado (mais HP/dano, XP de evento). Spawn único é detalhe de
+ * PLACEMENT (alvorada.ts, respawnMs longo), não do template.
+ */
+export const PRESA_TORTA: CreatureTemplate = {
+  species: "presa_torta",
+  name: "Presa-Torta",
+  family: "bestial",
+  tier: "T2", // T2+ "named" — enum não tem T2+, fica T2 (o perigo é ser evento, não o tier)
+  behavior: "chaser",
+  maxHp: 170, // javali 80 turbinado (o javali velho, grande demais pro Amaro)
+  attackDamage: 24,
+  attackType: "physical",
+  attackCooldownMs: 2200,
+  xp: 175, // lump de EVENTO (respawn 25min — não-farmável); ✏️ Balancista
+  aggroRadius: 6,
+  baseStepMs: 240,
+  respawnMs: 1500000, // ~25 min (Q7: "evento, não farm; fila curta no launch") ✏️
+  loot: { gold: { min: 8, max: 20 } }, // ✏️ + Presa Torta (troféu)/Couro Grosso quando os itens entrarem
+};
+
+/**
+ * Urso Pardo — Bestial, T3, Perseguidor (FAMILIAS.md §1: "bruto — HP e dano
+ * enormes, zero skill"). O ápice de perigo bruto da mata/orla: sem move, sem
+ * truque — só uma parede que machuca. Aggro curto (acorda de perto, como fera
+ * territorial) mas persegue feio quando acorda. Topo do ladder pré-fatia ②.
+ */
+export const URSO_PARDO: CreatureTemplate = {
+  species: "urso_pardo",
+  name: "Urso Pardo",
+  family: "bestial",
+  tier: "T3",
+  behavior: "chaser",
+  maxHp: 190, // bruto: a maior parede de HP da fatia
+  attackDamage: 28, // golpe pesado e lento
+  attackType: "physical",
+  attackCooldownMs: 2400,
+  xp: 130,
+  aggroRadius: 5, // acorda de perto (fera)
+  baseStepMs: 260, // pesado, mas persegue
+  respawnMs: 20000,
+  loot: { gold: { min: 2, max: 6 } }, // ✏️ + Pele de Urso/Carne de Caça quando os itens entrarem
+};
+
+/**
+ * Abutre Carniceiro — Voador, T2, Perseguidor + Investida (FAMILIAS.md §6). A
+ * carniça da estrada/matagal sul: frágil e rápido, mas MERGULHA (anti-kite aéreo —
+ * `ABUTRE_INVESTIDA`, variante do leap com alcance maior). HP baixo de voador; o
+ * perigo é fechar distância de surpresa, não tankar.
+ */
+export const ABUTRE: CreatureTemplate = {
+  species: "abutre",
+  name: "Abutre Carniceiro",
+  family: "flying",
+  tier: "T2",
+  behavior: "chaser",
+  moves: [ABUTRE_INVESTIDA],
+  maxHp: 55,
+  attackDamage: 15,
+  attackType: "physical",
+  attackCooldownMs: 1600,
+  xp: 52,
+  aggroRadius: 7, // enxerga longe do céu
+  baseStepMs: 200, // voador rápido
+  respawnMs: 12000,
+  loot: { gold: { min: 1, max: 4 } }, // ✏️ + Pena/Bico quando os itens entrarem
+};
+
 /** Registro de templates por espécie — ponto único de lookup. */
 export const CREATURES: Record<string, CreatureTemplate> = {
   [RATO.species]: RATO,
@@ -284,4 +414,9 @@ export const CREATURES: Record<string, CreatureTemplate> = {
   [LOBO.species]: LOBO,
   [MORCEGO.species]: MORCEGO,
   [JAVALI.species]: JAVALI,
+  [ORC_SOLDADO.species]: ORC_SOLDADO,
+  [BANDIDO.species]: BANDIDO,
+  [PRESA_TORTA.species]: PRESA_TORTA,
+  [URSO_PARDO.species]: URSO_PARDO,
+  [ABUTRE.species]: ABUTRE,
 };

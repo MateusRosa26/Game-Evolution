@@ -222,10 +222,16 @@ export function physicalDamage(
  * `physicalDamage` dá a MÉDIA; isto rola em [méd×(1−spread), méd×(1+spread)] com
  * `roll`∈[0,1) do RNG seedado da sim. Média preservada → o balance (DPS médio)
  * calibrado se mantém; muda só o feel (AD imprevisível, AP confiável). ✏️ spread.
+ * Decisão canônica: DESIGN-ITENS.md → Mapa de decisões → "Variância de dano"
+ * (mobs idem: básico ±40%, slam ±20% — design/bestiario/MECANICAS-DE-MOB.md §7).
  */
 export const PHYSICAL_DAMAGE_SPREAD = 0.4; // ±40% — AD bem swingy
-export function physicalVariance(avg: number, roll: number): number {
-  const f = 1 - PHYSICAL_DAMAGE_SPREAD + roll * 2 * PHYSICAL_DAMAGE_SPREAD;
+// Spread do MOVE/slam telegrafado dos mobs: menor que o básico de propósito. O
+// telegraph promete um número (o desvio é a mecânica, não a sorte), então a
+// faixa é apertada — varia o feel sem roubar a didática posicional do "saí tarde".
+export const MONSTER_MOVE_DAMAGE_SPREAD = 0.2; // ±20% — slam quase-confiável
+export function physicalVariance(avg: number, roll: number, spread: number = PHYSICAL_DAMAGE_SPREAD): number {
+  const f = 1 - spread + roll * 2 * spread;
   return Math.max(1, Math.floor(avg * f));
 }
 

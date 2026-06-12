@@ -1,6 +1,7 @@
 import { applyDamage, chebyshev, type CombatCtx } from "./combat";
 import { isStunned } from "./skills/status";
 import type { SimEntity } from "./entity";
+import { physicalVariance } from "./formulas";
 import { tryStartMove } from "./moves";
 import { findPath } from "./pathfinding";
 import type { World } from "./World";
@@ -10,8 +11,9 @@ import type { World } from "./World";
  * o do Rato: idle → detecta jogador no raio de aggro → persegue via
  * A* existente → ataca quando adjacente.
  *
- * Roda na sim, é determinística (sem RNG; o alvo é escolhido por proximidade
- * estável). Não move a entidade aqui — só decide intent/ataque; o passo é
+ * Roda na sim, é determinística (DECISÃO sem RNG — o alvo é escolhido por
+ * proximidade estável; só a VARIÂNCIA do dano usa o combatRng seedado da sim,
+ * que é reprodutível). Não move a entidade aqui — só decide intent/ataque; o passo é
  * executado pelo loop de movimento da Simulation com o cooldown da própria
  * entidade.
  */
@@ -99,7 +101,11 @@ export function updateChaser(
     monster.intent = null;
     if (now >= monster.nextAttackAt) {
       monster.facing = facingToward(monster, target);
-      applyDamage(ctx, monster, target, monster.attackDamage, "physical", null, null);
+      // Físico do mob é VARIÁVEL como o do player (±40%, mean-preserving): bater
+      // exato lê robótico. attackDamage já é a MÉDIA → só rola na resolução, sem
+      // recalibrar número de mob. attackType vem do template (não mais hardcoded).
+      const dmg = physicalVariance(monster.attackDamage, ctx.rng());
+      applyDamage(ctx, monster, target, dmg, monster.attackType ?? "physical", null, null);
       monster.nextAttackAt = now + monster.attackCooldownMs;
     }
     return;

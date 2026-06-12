@@ -58,6 +58,8 @@ export type ClientCommand =
   | { type: "sellItem"; instanceId: number }
   /** Fechar a loja aberta (Esc / clicar fora). */
   | { type: "closeShop" }
+  /** Abrir um baú próximo (saque single-use: concede o loot ao bolso na sim). */
+  | { type: "openChest"; chestId: string }
   /** Abrir um container (mochila equipada, cadáver próximo, mochila aninhada). */
   | { type: "openContainer"; containerId: number }
   | { type: "closeContainer"; containerId: number }
@@ -296,6 +298,8 @@ export interface Snapshot {
   entities: EntityState[];
   /** Cadáveres saqueáveis no chão (decai na sim). */
   corpses: CorpseView[];
+  /** Baús do mundo (placement estático; estado de saque é per-jogador na sim). */
+  chests: ChestView[];
   /** Eventos one-shot deste tick (não persistem). */
   events: SnapshotEvent[];
 }
@@ -365,6 +369,15 @@ export interface CorpseView {
   z: number;
   /** Espécie do morto (client escolhe o sprite do corpo). */
   species: string | null;
+  name: string;
+}
+
+export interface ChestView {
+  /** Id estável do baú (o client manda em `openChest`). */
+  id: string;
+  pos: Vec2;
+  /** Andar (z-level) — client só mostra os do andar atual. */
+  z: number;
   name: string;
 }
 

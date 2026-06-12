@@ -1,4 +1,4 @@
-import { TileId, type FloorLayer, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect } from "../../shared/types";
+import { TileId, type ChestDef, type FloorLayer, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect } from "../../shared/types";
 import { CREATURES } from "../bestiary";
 import { mulberry32, valueNoise } from "../rng";
 
@@ -582,6 +582,20 @@ export function generateAlvoradaMap(): MapData {
   const heatSources = [{ x: hx, y: hy }];
   const freshWater = [{ x: wx, y: wy }];
 
+  // ════ Baús de TESTE (provisório) — ✏️ orçamento real = QUESTS.md "baús M3" ════
+  // Exercitam o sistema fim-a-fim perto do nascimento (spawn 128,124):
+  // aberto · concede-chave · trancado-por-chave · gate de nível.
+  const chests: ChestDef[] = [
+    { id: "bau_teste_aberto", pos: { x: 128, y: 122 }, z: 0, name: "Baú Velho",
+      loot: { items: [{ templateId: "pao", qty: 2 }], gold: 25 } },
+    { id: "bau_teste_chave", pos: { x: 126, y: 124 }, z: 0, name: "Baú do Zelador",
+      loot: { items: [{ templateId: "queijo" }], grantsKey: "chave_porao" } },
+    { id: "bau_teste_trancado", pos: { x: 130, y: 124 }, z: 0, name: "Baú Trancado",
+      keyReq: "chave_porao", loot: { items: [{ templateId: "pocao_vida_pequena" }], gold: 100 } },
+    { id: "bau_teste_nivel", pos: { x: 128, y: 126 }, z: 0, name: "Baú do Veterano",
+      levelReq: 5, loot: { items: [{ templateId: "espada_curta" }] } },
+  ];
+
   return {
     id: "alvorada",
     width: W,
@@ -596,6 +610,7 @@ export function generateAlvoradaMap(): MapData {
     spawn,
     respawn,
     npcSpawns,
+    chests,
     heatSources,
     freshWater,
     portals: ALVORADA_PORTALS,

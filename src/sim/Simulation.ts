@@ -22,6 +22,7 @@ import {
   facingFromDir,
   isDiagonal,
   type AttributeKey,
+  type ChestDef,
   type DamageType,
   type Dir8,
   type MapData,
@@ -33,7 +34,7 @@ import { CREATURES, type CreatureTemplate } from "./bestiary";
 import { applyDamage, chebyshev, type CombatCtx, type WeaponSource } from "./combat";
 import type { SimEntity } from "./entity";
 import { EventBus, type KillEvent, type DamageEvent } from "./events";
-import { attackCooldownMs, maxCarry, physicalDamage, physicalVariance, statPointCost, wandDamage, xpForLevel } from "./formulas";
+import { attackCooldownMs, maxCarry, MONSTER_MOVE_DAMAGE_SPREAD, physicalDamage, physicalVariance, statPointCost, wandDamage, xpForLevel } from "./formulas";
 import {
   ItemRegistry,
   attachItemLedger,
@@ -141,6 +142,8 @@ export class Simulation {
   /** Cadáveres saqueáveis no chão (decaem). */
   private corpses: { id: number; containerId: number; pos: Vec2; z: number; species: string | null; name: string; decayAtTick: number }[] = [];
   private nextCorpseId = 1;
+  /** Baús do mundo: defs ESTÁTICAS do mapa (imutáveis; saque é per-jogador). */
+  private chests: ChestDef[] = [];
   /** RNG da sim (loot etc.) — seedado e determinístico. */
   private lootRng: Rng = mulberry32(0xa1f0);
   /** RNG do combate (faixa de dano da wand) — stream próprio p/ não perturbar o loot. */
@@ -238,6 +241,7 @@ export class Simulation {
 
   constructor(map: MapData) {
     this.world = new World(map);
+    this.chests = map.chests ?? [];
     this.spawnInitialMonsters();
     this.spawnInitialNpcs();
     // XP/level derivam do evento `kill` do bus (DESIGN-EVOLUCAO.md §Camada Sólida).
@@ -473,6 +477,8 @@ export class Simulation {
       activeShop: null,
       equipment: {},
       openContainers: new Set(),
+      keys: new Set(),
+      lootedChests: new Set(),
       backpackContainerId: null,
     };
     // Arma inicial da classe como instância única equipada (DESIGN-EVOLUCAO.md
@@ -620,6 +626,7 @@ export class Simulation {
       targetId: null,
       nextAttackAt: 0,
       attackDamage: template.attackDamage,
+      attackType: template.attackType,
       // Quantizado à grade de ticks (mesma razão do stepMs/cooldown do player).
       attackCooldownMs: this.quantizeToTickMs(template.attackCooldownMs),
       nextItemUseAt: 0,
@@ -645,6 +652,8 @@ export class Simulation {
       activeShop: null,
       equipment: {},
       openContainers: new Set(),
+      keys: new Set(),
+      lootedChests: new Set(),
       backpackContainerId: null,
     });
     this.occupancy.set(this.tileKey(pos.x, pos.y, z), id);
@@ -697,6 +706,8 @@ export class Simulation {
       activeShop: null,
         equipment: {},
         openContainers: new Set(),
+        keys: new Set(),
+        lootedChests: new Set(),
         backpackContainerId: null,
       });
       this.occupancy.set(this.tileKey(n.x, n.y, this.world.baseZ), id);
@@ -917,6 +928,11 @@ export class Simulation {
             });
           }
         }
+        break;
+      }
+      case "openChest": {
+        if (e.kind !== "player") break;
+        this.openChest(e, cmd.chestId);
         break;
       }
       case "openContainer": {
@@ -1214,7 +1230,10 @@ export class Simulation {
         if (occId == null || occId === monster.id) continue; // tile vazio ou o próprio caster
         const victim = this.entities.get(occId);
         if (victim && !victim.dead && victim.kind === "player") {
-          applyDamage(ctx, monster, victim, am.def.damage ?? 0, am.def.damageType ?? "physical", null, null);
+          // Slam telegrafado varia POUCO (±20%): o telegraph promete um número, o
+          // desvio é a mecânica — faixa apertada não rouba a didática posicional.
+          const slamDmg = physicalVariance(am.def.damage ?? 0, this.combatRng(), MONSTER_MOVE_DAMAGE_SPREAD);
+          applyDamage(ctx, monster, victim, slamDmg, am.def.damageType ?? "physical", null, null);
         }
       }
     }
@@ -1281,6 +1300,60 @@ export class Simulation {
     if (e.backpackContainerId === containerId) return true;
     const corpse = this.corpses.find((c) => c.containerId === containerId);
     return !!corpse && corpse.z === e.z && chebyshev(e.pos, corpse.pos) <= 2;
+  }
+
+  /**
+   * Abre um baú próximo — SINGLE-USE por jogador (modelo baú-de-quest do Tibia).
+   * Gates ortogonais opcionais: nível mínimo + chave abstrata. Concede o loot
+   * FIXO direto ao bolso; BLOQUEIA sem espaço (nada se perde) e só marca como
+   * saqueado quando o loot de fato entrou. Ver `ChestDef`/`ChestLoot`.
+   */
+  private openChest(e: SimEntity, chestId: string): void {
+    const chest = this.chests.find((c) => c.id === chestId);
+    if (!chest) return;
+    // Alcance: ≤2 tiles no mesmo andar (mesma régua do cadáver).
+    if (chest.z !== e.z || chebyshev(e.pos, chest.pos) > 2) return;
+    const label = chest.name ?? "o baú";
+    if (e.lootedChests.has(chestId)) {
+      this.sysMessage(e.id, "Você já levou o que havia aqui.");
+      return;
+    }
+    // Gate de nível mínimo.
+    if (chest.levelReq != null) {
+      const lvl = this.progressions.get(e.id)?.level ?? 1;
+      if (lvl < chest.levelReq) {
+        this.sysMessage(e.id, `Você não tem força para abrir isto (precisa de nível ${chest.levelReq}).`);
+        return;
+      }
+    }
+    // Gate de chave (abstrata — flag no personagem).
+    if (chest.keyReq != null && !e.keys.has(chest.keyReq)) {
+      this.sysMessage(e.id, "Está trancado.");
+      return;
+    }
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (!bp) return;
+    // Pré-checa espaço: 1 slot por item; ouro só precisa de slot se não há pilha.
+    const itemCount = (chest.loot.items ?? []).reduce((n, it) => n + (it.qty ?? 1), 0);
+    const needsGoldSlot = (chest.loot.gold ?? 0) > 0 && !bp.slots.some((s) => s?.kind === "gold");
+    const needed = itemCount + (needsGoldSlot ? 1 : 0);
+    const free = bp.slots.filter((s) => s === null).length;
+    if (needed > free) {
+      this.sysMessage(e.id, "Abra espaço na mochila primeiro.");
+      return;
+    }
+    // Concede o loot (determinístico) e fecha o saque para este personagem.
+    for (const it of chest.loot.items ?? []) {
+      const qty = it.qty ?? 1;
+      for (let i = 0; i < qty; i++) {
+        const inst = this.items.create(it.templateId);
+        this.containers.add(bp, { kind: "item", instanceId: inst.id });
+      }
+    }
+    if (chest.loot.gold) this.containers.depositGold(bp, chest.loot.gold);
+    if (chest.loot.grantsKey) e.keys.add(chest.loot.grantsKey);
+    e.lootedChests.add(chestId);
+    this.sysMessage(e.id, `Você abriu ${label}.`);
   }
 
   /** Peso TOTAL que o jogador carrega: equipamento + bolso (itens + ouro).
@@ -2182,6 +2255,12 @@ export class Simulation {
         z: c.z,
         species: c.species,
         name: c.name,
+      })),
+      chests: this.chests.map((c) => ({
+        id: c.id,
+        pos: { x: c.pos.x, y: c.pos.y },
+        z: c.z,
+        name: c.name ?? "Baú",
       })),
       events,
     };
