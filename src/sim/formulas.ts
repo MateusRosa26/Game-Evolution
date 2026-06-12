@@ -222,6 +222,8 @@ export function physicalDamage(
  * `physicalDamage` dá a MÉDIA; isto rola em [méd×(1−spread), méd×(1+spread)] com
  * `roll`∈[0,1) do RNG seedado da sim. Média preservada → o balance (DPS médio)
  * calibrado se mantém; muda só o feel (AD imprevisível, AP confiável). ✏️ spread.
+ * Decisão canônica: DESIGN-ITENS.md → Mapa de decisões → "Variância de dano"
+ * (mobs idem: básico ±40%, slam ±20% — design/bestiario/MECANICAS-DE-MOB.md §7).
  */
 export const PHYSICAL_DAMAGE_SPREAD = 0.4; // ±40% — AD bem swingy
 // Spread do MOVE/slam telegrafado dos mobs: menor que o básico de propósito. O
