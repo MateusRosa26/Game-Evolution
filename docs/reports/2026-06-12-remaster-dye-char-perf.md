@@ -41,6 +41,21 @@ Nenhuma GPU segura 7,7 GB → thrashing de textura → trava tudo + load não ab
 
 **Fix certo — streaming de chunks:** construir só os chunks que a câmera vê (+1-2 de margem, ~9-16 chunks = ~150 MiB) e reciclar/destruir os distantes conforme o player anda. VRAM ~constante, load instantâneo. É o padrão pra mapa grande. (Arquivo: `src/client/render/WorldRenderer.ts`, `buildGround` linha ~154; o tamanho do RT está na linha ~252.)
 
+### ✅ IMPLEMENTADO (2026-06-12)
+
+`buildGround` foi quebrado em **`buildChunk(cx,cy)`** (constrói 1 chunk sob demanda) + **`buildWater`** (água eager, barata) + **`updateStreaming(centerX, centerY, screenW, screenH, maxBuilds)`**. O frame loop (`Game.frame`) chama `updateStreaming` por frame com orçamento de **2 chunks/frame** (evita hitch ao cruzar fronteira); load, troca de andar e teleporte chamam com `Infinity` (prime síncrono → sem flash de breu). Chunks fora da janela (visível + `STREAM_MARGIN=1`) têm a **RenderTexture destruída** (`rt.destroy(true)`), liberando a VRAM. Ordem de render preservada: `ground` agora tem sub-camadas `groundChunks` (streamado) + `groundWater` (acima, sempre).
+
+**Medido (viewport 640×480, in-game):**
+
+| | chunks vivos | VRAM de chão |
+|---|---|---|
+| antes (todos) | 484 | ~7,7 GB ❌ |
+| **depois (streaming)** | **12** | **~192 MiB** ✅ |
+
+Move pro centro do mapa → 9 chunks; volta → 12. `groundChunks.children` sempre bate com `liveChunks.size` (sem leak de scene-graph); a contagem nunca acumula → unload libera de fato. VRAM ~constante (~150-256 MiB) seja qual for a posição da câmera. `tsc` limpo, `npm run build` ok, 0 erros de console no load.
+
+**Nota (não-blocker):** a água é eager pro mapa todo — Alvorada tem **4676** water-sprites (textura compartilhada, VRAM desprezível; o tick troca o frame a cada 380ms). Se virar custo de CPU algum dia, dá pra streamar junto com os chunks; por ora fora de escopo.
+
 ## Estado do git
 
 `feat/remaster-128px`: `88e84be` (dye gradient-map) · `cb620cd` (load: lookup espacial + warp pré-computado nos campos Voronoi) · `bb94c70` (checkpoint motor 128). Nada pushado ainda. Worktree limpo (bloco de teste de tamanho de char foi revertido do `Game.ts`).
