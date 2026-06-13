@@ -29,6 +29,23 @@
  * specifier `./quests` / `../quests` segue resolvendo pra cá (index do dir).
  */
 import { q1_ratos } from "./defs/q1_ratos";
+import { q2_mochila } from "./defs/q2_mochila";
+import { q3_reagentes } from "./defs/q3_reagentes";
+import { q4_entrega } from "./defs/q4_entrega";
+import { q5_lobos } from "./defs/q5_lobos";
+import { q6_prato } from "./defs/q6_prato";
+import { q7_a1 } from "./defs/q7_a1";
+import { q7_a2 } from "./defs/q7_a2";
+import { q8_a1 } from "./defs/q8_a1";
+import { q8_a2 } from "./defs/q8_a2";
+import { q8_a3 } from "./defs/q8_a3";
+import { q9_estrada } from "./defs/q9_estrada";
+import { q10_agua } from "./defs/q10_agua";
+import { q11_tesouro } from "./defs/q11_tesouro";
+import { q12_corvos } from "./defs/q12_corvos";
+import { q13_minas } from "./defs/q13_minas";
+import { q14_pedras } from "./defs/q14_pedras";
+import { q15_porao } from "./defs/q15_porao";
 import { rito_knight } from "./defs/rito_knight";
 import { rito_mage } from "./defs/rito_mage";
 import { rito_rogue } from "./defs/rito_rogue";
@@ -120,11 +137,28 @@ export interface QuestState {
 }
 
 /**
- * Registro de quests por id (re-montado dos módulos em `defs/`). Q1 + ritos R1-R4
- * por ora; Q2-Q15 entram como novos arquivos em `defs/` somados a este barrel.
+ * Registro de quests por id (re-montado dos módulos em `defs/`). Q1-Q15 da
+ * fatia ① (Alvorada) + ritos R1-R4. Doc novo em `defs/` = mais uma entrada aqui.
  */
 export const QUESTS: Record<string, QuestDef> = {
   q1_ratos,
+  q2_mochila,
+  q3_reagentes,
+  q4_entrega,
+  q5_lobos,
+  q6_prato,
+  q7_a1,
+  q7_a2,
+  q8_a1,
+  q8_a2,
+  q8_a3,
+  q9_estrada,
+  q10_agua,
+  q11_tesouro,
+  q12_corvos,
+  q13_minas,
+  q14_pedras,
+  q15_porao,
   rito_knight,
   rito_mage,
   rito_rogue,
