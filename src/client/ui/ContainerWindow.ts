@@ -12,14 +12,14 @@ import { hex, PAL } from "../assets/palette";
 import { PIXELLAB } from "../assets/pixellab";
 import { makeDraggable } from "./draggable";
 import type { ItemDnD } from "./dnd";
-import { panelFrame, slot } from "./theme";
+import { fitSpriteToSlot, panelFrame, slot } from "./theme";
 import type { Tooltip } from "./Tooltip";
 
 const COLS = 4;
-const SLOT = 34;
-const GAP = 4;
-const PAD = 10;
-const HEADER_H = 22;
+const SLOT = 64; // remaster 128px (jun/2026): densidade de UI subiu p/ compor com o mundo
+const GAP = 6;
+const PAD = 12;
+const HEADER_H = 24;
 
 export class ContainerWindow {
   /** Largura fixa da janela (4 colunas) — usada pelo layout de janelas do Game. */
@@ -138,24 +138,25 @@ export class ContainerWindow {
         if (tex) {
           const spr = new Sprite(tex);
           spr.anchor.set(0.5);
+          fitSpriteToSlot(spr, SLOT);
           spr.position.set(SLOT / 2, SLOT / 2);
           spr.eventMode = "none";
           cell.addChild(spr);
         } else {
           const label = new Text({
             text: item.name.slice(0, 2).toUpperCase(),
-            style: { fontFamily: "monospace", fontSize: 11, fontWeight: "bold", fill: 0xe8e4d8 },
+            style: { fontFamily: "monospace", fontSize: 18, fontWeight: "bold", fill: 0xe8e4d8 },
           });
           label.resolution = 3;
           label.anchor.set(0.5);
-          label.position.set(SLOT / 2, SLOT / 2 - 4);
+          label.position.set(SLOT / 2, SLOT / 2 - 6);
           const name = new Text({
-            text: item.name.length > 7 ? item.name.slice(0, 7) + "…" : item.name,
-            style: { fontFamily: "monospace", fontSize: 5, fill: hex(PAL.attrLabel) },
+            text: item.name.length > 9 ? item.name.slice(0, 9) + "…" : item.name,
+            style: { fontFamily: "monospace", fontSize: 8, fill: hex(PAL.attrLabel) },
           });
           name.resolution = 3;
           name.anchor.set(0.5);
-          name.position.set(SLOT / 2, SLOT - 7);
+          name.position.set(SLOT / 2, SLOT - 11);
           label.eventMode = "none";
           name.eventMode = "none";
           cell.addChild(label, name);
@@ -178,15 +179,15 @@ export class ContainerWindow {
         cell.on("pointerout", () => this.tooltip.hide());
       } else if (gold) {
         const coin = new Graphics();
-        coin.circle(SLOT / 2, SLOT / 2 - 4, 7).fill(0xc8a84b);
-        coin.circle(SLOT / 2, SLOT / 2 - 4, 7).stroke({ color: 0x10141c, width: 1.5 });
+        coin.circle(SLOT / 2, SLOT / 2 - 6, 13).fill(0xc8a84b);
+        coin.circle(SLOT / 2, SLOT / 2 - 6, 13).stroke({ color: 0x10141c, width: 2 });
         const amt = new Text({
           text: String(gold.amount),
-          style: { fontFamily: "monospace", fontSize: 8, fontWeight: "bold", fill: 0xe8e4d8 },
+          style: { fontFamily: "monospace", fontSize: 11, fontWeight: "bold", fill: 0xe8e4d8 },
         });
         amt.resolution = 3;
         amt.anchor.set(0.5);
-        amt.position.set(SLOT / 2, SLOT - 8);
+        amt.position.set(SLOT / 2, SLOT - 12);
         coin.eventMode = "none";
         amt.eventMode = "none";
         cell.addChild(coin, amt);

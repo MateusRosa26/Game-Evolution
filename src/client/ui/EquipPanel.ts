@@ -15,12 +15,13 @@ import { hex, PAL } from "../assets/palette";
 import { PIXELLAB } from "../assets/pixellab";
 import { makeDraggable } from "./draggable";
 import type { ItemDnD } from "./dnd";
-import { panelFrame, slot } from "./theme";
+import { fitSpriteToSlot, panelFrame, slot } from "./theme";
 import { drawEquipIcon, SLOT_ICON_EMPTY, SLOT_ICON_FILLED } from "./slotIcons";
 import type { Tooltip } from "./Tooltip";
 
-const SLOT = 36;
-const GAP = 6;
+const SLOT = 64; // remaster 128px (jun/2026): densidade de UI subiu p/ compor com o mundo
+const ICON_BASE = 36; // silhuetas de slotIcons.ts foram desenhadas p/ ~36px → escala = SLOT/ICON_BASE
+const GAP = 8;
 const PAD = 12;
 const HEADER_H = 24;
 
@@ -123,11 +124,18 @@ export class EquipPanel {
       if (tex) {
         const spr = new Sprite(tex);
         spr.anchor.set(0.5);
+        fitSpriteToSlot(spr, SLOT);
         spr.position.set(SLOT / 2, SLOT / 2);
         spr.eventMode = "none";
         cell.addChild(spr);
       } else {
-        drawEquipIcon(cell, cellDef.slot, SLOT / 2, SLOT / 2, item ? SLOT_ICON_FILLED : SLOT_ICON_EMPTY);
+        // silhueta desenhada em Graphics próprio centrado em (0,0) e escalado p/ o slot
+        const icon = new Graphics();
+        drawEquipIcon(icon, cellDef.slot, 0, 0, item ? SLOT_ICON_FILLED : SLOT_ICON_EMPTY);
+        icon.scale.set(SLOT / ICON_BASE);
+        icon.position.set(SLOT / 2, SLOT / 2);
+        icon.eventMode = "none";
+        cell.addChild(icon);
       }
       cell.position.set(sx, sy);
       this.slotLayer.addChild(cell);

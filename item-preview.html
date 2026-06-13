@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Item preview — densidade UI + drop no chão (128px)</title>
+<style>
+  body{background:#0e1117;margin:0;padding:24px;font-family:system-ui,sans-serif;color:#e6ebf1}
+  h1{font-size:17px;margin:0 0 4px}
+  p.sub{color:#9aa3b6;font-size:12px;margin:0 0 20px;max-width:820px;line-height:1.5}
+  canvas{image-rendering:pixelated;display:block;border:1px solid #2c3545;border-radius:6px;background:#11151d}
+</style></head>
+<body>
+<h1>Densidade de item — drop no chão (tile 128px) vs slot de inventário (48 vs 64)</h1>
+<p class="sub">Mock descartável (canvas puro, não toca a trilha client). Itens carregados dos <b>masters de 96px</b>.
+No chão: render 1:1 sobre tile de 128px com sombra de contato, ao lado do char (escala de mundo).
+Nos painéis: slot 48 (downscale ÷2 limpo do master 96) vs slot 64 (upscale provisório — exigiria master 128 p/ ser limpo).</p>
+<canvas id="cv"></canvas>
+<script type="module" src="/item-preview.ts"></script>
+</body>
+</html>

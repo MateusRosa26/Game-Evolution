@@ -147,7 +147,7 @@ O Lote 2 desenhou mutações **diferentes** das rascunhadas no CATALOGO.md (a fo
 | Apunhalar | Hemorragia · Golpe Súbito · Lâmina Suja | **Hemorragia · Passo Sombrio** |
 | Luz Sagrada | Chama Purificadora · Nova Sagrada · Fervor | **Exorcismo · Raio Solar** |
 | Curar/Heal | Reflexo Vital · Recuperação · Mãos Generosas | **Fôlego · Transfusão** |
-- **DECISÃO CRIADOR (jun/2026): ADICIONAIS.** As mutações do Lote 2 **somam** ao pool de cada skill (uma skill tem 2–4 mutações POSSÍVEIS; o perfil de uso decide qual você pega). → **Ação Chat B: mesclar as mutações do Lote 2 nas listas de mutação de cada skill no `design/skills/CATALOGO.md`** (dedup dos overlaps: *Estilhaço* L2 vs *Estilhaço Profundo* cat; *Exorcismo* L2 vs *Chama Purificadora* cat; *Hemorragia* coincide). A wiki parseia os bullets `- **Nome:**`.
+- **DECISÃO CRIADOR (jun/2026): ADICIONAIS.** As mutações do Lote 2 **somam** ao pool de cada skill (uma skill tem 2–4 mutações POSSÍVEIS; o perfil de uso decide qual você pega). **✅ MESCLA FEITA no `design/skills/CATALOGO.md`** (jun/2026): Lote 2 adicionado + auditoria aplicada + colisões resolvidas (Estilhaço Profundo cortado p/ Permafrost; Chama Purificadora absorvida pelo Exorcismo) + cortes/renomes. Detalhe: `docs/reports/2026-06-11-audit-mutacoes-regra-3-partes.md`.
 
 ### Golpe Forte
 - **Talho Amplo / Cleave** (cercado→arco) — **APROVADO c/ ajuste (CRIADOR):** forma = **arco de 3 casas À FRENTE** (não todos os adjacentes — não é nova 360°; você mira o golpe). Condicionado à **aprovação do Balancista** (risco de AoE no Knight). Dano dividido. → [B11].

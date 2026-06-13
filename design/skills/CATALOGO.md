@@ -69,9 +69,10 @@
 - **Distinção das vizinhas:** *Primeiros Socorros* = canalizada, **sem mana**, cancela ao tomar hit; **esta** = mágica, **instantânea**, custa mana. O eixo é **mecanismo**, não degrau de número (a "cura grande" como número maior está vetada — hub §3).
 - **Perfis rastreados:** self vs aliado · HP no momento do uso · em combate vs fora
 - **Mutações:**
-  1. maioria em HP crítico → **Reflexo Vital** — cura muito maior quando quase morto
+  1. maioria em HP crítico → **Reflexo Vital** — +7-10% de cura em HP crítico (máx 12-15%; pequeno — hub §3 Cor. C)
   2. maioria fora de combate → **Recuperação** — deixa um regen leve após o cast
   3. maioria em aliados → **Mãos Generosas** — pinga um pouco no caster / salta para aliado próximo
+- ✏️ *Curar Ferimentos* (kit Priest) tem 2 mutações próprias (Lote 2): **Fôlego** (self sob pressão → cura instantânea + HoT 3-7%) e **Transfusão** (aliado → cura + escudo breve, cap pequeno). Relação Heal ⇄ Curar Ferimentos a reconciliar.
 
 #### Lume
 - **Tipo:** utilidade
@@ -82,8 +83,8 @@
 - **Por que importa:** escuridão vira recurso de verdade (pilar 1/4) — caverna escura é perigo legível e a luz é a ferramenta. Cria tensão com os Caminhos noturnos do Rogue (*Filho da Noite* **abre mão** da luz).
 - **Perfis rastreados:** tempo em escuridão · exploração vs combate
 - **Mutações:**
-  1. muito uso em escuridão prolongada → **Luz Duradoura** — raio e duração maiores
-  2. maioria em combate → **Lampejo** — ao conjurar, breve cegueira em inimigos adjacentes
+  1. maioria em combate → **Lampejo** — ao conjurar, breve cegueira em inimigos adjacentes
+- ✏️ *Luz Duradoura* (era "+raio/duração") **CORTADA** (regra 3 partes — número puro; gastar evolução numa magia "só ilumina" = cilada). Lume é utilitária pura — provavelmente fica só com Lampejo, ou não muta (ver hub §3 Cor. D + decisão de sensor [S1]).
 
 #### Dash / Disparada
 - **Tipo:** utilidade (burst de velocidade por ~2s ✏️)
@@ -128,6 +129,9 @@
   1. maioria dos usos com HP < 25% → **Golpe Desesperado** — dano escala com HP perdido
   2. maioria logo após bloquear → **Riposte** — após bloqueio, próximo Golpe Forte é instantâneo e crítico
   3. maioria como golpe final → **Lâmina do Fim** — dano massivo vs alvos abaixo de 20% HP
+  4. maioria cercado (2+ adjacentes) → **Talho Amplo** — vira arco que acerta as 3 casas à frente (dano dividido; gate de AoE) *(Lote 2)*
+  5. maioria como abertura (alvo HP cheio) → **Quebra-Guarda** — deixa o alvo **Vulnerável** (só os SEUS golpes batem +dano por Xs; self-only, pequeno) *(Lote 2)*
+- ✏️ pool com 5 — acima do alvo 2-3 (hub §3 Cor. D); criador pode enxugar.
 
 #### Fireball / Bola de Fogo (Int)
 - **Tipo:** projétil
@@ -136,9 +140,9 @@
 - **Efeito base:** dano de fogo + queimadura por Xs ✏️
 - **Perfis rastreados:** distância do cast, alvo já queimando, alvos atingidos
 - **Mutações:**
-  1. maioria à distância máxima → **Meteoro Distante** — alcance maior, dano cresce com a distância
-  2. maioria à queima-roupa → **Eclosão Ígnea** — explosão centrada no caster, empurra inimigos
-  3. maioria em alvos já queimando → **Fogo Voraz** — reacende e espalha a queimadura em área
+  1. maioria à distância máxima → **Meteoro Distante** — alcance maior; dano escala com a distância **dois-lados** (forte longe, FRACO perto — sidegrade, não upgrade)
+  2. maioria à queima-roupa → **Eclosão Ígnea** — empurra inimigos (knockback é o ganho; **sem dano AoE** — no máx burn-chip 1-2)
+  3. maioria em alvos já queimando → **Fogo Voraz** — reacende o burn no alvo + espalha burn **simbólico** em cruz N-S-E-W (contágio, não deleta-pack)
 
 #### Frost Lance / Lança de Gelo (Int)
 - **Tipo:** projétil perfurante (linha)
@@ -147,9 +151,10 @@
 - **Efeito base:** dano de gelo + slow por Xs ✏️
 - **Perfis rastreados:** alvo já sob slow/congelado, alvos atingidos por cast (linha), distância do inimigo ao caster
 - **Mutações:**
-  1. maioria em alvos já lentos/congelados → **Estilhaço Profundo** — dano extra brutal em alvos sob gelo (shatter)
-  2. maioria atravessando 2+ alvos → **Geada Perfurante** — perfura tudo na linha, slow maior por alvo atravessado
+  1. maioria em alvos já lentos → **Permafrost** — o slow vira **root** (alvo não anda; duração ~0.2s) *(Lote 2; resolve colisão com o ex-Estilhaço Profundo, que era dano-condicional no mesmo perfil)*
+  2. maioria atravessando 2+ alvos → **Estilhaço** — **troca o pierce** por estilhaçar em 3 casas (lateral/atrás do 1º contato; dano dividido) *(Lote 2)*
   3. maioria com inimigo adjacente (defensivo) → **Muralha de Inverno** — congela brevemente inimigos ao redor do caster
+- ✏️ **CORTADAS:** *Geada Perfurante* (a base já perfura → era só "+slow"; CC fancy demais p/ gelo de entrada — hub §3 Cor. D) e *Estilhaço Profundo* (dano-condicional, colidia de perfil com Permafrost).
 
 #### Backstab / Apunhalar (Des)
 - **Tipo:** melee posicional
@@ -158,9 +163,10 @@
 - **Efeito base:** golpe rápido; dano ~2× se atingir pelas costas ✏️
 - **Perfis rastreados:** ângulo (costas/frente), HP do alvo no momento (abertura), alvo envenenado
 - **Mutações:**
-  1. maioria pelas costas → **Hemorragia** — abre ferida que sangra (DoT físico forte)
-  2. maioria como abertura (alvo com HP cheio) → **Golpe Súbito** — dano enorme no primeiro golpe do combate
+  1. maioria pelas costas → **Hemorragia** — o backstab **ignora ~7-10% da armadura** (penetração pequena; acha a brecha) *(reframe Lote 2 — verbo bounded, não DoT)*
+  2. maioria como abertura (alvo com HP cheio) → **Golpe Súbito** — +7-10% de dano na abertura (não "enorme")
   3. maioria em alvos envenenados → **Lâmina Suja** — espalha e potencializa o veneno no alvo
+- ✏️ *Passo Sombrio* (proposta Lote 2: cast-de-longe→teleporta) **CORTADA** — gatilho impossível p/ skill melee (tiles colados).
 
 #### Conjure Arrow / Conjurar Flechas
 - **Tipo:** conjuração
@@ -170,7 +176,7 @@
 - **Efeito base:** cria uma pilha de **flechas temporárias** (expiram em Xs ou ao deslogar ✏️). Função econômica: **alivia o sink de gold do arqueiro** sem zerá-lo. Não é dano — é logística.
 - **Perfis rastreados:** flechas conjuradas vs compradas · % da munição gasta que veio de conjuração
 - **Mutações:**
-  1. uso quase total via conjuração (raramente compra) → **Aljava Infinita** — rende mais flechas por cast / custo de mana menor
+  1. uso quase total via conjuração (raramente compra) → **Aljava Paciente** — **menos flechas por cast, mas duram bem mais** (troca quantidade↔duração; casa com o uso real). NÃO "não-expira" (viraria moeda/quebra mercado). ✏️ *renomear (não é "Infinita")*
   2. ✏️ maioria conjurada sob pressão (em combate, mana baixa) → **Flecha de Emergência** — conjura instantâneo um punhado, cooldown próprio
 
 #### Holy Light / Luz Sagrada (Esp)
@@ -180,9 +186,9 @@
 - **Efeito base:** dano holy; bônus forte vs mortos-vivos/demônios ✏️ (é o nuke solo do Priest)
 - **Perfis rastreados:** família do alvo (profano ou não), distância, HP do caster
 - **Mutações:**
-  1. maioria vs mortos-vivos/demônios → **Chama Purificadora** — profanos mortos explodem em luz (dano em área)
+  1. maioria vs mortos-vivos/demônios → **Exorcismo** — o projétil **explode vs profano** (sidegrade: single 100%→75% + ~20% em AoE; obtenção difícil pq Priest caça profano) *(Lote 2; absorve o ex-"Chama Purificadora", mesmo perfil)*
   2. maioria à queima-roupa → **Nova Sagrada** — vira explosão de luz centrada no caster
-  3. maioria com HP cheio → **Fervor** ✏️ — dano aumenta enquanto não tomar dano
+  3. maioria com HP cheio → **Resplendor** — dano sobe enquanto não tomar dano (ramp pequeno, capado) ✏️ *renomear (o nome "Fervor" ficou com a Bênção/Lote 3)*
 - **Nota de conduta:** Luz Sagrada não conta como "arma" — compatível com o Caminho **Monge** (*Mão Vazia*).
 
 #### Sacred Aura / Aura Sagrada (Esp)
@@ -193,13 +199,15 @@
 - **Efeito base:** cura todos os aliados num raio ao redor do caster (solo = cura só você dentro do raio; brilha no online)
 - **Perfis rastreados:** nº de aliados curados por cast, HP médio dos alvos, em combate vs fora
 - **Mutações:**
-  1. maioria curando 3+ aliados → **Graça Compartilhada** — raio maior / cura extra por aliado atingido
+  1. maioria curando 3+ aliados → **Graça Compartilhada** — o **excedente de cura** em cada aliado (além do HP cheio) vira **escudo breve** (cap pequeno; overheal→shield)
   2. maioria em combate sob pressão → **Refúgio** — deixa uma zona de regen no chão por alguns segundos
   3. maioria vs profanos por perto → **Prece de Guerra** — o pulso também causa dano sagrado em profanos adjacentes
 
 ## Roster T1/T3 — fichas completas no M3
 
 > As skills sem ficha acima (T1/T2/T3 e as **[novas]**) ganham ficha detalhada quando o Balancista dá a régua e o Loremaster os nomes. O verbo de cada uma está na coluna "Uma linha" do índice; o requisito e a banda no índice.
+>
+> **Mutações do Lote 3 aguardam estas fichas (M3):** *Investida* (Aríete, Estopim) · *Retalho* (Estripar, Marca Mortal) · *Raio* (Corrente, Fulminar) · *Fagulhas* (Estática, Foco) · *Bênção* (Fervor, Litania) — desenhadas em `docs/reports/2026-06-11-catalogo-emergente-lote3-mutacoes.md`, entram aqui quando as skills-base ganharem ficha. (Lote 3 passou limpo na regra de 3 partes.)
 >
 > **Removidas (jun/2026):** *Passo das Sombras* (sobrepunha o Apunhalar — blink-pras-costas vs backstab eram a mesma jogada) e *Leque de Facas* (kit do Rogue já tinha dano demais; deu lugar a recurso/furtividade). Critério: skill que não traz **verbo novo** não entra (hub §3).
 
