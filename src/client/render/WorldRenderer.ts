@@ -58,6 +58,8 @@ export class WorldRenderer {
   private roofSprites: { sp: Sprite; rect: MapRect }[] = [];
   private waterSprites: { sp: Sprite; frames: Texture[] }[] = [];
   private torchSprites: Sprite[] = [];
+  /** Braseiros (mobília): animam a brasa como a tocha (3 frames, mesmo clock). */
+  private brazierSprites: Sprite[] = [];
   private waterClock = 0;
   private torchClock = 0;
   private waterFrame = 0;
@@ -441,15 +443,70 @@ export class WorldRenderer {
       }
     }
 
+    // MOBÍLIA URBANA (MOBILIA-URBANA.md): cada MapDecor.kind → sprite procedural
+    // no MESMO container y-sorted dos objetos, ancorado na BASE (0.5,1), zIndex =
+    // pixel Y da base (igual a tochas/árvores). A `cerca` é autotile (máscara dos
+    // vizinhos `cerca`); o `braseiro` anima como a tocha. Animados/luz são DADOS:
+    // a luz do braseiro vem de `map.lights` (placement), não daqui.
+    const fenceAt = new Set<number>();
+    for (const d of map.decor) if (d.kind === "cerca") fenceAt.add(d.y * map.width + d.x);
+    const hasFence = (x: number, y: number): boolean => fenceAt.has(y * map.width + x);
+
     for (const d of map.decor) {
+      const cx = (d.x + 0.5) * TILE_SIZE;
+      const baseY = (d.y + 1) * TILE_SIZE;
+
+      // Cerca: autotile 16 máscaras (N=1,E=2,S=4,W=8) — mesmo contrato do muro.
+      if (d.kind === "cerca") {
+        const mask =
+          (hasFence(d.x, d.y - 1) ? 1 : 0) | (hasFence(d.x + 1, d.y) ? 2 : 0) |
+          (hasFence(d.x, d.y + 1) ? 4 : 0) | (hasFence(d.x - 1, d.y) ? 8 : 0);
+        const sp = new Sprite(s.fence[mask]);
+        sp.anchor.set(0.5, 1);
+        sp.position.set(cx, baseY);
+        sp.zIndex = sp.position.y;
+        this.objects.addChild(sp);
+        this.addShadow(cx + 2, baseY - 2, 30, 10);
+        continue;
+      }
+
+      // Demais kinds → uma textura (anchor base). default: pula (nunca quebra/some).
+      let tex: Texture | null = null;
+      switch (d.kind) {
+        case "torch": tex = s.torchFrames[0]; break;
+        case "barril": tex = s.barrel; break;
+        case "caixa": tex = s.crate; break;
+        case "tenda": tex = s.stall; break;
+        case "poco": tex = s.well; break;
+        case "balcao": tex = s.shopCounter; break;
+        case "placa": tex = s.signs.generico; break;
+        case "braseiro": tex = s.brazierFrames[0]; break;
+        case "boneco_treino": tex = s.trainingDummy; break;
+        case "estacas": tex = s.scaffold; break;
+        case "saco": tex = s.sack; break;
+        case "lenha": tex = s.firewood; break;
+        default: tex = null; // kind desconhecido: ignora (silhueta nunca some/quebra)
+      }
+      if (!tex) continue;
+
+      const sp = new Sprite(tex);
+      sp.anchor.set(0.5, 1);
+      sp.position.set(cx, baseY);
+      sp.zIndex = sp.position.y;
+      this.objects.addChild(sp);
+
       if (d.kind === "torch") {
-        const torch = new Sprite(s.torchFrames[0]);
-        torch.anchor.set(0.5, 1);
-        torch.position.set((d.x + 0.5) * TILE_SIZE, (d.y + 1) * TILE_SIZE);
-        torch.zIndex = torch.position.y;
-        this.objects.addChild(torch);
-        this.torchSprites.push(torch);
-        this.addShadow((d.x + 0.5) * TILE_SIZE + 2, (d.y + 1) * TILE_SIZE - 2, 18, 8);
+        this.torchSprites.push(sp);
+        this.addShadow(cx + 2, baseY - 2, 18, 8);
+      } else if (d.kind === "braseiro") {
+        this.brazierSprites.push(sp);
+        this.addShadow(cx + 2, baseY - 2, 24, 11);
+      } else if (d.kind === "placa") {
+        // tabuleta pendurada na parede (alta): sem sombra de contato no chão.
+      } else {
+        // props de chão: sombra de contato proporcional à largura do sprite.
+        const w = (tex.width || TILE_SIZE) * 0.6;
+        this.addShadow(cx + 2, baseY - 2, Math.max(14, w), Math.max(8, w * 0.42));
       }
     }
   }
@@ -478,6 +535,10 @@ export class WorldRenderer {
       this.torchFrame = (this.torchFrame + 1) % this.sprites.torchFrames.length;
       const tex = this.sprites.torchFrames[this.torchFrame];
       for (const t of this.torchSprites) t.texture = tex;
+      // braseiros compartilham o clock da tocha (brasa pulsa no mesmo ritmo).
+      const bf = this.sprites.brazierFrames;
+      const btex = bf[this.torchFrame % bf.length];
+      for (const b of this.brazierSprites) b.texture = btex;
     }
   }
 }

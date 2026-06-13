@@ -3,6 +3,7 @@ import {
   WALKABLE,
   type InteractableDef,
   type MapData,
+  type MapDecor,
   type MapOpening,
   type MapPortal,
   type MapRect,
@@ -20,6 +21,8 @@ interface FloorRuntime {
   /** Máscaras só do andar base (overworld); andares extras = null por ora. */
   safe: Uint8Array | null;
   pass: Uint8Array | null;
+  /** Tiles ocupados por mobília que bloqueia (MapDecor.blocks). LOCAL ao rect. */
+  blocked: Uint8Array;
   portals: MapPortal[];
   openings: MapOpening[];
   /** Hooks de quest do andar (esparsos; lista pequena → busca linear, como portals). */
@@ -56,6 +59,7 @@ export class World {
       tiles: map.tiles,
       safe: World.maskFrom(map.width, map.height, 0, 0, map.safeZones),
       pass: World.maskFrom(map.width, map.height, 0, 0, map.passZones),
+      blocked: World.blockedMaskFrom(map.width, map.height, 0, 0, map.decor),
       portals: map.portals ?? [],
       openings: map.openings ?? [],
       interactables: map.interactables ?? [],
@@ -72,6 +76,7 @@ export class World {
         tiles: f.tiles,
         safe: null,
         pass: null,
+        blocked: World.blockedMaskFrom(f.width, f.height, f.ox, f.oy, f.decor),
         portals: f.portals,
         openings: f.openings,
         interactables: f.interactables ?? [],
@@ -90,6 +95,22 @@ export class World {
           if (lx >= 0 && ly >= 0 && lx < w && ly < h) mask[ly * w + lx] = 1;
         }
       }
+    }
+    return mask;
+  }
+
+  /**
+   * Máscara dos tiles ocupados por mobília que BLOQUEIA (MOBILIA-URBANA §3): só
+   * decor com `blocks:true` (barril/caixa/cerca/tenda/poço/balcão/braseiro/boneco/
+   * estacas/lenha) marca o tile como impassável; decor puro (saco/cesto/placa) e o
+   * `torch` não bloqueiam. Coords de decor são de MUNDO → recortadas ao rect do andar.
+   */
+  private static blockedMaskFrom(w: number, h: number, ox: number, oy: number, decor: MapDecor[]): Uint8Array {
+    const mask = new Uint8Array(w * h);
+    for (const d of decor) {
+      if (!d.blocks) continue;
+      const lx = d.x - ox, ly = d.y - oy;
+      if (lx >= 0 && ly >= 0 && lx < w && ly < h) mask[ly * w + lx] = 1;
     }
     return mask;
   }
@@ -120,7 +141,10 @@ export class World {
   }
 
   isWalkable(x: number, y: number, z: number = this.baseZ): boolean {
-    return this.inBounds(x, y, z) && WALKABLE[this.tileAt(x, y, z)];
+    if (!this.inBounds(x, y, z) || !WALKABLE[this.tileAt(x, y, z)]) return false;
+    // mobília bloqueante (barril/cerca/poço…) ocupa o tile: não-andável.
+    const f = this.floors.get(z)!;
+    return f.blocked[(y - f.oy) * f.width + (x - f.ox)] === 0;
   }
 
   /** Tile de zona segura? (entidades não bloqueiam; monstros não entram). */

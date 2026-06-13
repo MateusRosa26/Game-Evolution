@@ -470,6 +470,94 @@ export function generateAlvoradaMap(): MapData {
   // Balsa FECHADA (§3.3): píer de tábuas do Cais até a água (promessa: Pontal)
   for (let x = 159; x <= 166; x++) set(x, 128, TileId.Bridge);
 
+  // ════ 6b. MOBÍLIA URBANA (MOBILIA-URBANA.md §4/§5) — vila viva ════
+  // Kit PROCEDURAL (decisão de design: NÃO usar PixelLab). 3 camadas: estruturas
+  // de comércio ABERTAS (tenda/balcão/placa), props de USO (barril/caixa/saco/
+  // lenha/feno) e DELIMITADORES (cerca/estacas). Estratégia §4: ASSIMETRIA, nunca
+  // centralizar 1-a-1, clutter AGRUPADO (3–5 peças encostadas) nos CANTOS/VÃOS —
+  // jamais sobre porta, estrada, bueiro ou o caminho do nascimento.
+  //
+  // `dec()` ancora em coord-CIDADE (via city()); `blk` define colisão (MapDecor.
+  // blocks → tile impassável na sim). Guarda: peça que BLOQUEIA só pousa em tile
+  // ANDÁVEL hoje (não sela porta/rua nem duplica muro — pula em silêncio se cair em
+  // sólido); decor puro (saco/placa) pode encostar em parede. Determinístico (sem
+  // rng): o placement é AUTORAL (assimetria/cluster vêm das coords, não do acaso).
+  const dec = (cx: number, cy: number, kind: MapDecor["kind"], blk = false) => {
+    const [x, y] = city(cx, cy);
+    if (blk && !WALKABLE[get(x, y)]) return; // tile já sólido: não duplica/sela
+    decor.push({ x, y, kind, ...(blk ? { blocks: true } : {}) });
+  };
+  // braseiro = fonte de luz quente móvel (luz vem dos DADOS, como a tocha — §3).
+  const brazier = (cx: number, cy: number, radius = 4) => {
+    const [x, y] = city(cx, cy);
+    if (!WALKABLE[get(x, y)]) return;
+    decor.push({ x, y, kind: "braseiro", blocks: true });
+    lights.push({ x, y, color: 0xff7a36, radius, intensity: 0.8, flicker: true });
+  };
+
+  // ── FEIRA na Praça do Poço (§4 — o maior salto de "vila") ──
+  // Poço no CENTRO (assenta na água-doce city(37,39): o marco que dá nome à praça
+  // e a fonte de cozinha são a MESMA peça). Bloqueia o tile; cozinha-se ao lado
+  // (nearWater = Chebyshev ≤1) e os 8 vizinhos ficam livres (bueiro (36,38) e ruas
+  // intactos). Tendas em ANEL IRREGULAR colado às bordas, fugindo das 4 bocas de
+  // rua (N≈x38, O≈y38, S≈(33,42), SE≈(42,44)) e dos vizinhos do poço.
+  dec(37, 39, "poco", true);
+  // tendas (5, assimétricas — cantos NO/NE/SO/SE/S da praça, nunca enfileiradas).
+  // x34 no topo é a parede L do Boticário (some na praça) → banca NO foge p/ x35.
+  dec(35, 36, "tenda", true);
+  dec(40, 35, "tenda", true);
+  dec(34, 42, "tenda", true);
+  dec(41, 41, "tenda", true);
+  dec(39, 43, "tenda", true);
+  // mercadoria AGRUPADA junto de cada tenda (saco/cesto = decor; caixa = bloqueia)
+  dec(33, 36, "saco"); dec(33, 37, "saco"); dec(35, 37, "caixa", true); // banca NO
+  dec(40, 34, "caixa", true); dec(41, 35, "saco"); dec(39, 35, "saco");  // banca NE
+  dec(33, 42, "saco"); dec(35, 43, "saco"); dec(34, 43, "caixa", true);  // banca SO
+  dec(42, 41, "saco"); dec(41, 42, "caixa", true);                       // banca SE
+  dec(38, 42, "saco"); dec(40, 43, "saco");                              // banca S
+  // pilha de caixas/barris num canto morto da praça (clutter agrupado, §4)
+  dec(33, 39, "caixa", true); dec(33, 40, "barril", true); dec(34, 40, "caixa", true);
+
+  // ── FACHADAS viram LOJAS (§4): balcão/placa/clutter NA FRENTE da porta. A parede
+  // sul da casa NÃO é andável (HouseWall) → peça que bloqueia pousa UM tile à frente
+  // (ground andável), nunca no vão da porta nem no tile do NPC; a PLACA pendura na
+  // parede (decor puro). Tile de aproximação da porta (logo abaixo) fica LIVRE.
+  // Loja Geral (Nina, porta (24,38)) — balcão a O, clutter a L; aproximação (24,39).
+  dec(22, 39, "balcao", true); dec(23, 38, "placa");
+  dec(26, 39, "caixa", true); dec(27, 39, "barril", true); dec(26, 40, "saco");
+  // Boticário (Silas, porta (31,38)) — balcão a L, clutter a O; aproximação (31,39).
+  dec(33, 39, "balcao", true); dec(32, 38, "placa");
+  dec(28, 39, "barril", true); dec(29, 39, "caixa", true); dec(28, 40, "saco");
+  // Ferreiro (Duarte, porta (20,28)) — balcão a L + forja (braseiro/lenha) a O;
+  // a rua sai da porta pela coluna x20 (20,29)→(20,36): NADA em x20. Aprox. (20,29).
+  dec(22, 29, "balcao", true); dec(22, 28, "placa");
+  brazier(18, 29); dec(17, 29, "lenha", true); dec(23, 29, "caixa", true);
+  // Estalagem do Vau (Bartolo, porta (20,42)) — barris de cerveja a L + placa;
+  // fogão é interior (não mexer). Aproximação (20,43) livre.
+  dec(22, 43, "barril", true); dec(23, 43, "barril", true); dec(22, 44, "caixa", true);
+  dec(18, 42, "placa");
+
+  // ── QUEBRAR O GRID (§4): cercas definindo quintais/becos + clutter nos vãos ──
+  // Quintal a O da Loja Geral / N da Estalagem (vão uniforme entre as casas-caixa).
+  // Cerca em L (autotile pega os cantos); vão deixado p/ entrar; clutter dentro.
+  for (let cy = 32; cy <= 33; cy++) dec(28, cy, "cerca", true); // lance vertical
+  dec(29, 33, "cerca", true); dec(30, 33, "cerca", true);        // dobra p/ leste
+  dec(29, 32, "lenha", true); dec(30, 32, "lenha", true); // lenha/feno = mesmo kind
+  // viela entre Boticário (sul) e Depot (norte): pilha encostada (mata canto vazio)
+  dec(34, 33, "caixa", true); dec(35, 33, "barril", true);
+
+  // ── PÁTIO DA MILÍCIA / GUILDA (R1, Guilda rect [40..50,12..18], porta (44,18)):
+  // braseiro + boneco de treino (treino). Ricardo em (44,18) — fica no vão; planto
+  // ao lado, sem tapar a porta nem a rua da guilda (40,21)→(44,19).
+  dec(46, 19, "boneco_treino", true); dec(47, 19, "boneco_treino", true);
+  brazier(42, 19); dec(41, 19, "lenha", true);
+
+  // ── MURALHA "EM OBRAS" (§3.1): trechos de gap O (city x2, y44..50) e S (city
+  // y58, x6..12) — estacas de obra + ripas soltas (gancho físico do v4). Pousa
+  // na grama do gap (andável), nunca na muralha de pedra.
+  dec(2, 45, "estacas", true); dec(2, 47, "estacas", true); dec(3, 46, "lenha", true);
+  dec(7, 58, "estacas", true); dec(10, 58, "estacas", true); dec(9, 57, "caixa", true);
+
   // ════ 7. POIs fora da muralha ════
   // Gruta dos Morcegos (S3 — barranco N da colina): bolsão rochoso
   ringRocks(set, get, 137, 58, 9, 0.55, rng);

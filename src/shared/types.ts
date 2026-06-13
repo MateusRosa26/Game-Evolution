@@ -209,11 +209,35 @@ export interface MapLight {
   flicker: boolean;
 }
 
-/** Decoração que emite luz / objetos especiais ancorados em tiles. */
+/**
+ * Mobília urbana / decoração ancorada em tiles (MOBILIA-URBANA.md — kit de
+ * "vila viva", PROCEDURAL). `torch` segue sendo a fonte de luz original; os
+ * demais são os props do kit (3 camadas: estruturas de comércio abertas, props
+ * de uso, delimitadores). Puramente visual no client (sprite no container
+ * y-sorted, base = âncora); o `blocks` é a única regra que a sim consome.
+ */
 export interface MapDecor {
   x: number;
   y: number;
-  kind: "torch";
+  kind:
+    | "torch" // fonte de luz original (tocha de parede)
+    | "barril" // cilindro com aros de ferro — bloqueia
+    | "caixa" // engradado de ripas, empilhável — bloqueia
+    | "cerca" // parapeito de madeira (tira/autotile) — bloqueia (vão = portão)
+    | "tenda" // banca de feira (toldo + balcão); balcão bloqueia
+    | "poco" // anel de pedra + cobertura (Praça do Poço) — bloqueia
+    | "balcao" // balcão/toldo de loja na fachada — bloqueia
+    | "placa" // tabuleta de ofício pendurada — decor (não bloqueia)
+    | "braseiro" // tigela de ferro com brasa (luz quente móvel) — bloqueia
+    | "boneco_treino" // poste + alvo de palha (pátio da Guilda) — bloqueia
+    | "estacas" // postes fincados + ripas (muralha em obras) — bloqueia
+    | "saco" // saco/cesto de mercadoria — decor (não bloqueia)
+    | "lenha"; // toras/feno empilhados — bloqueia
+  /**
+   * Prop que OCUPA o tile (sim trata como impassável). Ausente = não bloqueia
+   * (decor puro: saco/cesto, placa). Ver tabela de colisão em MOBILIA-URBANA §3.
+   */
+  blocks?: boolean;
 }
 
 /** Ponto de spawn de um monstro no mapa (espécie do bestiário). */
