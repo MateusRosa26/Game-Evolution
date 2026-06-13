@@ -110,10 +110,17 @@ export class Game {
   /** Janelas de container abertas, por containerId. */
   private containerWins = new Map<number, ContainerWindow>();
   private lastCorpses: Snapshot["corpses"] = [];
+  /** Baús/portas do andar atual (do snapshot) — alvos do clique→comando. */
+  private lastChests: Snapshot["chests"] = [];
+  private lastDoors: Snapshot["doors"] = [];
   private keyboard!: Keyboard;
   private chat = new ChatWindow((text) => this.transport.send({ type: "say", text }));
   /** NPC que o jogador clicou de longe: anda até ele e conversa ao chegar. */
   private pendingTalkNpcId: number | null = null;
+  /** Baú clicado de longe: anda até ele e manda `openChest` ao chegar (≤2 tiles). */
+  private pendingChestId: string | null = null;
+  /** Porta clicada de longe: anda até ela e manda `interact` ao chegar (≤2 tiles). */
+  private pendingDoorId: string | null = null;
 
   private worldContainer = new Container();
   /** Camada de UI — SEMPRE acima da iluminação (que é multiply sobre o mundo). */
@@ -272,6 +279,9 @@ export class Game {
         (e) => e.kind === "npc" && e.pos.x === tile.x && e.pos.y === tile.y,
       );
       const corpse = this.lastCorpses.find((c) => c.pos.x === tile.x && c.pos.y === tile.y);
+      const chest = this.lastChests.find((c) => c.pos.x === tile.x && c.pos.y === tile.y);
+      // Só portas FECHADAS são alvo de interação; aberta = tile passável (anda).
+      const door = this.lastDoors.find((d) => !d.open && d.pos.x === tile.x && d.pos.y === tile.y);
       if (monster) {
         this.transport.send({
           type: "selectTarget",
@@ -280,6 +290,7 @@ export class Game {
       } else if (npc) {
         const me = this.playerState;
         const near = me && Math.max(Math.abs(me.pos.x - npc.pos.x), Math.abs(me.pos.y - npc.pos.y)) <= 3;
+        this.clearPendingInteractions();
         if (near) {
           this.transport.send({ type: "talk", npcId: npc.id });
         } else {
@@ -289,8 +300,19 @@ export class Game {
         }
       } else if (corpse) {
         this.transport.send({ type: "openContainer", containerId: corpse.id });
+      } else if (chest) {
+        // Baú: em alcance (≤2, régua da sim) abre já; senão anda até lá e abre ao
+        // chegar. O sprite aberto/vazio vem do snapshot — aqui só o comando.
+        this.clearPendingInteractions();
+        if (this.inReach(chest.pos)) this.transport.send({ type: "openChest", chestId: chest.id });
+        else { this.pendingChestId = chest.id; this.transport.send({ type: "walkTo", x: chest.pos.x, y: chest.pos.y }); }
+      } else if (door) {
+        // Porta fechada: mesmo padrão — `interact` (a sim abre com a chave certa).
+        this.clearPendingInteractions();
+        if (this.inReach(door.pos)) this.transport.send({ type: "interact", interactableId: door.id });
+        else { this.pendingDoorId = door.id; this.transport.send({ type: "walkTo", x: door.pos.x, y: door.pos.y }); }
       } else {
-        this.pendingTalkNpcId = null;
+        this.clearPendingInteractions();
         this.transport.send({ type: "walkTo", x: tile.x, y: tile.y });
       }
     });
@@ -334,6 +356,20 @@ export class Game {
       this.aimingSkillId = null;
       this.transport.send({ type: "useSkill", skillId, targetId: this.targetId });
     }
+  }
+
+  /** Jogador está a ≤2 tiles (Chebyshev) de `t`? Mesma régua reach-based que a
+   *  sim usa p/ baú/porta — só pra decidir abrir já vs. andar até lá (a sim revalida). */
+  private inReach(t: { x: number; y: number }): boolean {
+    const me = this.playerState;
+    return !!me && Math.max(Math.abs(me.pos.x - t.x), Math.abs(me.pos.y - t.y)) <= 2;
+  }
+
+  /** Limpa os alvos de interação pendentes (novo clique cancela o anterior). */
+  private clearPendingInteractions(): void {
+    this.pendingTalkNpcId = null;
+    this.pendingChestId = null;
+    this.pendingDoorId = null;
   }
 
   /** True se (sx,sy) está sobre um painel de UI visível (janelas clicáveis). */
@@ -514,8 +550,16 @@ export class Game {
       ...snap,
       entities: snap.entities.filter((e) => e.z === pz),
       corpses: snap.corpses.filter((c) => c.z === pz),
+      chests: snap.chests.filter((c) => c.z === pz),
+      doors: snap.doors.filter((d) => d.z === pz),
     };
     this.entityRenderer?.apply(viewSnap);
+    // Baús/portas do andar ativo: o WorldRenderer desenha o estado (saqueado/aberto)
+    // no container y-sorted; o client SÓ projeta o snapshot (zero regra).
+    this.worldRenderer?.setChests(viewSnap.chests);
+    this.worldRenderer?.setDoors(viewSnap.doors);
+    this.lastChests = viewSnap.chests;
+    this.lastDoors = viewSnap.doors;
     // Camada emergente (DESIGN-EVOLUCAO.md §"Visibilidade"): hint/unlock chegam
     // como eventos one-shot SEM progresso numérico. O toast só ENCENA o evento
     // (sussurro no hint, momento épico no unlock) — ZERO regra de jogo aqui.
@@ -548,6 +592,24 @@ export class Game {
           this.transport.send({ type: "talk", npcId: npc.id });
           this.pendingTalkNpcId = null;
         }
+      }
+    }
+    // baú/porta pendente: andou até lá e chegou em alcance → manda o comando e
+    // limpa. Some do snapshot (andar diferente) → cancela. A sim revalida o reach.
+    if (this.pendingChestId != null && this.playerState) {
+      const c = this.lastChests.find((x) => x.id === this.pendingChestId);
+      if (!c) this.pendingChestId = null;
+      else if (this.inReach(c.pos)) {
+        this.transport.send({ type: "openChest", chestId: c.id });
+        this.pendingChestId = null;
+      }
+    }
+    if (this.pendingDoorId != null && this.playerState) {
+      const d = this.lastDoors.find((x) => x.id === this.pendingDoorId);
+      if (!d || d.open) this.pendingDoorId = null; // sumiu ou já abriu
+      else if (this.inReach(d.pos)) {
+        this.transport.send({ type: "interact", interactableId: d.id });
+        this.pendingDoorId = null;
       }
     }
     // Alvo vem da PRÓPRIA entidade do jogador (targetId é por-jogador no protocolo).

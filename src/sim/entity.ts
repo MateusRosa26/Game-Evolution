@@ -116,6 +116,13 @@ export interface SimEntity {
   /** Baús já SAQUEADOS por este personagem (single-use por jogador). chestId. */
   lootedChests: Set<string>;
   /**
+   * PORTAS já ABERTAS por este personagem (`DoorDef.id`). Estado per-character
+   * (igual a `lootedChests`/`keys`): enquanto o id NÃO está aqui, o tile da
+   * porta bloqueia este mover; ao abrir (com a chave, via `interact`), o id
+   * entra e a porta fica passável só para ele. Cresce só com portas no mapa.
+   */
+  openedDoors: Set<string>;
+  /**
    * Regiões de quest (`QuestRegionDef.id`) que este personagem JÁ disparou —
    * o evento `region_enter` é one-shot por personagem (entrar de novo não
    * re-dispara). Cresce só quando há regiões no mapa (uso raro).

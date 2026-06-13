@@ -386,6 +386,11 @@ export interface MapData {
   /** Baús plantados no mundo (loot fixo + gates opcionais). Ver `ChestDef`. */
   chests?: ChestDef[];
   /**
+   * PORTAS TRANCADAS plantadas no mundo (começam fechadas; abrem com chave via
+   * `interact`). Bloqueiam o tile na sim enquanto fechadas. Ver `DoorDef`.
+   */
+  doors?: DoorDef[];
+  /**
    * PONTOS/OBJETOS INTERAGÍVEIS de quest no overworld (hook da etapa `interact`).
    * Os do subsolo vão no `FloorLayer` do andar. Ver `InteractableDef`.
    */
@@ -452,5 +457,33 @@ export interface ChestDef {
    */
   keyReq?: string;
   /** Nome exibível ("Baú", "Baú do Bando"). default "Baú". */
+  name?: string;
+}
+
+/**
+ * PORTA TRANCADA (DEFINIÇÃO ESTÁTICA do mapa — modelo Apogea, ver
+ * `design/mundo/EXPLORACAO.md` §Portas & Chaves). Começa FECHADA: o tile é
+ * tratado como bloqueio na sim até que um personagem a ABRA via comando
+ * `interact` TENDO a chave certa. Reusa o sistema de CHAVE abstrata do baú
+ * (`SimEntity.keys` / `ChestDef.keyReq`) — a chave não diz qual porta abre.
+ *
+ * O estado "abri esta porta" vive no PERSONAGEM (`SimEntity.openedDoors`),
+ * não aqui — single-use por jogador, igual ao baú (conteúdo per-character do
+ * princípio MMO; a casa-tutorial é de cada um). A porta assenta sobre um tile
+ * andável (o vão na parede): fechada, a sim a bloqueia; aberta, o tile volta a
+ * ser passável naturalmente.
+ */
+export interface DoorDef {
+  /** Id único no mapa — chave do registro de portas abertas do personagem. */
+  id: string;
+  pos: Vec2;
+  z: number;
+  /**
+   * keyId que destranca (ausente = porta que abre sem chave — um simples
+   * "abrir/empurrar"). A chave é abstrata (flag no personagem), vem de quest
+   * ou exploração; quem a possui abre. Mesma chave de `ChestDef.keyReq`.
+   */
+  keyReq?: string;
+  /** Nome exibível ("a porta", "a porta de saída"). default "a porta". */
   name?: string;
 }

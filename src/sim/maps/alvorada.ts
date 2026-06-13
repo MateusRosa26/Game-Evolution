@@ -1,4 +1,4 @@
-import { TileId, WALKABLE, type ChestDef, type FloorLayer, type InteractableDef, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect, type QuestRegionDef } from "../../shared/types";
+import { TileId, WALKABLE, type ChestDef, type DoorDef, type FloorLayer, type InteractableDef, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect, type QuestRegionDef } from "../../shared/types";
 import { CREATURES } from "../bestiary";
 import { mulberry32, valueNoise } from "../rng";
 
@@ -682,7 +682,10 @@ export function generateAlvoradaMap(): MapData {
     npc("duarte", "Duarte", 20, 28), // Ferreiro (Q4/Q9)
     npc("vidal", "Vidal", 8, 36), // Quartel da Guarda (Q5/Q8/Q9)
     npc("hugo", "Hugo", 26, 30), // mineiro aposentado (Q13 — sussurrador), canto da Baixa
-    npc("rosa", "Rosa", 28, 46), // casa inicial (tutorial) — door (28,46)
+    npc("rosa", "Rosa", 28, 43), // casa inicial (tutorial) — interior andável (128,123),
+    //   na safeZone, SEM tapar a PORTA (128,126), o spawn (128,124) nem os baús
+    //   (127/129,123). Antes caía em (128,126) = único vão de saída da casa, FORA
+    //   da safeZone interior, e BLOQUEAVA o player preso lá dentro (fix jun/2026).
     // ── Alto (fé/arcano + treino) ──
     npc("abel", "Abel", 15, 12), // Capela do Coveiro (Q10)
     npc("gabriel", "Gabriel", 20, 14), // Templo (R4)
@@ -740,19 +743,26 @@ export function generateAlvoradaMap(): MapData {
   // que não conta no orçamento). Spawn é em (128,124), dentro da casa inicial
   // (rect city[25,41]→[31,46]); estes baús ficam ao lado, em tiles andáveis do
   // interior. O 1º container concede a 1ª CHAVE (grantsKey "chave_casa_inicial").
-  //
-  // LIMITAÇÃO (anotada, sem inventar mecânica): NÃO há sistema de PORTA-COM-
-  // FECHADURA no mapa (TileId não tem "porta trancada"; o motor de chave só gateia
-  // ChestDef.keyReq). A "porta de saída que a 1ª chave abre" (EXPLORACAO.md §casa
-  // inicial) não tem como ser plantada hoje — a chave é CONCEDIDA (grantsKey) e a
-  // limitação fica registrada aqui; quando o tile/objeto porta-trancada existir,
-  // basta um portal/objeto com keyReq "chave_casa_inicial" na porta (28,46).
   chests.push(
     { id: "casa_inicial_bau", pos: { x: 127, y: 123 }, z: 0, name: "Baú de Casa",
       loot: { items: [{ templateId: "gibao_roto" }, { templateId: "botas_surradas" }], grantsKey: "chave_casa_inicial" } },
     { id: "casa_inicial_arca", pos: { x: 129, y: 123 }, z: 0, name: "Arca Velha",
       loot: { items: [{ templateId: "espada_cega" }, { templateId: "sacola_de_pano" }] } },
   );
+
+  // ════ Porta de saída da casa inicial (EXPLORACAO.md §casa inicial) ════
+  // O loop-assinatura container→chave→porta: o player nasce preso, abre o baú
+  // (gibão/botas + chave_casa_inicial), interage na porta (128,126) = único vão
+  // da casa (city door (28,46)) e sai pra Alvorada. Começa FECHADA (a sim trata o
+  // tile como bloqueio até abrir) e abre SÓ com a chave (`DoorDef.keyReq`), estado
+  // per-character (SimEntity.openedDoors). O baú casa_inicial_bau NÃO tem keyReq →
+  // a chave está SEMPRE alcançável dentro: o player nunca fica preso de forma
+  // insolúvel. (128,126) é o vão na HouseWall sul, já pintado StoneFloor pelo loop
+  // dos BUILDINGS — andável quando aberta, sem tile novo. Fecha o loop do tutorial.
+  const doors: DoorDef[] = [
+    { id: "porta_casa_inicial", pos: { x: 128, y: 126 }, z: 0,
+      keyReq: "chave_casa_inicial", name: "a porta de saída" },
+  ];
 
   // ════ Interativos de quest no OVERWORLD (z=0) — hook `interact` (GRID §10) ════
   // Cada id casa com um `QuestStageDef` type:"interact" (conferidos nos defs em
@@ -809,6 +819,7 @@ export function generateAlvoradaMap(): MapData {
     respawn,
     npcSpawns,
     chests,
+    doors,
     interactables,
     questRegions,
     heatSources,

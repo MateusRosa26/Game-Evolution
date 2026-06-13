@@ -1,6 +1,7 @@
 import {
   TileId,
   WALKABLE,
+  type DoorDef,
   type InteractableDef,
   type MapData,
   type MapDecor,
@@ -43,12 +44,21 @@ export class World {
   readonly width: number;
   readonly height: number;
   private readonly floors = new Map<number, FloorRuntime>();
+  /**
+   * PORTAS trancadas do mapa (lista plana; o `z` de cada uma diz o andar). Lista
+   * pequena → busca linear, como `portals`. O estado aberto/fechado é
+   * per-character (`SimEntity.openedDoors`); aqui só vivem as DEFINIÇÕES + a
+   * regra de "fechada bloqueia" via `isClosedDoorTile`. A sim consulta isto em
+   * `canEnter` para gatear o bloqueio por jogador (quem abriu passa).
+   */
+  private readonly doors: DoorDef[];
 
   constructor(map: MapData) {
     this.map = map;
     this.baseZ = map.z ?? 0;
     this.width = map.width;
     this.height = map.height;
+    this.doors = map.doors ?? [];
     // andar base (overworld), full-size em offset (0,0)
     this.floors.set(this.baseZ, {
       z: this.baseZ,
@@ -179,6 +189,31 @@ export class World {
   nearFreshWater(x: number, y: number, z: number = this.baseZ, range = 1): boolean {
     if (z !== this.baseZ) return false;
     return (this.map.freshWater ?? []).some((p) => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= range);
+  }
+
+  /** Porta (def estática) neste tile/andar, se houver. */
+  doorAt(x: number, y: number, z: number = this.baseZ): DoorDef | null {
+    return this.doors.find((d) => d.pos.x === x && d.pos.y === y && d.z === z) ?? null;
+  }
+
+  /** Porta por id (a sim valida o alcance ao abrir). */
+  doorById(id: string): DoorDef | null {
+    return this.doors.find((d) => d.id === id) ?? null;
+  }
+
+  /** Defs de TODAS as portas (placement estático) — a sim projeta no snapshot
+   *  juntando o estado per-character (`openedDoors`) para o client desenhar. */
+  get allDoors(): readonly DoorDef[] {
+    return this.doors;
+  }
+
+  /**
+   * Há uma porta FECHADA neste tile? "Fechada" aqui = existe uma porta no tile;
+   * se ESTE jogador já a abriu é decidido na sim (`canEnter`, via
+   * `openedDoors`). World só sabe ONDE há porta — o estado aberto é per-character.
+   */
+  isDoorTile(x: number, y: number, z: number = this.baseZ): boolean {
+    return this.doors.some((d) => d.pos.x === x && d.pos.y === y && d.z === z);
   }
 
   /** Portal (transição entre andares) neste tile, se houver. */

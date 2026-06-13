@@ -306,6 +306,8 @@ export interface Snapshot {
   corpses: CorpseView[];
   /** Baús do mundo (placement estático; estado de saque é per-jogador na sim). */
   chests: ChestView[];
+  /** Portas do mundo (placement estático; estado "aberta" é per-jogador na sim). */
+  doors: DoorView[];
   /** Eventos one-shot deste tick (não persistem). */
   events: SnapshotEvent[];
 }
@@ -384,6 +386,29 @@ export interface ChestView {
   pos: Vec2;
   /** Andar (z-level) — client só mostra os do andar atual. */
   z: number;
+  name: string;
+  /**
+   * Já saqueado pelo JOGADOR desta sessão (per-character — `SimEntity.lootedChests`).
+   * O client troca o sprite (baú aberto/vazio) e não anima a abertura de novo. NÃO é
+   * estado do mundo (cada jogador tem o seu): vem projetado para o player conectado.
+   */
+  looted: boolean;
+}
+
+/**
+ * Porta do mundo (placement estático; o estado "aberta" é per-jogador na sim,
+ * `SimEntity.openedDoors`). Espelha `ChestView`: o client desenha fechada/aberta e
+ * manda `interact` no clique. A definição (chave/etc.) é regra da sim — aqui só o
+ * que o client precisa pra DESENHAR e MIRAR o clique.
+ */
+export interface DoorView {
+  /** Id estável da porta (o client manda em `interact`). */
+  id: string;
+  pos: Vec2;
+  /** Andar (z-level) — client só mostra as do andar atual. */
+  z: number;
+  /** Aberta para o JOGADOR desta sessão (per-character). Fechada bloqueia o tile. */
+  open: boolean;
   name: string;
 }
 

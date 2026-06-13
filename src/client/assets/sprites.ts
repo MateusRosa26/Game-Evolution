@@ -2021,6 +2021,154 @@ function makeStairs(): Texture {
   return p.texture();
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Baú & Porta (loop tutorial: container→chave→porta). Mesmo low-top-down
+// dos props (face de topo + frente), luz top-left, 3 valores por material,
+// outline manual (silhueta depende dele). Sombra de contato vem da camada
+// `shadows` do WorldRenderer. Anchor (0.5,1) no render → desenhar na base.
+// ──────────────────────────────────────────────────────────────────────
+
+// Ferragens do baú/porta (mais clara que o IRON dos aros de barril → lê como
+// fechadura/dobradiça polida sob a luz). Madeira reusa o ramp WOOD do kit.
+const FITTING = "#6b5a3a", FITTING_HI = "#8a7448", FITTING_DK = "#3e3322"; // latão velho
+const PIT_DK = "#0a0d12"; // interior fundo (boca do baú / vão da porta aberta)
+
+/**
+ * Baú de madeira com aros e fechadura (30×26). `open=false`: tampa abaulada
+ * fechada + chapa de fechadura ao centro. `open=true`: tampa erguida pra trás
+ * (face interna visível) revelando o interior VAZIO e escuro — o feedback "já
+ * saquei". Low-top-down: corpo frontal + leve face de topo na borda da tampa.
+ */
+function makeChest(open: boolean): Texture {
+  const p = new Px(30 * S, 26 * S);
+  const x0 = 3 * S, w = 24 * S;           // corpo (x 3..27)
+  const bodyTop = 12 * S, bodyBot = 24 * S; // baú (parte de baixo) y 12..24
+  // ── CORPO (caixa de tábuas), sempre visível ──
+  for (let x = x0; x < x0 + w; x++) {
+    const t = (x - x0) / w; // luz envolvendo (esq clara → dir sombra)
+    const c = t < 0.12 ? WOOD_DK : t < 0.28 ? WOOD : t < 0.5 ? WOOD_LT : t < 0.8 ? WOOD : WOOD_DK;
+    p.rect(x, bodyTop, S, bodyBot - bodyTop, c);
+  }
+  for (const jx of [9, 15, 21]) p.rect(jx * S, bodyTop + S, S, bodyBot - bodyTop - 2 * S, WOOD_DK); // juntas das tábuas
+  p.rect(x0, bodyTop, w, S, WOOD_HI); // aresta de cima do corpo pega luz
+  p.rect(x0, bodyBot - S, w, S, WOOD_DK); // base em sombra de contato
+  // aros de ferro verticais nas quinas do corpo
+  p.rect(x0, bodyTop, 2 * S, bodyBot - bodyTop, FITTING);
+  p.rect(x0, bodyTop, S, bodyBot - bodyTop, FITTING_HI);
+  p.rect(x0 + w - 2 * S, bodyTop, 2 * S, bodyBot - bodyTop, FITTING_DK);
+
+  if (!open) {
+    // ── TAMPA FECHADA: domo abaulado sobre o corpo (y 4..13) ──
+    const lidTop = 4 * S, lidBot = 13 * S;
+    for (let y = lidTop; y < lidBot; y++) {
+      const k = (y - lidTop) / (lidBot - lidTop); // topo do domo (claro) → base
+      const inset = Math.round((1 - Math.sin(k * Math.PI * 0.5)) * 2 * S); // arredonda o ombro
+      for (let x = x0 + inset; x < x0 + w - inset; x++) {
+        const t = (x - x0) / w;
+        const lit = k < 0.18 || t < 0.2;
+        const c = lit ? WOOD_HI : t < 0.5 ? WOOD_LT : t < 0.8 ? WOOD : WOOD_DK;
+        p.px(x, y, c);
+      }
+    }
+    // aros da tampa (envolvem o domo) + ripa central
+    p.rect(x0 + 2 * S, lidTop + S, S, lidBot - lidTop - S, FITTING_DK);
+    p.rect(x0 + w - 3 * S, lidTop + S, S, lidBot - lidTop - S, FITTING_DK);
+    p.rect(13 * S, lidTop, 4 * S, S, FITTING_HI); // topo do domo lit (centro)
+    // chapa de fechadura ao centro (na junta tampa↔corpo)
+    p.rect(13 * S, 10 * S, 4 * S, 5 * S, FITTING);
+    p.rect(13 * S, 10 * S, 4 * S, S, FITTING_HI);
+    p.rect(14 * S, 12 * S, 2 * S, 2 * S, PIT_DK); // buraco da fechadura
+    p.px(15 * S, 13 * S, FITTING_DK);
+  } else {
+    // ── TAMPA ABERTA: erguida pra trás (face interna vista) + interior vazio ──
+    // boca do baú (interior fundo e escuro = vazio)
+    p.rect(x0 + 2 * S, bodyTop - S, w - 4 * S, 3 * S, PIT_DK);
+    p.rect(x0 + 3 * S, bodyTop, w - 6 * S, S, "#141821"); // fundo do vazio (leve degradê)
+    // tampa inclinada atrás (trapézio: face interna escura encarando o jogador)
+    const tlx = x0 + 3 * S, trx = x0 + w - 3 * S, lidY = 2 * S, lidH = 8 * S;
+    for (let y = 0; y < lidH; y++) {
+      const shrink = Math.round((y / lidH) * 2 * S);
+      for (let x = tlx + shrink; x < trx - shrink; x++) {
+        // face interna: tábua em sombra (vê-se o avesso), pino de luz na borda de cima
+        p.px(x, lidY + y, y < S ? WOOD_LT : y < 2 * S ? WOOD : WOOD_DK);
+      }
+    }
+    p.rect(tlx, lidY, trx - tlx, S, WOOD_HI); // borda superior da tampa pega luz
+    p.rect(13 * S, lidY, 4 * S, lidH - S, FITTING_DK); // ripa central da tampa (avesso)
+    // dobradiças (a tampa articula na traseira do corpo)
+    p.rect(x0 + 4 * S, bodyTop - 2 * S, 2 * S, 2 * S, FITTING);
+    p.rect(x0 + w - 6 * S, bodyTop - 2 * S, 2 * S, 2 * S, FITTING);
+  }
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/**
+ * Porta de pranchas num batente de pedra (28×46, anchor base). `open=false`:
+ * pranchas maciças + aros de ferro + argola. `open=true`: folha recuada pra
+ * dentro (vão escuro à mostra) — o tile volta a ser passável na sim, e o visual
+ * acompanha. Mais alta que larga (lê como vão de parede); assenta no chão.
+ */
+function makeDoor(open: boolean): Texture {
+  const W = 28 * S, H = 46 * S;
+  const p = new Px(W, H);
+  const JAMB = "#272c34", JAMB_HI = "#3a4150", JAMB_DK = "#161a20"; // batente de pedra escura
+  // ── BATENTE (moldura de pedra em volta do vão), sempre presente ──
+  const jx = 0, jw = W, openTop = 4 * S; // arco superior do vão começa em y=4
+  p.rect(jx, 0, jw, H, JAMB);
+  p.rect(jx, 0, jw, S, JAMB_HI);             // verga (topo) pega luz
+  p.rect(jx, 0, S, H, JAMB_HI);              // ombreira esq lit
+  p.rect(jx + jw - S, 0, S, H, JAMB_DK);     // ombreira dir sombra
+  const inX = 3 * S, inW = W - 6 * S;         // vão interno (x 3..25)
+  p.rect(inX, openTop, inW, H - openTop, JAMB_DK); // recesso do vão (sombra de fundo)
+
+  if (!open) {
+    // ── FOLHA FECHADA: pranchas verticais preenchendo o vão ──
+    const lx = inX + S, lw = inW - 2 * S, ly = openTop + S, lh = H - openTop - 2 * S;
+    for (let x = lx; x < lx + lw; x++) {
+      const t = (x - lx) / lw;
+      const c = t < 0.14 ? WOOD_LT : t < 0.5 ? WOOD : t < 0.82 ? WOOD : WOOD_DK; // luz esq
+      p.rect(x, ly, S, lh, c);
+    }
+    // sulcos entre pranchas
+    for (const sx of [lx + 4 * S, lx + 8 * S, lx + 12 * S, lx + 16 * S]) p.rect(sx, ly, S, lh, WOOD_DK);
+    p.rect(lx, ly, lw, S, WOOD_HI);          // topo das pranchas lit
+    p.rect(lx, ly + lh - S, lw, S, WOOD_DK); // base em sombra
+    // aros de ferro (2 cintas horizontais) com cabeças de prego
+    for (const by of [ly + 4 * S, ly + lh - 6 * S]) {
+      p.rect(lx, by, lw, 2 * S, FITTING);
+      p.rect(lx, by, lw, S, FITTING_HI);
+      for (let k = 0; k < lw; k += 4 * S) p.rect(lx + k, by, S, S, FITTING_DK);
+    }
+    // argola/puxador de ferro perto da quina direita (lado oposto à dobradiça)
+    const rx = lx + lw - 4 * S, ry = ly + lh / 2;
+    p.rect(rx, ry, 3 * S, S, FITTING_HI);
+    p.rect(rx, ry + S, S, 2 * S, FITTING);
+    p.rect(rx + 2 * S, ry + S, S, 2 * S, FITTING);
+    p.rect(rx, ry + 3 * S, 3 * S, S, FITTING_DK);
+  } else {
+    // ── FOLHA ABERTA: vão escuro + a folha recuada/aberta pra dentro à esquerda ──
+    // vão fundo (interior escuro à mostra — a passagem liberada)
+    p.rect(inX + S, openTop + S, inW - 2 * S, H - openTop - 3 * S, PIT_DK);
+    p.rect(inX + 2 * S, openTop + 2 * S, 5 * S, H - openTop - 5 * S, "#12161d"); // leve degradê de fundo
+    // folha aberta encostada na ombreira esquerda (vista de canto, fina)
+    const fx = inX + S, fy = openTop + S, fw = 5 * S, fh = H - openTop - 3 * S;
+    for (let x = fx; x < fx + fw; x++) {
+      const c = x < fx + S ? WOOD_LT : x < fx + 3 * S ? WOOD : WOOD_DK; // canto da folha pega luz
+      p.rect(x, fy, S, fh, c);
+    }
+    p.rect(fx, fy, fw, S, WOOD_HI);
+    p.rect(fx, fy + 6 * S, fw, S, FITTING);      // aro da folha visível de canto
+    p.rect(fx, fy + fh - 8 * S, fw, S, FITTING);
+    // dobradiças na ombreira esquerda (onde a folha articula)
+    p.rect(inX, fy + 4 * S, S, 3 * S, FITTING);
+    p.rect(inX, fy + fh - 7 * S, S, 3 * S, FITTING);
+  }
+  p.rect(jx, H - S, jw, S, JAMB_DK); // soleira (sombra de contato no chão)
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
 /** Gradiente radial para as luzes (branco → transparente, falloff suave). */
 function makeLightTexture(): Texture {
   const size = 256;
@@ -2276,6 +2424,12 @@ export interface SpriteLibrary {
   manhole: Texture;
   /** Escada (descida/subida entre andares). */
   stairs: Texture;
+  /** Baú do mundo (FECHADO e ABERTO/vazio) — anchor base, y-sorted. */
+  chestClosed: Texture;
+  chestOpen: Texture;
+  /** Porta trancada (FECHADA e ABERTA) — anchor base, y-sorted. */
+  doorClosed: Texture;
+  doorOpen: Texture;
   shadow: Texture;
   /** Decais espalhados no chão (baked no chunk): grama/terra/pedra/esgoto/caverna. */
   scatter: { grass: Texture[]; dirt: Texture[]; stone: Texture[]; sewer: Texture[]; cave: Texture[] };
@@ -2337,6 +2491,10 @@ export function createSprites(): SpriteLibrary {
     targetMarker: makeTargetMarker(),
     manhole: makeManhole(),
     stairs: makeStairs(),
+    chestClosed: makeChest(false),
+    chestOpen: makeChest(true),
+    doorClosed: makeDoor(false),
+    doorOpen: makeDoor(true),
     shadow: makeShadow(),
     scatter: makeScatterDecals(),
     stoneTransition: makeStoneTransition(404),

@@ -1,6 +1,7 @@
 import { Container, Graphics, RenderTexture, Sprite, type Renderer, type Texture } from "pixi.js";
 import { hash2D } from "../../sim/rng";
 import { CAMERA_ZOOM, TILE_SIZE } from "../../shared/constants";
+import type { ChestView, DoorView } from "../../shared/protocol";
 import { TileId, type MapData, type MapRect } from "../../shared/types";
 import { makeRoof, ROOF_OVERHANG, type SpriteLibrary } from "../assets/sprites";
 
@@ -58,6 +59,14 @@ export class WorldRenderer {
   private roofSprites: { sp: Sprite; rect: MapRect }[] = [];
   private waterSprites: { sp: Sprite; frames: Texture[] }[] = [];
   private torchSprites: Sprite[] = [];
+  /**
+   * Baús/portas do mundo: DINÂMICOS (estado saqueado/aberto é per-jogador e o
+   * andar visível muda), então não entram no bake de `buildObjects` — são
+   * sincronizados a cada snapshot por `setChests`/`setDoors`. Sprite + sombra +
+   * estado atual desenhado, keyed por id, no MESMO container y-sorted.
+   */
+  private chestSprites = new Map<string, { sp: Sprite; sh: Sprite; looted: boolean }>();
+  private doorSprites = new Map<string, { sp: Sprite; open: boolean }>();
   /** Braseiros (mobília): animam a brasa como a tocha (3 frames, mesmo clock). */
   private brazierSprites: Sprite[] = [];
   private waterClock = 0;
@@ -130,6 +139,83 @@ export class WorldRenderer {
       const target = Math.max(0, Math.min(1, dist / FADE));
       if (sp.alpha < target) sp.alpha = Math.min(target, sp.alpha + step);
       else if (sp.alpha > target) sp.alpha = Math.max(target, sp.alpha - step);
+    }
+  }
+
+  /**
+   * Sincroniza os baús DESTE andar com o snapshot (placement + estado de saque):
+   * cria o sprite que falta, troca a textura quando o jogador saqueia (fechado →
+   * aberto/vazio) e remove o que sumiu. Filtra por `z` do andar (cada andar tem o
+   * seu WorldRenderer). Apresentação pura — o estado vem do snapshot.
+   */
+  setChests(chests: readonly ChestView[]): void {
+    const myZ = this.map.z ?? 0;
+    const seen = new Set<string>();
+    for (const c of chests) {
+      if (c.z !== myZ) continue;
+      seen.add(c.id);
+      const cx = (c.pos.x + 0.5) * TILE_SIZE;
+      const baseY = (c.pos.y + 1) * TILE_SIZE;
+      let entry = this.chestSprites.get(c.id);
+      if (!entry) {
+        const sp = new Sprite(c.looted ? this.sprites.chestOpen : this.sprites.chestClosed);
+        sp.anchor.set(0.5, 1);
+        sp.position.set(cx, baseY);
+        sp.zIndex = baseY;
+        this.objects.addChild(sp);
+        const sh = new Sprite(this.sprites.shadow);
+        sh.anchor.set(0.5, 0.5);
+        sh.width = 30;
+        sh.height = 13;
+        sh.position.set(cx + 2, baseY - 2);
+        this.shadows.addChild(sh);
+        entry = { sp, sh, looted: c.looted };
+        this.chestSprites.set(c.id, entry);
+      } else if (entry.looted !== c.looted) {
+        entry.sp.texture = c.looted ? this.sprites.chestOpen : this.sprites.chestClosed;
+        entry.looted = c.looted;
+      }
+    }
+    for (const [id, e] of [...this.chestSprites]) {
+      if (seen.has(id)) continue;
+      e.sp.destroy();
+      e.sh.destroy();
+      this.chestSprites.delete(id);
+    }
+  }
+
+  /**
+   * Sincroniza as portas DESTE andar (placement + estado aberta/fechada): cria,
+   * troca a textura ao abrir e remove o que sumiu. A sombra de contato já está
+   * pintada no próprio sprite (soleira); sem sombra na camada `shadows` (a porta
+   * é alta/vertical, como a placa). Apresentação pura — estado vem do snapshot.
+   */
+  setDoors(doors: readonly DoorView[]): void {
+    const myZ = this.map.z ?? 0;
+    const seen = new Set<string>();
+    for (const d of doors) {
+      if (d.z !== myZ) continue;
+      seen.add(d.id);
+      const cx = (d.pos.x + 0.5) * TILE_SIZE;
+      const baseY = (d.pos.y + 1) * TILE_SIZE;
+      let entry = this.doorSprites.get(d.id);
+      if (!entry) {
+        const sp = new Sprite(d.open ? this.sprites.doorOpen : this.sprites.doorClosed);
+        sp.anchor.set(0.5, 1);
+        sp.position.set(cx, baseY);
+        sp.zIndex = baseY;
+        this.objects.addChild(sp);
+        entry = { sp, open: d.open };
+        this.doorSprites.set(d.id, entry);
+      } else if (entry.open !== d.open) {
+        entry.sp.texture = d.open ? this.sprites.doorOpen : this.sprites.doorClosed;
+        entry.open = d.open;
+      }
+    }
+    for (const [id, e] of [...this.doorSprites]) {
+      if (seen.has(id)) continue;
+      e.sp.destroy();
+      this.doorSprites.delete(id);
     }
   }
 

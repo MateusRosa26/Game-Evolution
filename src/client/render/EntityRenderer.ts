@@ -24,7 +24,24 @@ const WALK_CYCLE = [1, 0, 2, 0];
 const BODY_SOUTH_BIAS: Record<string, 1 | -1> = {
   knight: -1,
   mage: 1,
+  aldeao: 1, // pose sul frontal/simétrica — segue a convenção padrão dos corpos
 };
+
+/**
+ * Alias do SET do outfit → SET do CORPO (charBodies). O corpo é escolhido pelo
+ * set do torso, mas alguns sets de outfit não têm corpo próprio e emprestam o de
+ * outro: o `citizen` (a cara do CLASSLESS e dos NPCs) usa o corpo do ALDEÃO
+ * jovem até o rito dar uma classe (que troca o torso → set knight/mage/etc).
+ */
+const BODY_SET_ALIAS: Record<string, string> = {
+  citizen: "aldeao",
+};
+
+/** SET do corpo a partir do SET do torso do outfit (aplica o alias acima). */
+function bodySetOf(torsoSet: string | undefined): string | undefined {
+  if (!torsoSet) return undefined;
+  return BODY_SET_ALIAS[torsoSet] ?? torsoSet;
+}
 
 /**
  * Tempo parado (ms) antes de voltar ao frame neutro. Entre um passo e o
@@ -306,7 +323,8 @@ export class EntityRenderer {
     const outfit = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
     // CORPO POR CLASSE (receita jun/2026): o SET do torso do outfit escolhe o
     // corpo inteiro (janela O = troca de classe visual). Sem corpo → fallback.
-    const set = OUTFIT_PART_BY_ID[outfit.torso.part]?.set;
+    // Alias: classless/NPC (set citizen) emprestam o corpo do aldeão.
+    const set = bodySetOf(OUTFIT_PART_BY_ID[outfit.torso.part]?.set);
     const body = (set && PIXELLAB.charBodies[set]) || PIXELLAB.knight;
     if (body) return body;
     return outfitTextures(outfit, e.weapon?.templateId ?? null);
@@ -317,8 +335,9 @@ export class EntityRenderer {
     if (e.species) return e.species;
     const o = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
     if (PIXELLAB.knight) {
-      // corpo por classe: visual muda com o SET do torso
-      return `body|${OUTFIT_PART_BY_ID[o.torso.part]?.set ?? "knight"}`;
+      // corpo por classe: visual muda com o SET do torso (com alias citizen→aldeao,
+      // p/ o skinKey carregar o set do CORPO — usado pelo viés de espelho diagonal)
+      return `body|${bodySetOf(OUTFIT_PART_BY_ID[o.torso.part]?.set) ?? "knight"}`;
     }
     return `${o.head.part}.${o.head.color}|${o.torso.part}.${o.torso.color}|${o.legs.part}.${o.legs.color}|${e.weapon?.templateId ?? "-"}`;
   }

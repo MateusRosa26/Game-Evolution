@@ -25,6 +25,7 @@ import {
   type ChestDef,
   type DamageType,
   type Dir8,
+  type DoorDef,
   type MapData,
   type PlayerClass,
   type Vec2,
@@ -213,6 +214,10 @@ export class Simulation {
   private canEnter(mover: SimEntity, x: number, y: number): boolean {
     const z = mover.z;
     if (!this.world.isWalkable(x, y, z)) return false;
+    // PORTA TRANCADA: fechada bloqueia. O estado "abri" é per-character — quem
+    // abriu (via `interact` + chave) passa; todo o resto (inclusive monstros,
+    // que nunca abrem porta) é barrado, mantendo a casa selada até abrir.
+    if (this.world.isDoorTile(x, y, z) && !mover.openedDoors.has(this.world.doorAt(x, y, z)!.id)) return false;
     if (this.world.isSafeZone(x, y, z)) return mover.kind !== "monster";
     if (this.world.isPassZone(x, y, z)) return true;
     const occ = this.occupancy.get(this.tileKey(x, y, z));
@@ -487,6 +492,7 @@ export class Simulation {
       openContainers: new Set(),
       keys: new Set(),
       lootedChests: new Set(),
+      openedDoors: new Set(),
       enteredRegions: new Set(),
       backpackContainerId: null,
     };
@@ -672,6 +678,7 @@ export class Simulation {
       openContainers: new Set(),
       keys: new Set(),
       lootedChests: new Set(),
+      openedDoors: new Set(),
       enteredRegions: new Set(),
       backpackContainerId: null,
     });
@@ -727,6 +734,7 @@ export class Simulation {
         openContainers: new Set(),
         keys: new Set(),
         lootedChests: new Set(),
+        openedDoors: new Set(),
         enteredRegions: new Set(),
         backpackContainerId: null,
       });
@@ -1467,12 +1475,40 @@ export class Simulation {
    * "já interagi", via stage; o interactable é só o ancoradouro no mundo).
    */
   private interact(e: SimEntity, interactableId: string): void {
+    // PORTA antes do interactable de quest: o MESMO comando `interact` abre uma
+    // porta trancada (reusa a régua reach-based + a CHAVE abstrata do baú). Id de
+    // porta e de interactable são namespaces distintos no mapa — sem colisão.
+    const door = this.world.doorById(interactableId);
+    if (door) {
+      this.openDoor(e, door);
+      return;
+    }
     const it = this.world.interactableById(interactableId, e.z);
     if (!it) return;
     // Alcance: ≤2 tiles no mesmo andar (mesma régua do baú/cadáver).
     if ((it.z ?? this.world.baseZ) !== e.z || chebyshev(e.pos, it.pos) > 2) return;
     creditQuestEvent(e.quests, { kind: "interact", interactableId });
     this.sysMessage(e.id, `Você examina ${it.name ?? "o objeto"}.`);
+  }
+
+  /**
+   * Abre uma PORTA trancada próxima — single-use por jogador (estado em
+   * `SimEntity.openedDoors`, igual ao baú). Reusa a régua reach-based (≤2 tiles,
+   * mesmo andar) e a CHAVE abstrata (`SimEntity.keys` / `DoorDef.keyReq`). Sem
+   * chave → "Está trancado." (mesma mensagem do baú). Já aberta → no-op silencioso
+   * (o tile já passa). Ao abrir, o tile vira passável só para este personagem
+   * (ver `canEnter`). Fecha o loop tutorial: baú → chave → porta → sair.
+   */
+  private openDoor(e: SimEntity, door: DoorDef): void {
+    if (door.z !== e.z || chebyshev(e.pos, door.pos) > 2) return;
+    const label = door.name ?? "a porta";
+    if (e.openedDoors.has(door.id)) return; // já aberta para este personagem
+    if (door.keyReq != null && !e.keys.has(door.keyReq)) {
+      this.sysMessage(e.id, "Está trancado.");
+      return;
+    }
+    e.openedDoors.add(door.id);
+    this.sysMessage(e.id, `Você abriu ${label}.`);
   }
 
   /**
@@ -2252,6 +2288,11 @@ export class Simulation {
 
   private emitSnapshot(events: SnapshotEvent[]): void {
     const entities: EntityState[] = [];
+    // Jogador "dono" do snapshot (modelo local = único player): projeta o estado
+    // per-character de baús/portas (saque/aberta). No online vira o destinatário
+    // do delta. Sem player ainda (boot) → estados caem para o default fechado.
+    let viewer: SimEntity | undefined;
+    for (const e of this.entities.values()) if (e.kind === "player") { viewer = e; break; }
     for (const e of this.entities.values()) {
       const state: EntityState = {
         id: e.id,
@@ -2399,11 +2440,23 @@ export class Simulation {
         species: c.species,
         name: c.name,
       })),
+      // Baú/porta carregam o estado PER-CHARACTER (saque/aberta) projetado para o
+      // jogador conectado. No modelo local há um único player; quando o snapshot
+      // virar per-jogador (delta no online), `viewer` é a entidade do destinatário.
+      // O client SÓ desenha — quem decide saqueado/aberto é a sim (per-character).
       chests: this.chests.map((c) => ({
         id: c.id,
         pos: { x: c.pos.x, y: c.pos.y },
         z: c.z,
         name: c.name ?? "Baú",
+        looted: viewer ? viewer.lootedChests.has(c.id) : false,
+      })),
+      doors: this.world.allDoors.map((d) => ({
+        id: d.id,
+        pos: { x: d.pos.x, y: d.pos.y },
+        z: d.z,
+        name: d.name ?? "a porta",
+        open: viewer ? viewer.openedDoors.has(d.id) : false,
       })),
       events,
     };
