@@ -15,14 +15,17 @@ import { ABUTRE_INVESTIDA, GOBLIN_LEAP, type MoveDef } from "./moves";
 export type Tier = "T1" | "T2" | "T3" | "T4" | "T5";
 
 /**
- * Comportamentos de IA do bestiário. M1 implementa só "chaser"; os demais
- * estão declarados para que templates futuros já tenham a forma certa.
+ * Comportamentos de IA do bestiário. COM consumidor: "chaser" (Perseguidor) e
+ * "territorial" (neutro até apanhar). "shooter" (atira à distância) tem a IA
+ * pronta (`monsterAi.updateShooter`) mas NENHUM template a usa ainda — não há mob
+ * de longe nesta fatia; fica declarada p/ o primeiro ranged de verdade. "caster"
+ * fica declarado p/ que templates futuros já tenham a forma certa.
  */
 export type AiBehavior =
   | "chaser" // persegue via A* e bate em melee (Perseguidor / Matilha base)
-  | "territorial" // neutro até provocado (declarado; não implementado no M1)
-  | "shooter" // ataca à distância (declarado; não implementado no M1)
-  | "caster"; // conjura (declarado; não implementado no M1)
+  | "territorial" // neutro até PROVOCADO (idle até receber dano; vira chaser depois)
+  | "shooter" // ataca À DISTÂNCIA: mantém alcance, atira, kita se encostam (sem consumidor ainda)
+  | "caster"; // conjura (declarado; não implementado ainda)
 
 /** Template declarativo de uma criatura. */
 export interface CreatureTemplate {
@@ -39,6 +42,13 @@ export interface CreatureTemplate {
   attackType: DamageType;
   /** Cooldown entre ataques, em ms. */
   attackCooldownMs: number;
+  /**
+   * Alcance do ataque básico em tiles (Chebyshev). Default (undefined) = melee
+   * (1 tile). > 1 só faz sentido com behavior "shooter" (atira à distância). O
+   * chaser/territorial ignoram (sempre batem colados). Sem consumidor ainda
+   * (nenhum mob ranged nesta fatia) — campo pronto pro primeiro atirador.
+   */
+  attackRange?: number;
   /** XP base concedido ao jogador por matar esta criatura (antes da redução
    *  anti-farm por diferença de nível — ver `formulas.xpFromKill`). */
   xp: number;
@@ -176,6 +186,37 @@ export const ESQUELETO: CreatureTemplate = {
 };
 
 /**
+ * Ghoul — Mortos-Vivos (undead), **T3**. O degrau undead acima do esqueleto
+ * (FAMILIAS.md §7: "rápido, faminto"). Habita o **Porão Afogado (A3)**, o fundo
+ * T3 dos esgotos — o 1º sussurro da Contaminação por baixo; substitui o esqueleto-
+ * placeholder do A3 (buildSewerA3). Mais rápido e MUITO mais pesado que o
+ * esqueleto: parede de carne podre que persegue. O Autobuff (frenesi) — a
+ * assinatura no doc — fica adiado (✏️ quando o efeito de move existir), igual à
+ * fúria do orc/autocura do bandido; entra como `chaser` puro por ora.
+ *
+ * TIER (reconciliação): este work-order fixa o ghoul como **T3** (contexto A3 =
+ * Porão Afogado T3), com números na faixa T3 (ver Urso Pardo 190/28). FAMILIAS.md
+ * §7 ainda lista o ghoul como T2 com frenesi — a bateria da família undead (fatia
+ * ② Charneca) fecha tier+números; aqui ele é o foe T3 do fundo do esgoto. ✏️.
+ */
+export const GHOUL: CreatureTemplate = {
+  species: "ghoul",
+  name: "Ghoul",
+  family: "undead",
+  tier: "T3",
+  behavior: "chaser",
+  maxHp: 175, // parede T3 (abaixo do urso 190, acima de todo T2) — undead faminto
+  attackDamage: 26, // golpe pesado T3 (≈ urso 28), mais rápido que o esqueleto
+  attackType: "physical",
+  attackCooldownMs: 1900, // mais ágil que o esqueleto (2000) — "rápido, faminto"
+  xp: 120, // faixa T3 (perto do urso 130); o A3 não é farm — é arrepio
+  aggroRadius: 6,
+  baseStepMs: 250, // passo de jogador — o undead que NÃO é arrastado (≠ esqueleto 300)
+  respawnMs: 20000,
+  loot: { gold: { min: 2, max: 6 } }, // ✏️ + osso/loot undead T3 quando os itens entrarem
+};
+
+/**
  * Goblin — Humanoide, T1, Perseguidor/Covarde (FAMILIAS.md §2). Pele-verde
  * básico do acampamento (S5) e boca da caverna. "Foge sangrando" (covardia) ainda
  * não modelado — entra como `chaser` (✏️ flee-on-bleed quando o comportamento
@@ -201,6 +242,14 @@ export const GOBLIN: CreatureTemplate = {
   respawnMs: 12000,
   loot: { gold: { min: 1, max: 3 } }, // ✏️ + Orelha de Goblin (bounty)/Amuleto Tosco quando os itens entrarem (templates.ts é da wave de itens)
 };
+
+// NOTA (naming + escopo, jun/2026): o **Goblin Fundeiro** (ranged "shooter" do
+// Juncal S9) NÃO entra como espécie nesta fatia — a regra de naming pede espécie
+// SINGULAR de uma palavra (sem composto), e o work-order fixa que NÃO há mob de
+// longe ainda (o tipo `shooter` fica declarado no enum SEM consumidor; a IA
+// `updateShooter` + o campo `attackRange` ficam dormentes, prontos). O spot S9
+// passa a spawnar o `goblin` base (melee) por ora. ✏️ quando o primeiro ranged
+// de verdade entrar (com nome próprio singular), reativa `shooter` aqui.
 
 /**
  * Lobo — Bestial, **T1** (Perseguidor/Matilha — FAMILIAS.md §1: "a alcateia
@@ -253,27 +302,56 @@ export const MORCEGO: CreatureTemplate = {
 };
 
 /**
- * Javali — Bestial, T2, Territorial + Investida (FAMILIAS.md §1: "neutro
- * até provocado"). Tanque que pune: muito HP, golpe pesado, lento pra atacar.
- * Territorialidade e a carga ainda não modeladas — entra como `chaser` (✏️ neutro-
- * até-provocado + investida). Named **Presa-Torta** (Q7) é uma variante futura.
- * Números SEED na faixa T2 (abaixo do esqueleto em HP, acima em dano) — ✏️ Balancista.
+ * Javali — Bestial, T2, Territorial (FAMILIAS.md §1: "neutro até provocado").
+ * Tanque que pune: muito HP, golpe pesado, lento pra atacar. Agora **territorial
+ * de verdade** (`monsterAi.updateTerritorial`): pasta parado e SÓ acorda quando
+ * apanha — aí persegue/ataca como chaser, e nunca mais volta a dormir. A Investida
+ * (carga) ainda não modelada (✏️ move telegrafado futuro). Named **Presa-Torta**
+ * (Q7) é variante futura. Números SEED na faixa T2 — ✏️ Balancista.
  */
 export const JAVALI: CreatureTemplate = {
   species: "javali",
   name: "Javali",
   family: "bestial",
   tier: "T2",
-  behavior: "chaser",
+  behavior: "territorial", // neutro até apanhar (não agrega por proximidade)
   maxHp: 80,
   attackDamage: 16,
   attackType: "physical",
   attackCooldownMs: 2200,
+  // aggroRadius é ignorado enquanto idle (territorial não adquire por proximidade);
+  // depois de provocado, vale como raio de PERDA de alvo (igual ao chaser).
+  aggroRadius: 5,
   xp: 60,
-  aggroRadius: 5, // territorial: só acorda de perto
   baseStepMs: 240,
   respawnMs: 15000,
   loot: { gold: { min: 1, max: 3 } }, // ✏️ + Presa de Javali/Couro Grosso/Carne de Caça quando os itens entrarem
+};
+
+/**
+ * Aranha-das-Cavernas — Vermes (worm), **T2**, Perseguidor (FAMILIAS.md §3:
+ * "básico + veneno no hit"). O aracnídeo do Ninho de Aranhas (S7, fora de trilha)
+ * e das galerias do esgoto (A2). Perseguidor cru por ora — o veneno-no-hit (a
+ * assinatura) não entra porque o ataque BÁSICO de mob ainda não aplica status
+ * (✏️ quando o status-por-hit de mob existir; a família worm é imune a veneno/
+ * fraca a fogo na matriz Regra 10-20, que vive fora da sim). Números SEED no
+ * ladder T2, ENTRE o javali (80/16) e o bandido (95/18) — ✏️ Balancista.
+ */
+export const ARANHA: CreatureTemplate = {
+  species: "aranha",
+  name: "Aranha-das-Cavernas",
+  family: "worm",
+  tier: "T2",
+  behavior: "chaser",
+  maxHp: 88, // entre javali 80 e bandido 95
+  attackDamage: 17, // entre javali 16 e bandido 18
+  attackType: "physical",
+  attackCooldownMs: 1700, // ágil (aracnídeo) — entre lobo 1700 e bandido 1800
+  xp: 68, // entre javali 60 e bandido 78
+  aggroRadius: 6,
+  baseStepMs: 230, // rápida (aranha) — um tico acima do javali
+  respawnMs: 14000,
+  loot: { gold: { min: 1, max: 3 } }, // ✏️ + Seda/Glândula de Veneno quando os itens entrarem
 };
 
 /**
@@ -295,7 +373,9 @@ export const JAVALI: CreatureTemplate = {
  * pesado, muito HP. ✏️ Autobuff (fúria) — a assinatura — quando o efeito existir.
  */
 export const ORC_SOLDADO: CreatureTemplate = {
-  species: "orc_soldado",
+  // species SINGULAR (regra de naming, jun/2026): base "orc", sem composto. O
+  // descritor "Soldado" vive só no `name` exibível.
+  species: "orc",
   name: "Orc Soldado",
   family: "humanoid",
   tier: "T2",
@@ -319,6 +399,9 @@ export const ORC_SOLDADO: CreatureTemplate = {
  * quando o efeito de move existir.
  */
 export const BANDIDO: CreatureTemplate = {
+  // species SINGULAR (regra de naming, jun/2026): base "bandido", sem composto. O
+  // descritor "da Estrada" vive só no `name` exibível. O spot S11 de alvorada.ts
+  // referencia "bandido" (alinhado aqui).
   species: "bandido",
   name: "Bandido da Estrada",
   family: "humanoid",
@@ -366,7 +449,9 @@ export const PRESA_TORTA: CreatureTemplate = {
  * territorial) mas persegue feio quando acorda. Topo do ladder pré-fatia ②.
  */
 export const URSO_PARDO: CreatureTemplate = {
-  species: "urso_pardo",
+  // species SINGULAR (regra de naming, jun/2026): base "urso", sem composto. O
+  // descritor "Pardo" vive só no `name` exibível.
+  species: "urso",
   name: "Urso Pardo",
   family: "bestial",
   tier: "T3",
@@ -410,10 +495,12 @@ export const ABUTRE: CreatureTemplate = {
 export const CREATURES: Record<string, CreatureTemplate> = {
   [RATO.species]: RATO,
   [ESQUELETO.species]: ESQUELETO,
+  [GHOUL.species]: GHOUL,
   [GOBLIN.species]: GOBLIN,
   [LOBO.species]: LOBO,
   [MORCEGO.species]: MORCEGO,
   [JAVALI.species]: JAVALI,
+  [ARANHA.species]: ARANHA,
   [ORC_SOLDADO.species]: ORC_SOLDADO,
   [BANDIDO.species]: BANDIDO,
   [PRESA_TORTA.species]: PRESA_TORTA,

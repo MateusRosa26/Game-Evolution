@@ -172,13 +172,16 @@ const SPOTS: Spot[] = [
   {
     id: "S9 Juncal dos Fundeiros (T1→T2 — Q14)",
     rect: [175, 150, 205, 185],
+    // ✏️ Goblin Fundeiro (ranged "shooter") ainda não existe como espécie (regra de
+    // naming singular + sem mob de longe nesta fatia) — spawna o `goblin` base por
+    // ora. Quando o primeiro atirador entrar, troca aqui.
     spawns: [
-      [198, 155, "goblin_fundeiro"],
-      [201, 165, "goblin_fundeiro"],
-      [197, 175, "goblin_fundeiro"],
-      [202, 180, "goblin_fundeiro"],
-      [180, 153, "goblin_fundeiro"],
-      [178, 170, "goblin_fundeiro"],
+      [198, 155, "goblin"],
+      [201, 165, "goblin"],
+      [197, 175, "goblin"],
+      [202, 180, "goblin"],
+      [180, 153, "goblin"],
+      [178, 170, "goblin"],
     ],
   },
   {
@@ -197,11 +200,11 @@ const SPOTS: Spot[] = [
     id: "S11 Bandidos da Ponte (T2 — Q9/Q11)",
     rect: [150, 260, 185, 290],
     spawns: [
-      [155, 266, "bandido_da_estrada"],
-      [160, 275, "bandido_da_estrada"],
-      [156, 284, "bandido_da_estrada"],
-      [175, 280, "bandido_da_estrada"],
-      [180, 268, "bandido_da_estrada"],
+      [155, 266, "bandido"],
+      [160, 275, "bandido"],
+      [156, 284, "bandido"],
+      [175, 280, "bandido"],
+      [180, 268, "bandido"],
     ],
   },
 ];
@@ -820,9 +823,9 @@ function buildSewerA2(): FloorLayer {
 /**
  * Esgoto A3 (z=−3) — o PORÃO AFOGADO T3 (GRID §7.4): bolsão minúsculo, breu quase
  * total, água por toda parte. NÃO é spot de farm — é arrepio (1º sussurro da
- * Contaminação por baixo). Só se chega pelo mergulho do A2. ✏️ GHOUL ainda não
- * existe no bestiário → uso ESQUELETO de placeholder (dep. da track Itens). Escada
- * de volta provisória (o gate por CORDA do §3 entra quando a ferramenta existir).
+ * Contaminação por baixo). Só se chega pelo mergulho do A2. ✏️ GHOUL (T3, undead)
+ * agora no bestiário — substitui o esqueleto-placeholder. Escada de volta
+ * provisória (o gate por CORDA do §3 entra quando a ferramenta existir).
  */
 function buildSewerA3(): FloorLayer {
   const { t, lset, room } = floorPainter(A3_W, A3_H);
@@ -844,8 +847,8 @@ function buildSewerA3(): FloorLayer {
     z: -3, ox: A3_OX, oy: A3_OY, width: A3_W, height: A3_H,
     tiles: t, lights, decor,
     monsters: [
-      { x: wx(16), y: wy(7), species: "esqueleto" }, // placeholder de GHOUL T3
-      { x: wx(8), y: wy(6), species: "esqueleto" },
+      { x: wx(16), y: wy(7), species: "ghoul" }, // T3 undead — fundo do Porão Afogado
+      { x: wx(8), y: wy(6), species: "ghoul" },
     ],
     portals: [
       // volta provisória pro A2 (no fim do bolsão) — vira gate de CORDA depois

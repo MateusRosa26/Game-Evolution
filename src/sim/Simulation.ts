@@ -47,8 +47,16 @@ import {
   goldWeight,
 } from "./items";
 import type { BlockStats } from "./items/templates";
-import { updateChaser } from "./monsterAi";
-import { creditQuestKill, QUESTS, type QuestState } from "./quests";
+import { updateChaser, updateShooter, updateTerritorial } from "./monsterAi";
+import {
+  creditQuestEvent,
+  creditQuestTurnIn,
+  initialQuestState,
+  questCollectStage,
+  stageCounter,
+  QUESTS,
+  type QuestStage,
+} from "./quests";
 import { ContainerRegistry, type Container } from "./items/containers";
 import { mulberry32, type Rng } from "./rng";
 import { DIALOGUES, dialogueView } from "./dialogue";
@@ -479,6 +487,7 @@ export class Simulation {
       openContainers: new Set(),
       keys: new Set(),
       lootedChests: new Set(),
+      enteredRegions: new Set(),
       backpackContainerId: null,
     };
     // Arma inicial da classe como instância única equipada (DESIGN-EVOLUCAO.md
@@ -580,7 +589,13 @@ export class Simulation {
     const creatureLevel = creatureLevelForTier(template.tier);
     grantKillXp(prog, attacker, template.xp, creatureLevel, this.bus, ev.context);
     // Quests com etapa de caça avançam pelo MESMO evento (mapId ✏️ multi-mapa).
-    creditQuestKill(attacker.quests, ev.victim.species, this.world.map.id ?? "alvorada");
+    if (ev.victim.species) {
+      creditQuestEvent(attacker.quests, {
+        kind: "kill",
+        species: ev.victim.species,
+        mapId: this.world.map.id ?? "alvorada",
+      });
+    }
     // O crescimento de stats por level up pode ter mudado o dano de auto-attack.
     this.recomputePlayerDerived(attacker, prog);
   }
@@ -627,6 +642,7 @@ export class Simulation {
       nextAttackAt: 0,
       attackDamage: template.attackDamage,
       attackType: template.attackType,
+      attackRange: template.attackRange, // só shooter usa (>1); undefined = melee
       // Quantizado à grade de ticks (mesma razão do stepMs/cooldown do player).
       attackCooldownMs: this.quantizeToTickMs(template.attackCooldownMs),
       nextItemUseAt: 0,
@@ -641,6 +657,8 @@ export class Simulation {
       skillCooldowns: {},
       status: [],
       ai: "idle",
+      behavior: template.behavior, // a Simulation despacha a IA por ele
+      provoked: false, // territorial: neutro até apanhar (resetado em todo spawn)
       aggroRadius: template.aggroRadius,
       spawnPos: { x: pos.x, y: pos.y },
       respawnMs, // override por-spot (undefined = usa template.respawnMs no death)
@@ -654,6 +672,7 @@ export class Simulation {
       openContainers: new Set(),
       keys: new Set(),
       lootedChests: new Set(),
+      enteredRegions: new Set(),
       backpackContainerId: null,
     });
     this.occupancy.set(this.tileKey(pos.x, pos.y, z), id);
@@ -708,6 +727,7 @@ export class Simulation {
         openContainers: new Set(),
         keys: new Set(),
         lootedChests: new Set(),
+        enteredRegions: new Set(),
         backpackContainerId: null,
       });
       this.occupancy.set(this.tileKey(n.x, n.y, this.world.baseZ), id);
@@ -737,6 +757,28 @@ export class Simulation {
       const npc = this.entities.get(e.activeDialogue.npcEntityId);
       if (!npc || npc.dead || npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) e.activeDialogue = null;
     }
+  }
+
+  /**
+   * DEV/teste (headless): aceita uma quest num jogador sem passar pelo diálogo
+   * (a aceitação normal é via efeito `acceptQuest` no `dialogueChoice`). Espelha
+   * o mesmo seed (`initialQuestState`). Usado pelos smoke/balance harnesses para
+   * exercitar etapas sem montar o cast de NPCs. Não muda regra alguma.
+   */
+  __debugAcceptQuest(entityId: number, questId: string): void {
+    const e = this.entities.get(entityId);
+    if (!e || !QUESTS[questId] || e.quests.has(questId)) return;
+    e.quests.set(questId, initialQuestState());
+  }
+
+  /**
+   * DEV/teste (headless): lê o ciclo de vida (`active`/`report`/`completed`) de
+   * uma quest do jogador — projeção read-only do estado já exposto no snapshot
+   * (`QuestJournalEntry`), mais direta para asserts de harness. undefined = quest
+   * não está no mapa do jogador.
+   */
+  __debugQuestStage(entityId: number, questId: string): QuestStage | undefined {
+    return this.entities.get(entityId)?.quests.get(questId)?.stage;
   }
 
   handleCommand(entityId: number, cmd: ClientCommand): void {
@@ -805,6 +847,10 @@ export class Simulation {
         if (npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) break; // alcance de conversa (mesmo andar)
         const dlg = DIALOGUES[npc.npcKey];
         if (!dlg) break;
+        // Etapas `talk` avançam por VISITAR o NPC (uma quest cuja etapa atual é
+        // talk:<este npc> progride). Antes de montar a view, então a fala já
+        // reflete o passo cumprido.
+        creditQuestEvent(e.quests, { kind: "talk", npcId: npc.npcKey });
         const talkerCls = this.progressions.get(e.id)?.cls ?? "classless";
         e.activeDialogue = { npcEntityId: npc.id, view: dlg.root(e.quests, talkerCls) };
         this.pendingChat.push({
@@ -829,27 +875,63 @@ export class Simulation {
         if (res.effects?.acceptQuest) {
           const def = QUESTS[res.effects.acceptQuest];
           if (def && !e.quests.has(def.id)) {
-            e.quests.set(def.id, { stage: "active", kills: 0 } satisfies QuestState);
+            e.quests.set(def.id, initialQuestState());
+            // Aceitar É falar com o giver: credita o evento `talk` na mesma hora,
+            // então uma 1ª etapa `talk` (ex.: Q1 talk→kill) já avança pra de caça
+            // — preserva o comportamento de uma etapa do shape antigo.
+            creditQuestEvent(e.quests, { kind: "talk", npcId: npc.npcKey ?? "" });
           }
         }
         if (res.effects?.completeQuest) {
           const def = QUESTS[res.effects.completeQuest];
           const st = def ? e.quests.get(def.id) : undefined;
           if (def && st && st.stage === "report") {
-            st.stage = "completed";
-            // Recompensa de ouro = pilha depositada no bolso (modelo Tibia).
             const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
-            if (bp) this.containers.depositGold(bp, def.rewards.gold);
-            this.sysMessage(e.id, `Quest concluída: ${def.name}. +${def.rewards.gold} ouro, +${def.rewards.xp} XP.`);
-            const prog = this.progressions.get(e.id);
-            if (prog) {
-              // XP de quest: mesma rotina do kill-XP, sem criatura (level 0 = sem corte).
-              grantKillXp(prog, e, def.rewards.xp, 0, this.bus, {
-                tick: this.tickCount,
-                night: false,
-              });
-              this.recomputePlayerDerived(e, prog);
+            // Pré-checa espaço pros itens de recompensa (mesma filosofia do baú:
+            // sem vaga, BLOQUEIA e nada se perde — o jogador libera e reporta de
+            // novo). Q1/ritos não dão item → itemSlots=0 → no-op (idêntico ao antigo).
+            const itemSlots = (def.rewards.items ?? []).reduce((n, r) => n + (r.qty ?? 1), 0);
+            const freeSlots = bp ? bp.slots.filter((s) => s === null).length : 0;
+            if (itemSlots > 0 && freeSlots < itemSlots) {
+              this.sysMessage(e.id, "Sua mochila está cheia para a recompensa — abra espaço.");
+            } else {
+              st.stage = "completed";
+              // Recompensa de ouro = pilha depositada no bolso (modelo Tibia).
+              if (bp) this.containers.depositGold(bp, def.rewards.gold);
+              // Itens de recompensa: 1 instância por unidade no bolso.
+              if (bp) {
+                for (const r of def.rewards.items ?? []) {
+                  for (let n = 0; n < (r.qty ?? 1); n++) {
+                    const inst = this.items.create(r.templateId);
+                    this.containers.add(bp, { kind: "item", instanceId: inst.id });
+                  }
+                }
+              }
+              // Chave abstrata (flag permanente no personagem — ChestDef.keyReq).
+              if (def.rewards.grantsKey) e.keys.add(def.rewards.grantsKey);
+              this.sysMessage(e.id, `Quest concluída: ${def.name}. +${def.rewards.gold} ouro, +${def.rewards.xp} XP.`);
+              const prog = this.progressions.get(e.id);
+              if (prog) {
+                // XP de quest: mesma rotina do kill-XP, sem criatura (level 0 = sem corte).
+                grantKillXp(prog, e, def.rewards.xp, 0, this.bus, {
+                  tick: this.tickCount,
+                  night: false,
+                });
+                this.recomputePlayerDerived(e, prog);
+              }
             }
+          }
+        }
+        // Entrega de etapa `collect`: o diálogo pede a entrega (turnInStage); a
+        // sim confere o bolso, CONSOME os itens e avança a etapa. Só funciona se
+        // a etapa atual da quest é collect deste NPC E o bolso tem o lote.
+        if (res.effects?.turnInStage && npc.npcKey) {
+          const questId = res.effects.turnInStage;
+          const stg = questCollectStage(e.quests, questId, npc.npcKey);
+          const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+          if (stg && bp && this.countInBolso(bp, stg.templateId) >= stg.count) {
+            this.removeFromBolso(bp, stg.templateId, stg.count);
+            creditQuestTurnIn(e.quests, questId);
           }
         }
         // Rito de classe: o treinador dispara a transição (valida gold+quest e
@@ -933,6 +1015,11 @@ export class Simulation {
       case "openChest": {
         if (e.kind !== "player") break;
         this.openChest(e, cmd.chestId);
+        break;
+      }
+      case "interact": {
+        if (e.kind !== "player") break;
+        this.interact(e, cmd.interactableId);
         break;
       }
       case "openContainer": {
@@ -1112,8 +1199,13 @@ export class Simulation {
       rng: this.combatRng,
       effectsOf: (id) => this.tracking.activeEffects(id, this.equippedInstanceIdsOf(id)),
       sessionFacts: (id) => this.effectSessionFacts(id),
-      // Tomar dano cancela a conjuração em andamento do alvo (cast-time).
-      onDamaged: (target) => { if (target.casting) this.cancelCast(target); },
+      // Tomar dano cancela a conjuração em andamento do alvo (cast-time) E
+      // PROVOCA o mob territorial (javali): neutro até apanhar, vira chaser ao
+      // sofrer o 1º dano (monsterAi.updateTerritorial lê `provoked`).
+      onDamaged: (target) => {
+        if (target.casting) this.cancelCast(target);
+        if (target.kind === "monster" && target.behavior === "territorial") target.provoked = true;
+      },
     };
     // areaDamage referencia `ctx` (já construído) — atribuído após o literal.
     ctx.areaDamage = (tiles, sourceId, amount, dt) => this.dealAreaDamage(ctx, tiles, sourceId, amount, dt);
@@ -1150,7 +1242,18 @@ export class Simulation {
           // age de novo no tick seguinte (MECANICAS-DE-MOB.md §1).
           if (now >= e.activeMove.resolveAt) this.resolveMove(e, ctx);
         } else {
-          updateChaser(ctx, this.world, e, players, now, this.blockedFor(e));
+          // Despacha a IA por comportamento do bestiário (default = chaser).
+          const isBlocked = this.blockedFor(e);
+          switch (e.behavior) {
+            case "shooter":
+              updateShooter(ctx, this.world, e, players, now, isBlocked);
+              break;
+            case "territorial":
+              updateTerritorial(ctx, this.world, e, players, now, isBlocked);
+              break;
+            default:
+              updateChaser(ctx, this.world, e, players, now, isBlocked);
+          }
         }
       }
     }
@@ -1354,6 +1457,39 @@ export class Simulation {
     if (chest.loot.grantsKey) e.keys.add(chest.loot.grantsKey);
     e.lootedChests.add(chestId);
     this.sysMessage(e.id, `Você abriu ${label}.`);
+  }
+
+  /**
+   * Interage com um ponto/objeto de cenário de quest próximo (`InteractableDef`).
+   * Hook de mundo da etapa `interact`: REUSA a régua reach-based do baú (≤2 tiles,
+   * mesmo andar) e, ao alcançar, emite `creditQuestEvent({kind:"interact"})` — que
+   * avança UMA vez a etapa `interact` ativa que casa o id (a quest é quem rastreia
+   * "já interagi", via stage; o interactable é só o ancoradouro no mundo).
+   */
+  private interact(e: SimEntity, interactableId: string): void {
+    const it = this.world.interactableById(interactableId, e.z);
+    if (!it) return;
+    // Alcance: ≤2 tiles no mesmo andar (mesma régua do baú/cadáver).
+    if ((it.z ?? this.world.baseZ) !== e.z || chebyshev(e.pos, it.pos) > 2) return;
+    creditQuestEvent(e.quests, { kind: "interact", interactableId });
+    this.sysMessage(e.id, `Você examina ${it.name ?? "o objeto"}.`);
+  }
+
+  /**
+   * Detecta ENTRADA numa região de quest (`QuestRegionDef`) na posição atual do
+   * jogador e emite `region_enter` UMA vez por região por personagem. Chamado a
+   * cada passo committed (em `tryStep`). O set `enteredRegions` é o guarda do
+   * one-shot: a 1ª vez que o tile cai dentro de um rect, emite e marca; depois,
+   * andar dentro/reentrar não re-dispara. Sem regiões no mapa = no-op barato
+   * (lista vazia). Mapas sem `region_enter` ativa nas quests também: o filtro
+   * de etapa em `creditQuestEvent` ignora.
+   */
+  private checkRegionEnter(e: SimEntity): void {
+    for (const r of this.world.questRegionsAt(e.pos.x, e.pos.y, e.z)) {
+      if (e.enteredRegions.has(r.id)) continue;
+      e.enteredRegions.add(r.id);
+      creditQuestEvent(e.quests, { kind: "region_enter", regionId: r.id });
+    }
   }
 
   /** Peso TOTAL que o jogador carrega: equipamento + bolso (itens + ouro).
@@ -2033,6 +2169,11 @@ export class Simulation {
         const clicked = e.intent?.kind === "path" && e.intent.goal.x === nx && e.intent.goal.y === ny;
         if (portal.kind === "stairs" || clicked) this.transition(e, portal.to);
       }
+      // Hook de mundo da etapa `region_enter`: lê regiões na posição/andar ATUAL
+      // (pós-`transition`, então chegar por portal numa região conta). One-shot
+      // por personagem via `enteredRegions` — re-entrar não re-dispara, e nunca
+      // dispara duas vezes andando dentro do mesmo rect. SISTEMA-QUESTS.md.
+      this.checkRegionEnter(e);
     }
     return true;
   }
@@ -2236,9 +2377,11 @@ export class Simulation {
               entry: st.stage === "completed" ? def?.journalCompleted ?? "" : def?.journalActive ?? "",
               completed: st.stage === "completed",
             };
-            // contador SÓ nas diretas com etapa de caça (decisão jun/2026)
-            if (def?.layer === "direta" && def.kill && st.stage !== "completed") {
-              entry.counter = { cur: st.kills, max: def.kill.count };
+            // contador SÓ nas diretas, e só quando a etapa atual conta progresso
+            // (kill/collect) — decisão jun/2026; mostra o "4/8" da etapa corrente.
+            if (def && def.layer === "direta" && st.stage !== "completed") {
+              const c = stageCounter(def, st);
+              if (c) entry.counter = c;
             }
             return entry;
           });

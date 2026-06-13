@@ -1,4 +1,13 @@
-import { TileId, WALKABLE, type MapData, type MapOpening, type MapPortal, type MapRect } from "../shared/types";
+import {
+  TileId,
+  WALKABLE,
+  type InteractableDef,
+  type MapData,
+  type MapOpening,
+  type MapPortal,
+  type MapRect,
+  type QuestRegionDef,
+} from "../shared/types";
 
 /** Uma camada de andar em runtime (localizada: offset + dimensões próprias). */
 interface FloorRuntime {
@@ -13,6 +22,9 @@ interface FloorRuntime {
   pass: Uint8Array | null;
   portals: MapPortal[];
   openings: MapOpening[];
+  /** Hooks de quest do andar (esparsos; lista pequena → busca linear, como portals). */
+  interactables: InteractableDef[];
+  questRegions: QuestRegionDef[];
 }
 
 /**
@@ -46,6 +58,8 @@ export class World {
       pass: World.maskFrom(map.width, map.height, 0, 0, map.passZones),
       portals: map.portals ?? [],
       openings: map.openings ?? [],
+      interactables: map.interactables ?? [],
+      questRegions: map.questRegions ?? [],
     });
     // andares adicionais (z ≠ base): esgotos/cavernas/telhados, localizados
     for (const f of map.floors ?? []) {
@@ -60,6 +74,8 @@ export class World {
         pass: null,
         portals: f.portals,
         openings: f.openings,
+        interactables: f.interactables ?? [],
+        questRegions: f.questRegions ?? [],
       });
     }
   }
@@ -153,5 +169,28 @@ export class World {
     const f = this.floors.get(z);
     if (!f) return null;
     return f.openings.find((o) => o.x === x && o.y === y) ?? null;
+  }
+
+  /** Interagível de quest neste tile (mesmo andar), se houver. */
+  interactableAt(x: number, y: number, z: number = this.baseZ): InteractableDef | null {
+    const f = this.floors.get(z);
+    if (!f) return null;
+    return f.interactables.find((i) => i.pos.x === x && i.pos.y === y) ?? null;
+  }
+
+  /** Interagível de quest por id (mesmo andar) — a sim valida o alcance. */
+  interactableById(id: string, z: number = this.baseZ): InteractableDef | null {
+    const f = this.floors.get(z);
+    if (!f) return null;
+    return f.interactables.find((i) => i.id === id) ?? null;
+  }
+
+  /** Regiões de quest cujo retângulo contém (x,y) neste andar (0+; esparsas). */
+  questRegionsAt(x: number, y: number, z: number = this.baseZ): QuestRegionDef[] {
+    const f = this.floors.get(z);
+    if (!f) return [];
+    return f.questRegions.filter(
+      (r) => x >= r.rect.x && y >= r.rect.y && x < r.rect.x + r.rect.w && y < r.rect.y + r.rect.h,
+    );
   }
 }

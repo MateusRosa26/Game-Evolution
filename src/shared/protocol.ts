@@ -60,6 +60,12 @@ export type ClientCommand =
   | { type: "closeShop" }
   /** Abrir um baú próximo (saque single-use: concede o loot ao bolso na sim). */
   | { type: "openChest"; chestId: string }
+  /**
+   * Interagir com um objeto/ponto de cenário de quest próximo (`InteractableDef`).
+   * Reach-based (mesma régua do baú); a sim valida distância/andar e emite o
+   * evento de quest `interact` que avança a etapa ativa que casa o id.
+   */
+  | { type: "interact"; interactableId: string }
   /** Abrir um container (mochila equipada, cadáver próximo, mochila aninhada). */
   | { type: "openContainer"; containerId: number }
   | { type: "closeContainer"; containerId: number }

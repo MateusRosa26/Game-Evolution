@@ -263,6 +263,39 @@ export interface MapOpening {
 }
 
 /**
+ * OBJETO/PONTO DE CENÁRIO INTERAGÍVEL de quest (alvenaria manchada do Q10, fardo
+ * do Q2, pedras do Q14, baú-cena do Q12…). Hook de mundo da etapa `interact`: o
+ * jogador chega perto e usa o comando `interact` → a sim emite o evento de quest
+ * (reach-based, mesma régua do baú). É só um ANCORADOURO (tile + id); não tem
+ * loot nem estado próprio — quem rastreia "já interagi" é a quest, via stage.
+ * `name` é opcional (rótulo da mensagem de sistema / tooltip futuro do client).
+ */
+export interface InteractableDef {
+  /** Id estável (casa com `QuestStageDef` do tipo `interact`). */
+  id: string;
+  pos: Vec2;
+  /** Andar (z-level). Ausente = andar base (overworld). */
+  z?: number;
+  /** Nome exibível ("a alvenaria manchada", "o fardo"). Opcional. */
+  name?: string;
+}
+
+/**
+ * REGIÃO NOMEADA de quest (hook de mundo da etapa `region_enter`): ao ENTRAR no
+ * retângulo (estava fora, agora dentro), a sim emite o evento UMA vez por
+ * personagem. Ortogonal a safe/passZones — estas são regras de tile; a região é
+ * só um gatilho de quest com id. `z` restringe ao andar (a região do esgoto não
+ * dispara andando por cima na superfície).
+ */
+export interface QuestRegionDef {
+  /** Id estável (casa com `QuestStageDef` do tipo `region_enter`). */
+  id: string;
+  rect: MapRect;
+  /** Andar (z-level). Ausente = andar base (overworld). */
+  z?: number;
+}
+
+/**
  * Camada de um andar (z-level) LOCALIZADA e esparsa: existe só onde há conteúdo
  * (esgoto = só o rect sob a cidade, não 800×800). Coords do `tiles` são LOCAIS
  * ao rect (`ox,oy` + `width×height`); converte p/ mundo somando o offset.
@@ -280,6 +313,11 @@ export interface FloorLayer {
   monsters: MapMonster[];
   portals: MapPortal[];
   openings: MapOpening[];
+  /** Pontos/objetos interagíveis de quest neste andar (coords de MUNDO, como o
+   *  resto do FloorLayer). O `z` de cada um é redundante aqui (= `z` do andar). */
+  interactables?: InteractableDef[];
+  /** Regiões nomeadas de quest neste andar (coords de MUNDO). */
+  questRegions?: QuestRegionDef[];
   /** Ambiente do andar (0xRRGGBB). Subsolo = breu; undefined = herda overworld. */
   ambient?: number;
 }
@@ -323,6 +361,16 @@ export interface MapData {
   npcSpawns?: NpcSpawnDef[];
   /** Baús plantados no mundo (loot fixo + gates opcionais). Ver `ChestDef`. */
   chests?: ChestDef[];
+  /**
+   * PONTOS/OBJETOS INTERAGÍVEIS de quest no overworld (hook da etapa `interact`).
+   * Os do subsolo vão no `FloorLayer` do andar. Ver `InteractableDef`.
+   */
+  interactables?: InteractableDef[];
+  /**
+   * REGIÕES NOMEADAS de quest no overworld (hook da etapa `region_enter`). As do
+   * subsolo vão no `FloorLayer` do andar. Ver `QuestRegionDef`.
+   */
+  questRegions?: QuestRegionDef[];
   /**
    * FONTES DE CALOR (fogão/fogueira) — gate de cozinha (COZINHA.md): receitas
    * cozidas/premium exigem estar perto de uma. Pontos no overworld (baseZ).
