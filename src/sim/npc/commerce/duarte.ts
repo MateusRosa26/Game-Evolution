@@ -16,6 +16,11 @@ export const duarte: NpcCommerce = {
     { templateId: "escudo_de_madeira", price: 25 },
   ],
   buys: [
-    // ✏️ + sucata_de_arma / adaga_enferrujada / escudo_lascado (gated Q4).
+    // Sucata de humanoide (Orc/Bandido) — destravada pela A Entrega do Ferreiro
+    // (q4_entrega: "a quest da Entrega vira a porta do trade", ITENS-LOOTS.md).
+    // O ferro estragado vale como sucata (preço de material, não de peça nova).
+    { templateId: "sucata_de_arma", price: 2, unlockedBy: "q4_entrega" },
+    { templateId: "escudo_lascado", price: 2, unlockedBy: "q4_entrega" },
+    { templateId: "adaga_enferrujada", price: 2, unlockedBy: "q4_entrega" }, // ✏️ Balancista (sucata, não a Adaga de vendor a 40)
   ],
 };

@@ -10,7 +10,7 @@ export const nina: NpcCommerce = {
     { templateId: "tocha", price: 3 },
     { templateId: "corda", price: 15 },
     { templateId: "pa", price: 20 },
-    // ✏️ + flechas / sacola quando os templates entrarem.
+    // ✏️ + flechas (lote 50, ~10) / sacola quando os templates nascerem (1a).
   ],
   buys: [
     // Vendor floor: paga MENOS que o especialista (cauda 1 vs 2 no Silas).

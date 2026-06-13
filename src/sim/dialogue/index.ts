@@ -16,21 +16,47 @@
  */
 import type { DialogueViewState } from "../../shared/protocol";
 import type { NpcDialogue } from "./shared";
-import { bartolo } from "./npcs/bartolo";
+// Treinadores de classe (ritos R1-R4) — montados pela factory makeTrainer.
 import { ricardo } from "./npcs/ricardo";
 import { leonor } from "./npcs/leonor";
 import { vincente } from "./npcs/vincente";
 import { gabriel } from "./npcs/gabriel";
+// Demais NPCs da Alvorada (comércio, quests, banter).
+import { abel } from "./npcs/abel";
+import { amaro } from "./npcs/amaro";
+import { augusto } from "./npcs/augusto";
+import { bartolo } from "./npcs/bartolo";
+import { duarte } from "./npcs/duarte";
+import { hugo } from "./npcs/hugo";
+import { marco } from "./npcs/marco";
+import { nina } from "./npcs/nina";
+import { rosa } from "./npcs/rosa";
+import { silas } from "./npcs/silas";
+import { telmo } from "./npcs/telmo";
+import { tobias } from "./npcs/tobias";
+import { vidal } from "./npcs/vidal";
 
 export type { DialogueChoiceResult, NpcDialogue } from "./shared";
 
 /** Registro de diálogos por npcId (cresce com o elenco de NPCS.md). */
 export const DIALOGUES: Record<string, NpcDialogue> = {
+  abel,
+  amaro,
+  augusto,
   bartolo,
-  ricardo,
-  leonor,
-  vincente,
+  duarte,
   gabriel,
+  hugo,
+  leonor,
+  marco,
+  nina,
+  ricardo,
+  rosa,
+  silas,
+  telmo,
+  tobias,
+  vidal,
+  vincente,
 };
 
 /** Monta a projeção para o snapshot. */

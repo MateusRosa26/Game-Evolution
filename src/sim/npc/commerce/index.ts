@@ -30,6 +30,7 @@ import { silas } from "./silas";
 import { duarte } from "./duarte";
 import { amaro } from "./amaro";
 import { vidal } from "./vidal";
+import { telmo } from "./telmo";
 
 /** Uma linha do sortimento de um NPC (vender PARA o jogador ou COMPRAR dele). */
 export interface TradeEntry {
@@ -66,6 +67,7 @@ export const COMMERCE: Record<string, NpcCommerce> = {
   duarte,
   amaro,
   vidal,
+  telmo,
 };
 
 /** Uma quest está completa no estado do jogador? */
