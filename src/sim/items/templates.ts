@@ -749,6 +749,50 @@ export const MOCHILA: ItemTemplate = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────
+//  Kit de NASCIMENTO (casa inicial, classless — GRID §3.3 / §8). O piso do
+//  piso: a Espada Cega (já acima) + estas peças surradas + a Sacola de Pano,
+//  achados nos containers domésticos. Tudo ABAIXO do couro de vendor (Def 0,
+//  venda ≈ 0) — o ponto de partida que se larga assim que o vendor/rito paga.
+//  ✏️ Balancista fina os números; raridade `common`.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Gibão Roto — torso de NASCIMENTO (casa inicial). Pano grosso surrado, abaixo
+ *  da Túnica de Couro (Def 1) — o peito do zero, Def 0, venda ≈ 0. */
+export const GIBAO_ROTO: ItemTemplate = {
+  id: "gibao_roto",
+  name: "Gibão Roto",
+  category: "armor",
+  slot: "armor",
+  weight: 45,
+  rarity: "common",
+  armor: { def: 0 },
+};
+
+/** Botas Surradas — botas de NASCIMENTO (casa inicial). Couro gasto, Def 0 (como
+ *  toda bota T1, o "lar" delas é velocidade, que não estreia aqui). */
+export const BOTAS_SURRADAS: ItemTemplate = {
+  id: "botas_surradas",
+  name: "Botas Surradas",
+  category: "armor",
+  slot: "boots",
+  weight: 20,
+  rarity: "common",
+  armor: { def: 0 },
+};
+
+/** Sacola de Pano — o BOLSO inicial (8 slots) da casa inicial. A Mochila da Q2
+ *  é o upgrade direto (16 slots). `containerCapacity` é o dado; a troca do bolso
+ *  vive na sim. */
+export const SACOLA_DE_PANO: ItemTemplate = {
+  id: "sacola_de_pano",
+  name: "Sacola de Pano",
+  category: "container",
+  weight: 8,
+  rarity: "common",
+  containerCapacity: 8, // o Bolso inicial — Mochila (Q2) dobra p/ 16
+};
+
+// ─────────────────────────────────────────────────────────────────────────
 //  Armadura & escudo T1 — vendor genérico (EQUIPAMENTO.md §"Vestir T1")
 //  Couro: Σ Def alvo 2–3 no set (decidido) — split por peça ✏️ Balancista. Aqui
 //  1/1/1/0 = Σ3 (cabeça/torso/pernas pagam; botas 0, pois seu "lar" é velocidade,
@@ -931,6 +975,10 @@ export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [PACOTE.id]: PACOTE,
   [CARTA_RABISCADA.id]: CARTA_RABISCADA,
   [MOCHILA.id]: MOCHILA,
+  // Kit de nascimento (casa inicial, classless — GRID §3.3/§8)
+  [GIBAO_ROTO.id]: GIBAO_ROTO,
+  [BOTAS_SURRADAS.id]: BOTAS_SURRADAS,
+  [SACOLA_DE_PANO.id]: SACOLA_DE_PANO,
   // Armadura & escudo T1 (vendor — EQUIPAMENTO.md §"Vestir T1")
   [COIFA_DE_COURO.id]: COIFA_DE_COURO,
   [TUNICA_DE_COURO.id]: TUNICA_DE_COURO,

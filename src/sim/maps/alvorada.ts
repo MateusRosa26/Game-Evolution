@@ -1,4 +1,4 @@
-import { TileId, WALKABLE, type ChestDef, type FloorLayer, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect } from "../../shared/types";
+import { TileId, WALKABLE, type ChestDef, type FloorLayer, type InteractableDef, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect, type QuestRegionDef } from "../../shared/types";
 import { CREATURES } from "../bestiary";
 import { mulberry32, valueNoise } from "../rng";
 
@@ -185,7 +185,7 @@ const SPOTS: Spot[] = [
     ],
   },
   {
-    id: "S10 Matagal dos Javalis (T2 — Q6/Q7, named Presa-Torta ✏️)",
+    id: "S10 Matagal dos Javalis (T2 — Q6/Q7, named Presa-Torta)",
     rect: [235, 230, 275, 270],
     spawns: [
       [242, 238, "javali"],
@@ -194,6 +194,9 @@ const SPOTS: Spot[] = [
       [248, 258, "javali"],
       [260, 263, "javali"],
       [270, 252, "javali"],
+      // Presa-Torta (named, Q7 ato 2): 1 no fundo do Matagal. O template já tem
+      // respawn longo (bestiary.ts) — não phasing, mob único do mundo.
+      [255, 250, "presa_torta"],
     ],
   },
   {
@@ -574,17 +577,37 @@ export function generateAlvoradaMap(): MapData {
     safeZones.push({ x: x0 + 1, y: y0 + 1, w: x1 - x0 - 1, h: y1 - y0 - 1 });
   }
 
-  // NPCs da fatia (elenco NPCS.md — só os necessários pra quest implementada).
-  // Bartolo: Estalagem do Vau, atrás do balcão — city(20,39) → local (120,119).
-  // Treinadores de classe (ritos R1-R4): posições PROVISÓRIAS na rua aberta ao sul
-  // da casa-tutorial (andável, alcançável do spawn). ✏️ world-designer realoca pros
-  // distritos canônicos (Pátio da Milícia / Casa do Mago / Beco dos Ladinos / Capela).
+  // NPCs falantes da fatia (GRID §4 + §3.3 portas dos edifícios). Cada um POUSA
+  // na porta do seu edifício (vão = StoneFloor andável, alcançável da rua) via
+  // city(). Coords-cidade da tabela §4; conferidas tile-a-tile contra o paint da
+  // cidade (todas andáveis). Bento NÃO entra (fundido no Bartolo, jun/2026).
+  // ✏️ posições finas = world-designer; aqui é o placement de integração.
+  const npc = (npcId: string, name: string, cx: number, cy: number) => {
+    const [x, y] = city(cx, cy);
+    return { npcId, name, x, y };
+  };
   const npcSpawns = [
-    { npcId: "bartolo", name: "Bartolo", x: 120, y: 119 },
-    { npcId: "ricardo", name: "Ricardo", x: 125, y: 128 },
-    { npcId: "leonor", name: "Leonor", x: 131, y: 128 },
-    { npcId: "vincente", name: "Vincente", x: 125, y: 129 },
-    { npcId: "gabriel", name: "Gabriel", x: 131, y: 129 },
+    // ── Baixa (cluster de utilidade + ofícios) ──
+    npc("bartolo", "Bartolo", 20, 42), // Estalagem do Vau (Q1/Q6) — door (20,42)
+    npc("nina", "Nina", 24, 38), // Loja Geral (Q2)
+    npc("silas", "Silas", 31, 38), // Boticário (Q3)
+    npc("duarte", "Duarte", 20, 28), // Ferreiro (Q4/Q9)
+    npc("vidal", "Vidal", 8, 36), // Quartel da Guarda (Q5/Q8/Q9)
+    npc("hugo", "Hugo", 26, 30), // mineiro aposentado (Q13 — sussurrador), canto da Baixa
+    npc("rosa", "Rosa", 28, 46), // casa inicial (tutorial) — door (28,46)
+    // ── Alto (fé/arcano + treino) ──
+    npc("abel", "Abel", 15, 12), // Capela do Coveiro (Q10)
+    npc("gabriel", "Gabriel", 20, 14), // Templo (R4)
+    npc("leonor", "Leonor", 30, 18), // Casa do Mago / Torre (R2)
+    npc("ricardo", "Ricardo", 44, 18), // Pátio da Milícia / Guilda (R1)
+    // ── Cais (taverna/becos/armazéns) ──
+    npc("tobias", "Tobias", 50, 30), // Taverna do Cais (Q12 — sussurrador)
+    npc("telmo", "Telmo", 51, 29), // Taverneiro (elo Q9)
+    npc("vincente", "Vincente", 52, 38), // Beco dos Ladinos (R3)
+    npc("amaro", "Amaro", 48, 41), // caçador-peleteiro (Q7) — junto à Câmara/Armazéns (door (48,42) cai na parede; 1 tile ao N, andável)
+    npc("augusto", "Augusto", 46, 47), // Câmara (flavor) — door (46,46) clobrada pelo Armazém vizinho; 1 tile ao S, andável
+    // ── Fora da muralha: Marco, vigia de Atalaia, na estrada leste perto da borda ──
+    { npcId: "marco", name: "Marco", x: 336, y: 150 }, // destino da Q4 (estrada leste, P24)
   ];
 
   // Cozinha (COZINHA.md): fonte de calor = fogão da Estalagem do Vau (interior,
@@ -596,19 +619,92 @@ export function generateAlvoradaMap(): MapData {
   const heatSources = [{ x: hx, y: hy }];
   const freshWater = [{ x: wx, y: wy }];
 
-  // ════ Baús de TESTE (provisório) — ✏️ orçamento real = QUESTS.md "baús M3" ════
-  // Exercitam o sistema fim-a-fim perto do nascimento (spawn 128,124):
-  // aberto · concede-chave · trancado-por-chave · gate de nível.
+  // ════ Baús da fatia (GRID §8 — orçamento 8 baús, piramidal) ════
+  // Loot SÓ com templateIds existentes (templates.ts). Base utilitária/armadura
+  // T1 (B6/B7/B8), meio gear (B1–B4), 1 lacrado nv10 (B5). Posições = GRID §8/§9,
+  // conferidas andáveis (overworld) / SewerFloor (B5 no A2). ✏️ M3/Balancista fina
+  // o conteúdo. A casa inicial (containers domésticos) vem logo abaixo, NÃO conta
+  // como baú do orçamento.
   const chests: ChestDef[] = [
-    { id: "bau_teste_aberto", pos: { x: 128, y: 122 }, z: 0, name: "Baú Velho",
-      loot: { items: [{ templateId: "pao", qty: 2 }], gold: 25 } },
-    { id: "bau_teste_chave", pos: { x: 126, y: 124 }, z: 0, name: "Baú do Zelador",
-      loot: { items: [{ templateId: "queijo" }], grantsKey: "chave_porao" } },
-    { id: "bau_teste_trancado", pos: { x: 130, y: 124 }, z: 0, name: "Baú Trancado",
-      keyReq: "chave_porao", loot: { items: [{ templateId: "pocao_vida_pequena" }], gold: 100 } },
-    { id: "bau_teste_nivel", pos: { x: 128, y: 126 }, z: 0, name: "Baú do Veterano",
-      levelReq: 5, loot: { items: [{ templateId: "espada_curta" }] } },
+    // ── meio (gear) ──
+    { id: "b1_moinho_porao", pos: { x: 60, y: 250 }, z: 0, name: "Baú dos Corvos",
+      loot: { items: [{ templateId: "tunica_de_couro" }, { templateId: "corda" }], gold: 40 } }, // Q12 (Moinho, porão)
+    { id: "b2_caverna_goblin", pos: { x: 240, y: 40 }, z: 0, name: "Baú do Bando Goblin",
+      loot: { items: [{ templateId: "coifa_de_couro" }], gold: 60 } }, // Q8 ato 3 (fundo da Caverna, atrás do Orc)
+    { id: "b3_minas_perdidas", pos: { x: 330, y: 30 }, z: 0, name: "Baú Guardado da Mina",
+      loot: { items: [{ templateId: "cota_de_malha" }], gold: 120 } }, // Q13 (fundo das Minas) — gear T2 + gold alto
+    { id: "b4_margem_leste", pos: { x: 220, y: 170 }, z: 0, name: "Baú da Margem",
+      loot: { items: [{ templateId: "calcas_de_couro" }], gold: 50 } }, // Q14 (segredo — pós-pedras ④)
+    // ── lacrado (a promessa visível do early game) ──
+    { id: "b5_esgoto_lacrado", pos: { x: 138, y: 144 }, z: -2, name: "Baú Lacrado",
+      levelReq: 10, loot: { items: [{ templateId: "elmo_de_ferro" }, { templateId: "escudo_de_ferro" }], gold: 80 } }, // A2, à vista (luz fria já marca este tile)
+    // ── base (armadura T1 / utilitário) ──
+    { id: "b6_granja", pos: { x: 31, y: 86 }, z: 0, name: "Baú do Celeiro",
+      loot: { items: [{ templateId: "botas_de_couro" }, { templateId: "corda" }] } }, // Granja (celeiro) — base
+    { id: "b7_gruta_morcegos", pos: { x: 140, y: 60 }, z: 0, name: "Baú Empoeirado",
+      loot: { items: [{ templateId: "tocha", qty: 3 }, { templateId: "corda" }], gold: 20 } }, // Gruta dos Morcegos (fundo) — utilitário
+    { id: "b8_ninho_aranhas", pos: { x: 290, y: 82 }, z: 0, name: "Baú no Casulo",
+      loot: { items: [{ templateId: "calcas_de_couro" }] } }, // Ninho de Aranhas (canto curioso S7) — armadura T1
   ];
+
+  // ════ Casa inicial (GRID §3.3/§8) — containers domésticos do NASCIMENTO ════
+  // Modelados como ChestDef (o motor de baú já existe; container doméstico = baú
+  // que não conta no orçamento). Spawn é em (128,124), dentro da casa inicial
+  // (rect city[25,41]→[31,46]); estes baús ficam ao lado, em tiles andáveis do
+  // interior. O 1º container concede a 1ª CHAVE (grantsKey "chave_casa_inicial").
+  //
+  // LIMITAÇÃO (anotada, sem inventar mecânica): NÃO há sistema de PORTA-COM-
+  // FECHADURA no mapa (TileId não tem "porta trancada"; o motor de chave só gateia
+  // ChestDef.keyReq). A "porta de saída que a 1ª chave abre" (EXPLORACAO.md §casa
+  // inicial) não tem como ser plantada hoje — a chave é CONCEDIDA (grantsKey) e a
+  // limitação fica registrada aqui; quando o tile/objeto porta-trancada existir,
+  // basta um portal/objeto com keyReq "chave_casa_inicial" na porta (28,46).
+  chests.push(
+    { id: "casa_inicial_bau", pos: { x: 127, y: 123 }, z: 0, name: "Baú de Casa",
+      loot: { items: [{ templateId: "gibao_roto" }, { templateId: "botas_surradas" }], grantsKey: "chave_casa_inicial" } },
+    { id: "casa_inicial_arca", pos: { x: 129, y: 123 }, z: 0, name: "Arca Velha",
+      loot: { items: [{ templateId: "espada_cega" }, { templateId: "sacola_de_pano" }] } },
+  );
+
+  // ════ Interativos de quest no OVERWORLD (z=0) — hook `interact` (GRID §10) ════
+  // Cada id casa com um `QuestStageDef` type:"interact" (conferidos nos defs em
+  // quests/defs/*.ts). Os do SUBSOLO (q10 no A2) vão no FloorLayer do andar.
+  // NOTA q11_carta_rabiscada: a Q11 é ABERTA-POR-ITEM (a Carta Rabiscada é loot
+  // raro do `bandido`; LER a carta é o gatilho) — NÃO é ponto de mapa. NÃO é
+  // plantada aqui; o ancoradouro de leitura vem do futuro hook item→quest (ver o
+  // cabeçalho de q11_tesouro.ts). Plantá-la como interactable de mundo daria um
+  // gatilho físico que a quest não quer — deixada de fora de propósito.
+  const interactables: InteractableDef[] = [
+    { id: "q2_fardo", pos: { x: 40, y: 92 }, name: "o fardo largado" }, // Q2 — terreiro da Granja
+    { id: "q6_fogueira_estalagem", pos: { x: hx, y: hy }, name: "a fogueira da estalagem" }, // Q6 — = heatSource (118,120)
+    { id: "q9_carga_roubada", pos: { x: 156, y: 267 }, name: "a carga roubada" }, // Q9 — acampamento dos bandidos
+    { id: "q12_moinho_porao", pos: { x: 60, y: 250 }, name: "o porão do moinho" }, // Q12 — porão do Moinho Velho
+    { id: "q13_bau_guardado", pos: { x: 330, y: 30 }, name: "o baú guardado" }, // Q13 — fundo das Minas
+    { id: "q14_pedras", pos: { x: 185, y: 161 }, name: "as pedras de passagem" }, // Q14 — a travessia ④ (tile real das pedras no junco)
+  ];
+
+  // ════ Regiões de quest no OVERWORLD (z=0) — hook `region_enter` (GRID §10) ════
+  // Cada id casa com um `QuestStageDef` type:"region_enter". As do SUBSOLO
+  // (esgoto_a2 / porao_afogado_a3) vão nos FloorLayers dos andares.
+  const questRegions: QuestRegionDef[] = [
+    { id: "acampamento_goblin", rect: { x: 185, y: 35, w: 45, h: 35 } }, // Q8a2 — S5 [185..230]×[35..70]
+    { id: "minas_perdidas", rect: { x: 325, y: 27, w: 10, h: 8 } }, // Q13 — boca da mina NE remoto [325..335]×[27..35]
+    { id: "moinho_porao", rect: { x: 56, y: 246, w: 8, h: 8 } }, // Q12 — interior do Moinho [56..64]×[246..254]
+    { id: "q14_margem_leste", rect: { x: 210, y: 160, w: 20, h: 20 } }, // Q14 — pouso da travessia ④ [210..230]×[160..180]
+  ];
+
+  // Garante que todo ANCORADOURO de overworld (baú z=0 + interactable) pouse em
+  // tile ANDÁVEL — mesma régua do loop de spawns: se caiu em árvore/pedra/muro
+  // (scatter procedural por cima de um POI, ex. B8 no Ninho), abre pra grama.
+  // Determinístico e idempotente; não mexe em água (anchors foram escolhidos
+  // fora d'água). Subsolo (z≠0) é alvenaria sólida — não passa por aqui.
+  const clearAnchor = (x: number, y: number) => {
+    const t = get(x, y);
+    if (t === TileId.Tree || t === TileId.Rock || t === TileId.Wall || t === TileId.HouseWall)
+      set(x, y, TileId.StoneFloor);
+  };
+  for (const c of chests) if (c.z === 0) clearAnchor(c.pos.x, c.pos.y);
+  for (const it of interactables) clearAnchor(it.pos.x, it.pos.y);
 
   return {
     id: "alvorada",
@@ -625,6 +721,8 @@ export function generateAlvoradaMap(): MapData {
     respawn,
     npcSpawns,
     chests,
+    interactables,
+    questRegions,
     heatSources,
     freshWater,
     portals: ALVORADA_PORTALS,
@@ -816,6 +914,16 @@ function buildSewerA2(): FloorLayer {
       { x: wx(19), y: wy(37), kind: "hole", to: { x: A3_OX + 12, y: A3_OY + 8, z: -3 } },
     ],
     openings: [],
+    // Q10 (A Água do Poço): a alvenaria manchada das ruínas (interact) + a região
+    // do andar inteiro (region_enter). O ancoradouro do interact pousa no chão
+    // SECO (SewerFloor) colado à mancha (alvenaria = parede não-andável), pra o
+    // alcance do `interact` casar. A região é o footprint do A2.
+    interactables: [
+      { id: "q10_alvenaria_manchada", z: -2, pos: { x: wx(19), y: wy(30) }, name: "a alvenaria manchada" }, // mancha em (130,150)
+    ],
+    questRegions: [
+      { id: "esgoto_a2", z: -2, rect: { x: A2_OX, y: A2_OY, w: A2_W, h: A2_H } }, // Q10 — todo o andar A2
+    ],
     ambient: 0x070a10, // mais escuro que o A1
   };
 }
@@ -855,6 +963,12 @@ function buildSewerA3(): FloorLayer {
       { x: wx(12), y: wy(8), kind: "stairs", to: { x: A2_OX + 19, y: A2_OY + 37, z: -2 } },
     ],
     openings: [],
+    // Q15 (O Porão Afogado): ENTRAR no A3 É a descoberta (region_enter). A região
+    // cobre a câmara afogada (room(4,4,23,11)). Sem interactable/NPC: a quest fecha
+    // no registro do diário (ver q15_porao.ts). Os ghouls já vivem aqui (arrepio).
+    questRegions: [
+      { id: "porao_afogado_a3", z: -3, rect: { x: wx(4), y: wy(4), w: 20, h: 8 } }, // [132..151]×[154..161]
+    ],
     ambient: 0x04060a, // o mais escuro: breu do fundo
   };
 }
