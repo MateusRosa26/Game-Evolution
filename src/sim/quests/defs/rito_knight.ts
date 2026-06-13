@@ -14,7 +14,7 @@ export const rito_knight: QuestDef = {
   layer: "direta",
   giverNpcId: "ricardo",
   stages: [{ type: "kill", species: "rato", count: 6 }],
-  rewards: { xp: 40, gold: 15 },
+  rewards: { xp: 50, gold: 0 }, // QUESTS.md: R1–R4 = 50 XP cada; ritos CUSTAM (RITO_COST_GOLD), não pagam gold
   journalActive:
     "Ricardo cruzou os braços: “Caminho do Cavaleiro não começa com juramento, começa com calo. Traz seis ratos a menos no mundo. Aço aprende é apanhando.”",
   journalCompleted:

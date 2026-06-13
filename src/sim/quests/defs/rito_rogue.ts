@@ -7,7 +7,7 @@ export const rito_rogue: QuestDef = {
   layer: "direta",
   giverNpcId: "vincente",
   stages: [{ type: "kill", species: "rato", count: 6 }],
-  rewards: { xp: 40, gold: 15 },
+  rewards: { xp: 50, gold: 0 }, // QUESTS.md: R1–R4 = 50 XP cada; ritos CUSTAM (RITO_COST_GOLD), não pagam gold
   journalActive:
     "Vincente sorriu de canto: “O Beco tem um problema de roedores que ninguém quer resolver — o que diz muito de quem resolve. Seis. Sem alarde.”",
   journalCompleted:

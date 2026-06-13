@@ -7,7 +7,7 @@ export const rito_priest: QuestDef = {
   layer: "direta",
   giverNpcId: "gabriel",
   stages: [{ type: "kill", species: "esqueleto", count: 5 }],
-  rewards: { xp: 40, gold: 15 },
+  rewards: { xp: 50, gold: 0 }, // QUESTS.md: R1–R4 = 50 XP cada; ritos CUSTAM (RITO_COST_GOLD), não pagam gold
   journalActive:
     "Gabriel estendeu a mão aos ossos inquietos sem uma palavra; depois, baixo: “Há mortos que não dormem. Cinco deles. Devolva-os ao silêncio — não por ódio, por piedade.”",
   journalCompleted:
