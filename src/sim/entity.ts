@@ -115,13 +115,9 @@ export interface SimEntity {
   keys: Set<string>;
   /** Baús já SAQUEADOS por este personagem (single-use por jogador). chestId. */
   lootedChests: Set<string>;
-  /**
-   * PORTAS já ABERTAS por este personagem (`DoorDef.id`). Estado per-character
-   * (igual a `lootedChests`/`keys`): enquanto o id NÃO está aqui, o tile da
-   * porta bloqueia este mover; ao abrir (com a chave, via `interact`), o id
-   * entra e a porta fica passável só para ele. Cresce só com portas no mapa.
-   */
-  openedDoors: Set<string>;
+  // NOTA (jun/2026): o estado "porta aberta" deixou de ser per-character. Agora é
+  // GLOBAL + auto-fecha (feel Tibia/Apogea), guardado em `World` (`isDoorOpen`).
+  // O `keyReq` só gateia a AÇÃO de abrir (anda-pra-abrir / interact). Sem set aqui.
   /**
    * Regiões de quest (`QuestRegionDef.id`) que este personagem JÁ disparou —
    * o evento `region_enter` é one-shot por personagem (entrar de novo não

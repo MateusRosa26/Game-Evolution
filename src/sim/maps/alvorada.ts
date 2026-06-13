@@ -56,22 +56,32 @@ const CROSSINGS: { y: number; tile: TileId; half: number; lit: boolean }[] = [
 
 // ── §3.3: edifícios-âncora — retângulos em coord-cidade, porta EXATA do GRID.
 // Footprints são "engenharia a partir das âncoras" (§12) — afináveis.
-type Building = { name: string; rect: [number, number, number, number]; door: [number, number] };
+// `doorId`/`doorName` = id estável e rótulo da DoorDef gerada no tile `door` (toda
+// casa entrável ganha porta, feel Tibia); `lockKey` = chave que tranca (só a casa
+// inicial — o resto abre andando, sem chave).
+type Building = {
+  name: string;
+  rect: [number, number, number, number];
+  door: [number, number];
+  doorId: string;
+  doorName: string;
+  lockKey?: string;
+};
 const BUILDINGS: Building[] = [
-  { name: "Estalagem do Vau (Bartolo/Bento — Q1/Q6)", rect: [16, 37, 24, 42], door: [20, 42] },
-  { name: "Loja Geral (Nina — Q2)", rect: [21, 34, 27, 38], door: [24, 38] },
-  { name: "Boticário (Silas — Q3)", rect: [28, 34, 34, 38], door: [31, 38] },
-  { name: "Ferreiro (Duarte — Q4/Q9)", rect: [16, 24, 24, 28], door: [20, 28] },
-  { name: "Depot (banco/armazém)", rect: [35, 27, 42, 32], door: [38, 32] },
-  { name: "Câmara (Augusto)", rect: [42, 42, 50, 46], door: [46, 46] },
-  { name: "Quartel da Guarda (Capitão Vidal — Q5/Q8)", rect: [3, 31, 12, 36], door: [8, 36] },
-  { name: "Capela do Coveiro (Abel — Q10)", rect: [12, 8, 18, 12], door: [15, 12] },
-  { name: "Templo (Gabriel — R4)", rect: [16, 9, 26, 14], door: [20, 14] },
-  { name: "Torre Arcana (Leonor — R2)", rect: [27, 13, 33, 18], door: [30, 18] },
-  { name: "Guilda dos Guerreiros (Ricardo — R1)", rect: [40, 12, 50, 18], door: [44, 18] },
-  { name: "Taverna do Cais (Tobias/Telmo — Q12/Q9)", rect: [46, 25, 54, 30], door: [50, 30] },
-  { name: "Armazéns (Cais)", rect: [46, 42, 55, 46], door: [50, 46] },
-  { name: "Casa inicial (Rosa — nascimento)", rect: [25, 41, 31, 46], door: [28, 46] },
+  { name: "Estalagem do Vau (Bartolo/Bento — Q1/Q6)", rect: [16, 37, 24, 42], door: [20, 42], doorId: "porta_estalagem", doorName: "a porta da Estalagem" },
+  { name: "Loja Geral (Nina — Q2)", rect: [21, 34, 27, 38], door: [24, 38], doorId: "porta_loja", doorName: "a porta da Loja" },
+  { name: "Boticário (Silas — Q3)", rect: [28, 34, 34, 38], door: [31, 38], doorId: "porta_boticario", doorName: "a porta do Boticário" },
+  { name: "Ferreiro (Duarte — Q4/Q9)", rect: [16, 24, 24, 28], door: [20, 28], doorId: "porta_ferreiro", doorName: "a porta do Ferreiro" },
+  { name: "Depot (banco/armazém)", rect: [35, 27, 42, 32], door: [38, 32], doorId: "porta_depot", doorName: "a porta do Depot" },
+  { name: "Câmara (Augusto)", rect: [42, 42, 50, 46], door: [46, 46], doorId: "porta_camara", doorName: "a porta da Câmara" },
+  { name: "Quartel da Guarda (Capitão Vidal — Q5/Q8)", rect: [3, 31, 12, 36], door: [8, 36], doorId: "porta_quartel", doorName: "a porta do Quartel" },
+  { name: "Capela do Coveiro (Abel — Q10)", rect: [12, 8, 18, 12], door: [15, 12], doorId: "porta_capela", doorName: "a porta da Capela" },
+  { name: "Templo (Gabriel — R4)", rect: [16, 9, 26, 14], door: [20, 14], doorId: "porta_templo", doorName: "a porta do Templo" },
+  { name: "Torre Arcana (Leonor — R2)", rect: [27, 13, 33, 18], door: [30, 18], doorId: "porta_torre", doorName: "a porta da Torre" },
+  { name: "Guilda dos Guerreiros (Ricardo — R1)", rect: [40, 12, 50, 18], door: [44, 18], doorId: "porta_guilda", doorName: "a porta da Guilda" },
+  { name: "Taverna do Cais (Tobias/Telmo — Q12/Q9)", rect: [46, 25, 54, 30], door: [50, 30], doorId: "porta_taverna", doorName: "a porta da Taverna" },
+  { name: "Armazéns (Cais)", rect: [46, 42, 55, 46], door: [50, 46], doorId: "porta_armazens", doorName: "a porta dos Armazéns" },
+  { name: "Casa inicial (Rosa — nascimento)", rect: [25, 41, 31, 46], door: [28, 46], doorId: "porta_casa_inicial", doorName: "a porta de saída", lockKey: "chave_casa_inicial" },
 ];
 // DESVIO: Capela [12..18] e Templo [16..26] do GRID colidiam; Capela encolhida
 // 1 tile a oeste mantendo a porta canônica (15,12). Templo porta (20,14) exata.
@@ -674,25 +684,31 @@ export function generateAlvoradaMap(): MapData {
     const [x, y] = city(cx, cy);
     return { npcId, name, x, y };
   };
+  // FIX (jun/2026 — "Bartolo travando a porta"): antes, cada NPC de prédio caía
+  // EM CIMA do tile-porta do seu edifício (a coord-âncora do GRID é a porta) e,
+  // com o anda-pra-abrir + bloqueio de corpo, SELAVA a entrada. Agora cada um
+  // pousa 1–2 tiles DENTRO (atrás do balcão), em tile andável do interior, longe
+  // da porta/baú/spawn. Coords antigas (= porta) anotadas ao lado. Os que já
+  // estavam fora do vão (hugo/rosa/telmo/vincente/amaro/augusto/marco) ficam.
   const npcSpawns = [
     // ── Baixa (cluster de utilidade + ofícios) ──
-    npc("bartolo", "Bartolo", 20, 42), // Estalagem do Vau (Q1/Q6) — door (20,42)
-    npc("nina", "Nina", 24, 38), // Loja Geral (Q2)
-    npc("silas", "Silas", 31, 38), // Boticário (Q3)
-    npc("duarte", "Duarte", 20, 28), // Ferreiro (Q4/Q9)
-    npc("vidal", "Vidal", 8, 36), // Quartel da Guarda (Q5/Q8/Q9)
+    npc("bartolo", "Bartolo", 20, 40), // Estalagem do Vau (Q1/Q6) — atrás do balcão (era a porta 20,42)
+    npc("nina", "Nina", 24, 36), // Loja Geral (Q2) — interior (era a porta 24,38)
+    npc("silas", "Silas", 31, 36), // Boticário (Q3) — interior (era a porta 31,38)
+    npc("duarte", "Duarte", 20, 26), // Ferreiro (Q4/Q9) — interior (era a porta 20,28)
+    npc("vidal", "Vidal", 8, 34), // Quartel da Guarda (Q5/Q8/Q9) — interior (era a porta 8,36)
     npc("hugo", "Hugo", 26, 30), // mineiro aposentado (Q13 — sussurrador), canto da Baixa
     npc("rosa", "Rosa", 28, 43), // casa inicial (tutorial) — interior andável (128,123),
     //   na safeZone, SEM tapar a PORTA (128,126), o spawn (128,124) nem os baús
     //   (127/129,123). Antes caía em (128,126) = único vão de saída da casa, FORA
     //   da safeZone interior, e BLOQUEAVA o player preso lá dentro (fix jun/2026).
     // ── Alto (fé/arcano + treino) ──
-    npc("abel", "Abel", 15, 12), // Capela do Coveiro (Q10)
-    npc("gabriel", "Gabriel", 20, 14), // Templo (R4)
-    npc("leonor", "Leonor", 30, 18), // Casa do Mago / Torre (R2)
-    npc("ricardo", "Ricardo", 44, 18), // Pátio da Milícia / Guilda (R1)
+    npc("abel", "Abel", 15, 10), // Capela do Coveiro (Q10) — interior (era a porta 15,12)
+    npc("gabriel", "Gabriel", 20, 12), // Templo (R4) — interior (era a porta 20,14)
+    npc("leonor", "Leonor", 30, 16), // Casa do Mago / Torre (R2) — interior (era a porta 30,18)
+    npc("ricardo", "Ricardo", 44, 16), // Pátio da Milícia / Guilda (R1) — interior (era a porta 44,18)
     // ── Cais (taverna/becos/armazéns) ──
-    npc("tobias", "Tobias", 50, 30), // Taverna do Cais (Q12 — sussurrador)
+    npc("tobias", "Tobias", 50, 28), // Taverna do Cais (Q12 — sussurrador) — interior (era a porta 50,30)
     npc("telmo", "Telmo", 51, 29), // Taverneiro (elo Q9)
     npc("vincente", "Vincente", 52, 38), // Beco dos Ladinos (R3)
     npc("amaro", "Amaro", 48, 41), // caçador-peleteiro (Q7) — junto à Câmara/Armazéns (door (48,42) cai na parede; 1 tile ao N, andável)
@@ -750,19 +766,32 @@ export function generateAlvoradaMap(): MapData {
       loot: { items: [{ templateId: "espada_cega" }, { templateId: "sacola_de_pano" }] } },
   );
 
-  // ════ Porta de saída da casa inicial (EXPLORACAO.md §casa inicial) ════
-  // O loop-assinatura container→chave→porta: o player nasce preso, abre o baú
-  // (gibão/botas + chave_casa_inicial), interage na porta (128,126) = único vão
-  // da casa (city door (28,46)) e sai pra Alvorada. Começa FECHADA (a sim trata o
-  // tile como bloqueio até abrir) e abre SÓ com a chave (`DoorDef.keyReq`), estado
-  // per-character (SimEntity.openedDoors). O baú casa_inicial_bau NÃO tem keyReq →
-  // a chave está SEMPRE alcançável dentro: o player nunca fica preso de forma
-  // insolúvel. (128,126) é o vão na HouseWall sul, já pintado StoneFloor pelo loop
-  // dos BUILDINGS — andável quando aberta, sem tile novo. Fecha o loop do tutorial.
-  const doors: DoorDef[] = [
-    { id: "porta_casa_inicial", pos: { x: 128, y: 126 }, z: 0,
-      keyReq: "chave_casa_inicial", name: "a porta de saída" },
-  ];
+  // ════ Portas de TODA casa entrável (feel Tibia/Apogea — EXPLORACAO.md) ════
+  // Uma DoorDef no tile-porta de CADA edifício do BUILDINGS (vão na HouseWall, já
+  // StoneFloor pelo loop acima). TODAS destrancadas — abrem ANDANDO no vão (a sim
+  // abre + auto-fecha, estado GLOBAL) ou via `interact` — EXCETO a casa inicial,
+  // que mantém `keyReq` "chave_casa_inicial": o loop-assinatura container→chave→
+  // porta do tutorial. O player nasce preso, abre o baú (gibão/botas + a chave, que
+  // NÃO tem keyReq → sempre alcançável: nunca fica preso insolúvel), e sai pela
+  // porta (128,126) = city door (28,46), o único vão da casa. Fechada bloqueia
+  // (mob nunca abre → casas seladas pra criatura). Coord-cidade → local via city().
+  const doors: DoorDef[] = BUILDINGS.map((b) => {
+    const [dx, dy] = city(...b.door);
+    return {
+      id: b.doorId,
+      pos: { x: dx, y: dy },
+      z: 0,
+      name: b.doorName,
+      ...(b.lockKey ? { keyReq: b.lockKey } : {}),
+    };
+  });
+  // GARANTIA: todo tile-porta é um VÃO andável (StoneFloor). A maioria já é (o loop
+  // dos BUILDINGS pinta a porta), mas prédios que se TOCAM podem ter a parede de um
+  // vizinho clobrando o vão do outro na ordem de paint — caso real: a porta da Câmara
+  // (146,126) cai sob a parede O dos Armazéns. Forçar aqui mantém a porta sempre
+  // atravessável (senão a porta FECHADA seria bloqueio-duplo de tile sólido). A casa
+  // inicial (128,126) já é StoneFloor — idempotente.
+  for (const d of doors) set(d.pos.x, d.pos.y, TileId.StoneFloor);
 
   // ════ Interativos de quest no OVERWORLD (z=0) — hook `interact` (GRID §10) ════
   // Cada id casa com um `QuestStageDef` type:"interact" (conferidos nos defs em

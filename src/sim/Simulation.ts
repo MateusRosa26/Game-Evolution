@@ -131,6 +131,9 @@ interface CombatSession {
 /** Janela de inatividade que fecha uma sessão de combate (ms lógicos). */
 const COMBAT_IDLE_MS = 4000;
 
+/** Tempo que uma porta fica aberta antes do auto-fecha (ms lógicos, ~Tibia). */
+const DOOR_AUTOCLOSE_MS = 4000;
+
 /**
  * Simulação autoritativa do jogo. Roda em ticks discretos com tempo lógico
  * próprio (tick * TICK_MS) — zero dependência de browser/render.
@@ -211,13 +214,27 @@ export class Simulation {
    * ejetado nem trava o mecanismo); fora delas, tile ocupado por entidade
    * viva bloqueia.
    */
+  /**
+   * `mover` PODE abrir esta porta? Destrancada (sem `keyReq`) → sempre; trancada
+   * → só com a chave abstrata (`SimEntity.keys`). Não muda estado; é a régua de
+   * "anda-pra-abrir" do `canEnter` e do passo committed. (A casa inicial é a
+   * única trancada hoje — reabre a cada vez com a `chave_casa_inicial`.)
+   */
+  private canOpenDoor(mover: SimEntity, door: DoorDef): boolean {
+    return door.keyReq == null || mover.keys.has(door.keyReq);
+  }
+
   private canEnter(mover: SimEntity, x: number, y: number): boolean {
     const z = mover.z;
     if (!this.world.isWalkable(x, y, z)) return false;
-    // PORTA TRANCADA: fechada bloqueia. O estado "abri" é per-character — quem
-    // abriu (via `interact` + chave) passa; todo o resto (inclusive monstros,
-    // que nunca abrem porta) é barrado, mantendo a casa selada até abrir.
-    if (this.world.isDoorTile(x, y, z) && !mover.openedDoors.has(this.world.doorAt(x, y, z)!.id)) return false;
+    // PORTA (feel Tibia/Apogea): aberta GLOBAL → qualquer um passa. Fechada →
+    // bloqueia, EXCETO se um PLAYER pode abri-la andando (destrancada, ou tem a
+    // chave): aí o tile conta como atravessável e a abertura acontece no passo
+    // committed (`tryStep`). Monstros nunca abrem porta → casa selada pra mob.
+    const door = this.world.doorAt(x, y, z);
+    if (door && !this.world.isDoorOpen(door.id)) {
+      if (mover.kind !== "player" || !this.canOpenDoor(mover, door)) return false;
+    }
     if (this.world.isSafeZone(x, y, z)) return mover.kind !== "monster";
     if (this.world.isPassZone(x, y, z)) return true;
     const occ = this.occupancy.get(this.tileKey(x, y, z));
@@ -492,7 +509,6 @@ export class Simulation {
       openContainers: new Set(),
       keys: new Set(),
       lootedChests: new Set(),
-      openedDoors: new Set(),
       enteredRegions: new Set(),
       backpackContainerId: null,
     };
@@ -678,7 +694,6 @@ export class Simulation {
       openContainers: new Set(),
       keys: new Set(),
       lootedChests: new Set(),
-      openedDoors: new Set(),
       enteredRegions: new Set(),
       backpackContainerId: null,
     });
@@ -734,7 +749,6 @@ export class Simulation {
         openContainers: new Set(),
         keys: new Set(),
         lootedChests: new Set(),
-        openedDoors: new Set(),
         enteredRegions: new Set(),
         backpackContainerId: null,
       });
@@ -1295,6 +1309,12 @@ export class Simulation {
       else this.stepAlongPath(e, now);
     }
 
+    // ── 3.4 Auto-fecha de portas (feel Tibia): fecha as vencidas, menos as com
+    // alguém em cima. Após o movimento → quem acabou de pisar no vão a mantém. ──
+    this.world.tickAutoCloseDoors(now, (d) =>
+      this.occupancy.has(this.tileKey(d.pos.x, d.pos.y, d.z)),
+    );
+
     // ── 3.5 Conjurações com cast-time que venceram: resolve AGORA (após
     // movimento/dano deste tick — mover/tomar dano no tick do fim ainda cancela). ──
     this.tickCasts(ctx);
@@ -1492,23 +1512,22 @@ export class Simulation {
   }
 
   /**
-   * Abre uma PORTA trancada próxima — single-use por jogador (estado em
-   * `SimEntity.openedDoors`, igual ao baú). Reusa a régua reach-based (≤2 tiles,
-   * mesmo andar) e a CHAVE abstrata (`SimEntity.keys` / `DoorDef.keyReq`). Sem
-   * chave → "Está trancado." (mesma mensagem do baú). Já aberta → no-op silencioso
-   * (o tile já passa). Ao abrir, o tile vira passável só para este personagem
-   * (ver `canEnter`). Fecha o loop tutorial: baú → chave → porta → sair.
+   * Abre uma PORTA próxima via `interact` — ALTERNATIVA ao anda-pra-abrir (o
+   * clique/uso à distância ≤2 tiles, sem encostar). Reusa a régua reach-based e a
+   * CHAVE abstrata (`SimEntity.keys` / `DoorDef.keyReq`). Sem chave → "trancada".
+   * Estado de abertura é GLOBAL (`World`) + auto-fecha agendado (feel Tibia): já
+   * aberta → só estende o prazo. Fecha o loop tutorial: baú → chave → porta → sair.
    */
   private openDoor(e: SimEntity, door: DoorDef): void {
     if (door.z !== e.z || chebyshev(e.pos, door.pos) > 2) return;
     const label = door.name ?? "a porta";
-    if (e.openedDoors.has(door.id)) return; // já aberta para este personagem
     if (door.keyReq != null && !e.keys.has(door.keyReq)) {
-      this.sysMessage(e.id, "Está trancado.");
+      this.sysMessage(e.id, `${label} está trancada.`);
       return;
     }
-    e.openedDoors.add(door.id);
-    this.sysMessage(e.id, `Você abriu ${label}.`);
+    const already = this.world.isDoorOpen(door.id);
+    this.world.openDoorRuntime(door.id, this.now() + DOOR_AUTOCLOSE_MS);
+    if (!already) this.sysMessage(e.id, `Você abriu ${label}.`);
   }
 
   /**
@@ -2185,7 +2204,26 @@ export class Simulation {
     // Bloqueio de corpo: tile precisa estar andável E livre (canEnter).
     // Diagonal estilo Tibia (decidido jun/2026): só o destino importa —
     // cortar quina é permitido (mesma regra do A* em pathfinding.ts).
-    if (!this.canEnter(e, nx, ny)) return false;
+    if (!this.canEnter(e, nx, ny)) {
+      // ANDA-PRA-ABRIR (feel Tibia): bateu numa porta FECHADA que não consegue
+      // abrir (trancada, sem chave) → avisa uma vez por toque, em vez de parar
+      // mudo. canEnter já barrou; aqui só a mensagem (sem mudar estado).
+      const door = e.kind === "player" ? this.world.doorAt(nx, ny, e.z) : null;
+      if (door && !this.world.isDoorOpen(door.id) && !this.canOpenDoor(e, door)) {
+        this.sysMessage(e.id, `${door.name ?? "A porta"} está trancada.`);
+      }
+      return false;
+    }
+    // ANDA-PRA-ABRIR (feel Tibia): pisar numa porta fechada que o player PODE
+    // abrir (destrancada ou com a chave) ABRE-a no estado global e agenda o
+    // auto-fecha; o passo segue normalmente (o tile já passou no canEnter).
+    if (e.kind === "player") {
+      const door = this.world.doorAt(nx, ny, e.z);
+      if (door && !this.world.isDoorOpen(door.id)) {
+        this.world.openDoorRuntime(door.id, now + DOOR_AUTOCLOSE_MS);
+        this.sysMessage(e.id, `Você abriu ${door.name ?? "a porta"}.`);
+      }
+    }
     // Mover CANCELA a conjuração em andamento (decisão do task: move OU tomar dano).
     if (e.casting) this.cancelCast(e);
     this.moveTo(e, nx, ny);
@@ -2456,7 +2494,7 @@ export class Simulation {
         pos: { x: d.pos.x, y: d.pos.y },
         z: d.z,
         name: d.name ?? "a porta",
-        open: viewer ? viewer.openedDoors.has(d.id) : false,
+        open: this.world.isDoorOpen(d.id), // estado GLOBAL (feel Tibia)
       })),
       events,
     };

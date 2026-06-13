@@ -1350,6 +1350,10 @@ function makeCart(): Texture {
 // Altura do tile de muro (32×54 @32px): face ALTA pra dar volume (estilo Apogea/Tibia).
 const WALL_H = 54 * S;
 const WALL_TOP_H = 14 * S; // espessura do topo visto de cima
+// Altura do tile de parede de CASA (enxaimel). Exportada porque a PORTA tem que
+// nascer exatamente com esta altura e a largura do tile pra sentar FLUSH no vão
+// (sem vão entre a folha e a ombreira). Casa makeHouseWallTile ↔ makeDoor.
+const HOUSE_WALL_H = 44 * S;
 function makeWallTile(mask: number, seed: number): Texture {
   const SC = TILE_SIZE / 32; // escala do remaster (S local = vizinho sul)
   const rng = mulberry32(seed + mask * 97 + 1);
@@ -1526,7 +1530,7 @@ function makeGate(wTiles: number, seed: number): Texture {
 function makeHouseWallTile(mask: number, seed: number, feature: "window" | "door" | null): Texture {
   const SC = TILE_SIZE / 32;
   const rng = mulberry32(seed + mask * 31 + 1);
-  const HH = 44 * SC; // altura do tile de parede de casa
+  const HH = HOUSE_WALL_H; // altura do tile de parede de casa (= largura/altura da porta)
   const p = new Px(TILE_SIZE, HH);
   const N = (mask & 1) !== 0, W = (mask & 8) !== 0, E = (mask & 2) !== 0;
   const PLA = [PAL.plasterDark, PAL.plasterBase, PAL.plasterLight];
@@ -2104,67 +2108,105 @@ function makeChest(open: boolean): Texture {
 }
 
 /**
- * Porta de pranchas num batente de pedra (28×46, anchor base). `open=false`:
- * pranchas maciças + aros de ferro + argola. `open=true`: folha recuada pra
- * dentro (vão escuro à mostra) — o tile volta a ser passável na sim, e o visual
- * acompanha. Mais alta que larga (lê como vão de parede); assenta no chão.
+ * Porta de uma casa de enxaimel — nasce com a LARGURA do tile e a ALTURA da
+ * parede de casa (TILE_SIZE × HOUSE_WALL_H), pra sentar FLUSH no vão da parede:
+ * a moldura de madeira encosta na ombreira dos dois lados e a verga casa com o
+ * frechal do enxaimel (zero vão entre folha e parede). Anchor (0.5,1), mesma
+ * baseY dos tiles de parede.
+ *
+ * `open=false`: folha de pranchas maciças preenchendo o vão (3 valores, luz
+ * topo-esq, sombra de contato, aros de ferro + argola).
+ * `open=true`: VÊ-ATRAVÉS (Tibia/Apogea) — o miolo do vão fica TRANSPARENTE (o
+ * chão interior aparece por baixo no WorldRenderer), só a FOLHA encostada de
+ * lado na ombreira + a moldura permanecem. NUNCA pinta retângulo preto.
  */
 function makeDoor(open: boolean): Texture {
-  const W = 28 * S, H = 46 * S;
+  const W = TILE_SIZE, H = HOUSE_WALL_H;
   const p = new Px(W, H);
-  const JAMB = "#272c34", JAMB_HI = "#3a4150", JAMB_DK = "#161a20"; // batente de pedra escura
-  // ── BATENTE (moldura de pedra em volta do vão), sempre presente ──
-  const jx = 0, jw = W, openTop = 4 * S; // arco superior do vão começa em y=4
-  p.rect(jx, 0, jw, H, JAMB);
-  p.rect(jx, 0, jw, S, JAMB_HI);             // verga (topo) pega luz
-  p.rect(jx, 0, S, H, JAMB_HI);              // ombreira esq lit
-  p.rect(jx + jw - S, 0, S, H, JAMB_DK);     // ombreira dir sombra
-  const inX = 3 * S, inW = W - 6 * S;         // vão interno (x 3..25)
-  p.rect(inX, openTop, inW, H - openTop, JAMB_DK); // recesso do vão (sombra de fundo)
+  // moldura = madeira do enxaimel (mesmos tons das vigas) → a porta lê como a
+  // estrutura do vão da casa, não um bloco de pedra fria avulso.
+  const FRAME = WOOD, FRAME_HI = WOOD_LT, FRAME_DK = WOOD_DK, FRAME_TOP = WOOD_HI;
+  const TOPH = 7 * S;          // frechal (casa com a viga superior do tile de parede)
+  const JAMB_W = 3 * S;        // largura da ombreira (= largura da viga-pé da parede)
+  const headH = 4 * S;         // verga de madeira sob o frechal
+  const sillH = 4 * S;         // soleira/limiar embaixo
+
+  // ── MOLDURA (sempre presente; encosta nas duas bordas do tile → flush) ──
+  // frechal no topo (mesma faixa da viga superior da parede de casa)
+  p.rect(0, 0, W, TOPH, FRAME);
+  p.rect(0, 0, W, S, FRAME_TOP);                 // aresta de cima pega luz
+  // ombreiras (postes verticais nas laterais, flush nas bordas x=0 e x=W)
+  p.rect(0, 0, JAMB_W, H, FRAME);
+  p.rect(0, 0, S, H, FRAME_HI);                  // poste esq pega luz
+  p.rect(W - JAMB_W, 0, JAMB_W, H, FRAME);
+  p.rect(W - S, 0, S, H, FRAME_DK);              // poste dir em sombra
+  // verga (lintel) de madeira: barra a abertura por cima
+  p.rect(JAMB_W, TOPH, W - 2 * JAMB_W, headH, FRAME);
+  p.rect(JAMB_W, TOPH, W - 2 * JAMB_W, S, FRAME_HI);
+  p.rect(JAMB_W, TOPH + headH - S, W - 2 * JAMB_W, S, FRAME_DK);
+
+  // vão interno (o "buraco" da porta): preenchido pela folha (fechada) OU
+  // transparente revelando o chão (aberta).
+  const ox = JAMB_W, ow = W - 2 * JAMB_W;        // x do vão
+  const oy = TOPH + headH, oBot = H - sillH;     // y do vão
+  const oh = oBot - oy;
 
   if (!open) {
-    // ── FOLHA FECHADA: pranchas verticais preenchendo o vão ──
-    const lx = inX + S, lw = inW - 2 * S, ly = openTop + S, lh = H - openTop - 2 * S;
-    for (let x = lx; x < lx + lw; x++) {
-      const t = (x - lx) / lw;
-      const c = t < 0.14 ? WOOD_LT : t < 0.5 ? WOOD : t < 0.82 ? WOOD : WOOD_DK; // luz esq
-      p.rect(x, ly, S, lh, c);
+    // ── FOLHA FECHADA: pranchas verticais preenchendo TODO o vão ──
+    // 3 VALORES claros (regra do diretor): faixa clara à esq (luz topo-esq),
+    // corpo mid, faixa escura à dir → o volume lê sem ambiguidade.
+    for (let x = ox; x < ox + ow; x++) {
+      const t = (x - ox) / ow;                   // luz envolvendo (esq clara → dir sombra)
+      const c = t < 0.16 ? WOOD_LT : t < 0.72 ? WOOD : WOOD_DK;
+      p.rect(x, oy, S, oh, c);
     }
-    // sulcos entre pranchas
-    for (const sx of [lx + 4 * S, lx + 8 * S, lx + 12 * S, lx + 16 * S]) p.rect(sx, ly, S, lh, WOOD_DK);
-    p.rect(lx, ly, lw, S, WOOD_HI);          // topo das pranchas lit
-    p.rect(lx, ly + lh - S, lw, S, WOOD_DK); // base em sombra
+    // sulcos entre pranchas (5 tábuas) + recesso fundo no encaixe com a verga
+    for (let sx = ox + Math.round(ow / 5); sx < ox + ow - S; sx += Math.round(ow / 5)) p.rect(sx, oy, S, oh, WOOD_DK);
+    p.rect(ox, oy, ow, S, WOOD_HI);              // topo das pranchas lit
+    p.rect(ox, oBot - S, ow, S, WOOD_DK);        // base em sombra de contato
     // aros de ferro (2 cintas horizontais) com cabeças de prego
-    for (const by of [ly + 4 * S, ly + lh - 6 * S]) {
-      p.rect(lx, by, lw, 2 * S, FITTING);
-      p.rect(lx, by, lw, S, FITTING_HI);
-      for (let k = 0; k < lw; k += 4 * S) p.rect(lx + k, by, S, S, FITTING_DK);
+    for (const by of [oy + 6 * S, oBot - 8 * S]) {
+      p.rect(ox, by, ow, 2 * S, FITTING);
+      p.rect(ox, by, ow, S, FITTING_HI);
+      p.rect(ox, by + 2 * S, ow, S, FITTING_DK);
+      for (let k = 2 * S; k < ow; k += 5 * S) { p.rect(ox + k, by, S, S, FITTING_DK); p.rect(ox + k, by, S, S, FITTING_HI); p.px(ox + k, by, FITTING_HI); }
     }
-    // argola/puxador de ferro perto da quina direita (lado oposto à dobradiça)
-    const rx = lx + lw - 4 * S, ry = ly + lh / 2;
-    p.rect(rx, ry, 3 * S, S, FITTING_HI);
-    p.rect(rx, ry + S, S, 2 * S, FITTING);
-    p.rect(rx + 2 * S, ry + S, S, 2 * S, FITTING);
-    p.rect(rx, ry + 3 * S, 3 * S, S, FITTING_DK);
+    // argola/puxador de ferro perto da ombreira direita (lado oposto à dobradiça)
+    const rx = ox + ow - 5 * S, ry = oy + oh / 2 - S;
+    p.rect(rx, ry, 4 * S, S, FITTING);
+    p.rect(rx, ry, 4 * S, S, FITTING_HI);
+    p.rect(rx, ry + S, S, 3 * S, FITTING);
+    p.rect(rx + 3 * S, ry + S, S, 3 * S, FITTING);
+    p.rect(rx, ry + 4 * S, 4 * S, S, FITTING_DK);
+    // dobradiças na ombreira esquerda
+    for (const hy of [oy + 4 * S, oBot - 6 * S]) { p.rect(ox, hy, 3 * S, 2 * S, FITTING); p.rect(ox, hy, 3 * S, S, FITTING_HI); }
   } else {
-    // ── FOLHA ABERTA: vão escuro + a folha recuada/aberta pra dentro à esquerda ──
-    // vão fundo (interior escuro à mostra — a passagem liberada)
-    p.rect(inX + S, openTop + S, inW - 2 * S, H - openTop - 3 * S, PIT_DK);
-    p.rect(inX + 2 * S, openTop + 2 * S, 5 * S, H - openTop - 5 * S, "#12161d"); // leve degradê de fundo
-    // folha aberta encostada na ombreira esquerda (vista de canto, fina)
-    const fx = inX + S, fy = openTop + S, fw = 5 * S, fh = H - openTop - 3 * S;
+    // ── FOLHA ABERTA: VÊ-ATRAVÉS — o vão NÃO é pintado (fica transparente, o
+    // chão interior aparece por baixo). Desenha só a folha aberta encostada na
+    // ombreira esquerda (vista de canto, escorço) + sua dobradiça e batente.
+    // batente interno (reveal): sombra fininha do recuo nas bordas do vão, pra
+    // dar profundidade SEM tapar o chão (some o miolo).
+    p.rect(ox, oy, ow, S, FRAME_DK);             // testa interna da verga (sombra de cima)
+    p.rect(ox + ow - S, oy, S, oh, FRAME_DK);    // ombreira interna direita (sombra)
+    // folha aberta: lâmina fina de pranchas batida na ombreira esquerda, de canto
+    const fw = 5 * S, fx = ox, fy = oy, fh = oh;
     for (let x = fx; x < fx + fw; x++) {
-      const c = x < fx + S ? WOOD_LT : x < fx + 3 * S ? WOOD : WOOD_DK; // canto da folha pega luz
+      const t = (x - fx) / fw;                   // canto da folha (perto da dobradiça) pega luz
+      const c = t < 0.28 ? WOOD_LT : t < 0.6 ? WOOD : WOOD_DK;
       p.rect(x, fy, S, fh, c);
     }
-    p.rect(fx, fy, fw, S, WOOD_HI);
-    p.rect(fx, fy + 6 * S, fw, S, FITTING);      // aro da folha visível de canto
-    p.rect(fx, fy + fh - 8 * S, fw, S, FITTING);
-    // dobradiças na ombreira esquerda (onde a folha articula)
-    p.rect(inX, fy + 4 * S, S, 3 * S, FITTING);
-    p.rect(inX, fy + fh - 7 * S, S, 3 * S, FITTING);
+    p.rect(fx, fy, fw, S, WOOD_HI);              // topo da folha lit
+    p.rect(fx, fy + fh - S, fw, S, WOOD_DK);     // base da folha em sombra
+    p.rect(fx + fw - S, fy, S, fh, WOOD_DK);     // canto livre da folha (aresta no escuro)
+    // aros de ferro da folha (vistos de canto, encurtados)
+    for (const by of [fy + 6 * S, fy + fh - 8 * S]) { p.rect(fx, by, fw, 2 * S, FITTING); p.rect(fx, by, fw, S, FITTING_HI); }
+    // dobradiças na ombreira esquerda (eixo de articulação)
+    for (const hy of [fy + 4 * S, fy + fh - 6 * S]) { p.rect(fx, hy, 2 * S, 2 * S, FITTING); p.rect(fx, hy, 2 * S, S, FITTING_HI); }
   }
-  p.rect(jx, H - S, jw, S, JAMB_DK); // soleira (sombra de contato no chão)
+  // soleira/limiar embaixo (sombra de contato no chão) — sempre presente
+  p.rect(0, H - sillH, W, sillH, FRAME_DK);
+  p.rect(0, H - sillH, W, S, FRAME);             // topo do limiar pega um pouco de luz
+  p.rect(0, H - 2 * S, W, 2 * S, "rgba(0,0,0,0.32)"); // sombra de contato funda
   p.outline(PROP_OUT);
   return p.texture();
 }

@@ -386,8 +386,9 @@ export interface MapData {
   /** Baús plantados no mundo (loot fixo + gates opcionais). Ver `ChestDef`. */
   chests?: ChestDef[];
   /**
-   * PORTAS TRANCADAS plantadas no mundo (começam fechadas; abrem com chave via
-   * `interact`). Bloqueiam o tile na sim enquanto fechadas. Ver `DoorDef`.
+   * PORTAS plantadas no mundo (começam fechadas; abrem ao pisar no vão ou via
+   * `interact`, com chave se `keyReq`). Bloqueiam o tile enquanto fechadas;
+   * estado de abertura é GLOBAL + auto-fecha (feel Tibia). Ver `DoorDef`.
    */
   doors?: DoorDef[];
   /**
@@ -461,17 +462,17 @@ export interface ChestDef {
 }
 
 /**
- * PORTA TRANCADA (DEFINIÇÃO ESTÁTICA do mapa — modelo Apogea, ver
+ * PORTA (DEFINIÇÃO ESTÁTICA do mapa — modelo Tibia/Apogea, ver
  * `design/mundo/EXPLORACAO.md` §Portas & Chaves). Começa FECHADA: o tile é
- * tratado como bloqueio na sim até que um personagem a ABRA via comando
- * `interact` TENDO a chave certa. Reusa o sistema de CHAVE abstrata do baú
- * (`SimEntity.keys` / `ChestDef.keyReq`) — a chave não diz qual porta abre.
+ * tratado como bloqueio na sim até ABRIR. Abre de dois jeitos: ANDA-PRA-ABRIR
+ * (o player pisa no vão) ou comando `interact` (clique ≤2 tiles). Se tiver
+ * `keyReq`, só abre TENDO a chave abstrata (`SimEntity.keys` / `ChestDef.keyReq`
+ * — mesma chave do baú; a chave não diz qual porta abre).
  *
- * O estado "abri esta porta" vive no PERSONAGEM (`SimEntity.openedDoors`),
- * não aqui — single-use por jogador, igual ao baú (conteúdo per-character do
- * princípio MMO; a casa-tutorial é de cada um). A porta assenta sobre um tile
- * andável (o vão na parede): fechada, a sim a bloqueia; aberta, o tile volta a
- * ser passável naturalmente.
+ * O estado "aberta" é GLOBAL e RUNTIME (vive em `World`, não no personagem nem
+ * aqui) + AUTO-FECHA depois de ~4s — mas nunca fecha com alguém em cima do vão.
+ * A porta assenta sobre um tile andável (o vão na parede): fechada, a sim a
+ * bloqueia (mob nunca abre); aberta, o tile volta a ser passável p/ todos.
  */
 export interface DoorDef {
   /** Id único no mapa — chave do registro de portas abertas do personagem. */

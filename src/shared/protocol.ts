@@ -396,9 +396,10 @@ export interface ChestView {
 }
 
 /**
- * Porta do mundo (placement estático; o estado "aberta" é per-jogador na sim,
- * `SimEntity.openedDoors`). Espelha `ChestView`: o client desenha fechada/aberta e
- * manda `interact` no clique. A definição (chave/etc.) é regra da sim — aqui só o
+ * Porta do mundo (placement estático; o estado "aberta" é GLOBAL na sim, com
+ * auto-fecha — feel Tibia/Apogea). Espelha `ChestView`: o client desenha fechada/
+ * aberta e manda `interact` no clique. A definição (chave/etc.) é regra da sim —
+ * aqui só o
  * que o client precisa pra DESENHAR e MIRAR o clique.
  */
 export interface DoorView {
@@ -407,7 +408,7 @@ export interface DoorView {
   pos: Vec2;
   /** Andar (z-level) — client só mostra as do andar atual. */
   z: number;
-  /** Aberta para o JOGADOR desta sessão (per-character). Fechada bloqueia o tile. */
+  /** Aberta agora (estado GLOBAL; auto-fecha). Fechada bloqueia o tile. */
   open: boolean;
   name: string;
 }
