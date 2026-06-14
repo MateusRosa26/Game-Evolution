@@ -10,6 +10,14 @@
  */
 import { Graphics, Sprite, Text, type TextStyleFontWeight, type TextStyleOptions } from "pixi.js";
 
+/**
+ * Escala global da UI (jun/2026): a camada inteira (`uiLayer`) é multiplicada por
+ * este fator no `Game`, encolhendo TODOS os painéis/slots/fontes de uma vez sem
+ * mexer no input — os eventos Pixi e as coords globais (`ev.global` /
+ * `getGlobalPosition`) respeitam o scale do container. Tunável aqui num lugar só.
+ */
+export const UI_SCALE = 0.8;
+
 /** Tokens de cor/medida da UI (0xRRGGBB). */
 export const UI = {
   // Painéis / janelas

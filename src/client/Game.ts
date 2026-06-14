@@ -2,6 +2,7 @@ import { Container, Sprite, type Application } from "pixi.js";
 import { TILE_SIZE } from "../shared/constants";
 import type { ClientTransport, EntityState, Snapshot } from "../shared/protocol";
 import { BODY_TYPES } from "../shared/outfits";
+import { UI_SCALE } from "./ui/theme";
 import { TileId, type MapData } from "../shared/types";
 import { createSprites, type SpriteLibrary } from "./assets/sprites";
 import { Camera } from "./Camera";
@@ -422,21 +423,27 @@ export class Game {
     this.lighting.setMapLights(map.lights);
     this.app.stage.addChild(this.lighting.overlay);
     this.app.stage.addChild(this.uiLayer); // UI acima da luz
+    // UI menor: a camada inteira escala por UI_SCALE; os painéis recebem o "espaço
+    // virtual" (tela / UI_SCALE) p/ ancorar nas bordas certas após o downscale. O
+    // input segue 1:1 (eventos Pixi + getBounds/ev.global respeitam o scale).
+    this.uiLayer.scale.set(UI_SCALE);
+    const uw = this.app.screen.width / UI_SCALE;
+    const uh = this.app.screen.height / UI_SCALE;
 
     this.uiLayer.addChild(this.hud.container);
-    this.hud.resize(this.app.screen.width, this.app.screen.height);
+    this.hud.resize(uw, uh);
 
     // Barra de skills (embaixo-centro).
     this.uiLayer.addChild(this.skillBar.container);
-    this.skillBar.resize(this.app.screen.width, this.app.screen.height);
+    this.skillBar.resize(uw, uh);
 
     // Painel de personagem por cima da HUD (oculto até apertar C).
     this.uiLayer.addChild(this.charPanel.container);
-    this.charPanel.resize(this.app.screen.height);
+    this.charPanel.resize(uh);
 
     // Janela de outfit (oculta até apertar O).
     this.uiLayer.addChild(this.outfitPanel.container);
-    this.outfitPanel.resize(this.app.screen.width, this.app.screen.height);
+    this.outfitPanel.resize(uw, uh);
 
     // Toast da camada emergente (hint/unlock) — por cima de tudo.
     this.uiLayer.addChild(this.trackingToast.container);
@@ -447,22 +454,25 @@ export class Game {
     this.uiLayer.addChild(this.shopWin.container);
     this.uiLayer.addChild(this.cookWin.container);
     this.uiLayer.addChild(this.chat.container);
-    this.uiLayer.addChild(this.tooltip.container);
-    this.uiLayer.addChild(this.dnd.ghostLayer);
+    // Tooltip e ghost do DnD vão FORA da camada escalada (no stage, escala 1): ambos
+    // recebem coords de TELA (getGlobalPosition / ev.global), então aparecem 1:1 no
+    // cursor/slot — dentro do uiLayer escalado ficariam deslocados.
+    this.app.stage.addChild(this.tooltip.container);
+    this.app.stage.addChild(this.dnd.ghostLayer);
     this.tooltip.resize(this.app.screen.width, this.app.screen.height);
-    this.trackingToast.resize(this.app.screen.width, this.app.screen.height);
-    this.chat.resize(this.app.screen.width, this.app.screen.height);
+    this.trackingToast.resize(uw, uh);
+    this.chat.resize(uw, uh);
     // Painéis novos precisam das dimensões de tela JÁ no startup (sem isso a
     // janela de diálogo nasce em coordenada negativa = invisível).
-    this.dialogueWin.resize(this.app.screen.width, this.app.screen.height);
-    this.shopWin.resize(this.app.screen.width, this.app.screen.height);
-    this.cookWin.resize(this.app.screen.width, this.app.screen.height);
-    this.journal.resize(this.app.screen.width, this.app.screen.height);
-    this.equipPanel.resize(this.app.screen.width, this.app.screen.height);
+    this.dialogueWin.resize(uw, uh);
+    this.shopWin.resize(uw, uh);
+    this.cookWin.resize(uw, uh);
+    this.journal.resize(uw, uh);
+    this.equipPanel.resize(uw, uh);
     this.equipPanel.setState(this.playerState ?? undefined);
-    this.chat.resize(this.app.screen.width, this.app.screen.height);
+    this.chat.resize(uw, uh);
     this.minimap.setMap(map);
-    this.minimap.resize(this.app.screen.width, this.app.screen.height);
+    this.minimap.resize(uw, uh);
 
     this.camera.setMapSize(map.width, map.height);
     this.camera.snapTo((map.spawn.x + 0.5) * TILE_SIZE, (map.spawn.y + 0.5) * TILE_SIZE);
@@ -652,7 +662,8 @@ export class Game {
     const seen = new Set<number>();
     // Empilha na COLUNA DIREITA abaixo do dock (minimapa + equip), sem sobrepor —
     // organização estilo Tibia. O usuário ainda pode arrastar cada janela depois.
-    const rightX = this.app.screen.width - ContainerWindow.WIDTH - 12;
+    // espaço virtual (tela / UI_SCALE): as janelas vivem no uiLayer escalado.
+    const rightX = this.app.screen.width / UI_SCALE - ContainerWindow.WIDTH - 12;
     let stackY = RIGHT_COLUMN_TOP;
     for (const v of views) {
       seen.add(v.containerId);
@@ -738,20 +749,22 @@ export class Game {
   }
 
   private onResize(): void {
-    this.dialogueWin.resize(this.app.screen.width, this.app.screen.height);
-    this.shopWin.resize(this.app.screen.width, this.app.screen.height);
-    this.cookWin.resize(this.app.screen.width, this.app.screen.height);
-    this.journal.resize(this.app.screen.width, this.app.screen.height);
-    this.equipPanel.resize(this.app.screen.width, this.app.screen.height);
-    this.minimap.resize(this.app.screen.width, this.app.screen.height);
+    const uw = this.app.screen.width / UI_SCALE;
+    const uh = this.app.screen.height / UI_SCALE;
+    this.dialogueWin.resize(uw, uh);
+    this.shopWin.resize(uw, uh);
+    this.cookWin.resize(uw, uh);
+    this.journal.resize(uw, uh);
+    this.equipPanel.resize(uw, uh);
+    this.minimap.resize(uw, uh);
+    // Tooltip vive no stage (escala 1) → clamp em TELA REAL.
     this.tooltip.resize(this.app.screen.width, this.app.screen.height);
-    const w = this.app.screen.width;
-    const h = this.app.screen.height;
-    this.lighting?.resize(w, h);
-    this.hud.resize(w, h);
-    this.skillBar.resize(w, h);
-    this.charPanel.resize(h);
-    this.outfitPanel.resize(w, h);
-    this.trackingToast.resize(w, h);
+    // Lighting é overlay de TELA REAL (cobre o mundo) — NÃO escala com a UI.
+    this.lighting?.resize(this.app.screen.width, this.app.screen.height);
+    this.hud.resize(uw, uh);
+    this.skillBar.resize(uw, uh);
+    this.charPanel.resize(uh);
+    this.outfitPanel.resize(uw, uh);
+    this.trackingToast.resize(uw, uh);
   }
 }
