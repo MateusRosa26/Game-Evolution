@@ -11,7 +11,7 @@ import { Lighting } from "./render/Lighting";
 import { WorldRenderer } from "./render/WorldRenderer";
 import { Keyboard } from "./input/Keyboard";
 import { Mouse } from "./input/Mouse";
-import { Hud } from "./ui/Hud";
+import { Hud } from "./ui/dom/Hud";
 import { DialogueWindow } from "./ui/DialogueWindow";
 import { ShopWindow } from "./ui/ShopWindow";
 import { CookingWindow } from "./ui/CookingWindow";
@@ -80,7 +80,7 @@ function floorAsMap(base: MapData, z: number): { map: MapData; ambient?: number 
 export class Game {
   private sprites: SpriteLibrary;
   private camera = new Camera();
-  private hud = new Hud();
+  private hud = new Hud(document.getElementById("ui-root")!);
   private charPanel = new CharacterPanel(
     document.getElementById("ui-root")!,
     (attr) => this.transport.send({ type: "allocateStatPoint", attr }),
@@ -92,10 +92,12 @@ export class Game {
   private trackingToast = new TrackingToast();
   private dnd = new ItemDnD(
     (from, to) => this.transport.send({ type: "moveItem", from, to }),
-    // Soltou o item sobre o MUNDO (fora de qualquer painel) = largar no chão.
+    // Soltou o item sobre o MUNDO (fora de qualquer painel) = largar no tile do
+    // cursor (vale p/ inventário→chão E chão→chão). A sim valida parede/visão.
     (from, sx, sy) => {
       if (this.uiBlocksClick(sx, sy)) return;
-      this.transport.send({ type: "moveItem", from, to: { kind: "ground" } });
+      const tile = this.camera.screenToTile(sx, sy, this.app.screen.width, this.app.screen.height);
+      this.transport.send({ type: "moveItem", from, to: { kind: "ground", pos: { x: tile.x, y: tile.y } } });
     },
   );
   private dialogueWin = new DialogueWindow((optionId) =>
@@ -122,10 +124,8 @@ export class Game {
   /** Baús/portas do andar atual (do snapshot) — alvos do clique→comando. */
   private lastChests: Snapshot["chests"] = [];
   private lastDoors: Snapshot["doors"] = [];
-  /** Itens no chão do andar atual (do snapshot) — alvos do clique→pegar. */
+  /** Itens no chão do andar atual (do snapshot) — alvos do arrasto. */
   private lastGroundItems: Snapshot["groundItems"] = [];
-  /** Item no chão clicado de longe: anda até ele e pega ao chegar (≤1 tile). */
-  private pendingPickupId: number | null = null;
   private keyboard!: Keyboard;
   private chat = new ChatWindow((text) => this.transport.send({ type: "say", text }));
   /** NPC que o jogador clicou de longe: anda até ele e conversa ao chegar. */
@@ -308,6 +308,7 @@ export class Game {
       );
       const corpse = this.lastCorpses.find((c) => c.pos.x === tile.x && c.pos.y === tile.y);
       const chest = this.lastChests.find((c) => c.pos.x === tile.x && c.pos.y === tile.y);
+      const groundItem = this.lastGroundItems.find((g) => g.pos.x === tile.x && g.pos.y === tile.y);
       // Só portas FECHADAS são alvo de interação; aberta = tile passável (anda).
       const door = this.lastDoors.find((d) => !d.open && d.pos.x === tile.x && d.pos.y === tile.y);
       if (monster) {
@@ -339,6 +340,11 @@ export class Game {
         this.clearPendingInteractions();
         if (this.inReach(door.pos)) this.transport.send({ type: "interact", interactableId: door.id });
         else { this.pendingDoorId = door.id; this.transport.send({ type: "walkTo", x: door.pos.x, y: door.pos.y }); }
+      } else if (groundItem) {
+        // Item no chão: INICIA um arrasto (estilo Tibia). Soltar na mochila/equip
+        // pega; soltar noutro tile realoca. A sim valida alcance/parede/visão.
+        this.clearPendingInteractions();
+        this.dnd.start({ kind: "ground", groundItemId: groundItem.id }, groundItem.name, sx, sy);
       } else {
         this.clearPendingInteractions();
         this.transport.send({ type: "walkTo", x: tile.x, y: tile.y });
@@ -413,7 +419,6 @@ export class Game {
       if (c.visible && c.getBounds().rectangle.contains(sx, sy)) return true;
     }
     if (this.chat.hitTest(sx, sy)) return true;
-    if (this.hud.hitTest(sx, sy)) return true;
     if (this.minimap.hitTest(sx, sy)) return true;
     return this.dnd.dragging;
   }
@@ -456,7 +461,7 @@ export class Game {
     const uw = this.app.screen.width / UI_SCALE;
     const uh = this.app.screen.height / UI_SCALE;
 
-    this.uiLayer.addChild(this.hud.container);
+    // HUD migrado p/ DOM (#ui-root), auto-anexado no constructor.
     this.hud.resize(uw, uh);
 
     // Barra de skills (embaixo-centro).
@@ -570,8 +575,11 @@ export class Game {
       corpses: snap.corpses.filter((c) => c.z === pz),
       chests: snap.chests.filter((c) => c.z === pz),
       doors: snap.doors.filter((d) => d.z === pz),
+      groundItems: snap.groundItems.filter((g) => g.z === pz),
     };
     this.entityRenderer?.apply(viewSnap);
+    this.entityRenderer?.setGroundItems(viewSnap.groundItems);
+    this.lastGroundItems = viewSnap.groundItems;
     // Baús/portas do andar ativo: o WorldRenderer desenha o estado (saqueado/aberto)
     // no container y-sorted; o client SÓ projeta o snapshot (zero regra).
     this.worldRenderer?.setChests(viewSnap.chests);

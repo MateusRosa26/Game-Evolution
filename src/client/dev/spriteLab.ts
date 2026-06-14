@@ -180,7 +180,7 @@ async function main() {
   // MOBÍLIA URBANA — kit de feira (barril/caixa/tenda) sobre grama e pedra @6x
   const propsY = gridY + 24 + Math.ceil(OUTFIT_COLORS.length / 26) * 20 + 40;
   const props: { name: string; tex: Texture }[] = [
-    { name: "barril", tex: sprites.barrel },
+    { name: "barril", tex: sprites.barrels[0] },
     { name: "caixa", tex: sprites.crate },
     { name: "tenda", tex: sprites.stall },
     { name: "poço", tex: sprites.well },

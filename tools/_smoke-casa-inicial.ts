@@ -4,7 +4,7 @@
  * Prova, sobre a sim pura (sem client), o loop-assinatura do tutorial:
  *   nascer preso → abrir baú → ganhar a chave → abrir a porta → sair pra Praça.
  * E que NINGUÉM fica preso de forma insolúvel (baú+chave alcançáveis, baú sem
- * keyReq). Mais: classless → corpo "aldeao" (mapeamento + PNGs).
+ * keyReq). Mais: classless → corpo "homem" (mapeamento + PNGs).
  *
  * Rodar:
  *   npx esbuild tools/_smoke-casa-inicial.ts --bundle --platform=node \
@@ -19,8 +19,8 @@
  *      "chave_casa_inicial" → interage/abre a porta → agora passa → findPath
  *      (spawn → Praça do Poço) cruza a porta. SEM a chave a porta NÃO abre.
  *  (4) Não-preso: baú+chave alcançáveis dentro (findPath spawn→baú), baú sem keyReq.
- *  (5) classless → corpo "aldeao": o set do torso do outfit classless resolve em
- *      "aldeao" (NÃO knight) via o alias, e os PNGs walk/ existem.
+ *  (5) classless → corpo "homem": o set do torso do outfit classless resolve em
+ *      "homem" (NÃO knight) via o alias, e os PNGs walk/ existem.
  */
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -223,15 +223,15 @@ function chebyshevReach(a: Vec2, b: Vec2): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
-// ════ (5) classless → corpo "aldeao" (mapeamento + PNGs) ══════════════════════
-console.log("\n(5) classless → corpo 'aldeao':");
+// ════ (5) classless → corpo "homem" (mapeamento + PNGs) ══════════════════════
+console.log("\n(5) classless → corpo 'homem':");
 check(`DEFAULT_PLAYER_CLASS === "classless"`, DEFAULT_PLAYER_CLASS === "classless",
   `DEFAULT_PLAYER_CLASS = ${DEFAULT_PLAYER_CLASS}`);
 const classlessOutfit = DEFAULT_OUTFIT_BY_CLASS["classless"];
 check(`existe DEFAULT_OUTFIT_BY_CLASS["classless"]`, !!classlessOutfit, `outfit classless ausente`);
-// O EntityRenderer escolhe o corpo pelo SET do torso, com alias citizen→aldeao.
+// O EntityRenderer escolhe o corpo pelo SET do torso, com alias citizen→homem.
 // Reproduzimos a MESMA resolução aqui (sem importar o client, que puxa pixi).
-const BODY_SET_ALIAS: Record<string, string> = { citizen: "aldeao" };
+const BODY_SET_ALIAS: Record<string, string> = { citizen: "homem" };
 function bodySetOf(torsoSet: string | undefined): string | undefined {
   if (!torsoSet) return undefined;
   return BODY_SET_ALIAS[torsoSet] ?? torsoSet;
@@ -243,12 +243,12 @@ if (classlessOutfit) {
   console.log(`    ⓘ classless torso="${torsoPart}" → set="${torsoSet}" → corpo="${resolvedBody}"`);
   check(`torso do classless tem set "citizen"`, torsoSet === "citizen",
     `torso classless set=${torsoSet} (esperado citizen)`);
-  check(`classless mapeia pro corpo "aldeao" (NÃO knight)`, resolvedBody === "aldeao",
-    `classless resolveu corpo "${resolvedBody}" (esperado aldeao)`);
+  check(`classless mapeia pro corpo "homem" (NÃO knight)`, resolvedBody === "homem",
+    `classless resolveu corpo "${resolvedBody}" (esperado homem)`);
   check(`o alias NÃO aponta pra knight`, resolvedBody !== "knight",
     `classless cairia no corpo knight — errado`);
 }
-// PNGs do corpo aldeao (walk). W é gerado por flip de E → só s/e/n precisam existir.
+// PNGs do corpo homem (walk). W é gerado por flip de E → só s/e/n precisam existir.
 // O bundle roda de /tmp, então __dirname/import.meta.url apontam pro OUTPUT, não
 // pra fonte. Ancora na raiz do projeto: env PROJECT_ROOT, senão deriva do cwd
 // (rodar a partir da raiz), com fallback no caminho conhecido desta worktree.
@@ -258,20 +258,20 @@ const PROJECT_ROOT =
     ? process.cwd()
     : "/mnt/c/Users/mateu/OneDrive/Desktop/Rpg");
 void fileURLToPath; // (mantido p/ futuro; raiz vem do cwd/env)
-const ALDEAO_WALK = resolve(PROJECT_ROOT, "src/client/assets/img/chars/aldeao/walk");
+const HOMEM_WALK = resolve(PROJECT_ROOT, "src/client/assets/img/chars/homem/walk");
 const needFrames = ["s0", "s1", "s2", "s3", "e0", "e1", "e2", "e3", "n0", "n1", "n2", "n3"];
 let missing = 0;
 const missingNames: string[] = [];
 for (const f of needFrames) {
-  const p = resolve(ALDEAO_WALK, `${f}.png`);
+  const p = resolve(HOMEM_WALK, `${f}.png`);
   if (!existsSync(p)) { missing++; missingNames.push(`${f}.png`); }
 }
-check(`PNGs de walk do aldeao existem (s/e/n × 4 frames) em ${ALDEAO_WALK}`, missing === 0,
-  `faltam ${missing} PNG(s) do aldeao/walk: ${missingNames.join(", ")}`);
+check(`PNGs de walk do homem existem (s/e/n × 4 frames) em ${HOMEM_WALK}`, missing === 0,
+  `faltam ${missing} PNG(s) do homem/walk: ${missingNames.join(", ")}`);
 // reforço: o pixellab.ts só registra um corpo se tiver s+e+n (≥1 cada) — temos os 3.
-check(`aldeao tem s+e+n (gate do pixellab.ts pra registrar charBodies)`,
-  ["s0", "e0", "n0"].every((f) => existsSync(resolve(ALDEAO_WALK, `${f}.png`))),
-  `aldeao não tem o trio s0/e0/n0 — pixellab.ts não registraria o corpo`);
+check(`homem tem s+e+n (gate do pixellab.ts pra registrar charBodies)`,
+  ["s0", "e0", "n0"].every((f) => existsSync(resolve(HOMEM_WALK, `${f}.png`))),
+  `homem não tem o trio s0/e0/n0 — pixellab.ts não registraria o corpo`);
 
 // ── Resumo ────────────────────────────────────────────────────────────────────
 console.log(`\n${failures === 0 ? PASS + " TODOS OS CHECKS PASSARAM" : FAIL + ` ${failures} CHECK(S) FALHARAM`}`);

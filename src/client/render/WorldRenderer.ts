@@ -367,7 +367,13 @@ export class WorldRenderer {
     // chunk 100% Void (andar subsolo fora do footprint) → não gasta RT
     if (scratch.children.length === 0) { scratch.destroy(); return null; }
 
-    const rt = RenderTexture.create({ width: tilesW * TILE_SIZE, height: tilesH * TILE_SIZE });
+    // scaleMode linear: o chunk de chão é encolhido pela câmera (FOV ~9) — nearest
+    // no downscale não-inteiro cintila/quebra. UI fica crocante (default nearest).
+    const rt = RenderTexture.create({
+      width: tilesW * TILE_SIZE,
+      height: tilesH * TILE_SIZE,
+      scaleMode: "linear",
+    });
     this.renderer.render({ container: scratch, target: rt, clear: true });
     scratch.destroy({ children: true });
 
@@ -560,7 +566,7 @@ export class WorldRenderer {
       let tex: Texture | null = null;
       switch (d.kind) {
         case "torch": tex = s.torchFrames[0]; break;
-        case "barril": tex = s.barrel; break;
+        case "barril": tex = s.barrels[(d.x * 7 + d.y * 13) % s.barrels.length]; break;
         case "caixa": tex = s.crate; break;
         case "tenda": tex = s.stall; break;
         case "poco": tex = s.well; break;

@@ -314,6 +314,8 @@ export interface Snapshot {
   entities: EntityState[];
   /** Cadáveres saqueáveis no chão (decai na sim). */
   corpses: CorpseView[];
+  /** Itens largados no chão (qualquer um vê; pega clicando). */
+  groundItems: GroundItemView[];
   /** Baús do mundo (placement estático; estado de saque é per-jogador na sim). */
   chests: ChestView[];
   /** Portas do mundo (placement estático; estado "aberta" é per-jogador na sim). */
@@ -347,7 +349,13 @@ export type ItemRef =
   /** Slot numérico dentro de um container aberto. */
   | { kind: "container"; containerId: number; slot: number }
   /** Slot de equipamento do próprio jogador. */
-  | { kind: "equip"; slot: EquipSlot };
+  | { kind: "equip"; slot: EquipSlot }
+  /**
+   * O CHÃO. Como destino (largar): `pos` é o tile mirado (omitido = pés do
+   * jogador); a sim valida parede/visão/alcance. Como origem (pegar): `groundItemId`
+   * identifica a pilha. Origem ground + destino ground = realocar a pilha.
+   */
+  | { kind: "ground"; groundItemId?: number; pos?: Vec2 };
 
 /** Item dentro de um container (projeção mínima p/ UI + tooltip). */
 export interface ContainedItemView {
@@ -392,6 +400,20 @@ export interface EquippedItemView {
   instanceId: number;
   templateId: string;
   name: string;
+}
+
+/** Item largado no chão (projeção de mundo — qualquer um vê; client desenha no tile). */
+export interface GroundItemView {
+  id: number;
+  pos: Vec2;
+  /** Andar (z-level) — client só mostra os do andar atual. */
+  z: number;
+  templateId: string;
+  name: string;
+  /** Quantidade (pilha fungível ou ouro); 1 p/ instância única de gear. */
+  count: number;
+  /** Tipo do conteúdo (gold tem sprite próprio no client). */
+  kind: "item" | "stack" | "gold";
 }
 
 /** Cadáver saqueável no chão (projeção de mundo — qualquer um vê). */

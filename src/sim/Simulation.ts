@@ -49,7 +49,7 @@ import {
   goldWeight,
 } from "./items";
 import type { BlockStats } from "./items/templates";
-import { updateChaser, updateShooter, updateTerritorial } from "./monsterAi";
+import { hasLineOfSight, updateChaser, updateShooter, updateTerritorial } from "./monsterAi";
 import {
   creditQuestEvent,
   creditQuestTurnIn,
@@ -59,7 +59,7 @@ import {
   QUESTS,
   type QuestStage,
 } from "./quests";
-import { ContainerRegistry, maxStackOf, type Container } from "./items/containers";
+import { ContainerRegistry, maxStackOf, type Container, type ContainerSlotContent } from "./items/containers";
 import { mulberry32, type Rng } from "./rng";
 import { DIALOGUES, dialogueView } from "./dialogue";
 import {
@@ -155,6 +155,9 @@ export class Simulation {
   /** Cadáveres saqueáveis no chão (decaem). */
   private corpses: { id: number; containerId: number; pos: Vec2; z: number; species: string | null; name: string; decayAtTick: number }[] = [];
   private nextCorpseId = 1;
+  /** Itens largados no chão (pilha por tile; persistem até alguém pegar). */
+  private groundItems: { id: number; pos: Vec2; z: number; content: Exclude<ContainerSlotContent, null> }[] = [];
+  private nextGroundItemId = 1;
   /** Baús do mundo: defs ESTÁTICAS do mapa (imutáveis; saque é per-jogador). */
   private chests: ChestDef[] = [];
   /** RNG da sim (loot etc.) — seedado e determinístico. */
@@ -1641,7 +1644,9 @@ export class Simulation {
 
   /** Um `ItemRef` aponta para algo que o jogador JÁ carrega? (equip ou bolso) */
   private refIsCarried(e: SimEntity, ref: ItemRef): boolean {
-    return ref.kind === "equip" || ref.containerId === e.backpackContainerId;
+    if (ref.kind === "equip") return true;
+    if (ref.kind === "ground") return false;
+    return ref.containerId === e.backpackContainerId;
   }
 
   // ── Comércio (loja de NPC) — toda regra na sim; o client só envia comandos ──
@@ -1955,6 +1960,11 @@ export class Simulation {
    * container⇄equipamento (hand1/hand2/armor). Ouro = pilha que move/funde.
    */
   private moveItem(e: SimEntity, from: ItemRef, to: ItemRef): void {
+    // origem: CHÃO (pegar uma pilha largada perto)
+    if (from.kind === "ground") {
+      this.pickUpFromGround(e, from.groundItemId, to);
+      return;
+    }
     // origem
     if (from.kind === "container") {
       if (!this.containerAccessible(e, from.containerId)) return;
@@ -1980,6 +1990,15 @@ export class Simulation {
           this.sysMessage(e.id, "Pesado demais — sem capacidade de carga.");
           return;
         }
+      }
+      // largar no chão: valida o tile mirado (parede/visão/alcance) ANTES de tirar
+      // do slot — se não dá, nada se move.
+      if (to.kind === "ground") {
+        const target = to.pos ?? { x: e.pos.x, y: e.pos.y };
+        if (!this.canDropAt(e, target)) { this.sysMessage(e.id, "Não dá pra largar aí."); return; }
+        this.dropContentAt(e, content, target);
+        c.slots[from.slot] = null;
+        return;
       }
       if (content.kind === "gold") {
         // arrastar ouro: move/funde a pilha no slot de destino (não equipa).
@@ -2032,19 +2051,54 @@ export class Simulation {
       c.slots[from.slot] = null;
       e.equipment[to.slot] = inst.id;
       this.emitEquip(e, "equip", to.slot, inst.id);
+      // Vestir mochila → o bolso cresce pra capacidade dela (8→16).
+      if (to.slot === "backpack") this.syncBackpackCapacity(e);
       this.afterEquipChange(e);
       return;
     }
     // origem: equipamento
     const instId = e.equipment[from.slot];
     if (instId == null) return;
+    if (to.kind === "ground") {
+      // largar gear vestido no chão. A mochila vestida orfanaria o bolso — bloqueia.
+      if (from.slot === "backpack") {
+        this.sysMessage(e.id, "Tire a mochila pro inventário antes de largá-la.");
+        return;
+      }
+      const target = to.pos ?? { x: e.pos.x, y: e.pos.y };
+      if (!this.canDropAt(e, target)) { this.sysMessage(e.id, "Não dá pra largar aí."); return; }
+      this.dropContentAt(e, { kind: "item", instanceId: instId }, target);
+      this.emitEquip(e, "unequip", from.slot, instId);
+      delete e.equipment[from.slot];
+      this.afterEquipChange(e);
+      return;
+    }
     if (to.kind === "container") {
       if (!this.containerAccessible(e, to.containerId)) return;
       const dst = this.containers.get(to.containerId);
       if (!dst || dst.slots[to.slot] !== null || to.slot >= dst.capacity) return;
+      // Tirar a mochila encolhe o bolso pra base: só rola se o espaço extra
+      // (além da base) estiver vazio — incluindo o slot de destino, se ele cair
+      // no range extra (encolher o apagaria). Senão bloqueia (nada se perde).
+      if (from.slot === "backpack") {
+        const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+        if (bp) {
+          const blockedByDest = to.containerId === bp.id && to.slot >= this.basePocketCapacity;
+          let extraOccupied = false;
+          for (let i = this.basePocketCapacity; i < bp.capacity; i++) {
+            if (bp.slots[i] != null) { extraOccupied = true; break; }
+          }
+          if (blockedByDest || extraOccupied) {
+            this.sysMessage(e.id, "Esvazie a mochila antes de tirá-la.");
+            return;
+          }
+        }
+      }
       dst.slots[to.slot] = { kind: "item", instanceId: instId };
       this.emitEquip(e, "unequip", from.slot, instId);
       delete e.equipment[from.slot];
+      // Tirou a mochila → o bolso volta à capacidade-base (slots extras já vazios).
+      if (from.slot === "backpack") this.syncBackpackCapacity(e);
       this.afterEquipChange(e);
       return;
     }
@@ -2057,10 +2111,113 @@ export class Simulation {
     this.afterEquipChange(e);
   }
 
+  /** Quão longe (Chebyshev) dá pra largar/mirar um item no chão. */
+  private readonly dropRange = 12;
+
+  /**
+   * Dá pra largar no tile `pos`? Nos próprios pés sempre; senão precisa ser tile
+   * ANDÁVEL (não parede/void), dentro do alcance e com LINHA DE VISÃO (sem parede
+   * no meio). É a régua de "qualquer lugar visível sem barreira física".
+   */
+  private canDropAt(e: SimEntity, pos: Vec2): boolean {
+    if (pos.x === e.pos.x && pos.y === e.pos.y) return true;
+    if (!this.world.isWalkable(pos.x, pos.y, e.z)) return false;
+    if (chebyshev(e.pos, pos) > this.dropRange) return false;
+    return hasLineOfSight(this.world, e.pos, pos, e.z);
+  }
+
+  /** Cria uma pilha de item no chão, no tile dado (validado pelo chamador). */
+  private dropContentAt(e: SimEntity, content: Exclude<ContainerSlotContent, null>, pos: Vec2): void {
+    this.groundItems.push({
+      id: this.nextGroundItemId++,
+      pos: { x: pos.x, y: pos.y },
+      z: e.z,
+      content,
+    });
+  }
+
+  /**
+   * Pega uma pilha do chão (≤1 tile, mesmo andar). Auto-coloca no container de
+   * destino (funde gold/stack, abre slot p/ gear) ou veste direto num slot de
+   * equip. Bloqueia por peso e por falta de espaço (nada se perde); pilha parcial
+   * que não coube fica no chão com o resto.
+   */
+  private pickUpFromGround(e: SimEntity, groundItemId: number | undefined, to: ItemRef): void {
+    const idx = this.groundItems.findIndex((g) => g.id === groundItemId);
+    if (idx < 0) return;
+    const gi = this.groundItems[idx];
+    if (gi.z !== e.z || chebyshev(e.pos, gi.pos) > 1) return; // fora de alcance
+    const content = gi.content;
+
+    // chão → chão: realoca a mesma pilha pro tile mirado (pega de perto, joga longe).
+    if (to.kind === "ground") {
+      const target = to.pos ?? { x: e.pos.x, y: e.pos.y };
+      if (!this.canDropAt(e, target)) { this.sysMessage(e.id, "Não dá pra largar aí."); return; }
+      gi.pos = { x: target.x, y: target.y };
+      gi.z = e.z;
+      return;
+    }
+
+    // destino: vestir direto (só gear-instância num slot que aceita)
+    if (to.kind === "equip") {
+      if (content.kind !== "item") return;
+      const inst = this.items.get(content.instanceId);
+      if (!inst || !this.slotAccepts(to.slot, inst.templateId) || e.equipment[to.slot] != null) return;
+      const w = getItemTemplate(inst.templateId)?.weight ?? 0;
+      if (this.carriedWeight(e) + w > this.maxCarryOf(e)) {
+        this.sysMessage(e.id, "Pesado demais — sem capacidade de carga.");
+        return;
+      }
+      e.equipment[to.slot] = inst.id;
+      this.emitEquip(e, "equip", to.slot, inst.id);
+      if (to.slot === "backpack") this.syncBackpackCapacity(e);
+      this.afterEquipChange(e);
+      this.groundItems.splice(idx, 1);
+      return;
+    }
+
+    // destino: um container acessível (o bolso, em geral) — auto-place.
+    if (to.kind !== "container" || !this.containerAccessible(e, to.containerId)) return;
+    const dst = this.containers.get(to.containerId);
+    if (!dst) return;
+
+    // peso: pegar do chão TRAZ carga nova.
+    let added: number;
+    if (content.kind === "gold") {
+      const cur = this.containers.totalGold(dst);
+      added = goldWeight(cur + content.amount) - goldWeight(cur);
+    } else if (content.kind === "stack") {
+      added = (getItemTemplate(content.templateId)?.weight ?? 0) * content.count;
+    } else {
+      added = getItemTemplate(this.items.get(content.instanceId)?.templateId ?? "")?.weight ?? 0;
+    }
+    if (this.carriedWeight(e) + added > this.maxCarryOf(e)) {
+      this.sysMessage(e.id, "Pesado demais — sem capacidade de carga.");
+      return;
+    }
+
+    if (content.kind === "gold") {
+      const left = this.containers.depositGold(dst, content.amount);
+      if (left === content.amount) { this.sysMessage(e.id, "Sem espaço."); return; }
+      if (left > 0) { content.amount = left; return; } // parcial: resto fica no chão
+    } else if (content.kind === "stack") {
+      const left = this.containers.addItemStackAware(this.items, dst, content.templateId, content.count);
+      if (left === content.count) { this.sysMessage(e.id, "Sem espaço."); return; }
+      if (left > 0) { content.count = left; return; }
+    } else {
+      const slot = this.containers.freeSlot(dst);
+      if (slot < 0) { this.sysMessage(e.id, "Sem espaço."); return; }
+      dst.slots[slot] = { kind: "item", instanceId: content.instanceId };
+    }
+    this.groundItems.splice(idx, 1);
+  }
+
   /** O template cabe neste slot de equipamento? (mapeamento DESIGN-ITENS) */
   private slotAccepts(slot: EquipSlot, templateId: string): boolean {
     const t = getItemTemplate(templateId);
     if (!t) return false;
+    // Mochila/sacola: item `container` veste no slot de mochila (cresce o bolso).
+    if (t.category === "container") return slot === "backpack";
     if (t.slot === "weapon" || t.slot === "shield") return slot === "hand1" || slot === "hand2";
     if (t.slot === "armor") return slot === "armor";
     if (t.slot === "helmet") return slot === "helmet";
@@ -2093,6 +2250,26 @@ export class Simulation {
     e.equippedWeaponId = t?.slot === "weapon" ? inst!.id : null;
     const prog = this.progressions.get(e.id);
     if (prog) this.recomputePlayerDerived(e, prog);
+  }
+
+  /** Capacidade do bolso SEM mochila vestida (os "bolsos" do nascimento). */
+  private readonly basePocketCapacity = 8;
+
+  /**
+   * Sincroniza a capacidade do bolso com a mochila vestida: com mochila no slot
+   * `backpack`, o bolso cresce pro `containerCapacity` dela (16); sem mochila,
+   * volta à base (8). Crescer é sempre seguro; ENCOLHER só é chamado depois que
+   * o caminho de tirar a mochila garantiu os slots extras vazios (ver moveItem).
+   */
+  private syncBackpackCapacity(e: SimEntity): void {
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (!bp) return;
+    const bagId = e.equipment.backpack;
+    const bag = bagId != null ? this.items.get(bagId) : null;
+    const cap = bag
+      ? getItemTemplate(bag.templateId)?.containerCapacity ?? this.basePocketCapacity
+      : this.basePocketCapacity;
+    this.containers.setCapacity(bp, cap);
   }
 
   /** Cadáveres: decai vencidos; afastou → fecha a janela do jogador. */
@@ -2561,6 +2738,15 @@ export class Simulation {
         species: c.species,
         name: c.name,
       })),
+      groundItems: this.groundItems.map((g) => {
+        const c = g.content;
+        const base = { id: g.id, pos: { x: g.pos.x, y: g.pos.y }, z: g.z };
+        if (c.kind === "gold") return { ...base, templateId: "gold", name: "Ouro", count: c.amount, kind: "gold" as const };
+        if (c.kind === "stack")
+          return { ...base, templateId: c.templateId, name: getItemTemplate(c.templateId)?.name ?? c.templateId, count: c.count, kind: "stack" as const };
+        const tid = this.items.get(c.instanceId)?.templateId ?? "";
+        return { ...base, templateId: tid, name: getItemTemplate(tid)?.name ?? tid, count: 1, kind: "item" as const };
+      }),
       // Baú/porta carregam o estado PER-CHARACTER (saque/aberta) projetado para o
       // jogador conectado. No modelo local há um único player; quando o snapshot
       // virar per-jogador (delta no online), `viewer` é a entidade do destinatário.

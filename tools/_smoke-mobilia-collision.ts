@@ -84,24 +84,36 @@ for (const d of nonBlocking) {
 check(`decor puro (saco/placa) sobre chão NÃO bloqueia por si só`, pureBlocked === 0,
   `${pureBlocked} decor puro(s) bloquearam indevidamente`);
 
-// Sobreposições de tile (mesma âncora) — não quebram colisão, mas empilham
-// sprites e desperdiçam um bloqueante. Reporta (não é fatal).
-const tileCount = new Map<string, string[]>();
+// Sobreposições de tile (mesma âncora) — guard-rail VISUAL (agora FATAL). Regras:
+//  - nenhum tile com 2+ decor BLOQUEANTES (sprite/bloqueio desperdiçado);
+//  - decor de LUZ (torch/braseiro) não divide tile com NENHUM outro decor (a tocha
+//    é fonte de luz e deve ficar sozinha — senão pisca sobre o prop);
+//  - nenhum decor sobre um portal de superfície (bueiro/escada) — soterra o marcador.
+console.log("(a2) overlaps de placement (guard-rail visual):");
+const LIGHT_DECOR = new Set(["torch", "braseiro"]);
+const tileKinds = new Map<string, string[]>();
 for (const d of map.decor) {
   const k = `${d.x},${d.y}`;
-  (tileCount.get(k) ?? tileCount.set(k, []).get(k)!).push(d.kind + (d.blocks ? "*" : ""));
+  (tileKinds.get(k) ?? tileKinds.set(k, []).get(k)!).push(d.kind + (d.blocks ? "*" : ""));
 }
 let doubleBlocker = 0;
-for (const [k, kinds] of tileCount) {
-  if (kinds.length > 1) {
-    const blockers = kinds.filter((s) => s.endsWith("*")).length;
-    console.log(`    ⚠ overlap em (${k}): ${kinds.join(" + ")}${blockers > 1 ? "  ← 2 bloqueantes empilhados" : ""}`);
-    if (blockers > 1) doubleBlocker++;
-  }
+let lightShared = 0;
+for (const [k, kinds] of tileKinds) {
+  if (kinds.length <= 1) continue;
+  const blockers = kinds.filter((s) => s.endsWith("*")).length;
+  const hasLight = kinds.some((s) => LIGHT_DECOR.has(s.replace("*", "")));
+  console.log(`    ⚠ overlap em (${k}): ${kinds.join(" + ")}`);
+  if (blockers > 1) doubleBlocker++;
+  if (hasLight) lightShared++;
 }
-if (doubleBlocker > 0) {
-  issues.push(`${doubleBlocker} tile(s) com 2 decor bloqueantes empilhados (1 sprite/bloqueio desperdiçado — visual)`);
-}
+check(`nenhum tile com 2+ decor bloqueantes empilhados`, doubleBlocker === 0,
+  `${doubleBlocker} tile(s) com 2 decor bloqueantes (1 sprite/bloqueio desperdiçado)`);
+check(`decor de luz (torch/braseiro) sozinho no tile`, lightShared === 0,
+  `${lightShared} tocha(s)/braseiro(s) dividindo tile com outro prop`);
+const portalAt = new Set((map.portals ?? []).map((p) => `${p.x},${p.y}`));
+const decorOnPortal = map.decor.filter((d) => portalAt.has(`${d.x},${d.y}`));
+check(`nenhum decor sobre portal de superfície (bueiro/escada)`, decorOnPortal.length === 0,
+  `${decorOnPortal.length} decor(s) soterrando um portal: ${decorOnPortal.map((d) => `${d.kind}(${d.x},${d.y})`).join(", ")}`);
 
 // ════ (b) spawn andável ════════════════════════════════════════════════════════
 console.log("\n(b) spawn:");

@@ -123,6 +123,23 @@ const NPC_URLS = import.meta.glob("./img/npcs/*.png", {
   import: "default",
 }) as Record<string, string>;
 
+/**
+ * Marca arte do MUNDO p/ filtro linear (a câmera encolhe 128px na tela, FOV ~9;
+ * nearest no downscale não-inteiro quebra outline/cintila). Caminha recursivo
+ * sobre Texture | Texture[] | Record. ITENS (UI) NÃO passam por aqui — ficam em
+ * nearest (default global) p/ ícone crocante na mochila.
+ */
+function linearizeWorld(v: unknown): void {
+  if (!v) return;
+  if (v instanceof Texture) {
+    v.source.scaleMode = "linear";
+  } else if (Array.isArray(v)) {
+    for (const x of v) linearizeWorld(x);
+  } else if (typeof v === "object") {
+    for (const x of Object.values(v)) linearizeWorld(x);
+  }
+}
+
 /** Flip horizontal de uma textura (oeste = espelho de leste). */
 function flipped(tex: Texture): Texture {
   const canvas = document.createElement("canvas");
@@ -280,4 +297,17 @@ export async function loadPixellabAssets(): Promise<void> {
     const m = path.match(/([^/]+)\.png$/);
     if (m) PIXELLAB.npcs[m[1]] = npcTexes[i];
   });
+
+  // Filtro linear na arte do mundo (NÃO em PIXELLAB.items — ícones ficam crocantes).
+  linearizeWorld([
+    PIXELLAB.trees,
+    PIXELLAB.swampTrees,
+    PIXELLAB.charBodies,
+    PIXELLAB.mobs,
+    PIXELLAB.mobAttacks,
+    PIXELLAB.knightPieces,
+    PIXELLAB.knightPiecesAtk,
+    PIXELLAB.knightAttack,
+    PIXELLAB.npcs,
+  ]);
 }

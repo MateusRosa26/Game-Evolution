@@ -59,6 +59,16 @@ const CROSSINGS: { y: number; tile: TileId; half: number; lit: boolean }[] = [
 // `doorId`/`doorName` = id estável e rótulo da DoorDef gerada no tile `door` (toda
 // casa entrável ganha porta, feel Tibia); `lockKey` = chave que tranca (só a casa
 // inicial — o resto abre andando, sem chave).
+// ── Arquétipo de edifício (mata "casas todas iguais" — PROPS-BRIEF.md Lane 1).
+// Esta é a camada de PLACEMENT do Mundo: marca, por prédio, qual estilo de telhado
+// + material de parede + adereços de fachada ele recebe. Os kits de sprite ainda
+// NÃO existem (entram com as Lanes 1/2 do brief via style/material em makeRoof/
+// makeHouseWallTile + kinds novos chamine/estandarte/beiral_lampiao). Campos
+// opcionais e ainda não consumidos pelo render — quando os sprites chegarem, o
+// cliente lê daqui via snapshot. `roof`/`wall` default = telha/enxaimel (comum).
+type RoofStyle = "telha" | "colmo" | "ardosia" | "tabua";
+type WallMaterial = "enxaimel" | "pedra" | "taipa_pobre" | "meia_pedra";
+type Adorno = "chamine" | "chamine_fumaca" | "estandarte" | "beiral_lampiao";
 type Building = {
   name: string;
   rect: [number, number, number, number];
@@ -66,23 +76,31 @@ type Building = {
   doorId: string;
   doorName: string;
   lockKey?: string;
+  roof?: RoofStyle;       // default "telha"
+  wall?: WallMaterial;    // default "enxaimel"
+  adornos?: Adorno[];     // fachada — chaminé/estandarte/lampião
 };
 const BUILDINGS: Building[] = [
-  { name: "Estalagem do Vau (Bartolo/Bento — Q1/Q6)", rect: [16, 37, 24, 42], door: [20, 42], doorId: "porta_estalagem", doorName: "a porta da Estalagem" },
-  { name: "Loja Geral (Nina — Q2)", rect: [21, 34, 27, 38], door: [24, 38], doorId: "porta_loja", doorName: "a porta da Loja" },
-  { name: "Boticário (Silas — Q3)", rect: [28, 34, 34, 38], door: [31, 38], doorId: "porta_boticario", doorName: "a porta do Boticário" },
-  { name: "Ferreiro (Duarte — Q4/Q9)", rect: [16, 24, 24, 28], door: [20, 28], doorId: "porta_ferreiro", doorName: "a porta do Ferreiro" },
-  { name: "Depot (banco/armazém)", rect: [35, 27, 42, 32], door: [38, 32], doorId: "porta_depot", doorName: "a porta do Depot" },
-  { name: "Câmara (Augusto)", rect: [42, 42, 50, 46], door: [46, 46], doorId: "porta_camara", doorName: "a porta da Câmara" },
-  { name: "Quartel da Guarda (Capitão Vidal — Q5/Q8)", rect: [3, 31, 12, 36], door: [8, 36], doorId: "porta_quartel", doorName: "a porta do Quartel" },
-  { name: "Capela do Coveiro (Abel — Q10)", rect: [12, 8, 18, 12], door: [15, 12], doorId: "porta_capela", doorName: "a porta da Capela" },
-  { name: "Templo (Gabriel — R4)", rect: [16, 9, 26, 14], door: [20, 14], doorId: "porta_templo", doorName: "a porta do Templo" },
-  { name: "Torre Arcana (Leonor — R2)", rect: [27, 13, 33, 18], door: [30, 18], doorId: "porta_torre", doorName: "a porta da Torre" },
-  { name: "Guilda dos Guerreiros (Ricardo — R1)", rect: [40, 12, 50, 18], door: [44, 18], doorId: "porta_guilda", doorName: "a porta da Guilda" },
-  { name: "Taverna do Cais (Tobias/Telmo — Q12/Q9)", rect: [46, 25, 54, 30], door: [50, 30], doorId: "porta_taverna", doorName: "a porta da Taverna" },
-  { name: "Armazéns (Cais)", rect: [46, 42, 55, 46], door: [50, 46], doorId: "porta_armazens", doorName: "a porta dos Armazéns" },
-  { name: "Casa inicial (Rosa — nascimento)", rect: [25, 41, 31, 46], door: [28, 46], doorId: "porta_casa_inicial", doorName: "a porta de saída", lockKey: "chave_casa_inicial" },
+  // Cais/lojas — comuns e funcionais; estalagem/taverna em tábua+meia-pedra com vida (fumaça/lampião).
+  { name: "Estalagem do Vau (Bartolo/Bento — Q1/Q6)", rect: [16, 37, 24, 42], door: [20, 42], doorId: "porta_estalagem", doorName: "a porta da Estalagem", roof: "tabua", wall: "meia_pedra", adornos: ["chamine_fumaca", "beiral_lampiao"] },
+  { name: "Loja Geral (Nina — Q2)", rect: [21, 34, 27, 38], door: [24, 38], doorId: "porta_loja", doorName: "a porta da Loja", roof: "telha", wall: "enxaimel" },
+  { name: "Boticário (Silas — Q3)", rect: [28, 34, 34, 38], door: [31, 38], doorId: "porta_boticario", doorName: "a porta do Boticário", roof: "telha", wall: "enxaimel" },
+  { name: "Ferreiro (Duarte — Q4/Q9)", rect: [16, 24, 24, 28], door: [20, 28], doorId: "porta_ferreiro", doorName: "a porta do Ferreiro", roof: "telha", wall: "pedra", adornos: ["chamine_fumaca"] },
+  { name: "Depot (banco/armazém)", rect: [35, 27, 42, 32], door: [38, 32], doorId: "porta_depot", doorName: "a porta do Depot", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  // Cívicos/sacros/importantes — pedra + ardósia (frio/sólido) + estandarte.
+  { name: "Câmara (Augusto)", rect: [42, 42, 50, 46], door: [46, 46], doorId: "porta_camara", doorName: "a porta da Câmara", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  { name: "Quartel da Guarda (Capitão Vidal — Q5/Q8)", rect: [3, 31, 12, 36], door: [8, 36], doorId: "porta_quartel", doorName: "a porta do Quartel", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  { name: "Capela do Coveiro (Abel — Q10)", rect: [12, 8, 18, 12], door: [15, 12], doorId: "porta_capela", doorName: "a porta da Capela", roof: "ardosia", wall: "pedra" },
+  { name: "Templo (Gabriel — R4)", rect: [16, 9, 26, 14], door: [20, 14], doorId: "porta_templo", doorName: "a porta do Templo", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  { name: "Torre Arcana (Leonor — R2)", rect: [27, 13, 33, 18], door: [30, 18], doorId: "porta_torre", doorName: "a porta da Torre", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  { name: "Guilda dos Guerreiros (Ricardo — R1)", rect: [40, 12, 50, 18], door: [44, 18], doorId: "porta_guilda", doorName: "a porta da Guilda", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  // Cais — tábua + meia-pedra, gasto pela maresia.
+  { name: "Taverna do Cais (Tobias/Telmo — Q12/Q9)", rect: [46, 25, 54, 30], door: [50, 30], doorId: "porta_taverna", doorName: "a porta da Taverna", roof: "tabua", wall: "meia_pedra", adornos: ["beiral_lampiao"] },
+  { name: "Armazéns (Cais)", rect: [46, 42, 55, 46], door: [50, 46], doorId: "porta_armazens", doorName: "a porta dos Armazéns", roof: "tabua", wall: "meia_pedra" },
+  { name: "Casa inicial (Rosa — nascimento)", rect: [25, 41, 31, 46], door: [28, 46], doorId: "porta_casa_inicial", doorName: "a porta de saída", lockKey: "chave_casa_inicial", roof: "telha", wall: "enxaimel", adornos: ["chamine_fumaca"] },
 ];
+// Granja (fora da muralha): moinho/celeiro recebem colmo+taipa_pobre quando os
+// kits chegarem — placement deles é hardcoded mais abaixo (buildings.push), não no array.
 // DESVIO: Capela [12..18] e Templo [16..26] do GRID colidiam; Capela encolhida
 // 1 tile a oeste mantendo a porta canônica (15,12). Templo porta (20,14) exata.
 
@@ -420,7 +438,7 @@ export function generateAlvoradaMap(): MapData {
   for (const [bcx, bcy] of [
     [15, 13], // Capela do Coveiro (Alto)
     [44, 20], // pátio da Guilda
-    [38, 33], // Depot
+    [41, 33], // Depot — lateral L (fora da porta e do eixo do bueiro da Praça)
     [36, 38], // Praça do Poço — bueiro principal (Q1 aponta)
     [50, 40], // Cais (Armazéns)
   ] as const) {
@@ -521,12 +539,13 @@ export function generateAlvoradaMap(): MapData {
   dec(39, 43, "tenda", true);
   // mercadoria AGRUPADA junto de cada tenda (saco/cesto = decor; caixa = bloqueia)
   dec(33, 36, "saco"); dec(33, 37, "saco"); dec(35, 37, "caixa", true); // banca NO
-  dec(40, 34, "caixa", true); dec(41, 35, "saco"); dec(39, 35, "saco");  // banca NE
-  dec(33, 42, "saco"); dec(35, 43, "saco"); dec(34, 43, "caixa", true);  // banca SO
+  dec(40, 34, "caixa", true); dec(41, 34, "saco"); dec(39, 35, "saco");  // banca NE (saco fora da tocha 41,35)
+  dec(33, 42, "saco"); dec(35, 43, "saco"); dec(35, 42, "caixa", true);  // banca SO (caixa fora da tocha 34,43)
   dec(42, 41, "saco"); dec(41, 42, "caixa", true);                       // banca SE
   dec(38, 42, "saco"); dec(40, 43, "saco");                              // banca S
   // pilha de caixas/barris num canto morto da praça (clutter agrupado, §4)
-  dec(33, 39, "caixa", true); dec(33, 40, "barril", true); dec(34, 40, "caixa", true);
+  // (caixa a x34, NÃO x33: x33,39 é o balcão do Boticário — evita prop empilhado)
+  dec(34, 39, "caixa", true); dec(33, 40, "barril", true); dec(34, 40, "caixa", true);
 
   // ── FACHADAS viram LOJAS (§4): balcão/placa/clutter NA FRENTE da porta. A parede
   // sul da casa NÃO é andável (HouseWall) → peça que bloqueia pousa UM tile à frente
@@ -870,7 +889,7 @@ const A3_OX = 128, A3_OY = 150, A3_W = 28, A3_H = 16; // Porão Afogado (bolsão
 const A1_BOCAS: Record<string, [number, number]> = {
   capela: [5, 5],   // world (115,93)
   guilda: [34, 12], // world (144,100)
-  depot: [28, 25],  // world (138,113)
+  depot: [31, 25],  // world (141,113) — realocado p/ lateral L do Depot
   praca: [26, 30],  // world (136,118) — bueiro principal (Q1)
   cais: [40, 32],   // world (150,120)
 };
@@ -1107,7 +1126,7 @@ const ALVORADA_PORTALS: MapPortal[] = (
   [
     [115, 93], // Capela
     [144, 100], // Guilda
-    [138, 113], // Depot
+    [141, 113], // Depot (realocado — lateral L)
     [136, 118], // Praça (Q1)
     [150, 120], // Cais
   ] as const

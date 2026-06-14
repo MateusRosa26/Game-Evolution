@@ -64,7 +64,7 @@ const SIGHT_BLOCKERS: ReadonlySet<TileId> = new Set([
  * sólido (SIGHT_BLOCKERS). As pontas (origem/alvo) não contam — só o caminho
  * entre elas. Determinístico, sem RNG.
  */
-function hasLineOfSight(world: World, a: { x: number; y: number }, b: { x: number; y: number }, z: number): boolean {
+export function hasLineOfSight(world: World, a: { x: number; y: number }, b: { x: number; y: number }, z: number): boolean {
   let x = a.x;
   let y = a.y;
   const dx = Math.abs(b.x - a.x);

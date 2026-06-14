@@ -56,6 +56,25 @@ export class ContainerRegistry {
     this.byId.delete(id);
   }
 
+  /**
+   * Redimensiona um container (mochila vestida/tirada — DESIGN-ITENS §Bolso).
+   * CRESCER preenche os slots novos com `null`. ENCOLHER só é permitido se os
+   * slots além de `n` estiverem TODOS vazios (nada se perde): retorna false e
+   * NÃO muta se algum estiver ocupado. `n === capacity` é no-op (true).
+   */
+  setCapacity(c: Container, n: number): boolean {
+    if (n === c.capacity) return true;
+    if (n > c.capacity) {
+      while (c.slots.length < n) c.slots.push(null);
+      c.capacity = n;
+      return true;
+    }
+    for (let i = n; i < c.slots.length; i++) if (c.slots[i] != null) return false;
+    c.slots.length = n;
+    c.capacity = n;
+    return true;
+  }
+
   /** Primeiro slot livre (null) ou -1. */
   freeSlot(c: Container): number {
     return c.slots.findIndex((s) => s === null);

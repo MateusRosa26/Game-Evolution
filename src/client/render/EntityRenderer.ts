@@ -1,6 +1,6 @@
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { TILE_SIZE } from "../../shared/constants";
-import type { CorpseView, EntityState, Snapshot, StatusEffectState } from "../../shared/protocol";
+import type { CorpseView, EntityState, GroundItemView, Snapshot, StatusEffectState } from "../../shared/protocol";
 import { DEFAULT_OUTFIT_BY_CLASS, OUTFIT_PART_BY_ID } from "../../shared/outfits";
 import type { DamageType, Facing } from "../../shared/types";
 import { outfitTextures } from "../assets/outfit/compose";
@@ -276,6 +276,7 @@ export class EntityRenderer {
   private speeches: { text: Text; elapsed: number }[] = [];
   /** Cadáveres saqueáveis (sprite do mob deitado/escurecido), por containerId. */
   private corpseSprites = new Map<number, Sprite>();
+  private groundSprites = new Map<number, { node: Container; count: number; x: number; y: number }>();
   /** Overlay de tiles de PERIGO (telegraph de moves de área — MECANICAS-DE-MOB).
    *  Fica no chão, SOB as entidades; pulsa no tick. */
   private telegraphTiles = new Graphics();
@@ -377,6 +378,60 @@ export class EntityRenderer {
         spr.destroy();
         this.corpseSprites.delete(id);
       }
+    }
+  }
+
+  /** Itens largados no chão: ícone do item (ou losango fallback) no tile, y-sorted. */
+  setGroundItems(items: readonly GroundItemView[]): void {
+    const seen = new Set<number>();
+    for (const g of items) {
+      seen.add(g.id);
+      const existing = this.groundSprites.get(g.id);
+      if (existing && existing.count === g.count) {
+        // mesma pilha: só REPOSICIONA se mudou de tile (chão→chão) — não recria.
+        if (existing.x !== g.pos.x || existing.y !== g.pos.y) {
+          existing.node.position.set((g.pos.x + 0.5) * TILE_SIZE, (g.pos.y + 1) * TILE_SIZE);
+          existing.node.zIndex = existing.node.position.y - 12;
+          existing.x = g.pos.x;
+          existing.y = g.pos.y;
+        }
+        continue;
+      }
+      if (existing) { existing.node.destroy({ children: true }); this.groundSprites.delete(g.id); }
+      const node = new Container();
+      const tex = PIXELLAB.items[g.templateId];
+      if (tex) {
+        const spr = new Sprite(tex);
+        spr.anchor.set(0.5, 0.85);
+        const s = (TILE_SIZE * 0.85) / Math.max(spr.texture.width, spr.texture.height);
+        spr.scale.set(s);
+        node.addChild(spr);
+      } else {
+        // fallback: losango (ouro dourado, item terroso) — nunca some no chão escuro.
+        const r = TILE_SIZE * 0.24;
+        const col = g.kind === "gold" ? 0xf4c542 : 0xb9893f;
+        const gfx = new Graphics();
+        gfx.poly([0, -r, r, 0, 0, r, -r, 0]).fill({ color: col }).stroke({ color: 0x20140a, width: 2 });
+        gfx.position.set(0, -r);
+        node.addChild(gfx);
+      }
+      if (g.count > 1) {
+        const label = new Text({
+          text: String(g.count),
+          style: { fontFamily: "monospace", fontSize: 13, fontWeight: "bold", fill: 0xffffff, stroke: { color: 0x000000, width: 3 } },
+        });
+        label.resolution = 4;
+        label.anchor.set(1, 1);
+        label.position.set(TILE_SIZE * 0.34, -2);
+        node.addChild(label);
+      }
+      node.position.set((g.pos.x + 0.5) * TILE_SIZE, (g.pos.y + 1) * TILE_SIZE);
+      node.zIndex = node.position.y - 12; // sob os vivos/cadáveres do mesmo tile
+      this.layer.addChild(node);
+      this.groundSprites.set(g.id, { node, count: g.count, x: g.pos.x, y: g.pos.y });
+    }
+    for (const [id, e] of [...this.groundSprites]) {
+      if (!seen.has(id)) { e.node.destroy({ children: true }); this.groundSprites.delete(id); }
     }
   }
 
