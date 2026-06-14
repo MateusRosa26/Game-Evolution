@@ -20,7 +20,9 @@ import { panelFrame, titleText, UI } from "./theme";
  * O conjunto de explorados vive no client por ora — quando entrar save/online,
  * vira progresso de exploração persistido (estado do jogador).
  */
-const SIZE = 156; // lado da área do mapa (px)
+const MIN_SIZE = 156; // lado mínimo (= tamanho atual); a roda do mouse aumenta até MAX_SIZE
+const MAX_SIZE = 360;
+const SIZE_STEP = 24; // px por tique de roda
 const PX = 3; // px por tile
 const REVEAL = 7; // raio (em tiles) revelado ao redor do jogador
 const PAD = 6;
@@ -67,6 +69,12 @@ export class Minimap {
   private last = { x: -9999, y: -9999 };
   private userPos: { x: number; y: number } | null = null;
   private screenW = 0;
+  /** Lado atual da janela do mapa (px) — os botões +/- ajustam [MIN_SIZE, MAX_SIZE]. */
+  private size = MIN_SIZE;
+  private btnPlus = new Graphics();
+  private btnMinus = new Graphics();
+  /** Avisa quem está docado embaixo (ex.: equip) quando a BASE muda no resize. */
+  onResized: ((bottomBefore: number, bottomAfter: number) => void) | null = null;
 
   constructor(private renderer: Renderer) {
     this.title = titleText("Mapa");
@@ -76,14 +84,42 @@ export class Minimap {
       this.userPos = { x, y };
       this.layout();
     });
+    // Botões +/- (canto direito do header) = aumentam/diminuem a janela do mapa.
+    this.makeZoomButton(this.btnPlus, "+", +SIZE_STEP);
+    this.makeZoomButton(this.btnMinus, "−", -SIZE_STEP);
+    this.container.addChild(this.btnMinus, this.btnPlus);
+  }
+
+  /** Botãozinho de zoom: bg + rótulo; clique ajusta `size`. stopPropagation no
+   *  pointerdown impede iniciar o drag do painel (ambos vivem no header). */
+  private makeZoomButton(g: Graphics, label: string, delta: number): void {
+    g.eventMode = "static";
+    g.cursor = "pointer";
+    const t = new Text({
+      text: label,
+      style: { fontFamily: "monospace", fontSize: 13, fontWeight: "bold", fill: 0xe8e4d8, stroke: { color: 0x10141c, width: 2 } },
+    });
+    t.anchor.set(0.5);
+    t.resolution = 3;
+    t.eventMode = "none";
+    g.addChild(t);
+    g.on("pointerdown", (e) => e.stopPropagation());
+    g.on("pointertap", (e) => {
+      e.stopPropagation();
+      const before = this.container.y + this.height;
+      this.size = Math.max(MIN_SIZE, Math.min(MAX_SIZE, this.size + delta));
+      this.layout();
+      const after = this.container.y + this.height;
+      if (before !== after) this.onResized?.(before, after);
+    });
   }
 
   /** Largura/altura totais do painel (o dock de equip se ancora abaixo disto). */
   get height(): number {
-    return UI.headerH + PAD + SIZE + PAD;
+    return UI.headerH + PAD + this.size + PAD;
   }
   get width(): number {
-    return SIZE + PAD * 2;
+    return this.size + PAD * 2;
   }
 
   /** Troca o mapa exibido pelo do ANDAR ativo (chamado ao descer/subir). Mantém a
@@ -153,8 +189,8 @@ export class Minimap {
     // Centro do tile do jogador alinhado ao centro da janela; arredonda p/ pixel
     // inteiro (nearest) e evitar shimmer de subpixel no scroll.
     this.mapSprite.position.set(
-      Math.round(innerX + SIZE / 2 - (px + 0.5) * PX),
-      Math.round(innerY + SIZE / 2 - (py + 0.5) * PX),
+      Math.round(innerX + this.size / 2 - (px + 0.5) * PX),
+      Math.round(innerY + this.size / 2 - (py + 0.5) * PX),
     );
   }
 
@@ -168,16 +204,30 @@ export class Minimap {
     const innerY = UI.headerH + PAD;
     // máscara + fundo de névoa cobrem exatamente a área de mapa
     this.maskG.clear();
-    this.maskG.rect(innerX, innerY, SIZE, SIZE).fill(0xffffff);
+    this.maskG.rect(innerX, innerY, this.size, this.size).fill(0xffffff);
     this.fog.clear();
-    this.fog.rect(innerX, innerY, SIZE, SIZE).fill(0x05070b);
+    this.fog.rect(innerX, innerY, this.size, this.size).fill(0x05070b);
     // blip do jogador: fixo no centro (desenhado uma vez, não por passo)
-    const cx = innerX + SIZE / 2;
-    const cy = innerY + SIZE / 2;
+    const cx = innerX + this.size / 2;
+    const cy = innerY + this.size / 2;
     this.blip.clear();
     this.blip.circle(cx, cy, 3).fill(0xffe27a);
     this.blip.circle(cx, cy, 3).stroke({ color: UI.textShadow, width: 1 });
+    // botões +/- no canto direito do header
+    const bs = 16;
+    const by = Math.round((UI.headerH - bs) / 2);
+    this.drawZoomBtn(this.btnPlus, w - bs - PAD, by, bs);
+    this.drawZoomBtn(this.btnMinus, w - 2 * bs - PAD - 3, by, bs);
     if (this.last.x > -9999) this.positionWindow(this.last.x, this.last.y);
+  }
+
+  private drawZoomBtn(g: Graphics, x: number, y: number, bs: number): void {
+    g.clear();
+    g.roundRect(0, 0, bs, bs, 3).fill(UI.panelHeaderBg);
+    g.roundRect(0, 0, bs, bs, 3).stroke({ color: UI.panelBorder, width: 1 });
+    g.position.set(x, y);
+    const t = g.children[0] as Text | undefined;
+    if (t) t.position.set(bs / 2, bs / 2 - 1);
   }
 
   hitTest(sx: number, sy: number): boolean {

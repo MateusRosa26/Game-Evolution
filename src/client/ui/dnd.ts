@@ -21,7 +21,11 @@ export class ItemDnD {
   private slots: DropSlot[] = [];
   private drag: { from: ItemRef; ghost: Container } | null = null;
 
-  constructor(private onMove: (from: ItemRef, to: ItemRef) => void) {
+  constructor(
+    private onMove: (from: ItemRef, to: ItemRef) => void,
+    /** Soltou FORA de qualquer slot (sobre o mundo) — o dono decide (largar no chão). */
+    private onDropOutside?: (from: ItemRef, sx: number, sy: number) => void,
+  ) {
     this.ghostLayer.eventMode = "none";
   }
 
@@ -73,6 +77,8 @@ export class ItemDnD {
         return true;
       }
     }
+    // Nenhum slot sob o cursor → soltou no mundo: o dono decide (largar no chão).
+    this.onDropOutside?.(from, sx, sy);
     return false;
   }
 

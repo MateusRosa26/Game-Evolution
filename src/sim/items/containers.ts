@@ -2,16 +2,26 @@
  * Containers (SIM only) — mochilas, bolsos e CADÁVERES (DESIGN-ITENS.md:
  * "containers aninhados estilo Tibia", decidido; cadáver-container decidido
  * jun/2026). Um container é uma lista de slots; cada slot guarda uma
- * INSTÂNCIA de item ou uma PILHA DE OURO (modelo Tibia, decidido jun/2026): o
- * ouro é um item empilhável que vive no bolso do jogador (saquear = mover/fundir
- * a pilha pra mochila). O HUD mostra o total carregado (soma das pilhas).
+ * INSTÂNCIA de item, uma PILHA DE OURO ou uma PILHA DE ITEM FUNGÍVEL (modelo
+ * Tibia): o ouro é o caso pioneiro de empilhamento; `stack` GENERALIZA isso pros
+ * demais itens `stackable` (comida/reagente/poção) — N unidades do mesmo template
+ * num slot só (`addItemStackAware`). Saquear = mover/fundir a pilha pra mochila;
+ * o HUD mostra o total de ouro carregado (soma das pilhas de ouro).
+ *
+ * O GEAR (arma/armadura que ganha Marca) NUNCA empilha: continua `item` +
+ * `instanceId` (ID + ledger únicos — DESIGN-EVOLUCAO §"Itens são instâncias").
+ * Só itens `stackable` (que NÃO carregam história própria) viram `stack`.
  *
  * IDs próprios (contador da sim, determinístico) — container sobrevive a
  * dono (cadáver não tem dono; mochila trocada de mãos mantém conteúdo).
  */
 
+import { getItemTemplate } from "./templates";
+import type { ItemRegistry } from "./instances";
+
 export type ContainerSlotContent =
   | { kind: "item"; instanceId: number }
+  | { kind: "stack"; templateId: string; count: number }
   | { kind: "gold"; amount: number }
   | null;
 
@@ -44,6 +54,25 @@ export class ContainerRegistry {
 
   remove(id: number): void {
     this.byId.delete(id);
+  }
+
+  /**
+   * Redimensiona um container (mochila vestida/tirada — DESIGN-ITENS §Bolso).
+   * CRESCER preenche os slots novos com `null`. ENCOLHER só é permitido se os
+   * slots além de `n` estiverem TODOS vazios (nada se perde): retorna false e
+   * NÃO muta se algum estiver ocupado. `n === capacity` é no-op (true).
+   */
+  setCapacity(c: Container, n: number): boolean {
+    if (n === c.capacity) return true;
+    if (n > c.capacity) {
+      while (c.slots.length < n) c.slots.push(null);
+      c.capacity = n;
+      return true;
+    }
+    for (let i = n; i < c.slots.length; i++) if (c.slots[i] != null) return false;
+    c.slots.length = n;
+    c.capacity = n;
+    return true;
   }
 
   /** Primeiro slot livre (null) ou -1. */
@@ -104,4 +133,129 @@ export class ContainerRegistry {
     });
     return true;
   }
+
+  /**
+   * Acrescenta `count` unidades de `templateId` ao container, ciente de pilha:
+   *  - template `stackable` → procura slots `stack` do MESMO template com folga
+   *    (`count < maxStack`), enche-os até o teto e TRANSBORDA pra novos slots
+   *    `stack` (cada um ≤ maxStack). Itens fungíveis (comida/reagente/poção) NÃO
+   *    têm ID/ledger próprios, então viram contagem pura.
+   *  - template NÃO-`stackable` (gear, ferramentas únicas) → cria uma `ItemInstance`
+   *    por unidade (ID + ledger únicos — DESIGN-EVOLUCAO) e ocupa 1 slot `item` cada.
+   *
+   * Retorna quantas unidades NÃO couberam (0 = entrou tudo). Determinístico:
+   * preenche pilhas existentes antes de abrir slots novos, da esquerda pra direita.
+   */
+  addItemStackAware(reg: ItemRegistry, c: Container, templateId: string, count = 1): number {
+    if (count <= 0) return 0;
+    const tpl = getItemTemplate(templateId);
+    // Sem template ou não-empilhável: 1 instância por slot (comportamento de hoje).
+    if (!tpl || !tpl.stackable) {
+      let left = count;
+      while (left > 0) {
+        const i = this.freeSlot(c);
+        if (i < 0) return left; // cheio
+        c.slots[i] = { kind: "item", instanceId: reg.create(templateId).id };
+        left--;
+      }
+      return 0;
+    }
+    const max = maxStackOf(templateId);
+    let left = count;
+    // 1) completa pilhas já existentes do mesmo template.
+    for (const s of c.slots) {
+      if (left <= 0) break;
+      if (s?.kind === "stack" && s.templateId === templateId && s.count < max) {
+        const room = max - s.count;
+        const put = Math.min(room, left);
+        s.count += put;
+        left -= put;
+      }
+    }
+    // 2) transborda pra slots novos (cada um ≤ max).
+    while (left > 0) {
+      const i = this.freeSlot(c);
+      if (i < 0) return left; // cheio
+      const put = Math.min(max, left);
+      c.slots[i] = { kind: "stack", templateId, count: put };
+      left -= put;
+    }
+    return 0;
+  }
+
+  /**
+   * Cabe(m) `count` unidades de `templateId` neste container SEM transbordar?
+   * Stack-aware: conta a folga das pilhas `stack` do mesmo template MAIS os slots
+   * livres × teto. Para gear (não-stackable), cada unidade precisa de 1 slot livre.
+   * Usado pela loja (uma compra de empilhável cabe numa pilha parcial mesmo sem
+   * slot vazio). NÃO muta nada.
+   */
+  canFit(c: Container, templateId: string, count = 1): boolean {
+    if (count <= 0) return true;
+    const max = maxStackOf(templateId);
+    let room = 0;
+    if (max > 1) {
+      for (const s of c.slots) {
+        if (s?.kind === "stack" && s.templateId === templateId) room += max - s.count;
+        else if (s === null) room += max;
+        if (room >= count) return true;
+      }
+      return room >= count;
+    }
+    // não-empilhável: 1 slot livre por unidade.
+    let free = 0;
+    for (const s of c.slots) if (s === null && ++free >= count) return true;
+    return free >= count;
+  }
+
+  /**
+   * Quantas unidades de `templateId` o container guarda — SOMA as pilhas `stack`
+   * E conta as instâncias `item` do mesmo template (gear/ferramenta avulsa também
+   * contam, p/ uma quest de coleta fechar venha o item como stack ou instância).
+   * Precisa do `reg` p/ resolver o template de uma instância.
+   */
+  countOf(reg: ItemRegistry, c: Container, templateId: string): number {
+    let n = 0;
+    for (const s of c.slots) {
+      if (!s) continue;
+      if (s.kind === "stack" && s.templateId === templateId) n += s.count;
+      else if (s.kind === "item" && reg.get(s.instanceId)?.templateId === templateId) n++;
+    }
+    return n;
+  }
+
+  /**
+   * Remove `n` unidades de `templateId` do container (consumo/entrega de quest).
+   * Debita das pilhas `stack` primeiro e depois das instâncias `item` do mesmo
+   * template, da esquerda pra direita. Pilha que chega a 0 vira `null` (libera o
+   * slot); instância removida some do slot. Retorna quantas faltaram remover
+   * (0 = removeu tudo; >0 = não havia o suficiente).
+   */
+  removeOf(reg: ItemRegistry, c: Container, templateId: string, n: number): number {
+    let left = n;
+    for (let i = 0; i < c.slots.length && left > 0; i++) {
+      const s = c.slots[i];
+      if (s?.kind === "stack" && s.templateId === templateId) {
+        const take = Math.min(s.count, left);
+        s.count -= take;
+        left -= take;
+        if (s.count <= 0) c.slots[i] = null;
+      } else if (s?.kind === "item" && reg.get(s.instanceId)?.templateId === templateId) {
+        c.slots[i] = null;
+        left--;
+      }
+    }
+    return left;
+  }
+}
+
+/**
+ * Teto de empilhamento de um template (default 12 quando `stackable` sem teto
+ * explícito — espelha o default de comida/reagente/poção em templates.ts). Ouro
+ * NÃO passa por aqui: stacka ilimitado em `gold` por caminho próprio.
+ */
+export function maxStackOf(templateId: string): number {
+  const tpl = getItemTemplate(templateId);
+  if (!tpl || !tpl.stackable) return 1;
+  return tpl.maxStack ?? 12;
 }

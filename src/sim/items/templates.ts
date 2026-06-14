@@ -53,9 +53,11 @@ export type ItemCategory =
   | "armor"
   | "consumable" // comida, poção (sustain)
   | "tool" // corda, pá, tocha, faca de esfolar (utilidade/exploração)
+  | "container" // mochila/sacola — carrega outros itens (capacidade própria)
   | "material" // loot vendável (peles, glândulas, sucata — reagente/troféu)
   | "ingredient" // tempero/insumo de cozinha — NÃO comível sozinho, só em receita (COZINHA.md)
-  | "vessel"; // vasilhame de cozinha (pote) — 1-uso, vira o prato e some ao comer
+  | "vessel" // vasilhame de cozinha (pote) — 1-uso, vira o prato e some ao comer
+  | "quest"; // item de quest puro (pacote, carta) — não-vendável, só objetivo
 
 /**
  * Tags de item (família/arquétipo da arma). Alimentam as "lentes" de rastreamento
@@ -190,10 +192,18 @@ export interface ItemTemplate {
   slot?: ItemSlot;
   /**
    * Empilhável? (tochas, reagentes, comida comum). Quando `true`, várias unidades
-   * ocupam um slot só. M2 implementa a contagem por slot; aqui é só metadado de
-   * dados (o ouro já empilha por caminho próprio — ver `ContainerRegistry`).
+   * fungíveis ocupam UM slot (`stack` — ver `addItemStackAware`). Item SEM
+   * `stackable` NUNCA empilha: cada unidade é uma `ItemInstance` única (gear com
+   * ledger). O ouro empilha por caminho próprio (`gold`).
    */
   stackable?: boolean;
+  /**
+   * Teto de unidades por pilha (`stack`). Presente só em itens `stackable`. Acima
+   * disso, transborda pra um novo slot (estilo Tibia: comida/poção/reagente têm
+   * teto baixo; ver `maxStackOf`). Default quando ausente = 12 (comida/reagente/
+   * poção). O ouro NÃO usa isto (stacka ilimitado em `gold`).
+   */
+  maxStack?: number;
   /** Tags de arquétipo de arma (lentes de tracking). Ausente em não-armas. */
   tags?: ItemTag[];
   rarity: ItemRarity;
@@ -217,6 +227,12 @@ export interface ItemTemplate {
    * tentativa de `useItem` é ignorada pela sim).
    */
   consume?: ConsumeEffect;
+  /**
+   * Capacidade (nº de slots) de um container (`category === "container"`). DADO
+   * só — a sim usa ao materializar/trocar o bolso (a Mochila da Q2 é o upgrade
+   * da Sacola de Pano: mais slots). Ausente em itens não-container.
+   */
+  containerCapacity?: number;
 }
 
 /**
@@ -383,6 +399,7 @@ export const PAO: ItemTemplate = {
   name: "Pão",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // comida — default
   weight: 2,
   rarity: "common",
   // Comida barata: regen na TAXA-BASE (1.0× = ~2 HP/s p/ knight base), saciedade
@@ -397,6 +414,7 @@ export const CARNE_ASSADA: ItemTemplate = {
   name: "Carne Assada",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // comida — default
   weight: 4,
   rarity: "common",
   // Cozido / receita simples (escala de preparo, cap 3×): regen 2.0× (~4 HP/s L1)
@@ -414,6 +432,7 @@ export const QUEIJO: ItemTemplate = {
   name: "Queijo",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // criador pediu explícito
   weight: 2,
   rarity: "common",
   consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
@@ -425,6 +444,7 @@ export const POCAO_VIDA_PEQUENA: ItemTemplate = {
   name: "Poção de Vida Pequena",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // poção — default
   weight: 3,
   rarity: "common",
   // Cura de EMERGÊNCIA instantânea + exausto curto. Bateria consumíveis
@@ -447,6 +467,7 @@ export const CARNE_CRUA: ItemTemplate = {
   name: "Carne Crua",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // comida/insumo — default
   weight: 3,
   rarity: "common",
   consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
@@ -458,6 +479,7 @@ export const SAL_GEMA: ItemTemplate = {
   name: "Sal-gema",
   category: "ingredient",
   stackable: true,
+  maxStack: 12, // ingrediente — default
   weight: 1,
   rarity: "common",
 };
@@ -468,6 +490,7 @@ export const PIMENTA_LONGA: ItemTemplate = {
   name: "Pimenta-longa",
   category: "ingredient",
   stackable: true,
+  maxStack: 12, // ingrediente — default
   weight: 1,
   rarity: "uncommon",
 };
@@ -478,6 +501,7 @@ export const MEL_SILVESTRE: ItemTemplate = {
   name: "Mel Silvestre",
   category: "ingredient",
   stackable: true,
+  maxStack: 12, // ingrediente — default
   weight: 2,
   rarity: "uncommon",
 };
@@ -488,6 +512,7 @@ export const POTE: ItemTemplate = {
   name: "Pote",
   category: "vessel",
   stackable: true,
+  maxStack: 8, // ✏️ vasilhame volumoso (8 de peso) — teto menor que comida; criador tunar
   weight: 8,
   rarity: "common",
 };
@@ -501,6 +526,7 @@ export const SOPA: ItemTemplate = {
   name: "Sopa",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // prato — default
   weight: 8,
   rarity: "common",
   // Sopa: o buff de combate mais BÁSICO — +1 na base de dano da arma (espada
@@ -514,6 +540,7 @@ export const QUEIJO_QUENTE: ItemTemplate = {
   name: "Queijo Quente",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // prato — default
   weight: 3,
   rarity: "common",
   // Sem buff de stat (decisão criador): é o premium de SUSTAIN — regen 3× +
@@ -527,6 +554,7 @@ export const CARNE_CURADA: ItemTemplate = {
   name: "Carne Curada",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // prato — default
   weight: 4,
   rarity: "common",
   // Comida do guerreiro: +2 na base de dano da arma (premium acima da Sopa). ✏️ Balancista.
@@ -539,6 +567,7 @@ export const FAVO_ASSADO: ItemTemplate = {
   name: "Favo Assado",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // prato — default
   weight: 2,
   rarity: "common",
   consume: { kind: "food", regenMult: 3.0, durationMs: 150_000 },
@@ -568,6 +597,7 @@ export const TOCHA: ItemTemplate = {
   name: "Tocha",
   category: "tool",
   stackable: true,
+  maxStack: 12, // ✏️ ferramenta consumível (queima) — 12 como suprimento; criador tunar
   weight: 3,
   rarity: "common",
 };
@@ -589,8 +619,210 @@ export const CAUDA_DE_RATO: ItemTemplate = {
   name: "Cauda de Rato",
   category: "material",
   stackable: true,
+  maxStack: 12, // reagente/troféu — default
   weight: 1,
   rarity: "common",
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Reagentes & troféus de loot (fatia ① — ITENS-LOOTS.md §loot tables).
+//  Vermes dropam REAGENTE (comprado pelo Silas), bestas dropam TROFÉU DE CAÇA
+//  (peles/presas → Amaro pós-Q7), humanoides dropam orelha/sucata. Materiais
+//  vendáveis (a renda real é vender no comprador certo); preços ✏️ Balancista.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Asa de Morcego — reagente do Morcego. Comprada pelo Silas (boticário). */
+export const ASA_DE_MORCEGO: ItemTemplate = {
+  id: "asa_de_morcego",
+  name: "Asa de Morcego",
+  category: "material",
+  stackable: true,
+  maxStack: 12, // reagente — default
+  weight: 1,
+  rarity: "common",
+};
+
+/** Glândula de Veneno — reagente da Aranha-das-Cavernas. Comprada pelo Silas. */
+export const GLANDULA_DE_VENENO: ItemTemplate = {
+  id: "glandula_de_veneno",
+  name: "Glândula de Veneno",
+  category: "material",
+  stackable: true,
+  maxStack: 12, // reagente — default
+  weight: 1,
+  rarity: "common",
+};
+
+/** Seda — fio da Aranha-das-Cavernas. Reagente/material comprado pelo Silas. */
+export const SEDA: ItemTemplate = {
+  id: "seda",
+  name: "Seda",
+  category: "material",
+  stackable: true,
+  maxStack: 12, // reagente — default
+  weight: 1,
+  rarity: "common",
+};
+
+/** Carne de Caça — corte cru de besta (Javali/Lobo/Urso). Comível (matéria-prima
+ *  de cozinha, igual à Carne Crua) OU vendida. Regen base, duração curta. */
+export const CARNE_DE_CACA: ItemTemplate = {
+  id: "carne_de_caca",
+  name: "Carne de Caça",
+  category: "consumable",
+  stackable: true,
+  maxStack: 12, // comida/insumo — default
+  weight: 3,
+  rarity: "common",
+  consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
+};
+
+/** Pele de Lobo — troféu de caça do Lobo. Comprada pelo Amaro (pós-Q7). */
+export const PELE_DE_LOBO: ItemTemplate = {
+  id: "pele_de_lobo",
+  name: "Pele de Lobo",
+  category: "material",
+  stackable: true,
+  maxStack: 12, // ✏️ couro volumoso (4 de peso) — 12 ok, mas criador pode baixar p/ "decisão de mochila"
+  weight: 4,
+  rarity: "common",
+};
+
+/** Couro Grosso — couro pesado do Javali/Presa-Torta. Comprado pelo Amaro. */
+export const COURO_GROSSO: ItemTemplate = {
+  id: "couro_grosso",
+  name: "Couro Grosso",
+  category: "material",
+  stackable: true,
+  maxStack: 12, // ✏️ couro pesado (6 de peso) — 12 ok, criador pode baixar
+  weight: 6,
+  rarity: "common",
+};
+
+/** Presa de Javali — troféu do Javali. Comprada pelo Amaro (trade de peles). */
+export const PRESA_DE_JAVALI: ItemTemplate = {
+  id: "presa_de_javali",
+  name: "Presa de Javali",
+  category: "material",
+  stackable: true,
+  maxStack: 12, // troféu — default
+  weight: 2,
+  rarity: "common",
+};
+
+/** Osso — restos do Esqueleto (loot undead T1). Material/reagente (Abel, fatia ②). */
+export const OSSO: ItemTemplate = {
+  id: "osso",
+  name: "Osso",
+  category: "material",
+  stackable: true,
+  maxStack: 12, // material/reagente — default
+  weight: 3,
+  rarity: "common",
+};
+
+/** Orelha de Goblin — prova de abate do Goblin. Bounty do Capitão Vidal
+ *  (pós-Q5) e item de coleta da Q8. Material vendável ao quartel. */
+export const ORELHA_DE_GOBLIN: ItemTemplate = {
+  id: "orelha_de_goblin",
+  name: "Orelha de Goblin",
+  category: "material",
+  stackable: true,
+  maxStack: 12, // ✏️ prova de abate (bounty/coleta Q8) — se a quota da Q8 passar de 12, subir o teto
+  weight: 1,
+  rarity: "common",
+};
+
+/** Sucata de Arma — ferro estragado de arma do Orc Soldado. Vendida ao Duarte
+ *  (trade de sucata pós-Q4) E a "prova marcada" do clímax da Q8 (loot do Orc). */
+export const SUCATA_DE_ARMA: ItemTemplate = {
+  id: "sucata_de_arma",
+  name: "Sucata de Arma",
+  category: "material",
+  stackable: true,
+  maxStack: 12, // ✏️ sucata pesada (12 de peso/un.) — teto alto pesa MUITO; criador pode baixar
+  weight: 12,
+  rarity: "common",
+};
+
+// ── Itens de quest puros (não-vendáveis; carregam só o objetivo).
+
+/** Pacote — fardo lacrado da Q4 (A Entrega do Ferreiro): levar ao Marco, vigia
+ *  de Atalaia, "e não abrir". Item de quest puro (não-vendável). */
+export const PACOTE: ItemTemplate = {
+  id: "pacote",
+  name: "Pacote",
+  category: "quest",
+  weight: 8,
+  rarity: "common",
+};
+
+/** Carta Rabiscada — loot RARO do Bandido da Estrada (Q11 O Tesouro do Bando):
+ *  aponta a Fortaleza Abandonada (fecha na fatia ③). Item de quest (lê-se). */
+export const CARTA_RABISCADA: ItemTemplate = {
+  id: "carta_rabiscada",
+  name: "Carta Rabiscada",
+  category: "quest",
+  weight: 1,
+  rarity: "common",
+};
+
+// ── Container de upgrade (recompensa de quest).
+
+/** Mochila — recompensa da Q2 (A Mochila): upgrade da Sacola de Pano inicial
+ *  (Bolso de 8 slots) para mais espaço. `containerCapacity` é o dado; a troca
+ *  do bolso vive na sim (recompensa de quest). */
+export const MOCHILA: ItemTemplate = {
+  id: "mochila",
+  name: "Mochila",
+  category: "container",
+  weight: 18,
+  rarity: "common",
+  containerCapacity: 16, // dobro do Bolso inicial (8) — ✏️ Balancista/ECONOMIA
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Kit de NASCIMENTO (casa inicial, classless — GRID §3.3 / §8). O piso do
+//  piso: a Espada Cega (já acima) + estas peças surradas + a Sacola de Pano,
+//  achados nos containers domésticos. Tudo ABAIXO do couro de vendor (Def 0,
+//  venda ≈ 0) — o ponto de partida que se larga assim que o vendor/rito paga.
+//  ✏️ Balancista fina os números; raridade `common`.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Gibão Roto — torso de NASCIMENTO (casa inicial). Pano grosso surrado, abaixo
+ *  da Túnica de Couro (Def 1) — o peito do zero, Def 0, venda ≈ 0. */
+export const GIBAO_ROTO: ItemTemplate = {
+  id: "gibao_roto",
+  name: "Gibão Roto",
+  category: "armor",
+  slot: "armor",
+  weight: 45,
+  rarity: "common",
+  armor: { def: 0 },
+};
+
+/** Botas Surradas — botas de NASCIMENTO (casa inicial). Couro gasto, Def 0 (como
+ *  toda bota T1, o "lar" delas é velocidade, que não estreia aqui). */
+export const BOTAS_SURRADAS: ItemTemplate = {
+  id: "botas_surradas",
+  name: "Botas Surradas",
+  category: "armor",
+  slot: "boots",
+  weight: 20,
+  rarity: "common",
+  armor: { def: 0 },
+};
+
+/** Sacola de Pano — o BOLSO inicial (8 slots) da casa inicial. A Mochila da Q2
+ *  é o upgrade direto (16 slots). `containerCapacity` é o dado; a troca do bolso
+ *  vive na sim. */
+export const SACOLA_DE_PANO: ItemTemplate = {
+  id: "sacola_de_pano",
+  name: "Sacola de Pano",
+  category: "container",
+  weight: 8,
+  rarity: "common",
+  containerCapacity: 8, // o Bolso inicial — Mochila (Q2) dobra p/ 16
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -659,6 +891,80 @@ export const ESCUDO_DE_MADEIRA: ItemTemplate = {
   block: { chance: 0.3, chunkPct: 0.7 },
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Armadura & escudo T2 (metal) — Duarte, o ferreiro (EQUIPAMENTO.md §"T2
+//  Vendor-ponte": Elmo de Ferro, Cota de Malha, Escudo de Ferro). O chão de
+//  metal do tier acima do couro. Def maior que o couro, mas a regra de tier
+//  segura (Def somável < dano do mob T2 ~16–20) — números ✏️ seed Balancista.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Elmo de Ferro — capacete T2 (vendor metal). Def acima da coifa de couro. */
+export const ELMO_DE_FERRO: ItemTemplate = {
+  id: "elmo_de_ferro",
+  name: "Elmo de Ferro",
+  category: "armor",
+  slot: "helmet",
+  weight: 55,
+  rarity: "common",
+  armor: { def: 2 },
+};
+
+/** Cota de Malha — armadura (torso) T2 (vendor metal). O peito de metal básico. */
+export const COTA_DE_MALHA: ItemTemplate = {
+  id: "cota_de_malha",
+  name: "Cota de Malha",
+  category: "armor",
+  slot: "armor",
+  weight: 120, // escala-Tibia (malha pesa)
+  rarity: "common",
+  armor: { def: 3 },
+};
+
+/** Escudo de Ferro — escudo T2 (vendor metal). Bloqueio melhor que o de madeira +
+ *  uma lasca de Def plana (≠ Madeira, que é Def 0). */
+export const ESCUDO_DE_FERRO: ItemTemplate = {
+  id: "escudo_de_ferro",
+  name: "Escudo de Ferro",
+  category: "shield",
+  slot: "shield",
+  weight: 80,
+  rarity: "common",
+  armor: { def: 1 },
+  block: { chance: 0.35, chunkPct: 0.7 }, // ✏️ Balancista (acima do Madeira 30%)
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Gear sucateado de humanoide (loot — ITENS-LOOTS.md). O Orc/Bandido caem com
+//  equipamento estragado: vale como peça funcional T1 E como sucata vendável ao
+//  Duarte (trade pós-Q4). `escudo_lascado` é o "peça T1 de gear" da Q8.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Escudo Lascado — escudo T1 surrado do Orc Soldado (loot raro / recompensa Q8).
+ *  Funciona como escudo de entrada (bloqueio fraco) e é vendido ao Ferreiro. */
+export const ESCUDO_LASCADO: ItemTemplate = {
+  id: "escudo_lascado",
+  name: "Escudo Lascado",
+  category: "shield",
+  slot: "shield",
+  weight: 40,
+  rarity: "common",
+  armor: { def: 0 },
+  block: { chance: 0.2, chunkPct: 0.7 }, // sucata: pior que o Madeira (30%) ✏️
+};
+
+/** Adaga Enferrujada — adaga T1 surrada do Bandido (loot + sucata p/ o Duarte).
+ *  Mais fraca que a Adaga de vendor; o valor é vendê-la, não usá-la. */
+export const ADAGA_ENFERRUJADA: ItemTemplate = {
+  id: "adaga_enferrujada",
+  name: "Adaga Enferrujada",
+  category: "weapon",
+  slot: "weapon",
+  tags: ["adaga"],
+  weight: 10,
+  rarity: "common",
+  weapon: { baseDamage: 6, baseCooldownMs: 1600, damageType: "physical", usesDexterity: true }, // abaixo da Adaga (8) ✏️
+};
+
 /** Registro de templates por ID — ponto único de lookup. */
 export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [ESPADA_CURTA.id]: ESPADA_CURTA,
@@ -688,12 +994,37 @@ export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   [TOCHA.id]: TOCHA,
   [FACA_DE_ESFOLAR.id]: FACA_DE_ESFOLAR,
   [CAUDA_DE_RATO.id]: CAUDA_DE_RATO,
+  // Reagentes, troféus de caça e itens de quest (fatia ① — ITENS-LOOTS.md)
+  [ASA_DE_MORCEGO.id]: ASA_DE_MORCEGO,
+  [GLANDULA_DE_VENENO.id]: GLANDULA_DE_VENENO,
+  [SEDA.id]: SEDA,
+  [CARNE_DE_CACA.id]: CARNE_DE_CACA,
+  [PELE_DE_LOBO.id]: PELE_DE_LOBO,
+  [COURO_GROSSO.id]: COURO_GROSSO,
+  [PRESA_DE_JAVALI.id]: PRESA_DE_JAVALI,
+  [OSSO.id]: OSSO,
+  [ORELHA_DE_GOBLIN.id]: ORELHA_DE_GOBLIN,
+  [SUCATA_DE_ARMA.id]: SUCATA_DE_ARMA,
+  [PACOTE.id]: PACOTE,
+  [CARTA_RABISCADA.id]: CARTA_RABISCADA,
+  [MOCHILA.id]: MOCHILA,
+  // Kit de nascimento (casa inicial, classless — GRID §3.3/§8)
+  [GIBAO_ROTO.id]: GIBAO_ROTO,
+  [BOTAS_SURRADAS.id]: BOTAS_SURRADAS,
+  [SACOLA_DE_PANO.id]: SACOLA_DE_PANO,
   // Armadura & escudo T1 (vendor — EQUIPAMENTO.md §"Vestir T1")
   [COIFA_DE_COURO.id]: COIFA_DE_COURO,
   [TUNICA_DE_COURO.id]: TUNICA_DE_COURO,
   [CALCAS_DE_COURO.id]: CALCAS_DE_COURO,
   [BOTAS_DE_COURO.id]: BOTAS_DE_COURO,
   [ESCUDO_DE_MADEIRA.id]: ESCUDO_DE_MADEIRA,
+  // Armadura & escudo T2 metal (vendor — EQUIPAMENTO.md §"T2 Vendor-ponte")
+  [ELMO_DE_FERRO.id]: ELMO_DE_FERRO,
+  [COTA_DE_MALHA.id]: COTA_DE_MALHA,
+  [ESCUDO_DE_FERRO.id]: ESCUDO_DE_FERRO,
+  // Gear sucateado de humanoide (loot/sucata — ITENS-LOOTS.md)
+  [ESCUDO_LASCADO.id]: ESCUDO_LASCADO,
+  [ADAGA_ENFERRUJADA.id]: ADAGA_ENFERRUJADA,
 };
 
 /** Lookup de template por ID (undefined = desconhecido). */

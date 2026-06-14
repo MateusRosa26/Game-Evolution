@@ -8,8 +8,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { inflateSync, deflateSync } from "node:zlib";
 
-const SRC = "/mnt/c/Users/mateu/OneDrive/Desktop/Rpg/design/pixellab-candidatos/chars/base-avatar";
-const RM = join(homedir(), "rpg-worktrees/remaster/src/client/assets/img/chars");
+const SRC = join(process.cwd(), "design/pixellab-candidatos/chars/base-avatar");
+const RM = join(process.cwd(), "src/client/assets/img/chars");
 
 function decodePng(buf) {
   let pos = 8, w = 0, h = 0, ct = 6; const idat = [];
@@ -70,7 +70,7 @@ const lowestRow = (img) => { for (let y = img.h - 1; y >= 0; y--) for (let x = 0
 // 2) X e TOPO globais (enquadramento consistente); BASE por frame (pé de cada frame
 //    na borda de baixo → anchor 0.5,1 aterra cada frame, sem flutuar).
 //    Escala uniforme p/ figura ~TARGET_H (todos pelo MESMO fator → escala consistente).
-const TARGET_H = 144; // ~1.125 tile (entre o native 127=1 tile e o 160=1.25 tile)
+const TARGET_H = 128; // asset = 1 tile nativo; o 1.25× (1.25 tile) vem do EntityRenderer (tunável)
 const factor = TARGET_H / (gy1 - gy0 + 1); // 127 → 160 ≈ 1.26×
 for (const { short, f, img } of frames) {
   const fb = lowestRow(img);

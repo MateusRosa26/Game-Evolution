@@ -167,7 +167,7 @@ O **eixo decide o escopo de balance**:
   (designer-de-sistemas).
 
 ## Pendências / ✏️ criador
-- [ ] Confirmar os 4 valores ✏️ (15k / +12% · 2k / +15% · 30k / blockFull 12%).
+- [x] **CONFIRMADOS pelo criador (2026-06-12):** ① 15k/+12% · ② 2k/+12% · ④ 30k/blockFull-12% — não mais ✏️. Ação restante (Chat A): aplicar em `definitions.ts` (② 1.20→1.12 + `viaWeapon` [C1]).
 - [ ] ② e ④ usam **engine que já existe** (P1 damageMult, P3 blockFull) — entram em [Q5]
   assim que o Chat A criar as fichas reais (hoje DUMMY). ① idem (P1).
 - [ ] Re-ancorar quando: (a) **comida real** entrar (muda kills/h → re-pin proporcional dos

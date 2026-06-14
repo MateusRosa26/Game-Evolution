@@ -34,6 +34,7 @@ async function main() {
   const id = process.argv[2] || "homem-jovem";
   const template = process.argv[3] || "walking-4-frames";
   const dirs = (process.argv[4] || "south,north,east").split(",");
+  const seed = parseInt(process.argv[5] || "71", 10);
   const dir = join(ROOT, `rotations-${id}`);
   const charId = JSON.parse(readFileSync(join(dir, "_meta.json"), "utf8")).charId;
 
@@ -42,7 +43,7 @@ async function main() {
   const body = {
     character_id: charId, template_animation_id: template, mode: "template",
     animation_name: "walk", directions: dirs,
-    color_image: b64file(join(ROOT, `CANONICO-${id}.png`)), force_colors: false, seed: 71,
+    color_image: b64file(join(ROOT, `CANONICO-${id}.png`)), force_colors: false, seed,
   };
   const r = await fetch(`${BASE}/characters/animations`, { method: "POST", headers: H, body: JSON.stringify(body) });
   const txt = await r.text(); if (!r.ok && r.status !== 202) { console.error(`[erro] HTTP ${r.status}: ${txt.slice(0, 800)}`); process.exit(1); }

@@ -1,7 +1,8 @@
 import { Container, Sprite, type Application } from "pixi.js";
-import { TILE_SIZE } from "../shared/constants";
+import { TILE_SIZE, VIEW_TILES_H, setViewTilesH, recomputeCameraZoom } from "../shared/constants";
 import type { ClientTransport, EntityState, Snapshot } from "../shared/protocol";
-import { OUTFIT_PART_BY_ID, OUTFIT_PARTS } from "../shared/outfits";
+import { BODY_TYPES } from "../shared/outfits";
+import { UI_SCALE } from "./ui/theme";
 import { TileId, type MapData } from "../shared/types";
 import { createSprites, type SpriteLibrary } from "./assets/sprites";
 import { Camera } from "./Camera";
@@ -10,7 +11,7 @@ import { Lighting } from "./render/Lighting";
 import { WorldRenderer } from "./render/WorldRenderer";
 import { Keyboard } from "./input/Keyboard";
 import { Mouse } from "./input/Mouse";
-import { Hud } from "./ui/Hud";
+import { Hud } from "./ui/dom/Hud";
 import { DialogueWindow } from "./ui/DialogueWindow";
 import { ShopWindow } from "./ui/ShopWindow";
 import { CookingWindow } from "./ui/CookingWindow";
@@ -21,7 +22,7 @@ import { ItemDnD } from "./ui/dnd";
 import { ChatWindow } from "./ui/ChatWindow";
 import { Minimap } from "./ui/Minimap";
 import { Tooltip } from "./ui/Tooltip";
-import { CharacterPanel } from "./ui/CharacterPanel";
+import { CharacterPanel } from "./ui/dom/CharacterPanel";
 import { OutfitPanel } from "./ui/OutfitPanel";
 import { SkillBar } from "./ui/SkillBar";
 import { TrackingToast } from "./ui/TrackingToast";
@@ -79,16 +80,26 @@ function floorAsMap(base: MapData, z: number): { map: MapData; ambient?: number 
 export class Game {
   private sprites: SpriteLibrary;
   private camera = new Camera();
-  private hud = new Hud();
-  private charPanel = new CharacterPanel((attr) =>
-    this.transport.send({ type: "allocateStatPoint", attr }),
+  private hud = new Hud(document.getElementById("ui-root")!);
+  private charPanel = new CharacterPanel(
+    document.getElementById("ui-root")!,
+    (attr) => this.transport.send({ type: "allocateStatPoint", attr }),
   );
   private outfitPanel = new OutfitPanel((outfit) =>
     this.transport.send({ type: "setOutfit", outfit }),
   );
   private skillBar = new SkillBar();
   private trackingToast = new TrackingToast();
-  private dnd = new ItemDnD((from, to) => this.transport.send({ type: "moveItem", from, to }));
+  private dnd = new ItemDnD(
+    (from, to) => this.transport.send({ type: "moveItem", from, to }),
+    // Soltou o item sobre o MUNDO (fora de qualquer painel) = largar no tile do
+    // cursor (vale p/ inventário→chão E chão→chão). A sim valida parede/visão.
+    (from, sx, sy) => {
+      if (this.uiBlocksClick(sx, sy)) return;
+      const tile = this.camera.screenToTile(sx, sy, this.app.screen.width, this.app.screen.height);
+      this.transport.send({ type: "moveItem", from, to: { kind: "ground", pos: { x: tile.x, y: tile.y } } });
+    },
+  );
   private dialogueWin = new DialogueWindow((optionId) =>
     this.transport.send({ type: "dialogueChoice", optionId }),
   );
@@ -110,10 +121,19 @@ export class Game {
   /** Janelas de container abertas, por containerId. */
   private containerWins = new Map<number, ContainerWindow>();
   private lastCorpses: Snapshot["corpses"] = [];
+  /** Baús/portas do andar atual (do snapshot) — alvos do clique→comando. */
+  private lastChests: Snapshot["chests"] = [];
+  private lastDoors: Snapshot["doors"] = [];
+  /** Itens no chão do andar atual (do snapshot) — alvos do arrasto. */
+  private lastGroundItems: Snapshot["groundItems"] = [];
   private keyboard!: Keyboard;
   private chat = new ChatWindow((text) => this.transport.send({ type: "say", text }));
   /** NPC que o jogador clicou de longe: anda até ele e conversa ao chegar. */
   private pendingTalkNpcId: number | null = null;
+  /** Baú clicado de longe: anda até ele e manda `openChest` ao chegar (≤2 tiles). */
+  private pendingChestId: string | null = null;
+  /** Porta clicada de longe: anda até ela e manda `interact` ao chegar (≤2 tiles). */
+  private pendingDoorId: string | null = null;
 
   private worldContainer = new Container();
   /** Camada de UI — SEMPRE acima da iluminação (que é multiply sobre o mundo). */
@@ -155,6 +175,8 @@ export class Game {
     this.sprites = createSprites();
     // Minimapa desenha no GPU (RenderTexture do andar) → precisa do renderer já pronto.
     this.minimap = new Minimap(this.app.renderer);
+    // minimapa empurra/puxa o equip ao redimensionar (só se estiver colado nele)
+    this.minimap.onResized = (before, after) => this.equipPanel.shiftIfDockedAt(before, after);
 
     this.tileCursor = new Sprite(this.sprites.tileCursor);
     this.tileCursor.alpha = 0.55;
@@ -242,12 +264,25 @@ export class Game {
       // janela de outfit). A sim valida posse — o client só pede.
       if (ev.code === "Digit0") {
         ev.preventDefault();
-        this.cycleOutfitSet();
+        this.cycleBody();
       }
       // F8 (DEV): desbloqueia o catálogo inteiro de peças no guarda-roupa.
       if (ev.code === "F8") {
         ev.preventDefault();
         this.transport.send({ type: "debugGrantOutfit" });
+      }
+      // -/= (TUNING): alvo de tiles verticais ao vivo (FOV estilo Tibia). Mais
+      // tiles = tiles menores na tela. Achar o ponto e travar VIEW_TILES_H em
+      // constants.ts. O zoom é derivado disso a cada frame.
+      if (ev.code === "Minus") {
+        ev.preventDefault();
+        setViewTilesH(VIEW_TILES_H - 1);
+        console.log(`[fov] VIEW_TILES_H = ${VIEW_TILES_H}`);
+      }
+      if (ev.code === "Equal") {
+        ev.preventDefault();
+        setViewTilesH(VIEW_TILES_H + 1);
+        console.log(`[fov] VIEW_TILES_H = ${VIEW_TILES_H}`);
       }
     });
     this.mouse = new Mouse(this.app.canvas, (sx, sy) => {
@@ -272,6 +307,10 @@ export class Game {
         (e) => e.kind === "npc" && e.pos.x === tile.x && e.pos.y === tile.y,
       );
       const corpse = this.lastCorpses.find((c) => c.pos.x === tile.x && c.pos.y === tile.y);
+      const chest = this.lastChests.find((c) => c.pos.x === tile.x && c.pos.y === tile.y);
+      const groundItem = this.lastGroundItems.find((g) => g.pos.x === tile.x && g.pos.y === tile.y);
+      // Só portas FECHADAS são alvo de interação; aberta = tile passável (anda).
+      const door = this.lastDoors.find((d) => !d.open && d.pos.x === tile.x && d.pos.y === tile.y);
       if (monster) {
         this.transport.send({
           type: "selectTarget",
@@ -280,6 +319,7 @@ export class Game {
       } else if (npc) {
         const me = this.playerState;
         const near = me && Math.max(Math.abs(me.pos.x - npc.pos.x), Math.abs(me.pos.y - npc.pos.y)) <= 3;
+        this.clearPendingInteractions();
         if (near) {
           this.transport.send({ type: "talk", npcId: npc.id });
         } else {
@@ -289,8 +329,24 @@ export class Game {
         }
       } else if (corpse) {
         this.transport.send({ type: "openContainer", containerId: corpse.id });
+      } else if (chest) {
+        // Baú: em alcance (≤2, régua da sim) abre já; senão anda até lá e abre ao
+        // chegar. O sprite aberto/vazio vem do snapshot — aqui só o comando.
+        this.clearPendingInteractions();
+        if (this.inReach(chest.pos)) this.transport.send({ type: "openChest", chestId: chest.id });
+        else { this.pendingChestId = chest.id; this.transport.send({ type: "walkTo", x: chest.pos.x, y: chest.pos.y }); }
+      } else if (door) {
+        // Porta fechada: mesmo padrão — `interact` (a sim abre com a chave certa).
+        this.clearPendingInteractions();
+        if (this.inReach(door.pos)) this.transport.send({ type: "interact", interactableId: door.id });
+        else { this.pendingDoorId = door.id; this.transport.send({ type: "walkTo", x: door.pos.x, y: door.pos.y }); }
+      } else if (groundItem) {
+        // Item no chão: INICIA um arrasto (estilo Tibia). Soltar na mochila/equip
+        // pega; soltar noutro tile realoca. A sim valida alcance/parede/visão.
+        this.clearPendingInteractions();
+        this.dnd.start({ kind: "ground", groundItemId: groundItem.id }, groundItem.name, sx, sy);
       } else {
-        this.pendingTalkNpcId = null;
+        this.clearPendingInteractions();
         this.transport.send({ type: "walkTo", x: tile.x, y: tile.y });
       }
     });
@@ -336,10 +392,23 @@ export class Game {
     }
   }
 
+  /** Jogador está a ≤2 tiles (Chebyshev) de `t`? Mesma régua reach-based que a
+   *  sim usa p/ baú/porta — só pra decidir abrir já vs. andar até lá (a sim revalida). */
+  private inReach(t: { x: number; y: number }): boolean {
+    const me = this.playerState;
+    return !!me && Math.max(Math.abs(me.pos.x - t.x), Math.abs(me.pos.y - t.y)) <= 2;
+  }
+
+  /** Limpa os alvos de interação pendentes (novo clique cancela o anterior). */
+  private clearPendingInteractions(): void {
+    this.pendingTalkNpcId = null;
+    this.pendingChestId = null;
+    this.pendingDoorId = null;
+  }
+
   /** True se (sx,sy) está sobre um painel de UI visível (janelas clicáveis). */
   private uiBlocksClick(sx: number, sy: number): boolean {
     const panels = [
-      this.charPanel.container,
       this.outfitPanel.container,
       this.equipPanel.container,
       this.journal.container,
@@ -350,39 +419,21 @@ export class Game {
       if (c.visible && c.getBounds().rectangle.contains(sx, sy)) return true;
     }
     if (this.chat.hitTest(sx, sy)) return true;
-    if (this.hud.hitTest(sx, sy)) return true;
     if (this.minimap.hitTest(sx, sy)) return true;
     return this.dnd.dragging;
   }
 
   /**
-   * Hotkey 0: veste o próximo SET completo possuído (mantendo as cores atuais
-   * por slot). Apresentação/atalho — a sim valida posse de cada peça.
+   * Hotkey 0: cicla o CORPO/avatar do herói (homem↔mulher). A aparência é estado
+   * da sim (no online todos veem): o client manda `setBody`, a sim valida e projeta.
    */
-  private cycleOutfitSet(): void {
+  private cycleBody(): void {
     const me = this.playerState;
-    if (!me?.outfit || !me.wardrobe) return;
-    const owned = new Set(me.wardrobe);
-    // sets dos quais o jogador possui as 3 peças, na ordem do catálogo
-    const fullSets: string[] = [];
-    for (const part of OUTFIT_PARTS) {
-      if (fullSets.includes(part.set)) continue;
-      const pieces = OUTFIT_PARTS.filter((q) => q.set === part.set);
-      if (pieces.length === 3 && pieces.every((q) => owned.has(q.id))) fullSets.push(part.set);
-    }
-    if (fullSets.length === 0) return;
-    const currentSet = OUTFIT_PART_BY_ID[me.outfit.torso.part]?.set;
-    const next = fullSets[(fullSets.indexOf(currentSet ?? "") + 1) % fullSets.length];
-    const bySlot = (slot: "head" | "torso" | "legs") =>
-      OUTFIT_PARTS.find((q) => q.set === next && q.slot === slot)!.id;
-    this.transport.send({
-      type: "setOutfit",
-      outfit: {
-        head: { part: bySlot("head"), color: me.outfit.head.color },
-        torso: { part: bySlot("torso"), color: me.outfit.torso.color },
-        legs: { part: bySlot("legs"), color: me.outfit.legs.color },
-      },
-    });
+    if (!me) return;
+    const list = BODY_TYPES as readonly string[];
+    const idx = list.indexOf(me.bodyType ?? list[0]);
+    const next = list[(idx + 1) % list.length];
+    this.transport.send({ type: "setBody", body: next });
   }
 
   private buildWorld(map: MapData): void {
@@ -403,21 +454,26 @@ export class Game {
     this.lighting.setMapLights(map.lights);
     this.app.stage.addChild(this.lighting.overlay);
     this.app.stage.addChild(this.uiLayer); // UI acima da luz
+    // UI menor: a camada inteira escala por UI_SCALE; os painéis recebem o "espaço
+    // virtual" (tela / UI_SCALE) p/ ancorar nas bordas certas após o downscale. O
+    // input segue 1:1 (eventos Pixi + getBounds/ev.global respeitam o scale).
+    this.uiLayer.scale.set(UI_SCALE);
+    const uw = this.app.screen.width / UI_SCALE;
+    const uh = this.app.screen.height / UI_SCALE;
 
-    this.uiLayer.addChild(this.hud.container);
-    this.hud.resize(this.app.screen.width, this.app.screen.height);
+    // HUD migrado p/ DOM (#ui-root), auto-anexado no constructor.
+    this.hud.resize(uw, uh);
 
     // Barra de skills (embaixo-centro).
     this.uiLayer.addChild(this.skillBar.container);
-    this.skillBar.resize(this.app.screen.width, this.app.screen.height);
+    this.skillBar.resize(uw, uh);
 
-    // Painel de personagem por cima da HUD (oculto até apertar C).
-    this.uiLayer.addChild(this.charPanel.container);
-    this.charPanel.resize(this.app.screen.height);
+    // Painel de personagem: migrado p/ DOM (#ui-root), auto-anexado no constructor.
+    this.charPanel.resize(uh);
 
     // Janela de outfit (oculta até apertar O).
     this.uiLayer.addChild(this.outfitPanel.container);
-    this.outfitPanel.resize(this.app.screen.width, this.app.screen.height);
+    this.outfitPanel.resize(uw, uh);
 
     // Toast da camada emergente (hint/unlock) — por cima de tudo.
     this.uiLayer.addChild(this.trackingToast.container);
@@ -428,22 +484,25 @@ export class Game {
     this.uiLayer.addChild(this.shopWin.container);
     this.uiLayer.addChild(this.cookWin.container);
     this.uiLayer.addChild(this.chat.container);
-    this.uiLayer.addChild(this.tooltip.container);
-    this.uiLayer.addChild(this.dnd.ghostLayer);
+    // Tooltip e ghost do DnD vão FORA da camada escalada (no stage, escala 1): ambos
+    // recebem coords de TELA (getGlobalPosition / ev.global), então aparecem 1:1 no
+    // cursor/slot — dentro do uiLayer escalado ficariam deslocados.
+    this.app.stage.addChild(this.tooltip.container);
+    this.app.stage.addChild(this.dnd.ghostLayer);
     this.tooltip.resize(this.app.screen.width, this.app.screen.height);
-    this.trackingToast.resize(this.app.screen.width, this.app.screen.height);
-    this.chat.resize(this.app.screen.width, this.app.screen.height);
+    this.trackingToast.resize(uw, uh);
+    this.chat.resize(uw, uh);
     // Painéis novos precisam das dimensões de tela JÁ no startup (sem isso a
     // janela de diálogo nasce em coordenada negativa = invisível).
-    this.dialogueWin.resize(this.app.screen.width, this.app.screen.height);
-    this.shopWin.resize(this.app.screen.width, this.app.screen.height);
-    this.cookWin.resize(this.app.screen.width, this.app.screen.height);
-    this.journal.resize(this.app.screen.width, this.app.screen.height);
-    this.equipPanel.resize(this.app.screen.width, this.app.screen.height);
+    this.dialogueWin.resize(uw, uh);
+    this.shopWin.resize(uw, uh);
+    this.cookWin.resize(uw, uh);
+    this.journal.resize(uw, uh);
+    this.equipPanel.resize(uw, uh);
     this.equipPanel.setState(this.playerState ?? undefined);
-    this.chat.resize(this.app.screen.width, this.app.screen.height);
+    this.chat.resize(uw, uh);
     this.minimap.setMap(map);
-    this.minimap.resize(this.app.screen.width, this.app.screen.height);
+    this.minimap.resize(uw, uh);
 
     this.camera.setMapSize(map.width, map.height);
     this.camera.snapTo((map.spawn.x + 0.5) * TILE_SIZE, (map.spawn.y + 0.5) * TILE_SIZE);
@@ -514,8 +573,19 @@ export class Game {
       ...snap,
       entities: snap.entities.filter((e) => e.z === pz),
       corpses: snap.corpses.filter((c) => c.z === pz),
+      chests: snap.chests.filter((c) => c.z === pz),
+      doors: snap.doors.filter((d) => d.z === pz),
+      groundItems: snap.groundItems.filter((g) => g.z === pz),
     };
     this.entityRenderer?.apply(viewSnap);
+    this.entityRenderer?.setGroundItems(viewSnap.groundItems);
+    this.lastGroundItems = viewSnap.groundItems;
+    // Baús/portas do andar ativo: o WorldRenderer desenha o estado (saqueado/aberto)
+    // no container y-sorted; o client SÓ projeta o snapshot (zero regra).
+    this.worldRenderer?.setChests(viewSnap.chests);
+    this.worldRenderer?.setDoors(viewSnap.doors);
+    this.lastChests = viewSnap.chests;
+    this.lastDoors = viewSnap.doors;
     // Camada emergente (DESIGN-EVOLUCAO.md §"Visibilidade"): hint/unlock chegam
     // como eventos one-shot SEM progresso numérico. O toast só ENCENA o evento
     // (sussurro no hint, momento épico no unlock) — ZERO regra de jogo aqui.
@@ -548,6 +618,24 @@ export class Game {
           this.transport.send({ type: "talk", npcId: npc.id });
           this.pendingTalkNpcId = null;
         }
+      }
+    }
+    // baú/porta pendente: andou até lá e chegou em alcance → manda o comando e
+    // limpa. Some do snapshot (andar diferente) → cancela. A sim revalida o reach.
+    if (this.pendingChestId != null && this.playerState) {
+      const c = this.lastChests.find((x) => x.id === this.pendingChestId);
+      if (!c) this.pendingChestId = null;
+      else if (this.inReach(c.pos)) {
+        this.transport.send({ type: "openChest", chestId: c.id });
+        this.pendingChestId = null;
+      }
+    }
+    if (this.pendingDoorId != null && this.playerState) {
+      const d = this.lastDoors.find((x) => x.id === this.pendingDoorId);
+      if (!d || d.open) this.pendingDoorId = null; // sumiu ou já abriu
+      else if (this.inReach(d.pos)) {
+        this.transport.send({ type: "interact", interactableId: d.id });
+        this.pendingDoorId = null;
       }
     }
     // Alvo vem da PRÓPRIA entidade do jogador (targetId é por-jogador no protocolo).
@@ -607,7 +695,8 @@ export class Game {
     const seen = new Set<number>();
     // Empilha na COLUNA DIREITA abaixo do dock (minimapa + equip), sem sobrepor —
     // organização estilo Tibia. O usuário ainda pode arrastar cada janela depois.
-    const rightX = this.app.screen.width - ContainerWindow.WIDTH - 12;
+    // espaço virtual (tela / UI_SCALE): as janelas vivem no uiLayer escalado.
+    const rightX = this.app.screen.width / UI_SCALE - ContainerWindow.WIDTH - 12;
     let stackY = RIGHT_COLUMN_TOP;
     for (const v of views) {
       seen.add(v.containerId);
@@ -641,6 +730,10 @@ export class Game {
   private frame(deltaMS: number): void {
     const screenW = this.app.screen.width;
     const screenH = this.app.screen.height;
+
+    // zoom derivado do FOV (Tibia-like): caber VIEW_TILES_H tiles na altura da
+    // tela. Recalcula antes de follow/streaming/apply, que leem CAMERA_ZOOM.
+    recomputeCameraZoom(screenW, screenH);
 
     this.worldRenderer?.tick(deltaMS);
     this.entityRenderer?.tick(deltaMS);
@@ -693,20 +786,22 @@ export class Game {
   }
 
   private onResize(): void {
-    this.dialogueWin.resize(this.app.screen.width, this.app.screen.height);
-    this.shopWin.resize(this.app.screen.width, this.app.screen.height);
-    this.cookWin.resize(this.app.screen.width, this.app.screen.height);
-    this.journal.resize(this.app.screen.width, this.app.screen.height);
-    this.equipPanel.resize(this.app.screen.width, this.app.screen.height);
-    this.minimap.resize(this.app.screen.width, this.app.screen.height);
+    const uw = this.app.screen.width / UI_SCALE;
+    const uh = this.app.screen.height / UI_SCALE;
+    this.dialogueWin.resize(uw, uh);
+    this.shopWin.resize(uw, uh);
+    this.cookWin.resize(uw, uh);
+    this.journal.resize(uw, uh);
+    this.equipPanel.resize(uw, uh);
+    this.minimap.resize(uw, uh);
+    // Tooltip vive no stage (escala 1) → clamp em TELA REAL.
     this.tooltip.resize(this.app.screen.width, this.app.screen.height);
-    const w = this.app.screen.width;
-    const h = this.app.screen.height;
-    this.lighting?.resize(w, h);
-    this.hud.resize(w, h);
-    this.skillBar.resize(w, h);
-    this.charPanel.resize(h);
-    this.outfitPanel.resize(w, h);
-    this.trackingToast.resize(w, h);
+    // Lighting é overlay de TELA REAL (cobre o mundo) — NÃO escala com a UI.
+    this.lighting?.resize(this.app.screen.width, this.app.screen.height);
+    this.hud.resize(uw, uh);
+    this.skillBar.resize(uw, uh);
+    this.charPanel.resize(uh);
+    this.outfitPanel.resize(uw, uh);
+    this.trackingToast.resize(uw, uh);
   }
 }

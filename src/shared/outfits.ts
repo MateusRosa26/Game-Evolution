@@ -197,3 +197,15 @@ export const DEFAULT_OUTFIT_BY_CLASS: Record<string, OutfitState> = {
     legs: { part: "calca_cidadao", color: 1 },
   },
 };
+
+/**
+ * CORPOS/avatares jogáveis (sprite inteiro PixelLab). Ortogonal ao outfit (roupa):
+ * o corpo é o gênero/idade do herói; a "rotação" (hotkey 0) cicla estes. Estado da
+ * sim (no online todos veem) — o client envia `setBody`, a sim valida contra esta
+ * lista. Cada nome casa com um diretório `img/chars/<body>/walk` no client.
+ */
+export const BODY_TYPES = ["homem", "mulher"] as const;
+export type BodyType = (typeof BODY_TYPES)[number];
+export function isValidBodyType(b: string): b is BodyType {
+  return (BODY_TYPES as readonly string[]).includes(b);
+}

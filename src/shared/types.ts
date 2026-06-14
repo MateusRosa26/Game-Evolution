@@ -209,11 +209,35 @@ export interface MapLight {
   flicker: boolean;
 }
 
-/** Decoração que emite luz / objetos especiais ancorados em tiles. */
+/**
+ * Mobília urbana / decoração ancorada em tiles (MOBILIA-URBANA.md — kit de
+ * "vila viva", PROCEDURAL). `torch` segue sendo a fonte de luz original; os
+ * demais são os props do kit (3 camadas: estruturas de comércio abertas, props
+ * de uso, delimitadores). Puramente visual no client (sprite no container
+ * y-sorted, base = âncora); o `blocks` é a única regra que a sim consome.
+ */
 export interface MapDecor {
   x: number;
   y: number;
-  kind: "torch";
+  kind:
+    | "torch" // fonte de luz original (tocha de parede)
+    | "barril" // cilindro com aros de ferro — bloqueia
+    | "caixa" // engradado de ripas, empilhável — bloqueia
+    | "cerca" // parapeito de madeira (tira/autotile) — bloqueia (vão = portão)
+    | "tenda" // banca de feira (toldo + balcão); balcão bloqueia
+    | "poco" // anel de pedra + cobertura (Praça do Poço) — bloqueia
+    | "balcao" // balcão/toldo de loja na fachada — bloqueia
+    | "placa" // tabuleta de ofício pendurada — decor (não bloqueia)
+    | "braseiro" // tigela de ferro com brasa (luz quente móvel) — bloqueia
+    | "boneco_treino" // poste + alvo de palha (pátio da Guilda) — bloqueia
+    | "estacas" // postes fincados + ripas (muralha em obras) — bloqueia
+    | "saco" // saco/cesto de mercadoria — decor (não bloqueia)
+    | "lenha"; // toras/feno empilhados — bloqueia
+  /**
+   * Prop que OCUPA o tile (sim trata como impassável). Ausente = não bloqueia
+   * (decor puro: saco/cesto, placa). Ver tabela de colisão em MOBILIA-URBANA §3.
+   */
+  blocks?: boolean;
 }
 
 /** Ponto de spawn de um monstro no mapa (espécie do bestiário). */
@@ -263,6 +287,39 @@ export interface MapOpening {
 }
 
 /**
+ * OBJETO/PONTO DE CENÁRIO INTERAGÍVEL de quest (alvenaria manchada do Q10, fardo
+ * do Q2, pedras do Q14, baú-cena do Q12…). Hook de mundo da etapa `interact`: o
+ * jogador chega perto e usa o comando `interact` → a sim emite o evento de quest
+ * (reach-based, mesma régua do baú). É só um ANCORADOURO (tile + id); não tem
+ * loot nem estado próprio — quem rastreia "já interagi" é a quest, via stage.
+ * `name` é opcional (rótulo da mensagem de sistema / tooltip futuro do client).
+ */
+export interface InteractableDef {
+  /** Id estável (casa com `QuestStageDef` do tipo `interact`). */
+  id: string;
+  pos: Vec2;
+  /** Andar (z-level). Ausente = andar base (overworld). */
+  z?: number;
+  /** Nome exibível ("a alvenaria manchada", "o fardo"). Opcional. */
+  name?: string;
+}
+
+/**
+ * REGIÃO NOMEADA de quest (hook de mundo da etapa `region_enter`): ao ENTRAR no
+ * retângulo (estava fora, agora dentro), a sim emite o evento UMA vez por
+ * personagem. Ortogonal a safe/passZones — estas são regras de tile; a região é
+ * só um gatilho de quest com id. `z` restringe ao andar (a região do esgoto não
+ * dispara andando por cima na superfície).
+ */
+export interface QuestRegionDef {
+  /** Id estável (casa com `QuestStageDef` do tipo `region_enter`). */
+  id: string;
+  rect: MapRect;
+  /** Andar (z-level). Ausente = andar base (overworld). */
+  z?: number;
+}
+
+/**
  * Camada de um andar (z-level) LOCALIZADA e esparsa: existe só onde há conteúdo
  * (esgoto = só o rect sob a cidade, não 800×800). Coords do `tiles` são LOCAIS
  * ao rect (`ox,oy` + `width×height`); converte p/ mundo somando o offset.
@@ -280,6 +337,11 @@ export interface FloorLayer {
   monsters: MapMonster[];
   portals: MapPortal[];
   openings: MapOpening[];
+  /** Pontos/objetos interagíveis de quest neste andar (coords de MUNDO, como o
+   *  resto do FloorLayer). O `z` de cada um é redundante aqui (= `z` do andar). */
+  interactables?: InteractableDef[];
+  /** Regiões nomeadas de quest neste andar (coords de MUNDO). */
+  questRegions?: QuestRegionDef[];
   /** Ambiente do andar (0xRRGGBB). Subsolo = breu; undefined = herda overworld. */
   ambient?: number;
 }
@@ -323,6 +385,22 @@ export interface MapData {
   npcSpawns?: NpcSpawnDef[];
   /** Baús plantados no mundo (loot fixo + gates opcionais). Ver `ChestDef`. */
   chests?: ChestDef[];
+  /**
+   * PORTAS plantadas no mundo (começam fechadas; abrem ao pisar no vão ou via
+   * `interact`, com chave se `keyReq`). Bloqueiam o tile enquanto fechadas;
+   * estado de abertura é GLOBAL + auto-fecha (feel Tibia). Ver `DoorDef`.
+   */
+  doors?: DoorDef[];
+  /**
+   * PONTOS/OBJETOS INTERAGÍVEIS de quest no overworld (hook da etapa `interact`).
+   * Os do subsolo vão no `FloorLayer` do andar. Ver `InteractableDef`.
+   */
+  interactables?: InteractableDef[];
+  /**
+   * REGIÕES NOMEADAS de quest no overworld (hook da etapa `region_enter`). As do
+   * subsolo vão no `FloorLayer` do andar. Ver `QuestRegionDef`.
+   */
+  questRegions?: QuestRegionDef[];
   /**
    * FONTES DE CALOR (fogão/fogueira) — gate de cozinha (COZINHA.md): receitas
    * cozidas/premium exigem estar perto de uma. Pontos no overworld (baseZ).
@@ -380,5 +458,33 @@ export interface ChestDef {
    */
   keyReq?: string;
   /** Nome exibível ("Baú", "Baú do Bando"). default "Baú". */
+  name?: string;
+}
+
+/**
+ * PORTA (DEFINIÇÃO ESTÁTICA do mapa — modelo Tibia/Apogea, ver
+ * `design/mundo/EXPLORACAO.md` §Portas & Chaves). Começa FECHADA: o tile é
+ * tratado como bloqueio na sim até ABRIR. Abre de dois jeitos: ANDA-PRA-ABRIR
+ * (o player pisa no vão) ou comando `interact` (clique ≤2 tiles). Se tiver
+ * `keyReq`, só abre TENDO a chave abstrata (`SimEntity.keys` / `ChestDef.keyReq`
+ * — mesma chave do baú; a chave não diz qual porta abre).
+ *
+ * O estado "aberta" é GLOBAL e RUNTIME (vive em `World`, não no personagem nem
+ * aqui) + AUTO-FECHA depois de ~4s — mas nunca fecha com alguém em cima do vão.
+ * A porta assenta sobre um tile andável (o vão na parede): fechada, a sim a
+ * bloqueia (mob nunca abre); aberta, o tile volta a ser passável p/ todos.
+ */
+export interface DoorDef {
+  /** Id único no mapa — chave do registro de portas abertas do personagem. */
+  id: string;
+  pos: Vec2;
+  z: number;
+  /**
+   * keyId que destranca (ausente = porta que abre sem chave — um simples
+   * "abrir/empurrar"). A chave é abstrata (flag no personagem), vem de quest
+   * ou exploração; quem a possui abre. Mesma chave de `ChestDef.keyReq`.
+   */
+  keyReq?: string;
+  /** Nome exibível ("a porta", "a porta de saída"). default "a porta". */
   name?: string;
 }

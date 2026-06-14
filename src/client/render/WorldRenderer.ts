@@ -1,6 +1,7 @@
 import { Container, Graphics, RenderTexture, Sprite, type Renderer, type Texture } from "pixi.js";
 import { hash2D } from "../../sim/rng";
 import { CAMERA_ZOOM, TILE_SIZE } from "../../shared/constants";
+import type { ChestView, DoorView } from "../../shared/protocol";
 import { TileId, type MapData, type MapRect } from "../../shared/types";
 import { makeRoof, ROOF_OVERHANG, type SpriteLibrary } from "../assets/sprites";
 
@@ -58,6 +59,16 @@ export class WorldRenderer {
   private roofSprites: { sp: Sprite; rect: MapRect }[] = [];
   private waterSprites: { sp: Sprite; frames: Texture[] }[] = [];
   private torchSprites: Sprite[] = [];
+  /**
+   * Baús/portas do mundo: DINÂMICOS (estado saqueado/aberto é per-jogador e o
+   * andar visível muda), então não entram no bake de `buildObjects` — são
+   * sincronizados a cada snapshot por `setChests`/`setDoors`. Sprite + sombra +
+   * estado atual desenhado, keyed por id, no MESMO container y-sorted.
+   */
+  private chestSprites = new Map<string, { sp: Sprite; sh: Sprite; looted: boolean }>();
+  private doorSprites = new Map<string, { sp: Sprite; open: boolean }>();
+  /** Braseiros (mobília): animam a brasa como a tocha (3 frames, mesmo clock). */
+  private brazierSprites: Sprite[] = [];
   private waterClock = 0;
   private torchClock = 0;
   private waterFrame = 0;
@@ -128,6 +139,83 @@ export class WorldRenderer {
       const target = Math.max(0, Math.min(1, dist / FADE));
       if (sp.alpha < target) sp.alpha = Math.min(target, sp.alpha + step);
       else if (sp.alpha > target) sp.alpha = Math.max(target, sp.alpha - step);
+    }
+  }
+
+  /**
+   * Sincroniza os baús DESTE andar com o snapshot (placement + estado de saque):
+   * cria o sprite que falta, troca a textura quando o jogador saqueia (fechado →
+   * aberto/vazio) e remove o que sumiu. Filtra por `z` do andar (cada andar tem o
+   * seu WorldRenderer). Apresentação pura — o estado vem do snapshot.
+   */
+  setChests(chests: readonly ChestView[]): void {
+    const myZ = this.map.z ?? 0;
+    const seen = new Set<string>();
+    for (const c of chests) {
+      if (c.z !== myZ) continue;
+      seen.add(c.id);
+      const cx = (c.pos.x + 0.5) * TILE_SIZE;
+      const baseY = (c.pos.y + 1) * TILE_SIZE;
+      let entry = this.chestSprites.get(c.id);
+      if (!entry) {
+        const sp = new Sprite(c.looted ? this.sprites.chestOpen : this.sprites.chestClosed);
+        sp.anchor.set(0.5, 1);
+        sp.position.set(cx, baseY);
+        sp.zIndex = baseY;
+        this.objects.addChild(sp);
+        const sh = new Sprite(this.sprites.shadow);
+        sh.anchor.set(0.5, 0.5);
+        sh.width = 30;
+        sh.height = 13;
+        sh.position.set(cx + 2, baseY - 2);
+        this.shadows.addChild(sh);
+        entry = { sp, sh, looted: c.looted };
+        this.chestSprites.set(c.id, entry);
+      } else if (entry.looted !== c.looted) {
+        entry.sp.texture = c.looted ? this.sprites.chestOpen : this.sprites.chestClosed;
+        entry.looted = c.looted;
+      }
+    }
+    for (const [id, e] of [...this.chestSprites]) {
+      if (seen.has(id)) continue;
+      e.sp.destroy();
+      e.sh.destroy();
+      this.chestSprites.delete(id);
+    }
+  }
+
+  /**
+   * Sincroniza as portas DESTE andar (placement + estado aberta/fechada): cria,
+   * troca a textura ao abrir e remove o que sumiu. A sombra de contato já está
+   * pintada no próprio sprite (soleira); sem sombra na camada `shadows` (a porta
+   * é alta/vertical, como a placa). Apresentação pura — estado vem do snapshot.
+   */
+  setDoors(doors: readonly DoorView[]): void {
+    const myZ = this.map.z ?? 0;
+    const seen = new Set<string>();
+    for (const d of doors) {
+      if (d.z !== myZ) continue;
+      seen.add(d.id);
+      const cx = (d.pos.x + 0.5) * TILE_SIZE;
+      const baseY = (d.pos.y + 1) * TILE_SIZE;
+      let entry = this.doorSprites.get(d.id);
+      if (!entry) {
+        const sp = new Sprite(d.open ? this.sprites.doorOpen : this.sprites.doorClosed);
+        sp.anchor.set(0.5, 1);
+        sp.position.set(cx, baseY);
+        sp.zIndex = baseY;
+        this.objects.addChild(sp);
+        entry = { sp, open: d.open };
+        this.doorSprites.set(d.id, entry);
+      } else if (entry.open !== d.open) {
+        entry.sp.texture = d.open ? this.sprites.doorOpen : this.sprites.doorClosed;
+        entry.open = d.open;
+      }
+    }
+    for (const [id, e] of [...this.doorSprites]) {
+      if (seen.has(id)) continue;
+      e.sp.destroy();
+      this.doorSprites.delete(id);
     }
   }
 
@@ -279,7 +367,13 @@ export class WorldRenderer {
     // chunk 100% Void (andar subsolo fora do footprint) → não gasta RT
     if (scratch.children.length === 0) { scratch.destroy(); return null; }
 
-    const rt = RenderTexture.create({ width: tilesW * TILE_SIZE, height: tilesH * TILE_SIZE });
+    // scaleMode linear: o chunk de chão é encolhido pela câmera (FOV ~9) — nearest
+    // no downscale não-inteiro cintila/quebra. UI fica crocante (default nearest).
+    const rt = RenderTexture.create({
+      width: tilesW * TILE_SIZE,
+      height: tilesH * TILE_SIZE,
+      scaleMode: "linear",
+    });
     this.renderer.render({ container: scratch, target: rt, clear: true });
     scratch.destroy({ children: true });
 
@@ -441,15 +535,70 @@ export class WorldRenderer {
       }
     }
 
+    // MOBÍLIA URBANA (MOBILIA-URBANA.md): cada MapDecor.kind → sprite procedural
+    // no MESMO container y-sorted dos objetos, ancorado na BASE (0.5,1), zIndex =
+    // pixel Y da base (igual a tochas/árvores). A `cerca` é autotile (máscara dos
+    // vizinhos `cerca`); o `braseiro` anima como a tocha. Animados/luz são DADOS:
+    // a luz do braseiro vem de `map.lights` (placement), não daqui.
+    const fenceAt = new Set<number>();
+    for (const d of map.decor) if (d.kind === "cerca") fenceAt.add(d.y * map.width + d.x);
+    const hasFence = (x: number, y: number): boolean => fenceAt.has(y * map.width + x);
+
     for (const d of map.decor) {
+      const cx = (d.x + 0.5) * TILE_SIZE;
+      const baseY = (d.y + 1) * TILE_SIZE;
+
+      // Cerca: autotile 16 máscaras (N=1,E=2,S=4,W=8) — mesmo contrato do muro.
+      if (d.kind === "cerca") {
+        const mask =
+          (hasFence(d.x, d.y - 1) ? 1 : 0) | (hasFence(d.x + 1, d.y) ? 2 : 0) |
+          (hasFence(d.x, d.y + 1) ? 4 : 0) | (hasFence(d.x - 1, d.y) ? 8 : 0);
+        const sp = new Sprite(s.fence[mask]);
+        sp.anchor.set(0.5, 1);
+        sp.position.set(cx, baseY);
+        sp.zIndex = sp.position.y;
+        this.objects.addChild(sp);
+        this.addShadow(cx + 2, baseY - 2, 30, 10);
+        continue;
+      }
+
+      // Demais kinds → uma textura (anchor base). default: pula (nunca quebra/some).
+      let tex: Texture | null = null;
+      switch (d.kind) {
+        case "torch": tex = s.torchFrames[0]; break;
+        case "barril": tex = s.barrels[(d.x * 7 + d.y * 13) % s.barrels.length]; break;
+        case "caixa": tex = s.crate; break;
+        case "tenda": tex = s.stall; break;
+        case "poco": tex = s.well; break;
+        case "balcao": tex = s.shopCounter; break;
+        case "placa": tex = s.signs.generico; break;
+        case "braseiro": tex = s.brazierFrames[0]; break;
+        case "boneco_treino": tex = s.trainingDummy; break;
+        case "estacas": tex = s.scaffold; break;
+        case "saco": tex = s.sack; break;
+        case "lenha": tex = s.firewood; break;
+        default: tex = null; // kind desconhecido: ignora (silhueta nunca some/quebra)
+      }
+      if (!tex) continue;
+
+      const sp = new Sprite(tex);
+      sp.anchor.set(0.5, 1);
+      sp.position.set(cx, baseY);
+      sp.zIndex = sp.position.y;
+      this.objects.addChild(sp);
+
       if (d.kind === "torch") {
-        const torch = new Sprite(s.torchFrames[0]);
-        torch.anchor.set(0.5, 1);
-        torch.position.set((d.x + 0.5) * TILE_SIZE, (d.y + 1) * TILE_SIZE);
-        torch.zIndex = torch.position.y;
-        this.objects.addChild(torch);
-        this.torchSprites.push(torch);
-        this.addShadow((d.x + 0.5) * TILE_SIZE + 2, (d.y + 1) * TILE_SIZE - 2, 18, 8);
+        this.torchSprites.push(sp);
+        this.addShadow(cx + 2, baseY - 2, 18, 8);
+      } else if (d.kind === "braseiro") {
+        this.brazierSprites.push(sp);
+        this.addShadow(cx + 2, baseY - 2, 24, 11);
+      } else if (d.kind === "placa") {
+        // tabuleta pendurada na parede (alta): sem sombra de contato no chão.
+      } else {
+        // props de chão: sombra de contato proporcional à largura do sprite.
+        const w = (tex.width || TILE_SIZE) * 0.6;
+        this.addShadow(cx + 2, baseY - 2, Math.max(14, w), Math.max(8, w * 0.42));
       }
     }
   }
@@ -478,6 +627,10 @@ export class WorldRenderer {
       this.torchFrame = (this.torchFrame + 1) % this.sprites.torchFrames.length;
       const tex = this.sprites.torchFrames[this.torchFrame];
       for (const t of this.torchSprites) t.texture = tex;
+      // braseiros compartilham o clock da tocha (brasa pulsa no mesmo ritmo).
+      const bf = this.sprites.brazierFrames;
+      const btex = bf[this.torchFrame % bf.length];
+      for (const b of this.brazierSprites) b.texture = btex;
     }
   }
 }

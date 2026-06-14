@@ -8,18 +8,30 @@
  *
  * Foco do input: Enter abre/foca; Esc desfoca. Enquanto focado, as teclas de
  * jogo (WASD/hotkeys) ficam suspensas — o Game checa `inputFocused`.
+ *
+ * TAMANHO & VISIBILIDADE (jun/2026): redimensiona ARRASTANDO a alça do canto
+ * superior-direito (canto inferior-esquerdo ancorado → cresce p/ cima/direita);
+ * mover é pela faixa de título (como antes). Fica TRANSLÚCIDO quando ocioso e
+ * opaco ao digitar (Enter) ou ao passar o mouse — pra não tampar o mundo.
  */
-import { Container, FederatedPointerEvent, Graphics, Text } from "pixi.js";
+import { Container, FederatedPointerEvent, Graphics, Rectangle, Text } from "pixi.js";
 import type { ChatChannel } from "../../shared/protocol";
 import { hex, PAL } from "../assets/palette";
 import { makeDraggable } from "./draggable";
 
-const W = 360;
-const H = 150;
+const BASE_W = 400; // "um pouco maior" que o antigo 360 (pedido jun/2026)
+const BASE_H = 180; // antigo 150
 const PAD = 8;
 const TAB_H = 18;
 const INPUT_H = 20;
 const MAX_LINES = 60;
+const MIN_W = 320; // limites do resize (arrastar a alça do canto)
+const MAX_W = 760;
+const MIN_H = 130;
+const MAX_H = 440;
+const GRIP = 14; // alça de resize no canto superior-direito
+const ALPHA_ACTIVE = 0.96; // digitando ou mouse em cima
+const ALPHA_IDLE = 0.4; // ocioso → translúcido (não tampa o mundo)
 
 const CHANNELS: { id: ChatChannel | "all"; label: string }[] = [
   { id: "all", label: "Tudo" },
@@ -59,6 +71,15 @@ export class ChatWindow {
   /** Texto sendo digitado; null = input não focado (jogo recebe teclas). */
   private composing: string | null = null;
 
+  /** Tamanho atual (arrastar a alça ajusta). */
+  private w = BASE_W;
+  private h = BASE_H;
+  /** Mouse sobre o chat (mantém opaco mesmo sem digitar). */
+  private hovering = false;
+  /** Alça de resize (canto sup-dir) + âncora do arrasto de redimensionar. */
+  private grip = new Graphics();
+  private resizing: { anchorLeft: number; anchorBottom: number } | null = null;
+
   constructor(private onSay: (text: string) => void) {
     this.container.addChild(this.bg, this.tabLayer);
     this.logLayer.mask = this.logMask;
@@ -76,18 +97,49 @@ export class ChatWindow {
     this.inputText.resolution = 3;
     this.container.addChild(this.inputText, this.caret);
 
-    // Arrastável pela faixa de título: SÓ na área vazia à direita das abas
-    // (senão um micro-arrasto "engolia" o clique de troca de canal).
+    // Arrastável pela faixa de título: SÓ na área vazia à direita das abas e à
+    // ESQUERDA da alça de resize (senão "engolia" o clique de troca de canal/resize).
     makeDraggable(
       this.container,
       TAB_H + 2,
       (x, y) => {
         this.userPos = { x, y };
       },
-      (local) => local.x > this.tabsRight,
+      (local) => local.x > this.tabsRight && local.x < this.w - GRIP - 4,
     );
 
+    // Hover (opacidade): o container é o hit-target da área toda via hitArea.
+    this.container.hitArea = new Rectangle(0, 0, this.w, this.h);
+    this.container.on("pointerenter", () => { this.hovering = true; this.updateAlpha(); });
+    this.container.on("pointerleave", () => { this.hovering = false; this.updateAlpha(); });
+
+    // Alça de RESIZE (canto sup-dir): arrastar estica largura/altura com o canto
+    // INFERIOR-ESQUERDO ancorado (cresce p/ cima e p/ direita — o chat fica no
+    // rodapé). Coords no espaço do parent → robusto ao UI_SCALE.
+    this.grip.eventMode = "static";
+    this.grip.cursor = "nesw-resize";
+    this.grip.hitArea = new Rectangle(0, 0, GRIP, GRIP);
+    this.container.addChild(this.grip);
+    this.grip.on("pointerdown", (e: FederatedPointerEvent) => {
+      e.stopPropagation();
+      this.resizing = { anchorLeft: this.container.x, anchorBottom: this.container.y + this.h };
+    });
+    this.grip.on("globalpointermove", (e: FederatedPointerEvent) => {
+      const parent = this.container.parent;
+      if (!this.resizing || !parent) return;
+      const p = parent.toLocal(e.global);
+      this.w = Math.max(MIN_W, Math.min(MAX_W, Math.round(p.x - this.resizing.anchorLeft)));
+      this.h = Math.max(MIN_H, Math.min(MAX_H, Math.round(this.resizing.anchorBottom - p.y)));
+      this.userPos = { x: this.resizing.anchorLeft, y: this.resizing.anchorBottom - this.h };
+      this.container.hitArea = new Rectangle(0, 0, this.w, this.h);
+      this.layout();
+    });
+    const endResize = (): void => { this.resizing = null; };
+    this.grip.on("pointerup", endResize);
+    this.grip.on("pointerupoutside", endResize);
+
     window.addEventListener("keydown", (ev) => this.onKey(ev), true);
+    this.updateAlpha();
   }
 
   get inputFocused(): boolean {
@@ -105,6 +157,10 @@ export class ChatWindow {
     void screenW;
     this.screenH = screenH;
     this.layout();
+  }
+
+  private updateAlpha(): void {
+    this.container.alpha = this.composing !== null || this.hovering ? ALPHA_ACTIVE : ALPHA_IDLE;
   }
 
   private onKey(ev: KeyboardEvent): void {
@@ -146,24 +202,31 @@ export class ChatWindow {
 
   private layout(): void {
     // default: empilhado ACIMA do HUD (HUD ocupa ~114px no rodapé esquerdo)
-    const pos = this.userPos ?? { x: 12, y: this.screenH - H - 122 };
+    const pos = this.userPos ?? { x: 12, y: this.screenH - this.h - 122 };
     this.container.position.set(pos.x, pos.y);
 
     this.bg.clear();
-    this.bg.roundRect(0, 0, W, H, 6).fill({ color: hex(PAL.panelBg), alpha: 0.82 });
-    this.bg.roundRect(0, 0, W, H, 6).stroke({ color: hex(PAL.panelBorder), width: 1.5 });
+    this.bg.roundRect(0, 0, this.w, this.h, 6).fill({ color: hex(PAL.panelBg), alpha: 0.82 });
+    this.bg.roundRect(0, 0, this.w, this.h, 6).stroke({ color: hex(PAL.panelBorder), width: 1.5 });
 
     // máscara do log (entre as abas e o input)
     const logTop = TAB_H + 4;
-    const logBottom = H - INPUT_H - 6;
+    const logBottom = this.h - INPUT_H - 6;
     this.logMask.clear();
-    this.logMask.rect(PAD, logTop, W - PAD * 2, logBottom - logTop).fill(0xffffff);
+    this.logMask.rect(PAD, logTop, this.w - PAD * 2, logBottom - logTop).fill(0xffffff);
 
     // input
     this.inputBg.clear();
-    this.inputBg.roundRect(PAD, H - INPUT_H - 4, W - PAD * 2, INPUT_H, 4).fill({ color: 0x0c0e14, alpha: 0.9 });
-    this.inputBg.roundRect(PAD, H - INPUT_H - 4, W - PAD * 2, INPUT_H, 4).stroke({ color: 0x2a3140, width: 1 });
-    this.inputText.position.set(PAD + 6, H - INPUT_H - 4 + 5);
+    this.inputBg.roundRect(PAD, this.h - INPUT_H - 4, this.w - PAD * 2, INPUT_H, 4).fill({ color: 0x0c0e14, alpha: 0.9 });
+    this.inputBg.roundRect(PAD, this.h - INPUT_H - 4, this.w - PAD * 2, INPUT_H, 4).stroke({ color: 0x2a3140, width: 1 });
+    this.inputText.position.set(PAD + 6, this.h - INPUT_H - 4 + 5);
+
+    // alça de resize (canto superior-direito) — discreta, com "grão" diagonal
+    this.grip.clear();
+    this.grip.position.set(this.w - GRIP - 2, 2);
+    this.grip.roundRect(0, 0, GRIP, GRIP, 2).fill({ color: hex(PAL.panelHeader), alpha: 0.85 });
+    this.grip.roundRect(0, 0, GRIP, GRIP, 2).stroke({ color: hex(PAL.panelBorder), width: 1 });
+    this.grip.moveTo(4, GRIP - 4).lineTo(GRIP - 4, 4).stroke({ color: 0xc8a84b, width: 1, alpha: 0.8 });
 
     this.renderTabs();
     this.renderLog();
@@ -204,7 +267,7 @@ export class ChatWindow {
   private renderLog(): void {
     this.logLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
     const shown = this.lines.filter((l) => this.active === "all" || l.channel === this.active);
-    const logBottom = H - INPUT_H - 6;
+    const logBottom = this.h - INPUT_H - 6;
     let y = logBottom; // empilha de baixo pra cima (mais recente embaixo)
     for (let i = shown.length - 1; i >= 0; i--) {
       const l = shown[i];
@@ -216,7 +279,7 @@ export class ChatWindow {
           fill: CHANNEL_COLOR[l.channel],
           stroke: { color: 0x10141c, width: 2 },
           wordWrap: true,
-          wordWrapWidth: W - PAD * 2,
+          wordWrapWidth: this.w - PAD * 2,
           lineHeight: 12,
         },
       });
@@ -240,9 +303,10 @@ export class ChatWindow {
       this.caret.clear();
       this.caret.visible = true;
       this.caret
-        .rect(PAD + 6 + this.inputText.width + 1, H - INPUT_H - 4 + 4, 1.5, INPUT_H - 8)
+        .rect(PAD + 6 + this.inputText.width + 1, this.h - INPUT_H - 4 + 4, 1.5, INPUT_H - 8)
         .fill(0xe8e4d8);
     }
+    this.updateAlpha(); // foco do input liga/desliga a opacidade
   }
 
   /** Clique sobre o chat não vaza pro mundo. */

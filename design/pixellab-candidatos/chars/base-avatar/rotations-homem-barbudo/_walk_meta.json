@@ -1,0 +1,11 @@
+{
+ "background_job_ids": [
+  "c46df4da-03e7-4f5b-9071-13ca7cb0c793"
+ ],
+ "directions": [
+  "south"
+ ],
+ "status": "processing",
+ "enhanced_prompt": null,
+ "enhance_usage": null
+}

@@ -1,4 +1,12 @@
-import { TileId, type MapData, type MapDecor, type MapLight, type MapMonster } from "../../shared/types";
+import {
+  TileId,
+  type InteractableDef,
+  type MapData,
+  type MapDecor,
+  type MapLight,
+  type MapMonster,
+  type QuestRegionDef,
+} from "../../shared/types";
 import { mulberry32 } from "../rng";
 
 /**
@@ -181,5 +189,24 @@ export function generateTestMap(): MapData {
   // Cozinha de teste: fogão + poço perto do spawn (gates de COZINHA.md).
   const heatSources = [{ x: spawn.x + 3, y: spawn.y }];
   const freshWater = [{ x: spawn.x + 2, y: spawn.y }];
-  return { width: W, height: H, tiles, lights, decor, monsters, safeZones, passZones: [], spawn, heatSources, freshWater };
+
+  // ── HOOKS DE MUNDO (motor staged: `interact` + `region_enter`) ────────────
+  // 1 de cada, no chão de terra a oeste do spawn, pra PROVAR que avançam uma
+  // quest (ver tools/_smoke-quest-hooks.ts). Em produção (alvorada.ts) os
+  // interactables/regiões de quest entram na Fase 1; aqui são só fixtures.
+  const interactables: InteractableDef[] = [
+    // Ponto examinável: "alvenaria manchada" de teste em (24,26) — ao lado do
+    // caminho, 4 tiles a oeste do spawn (alcançável a pé; chão de terra/grama).
+    { id: "test_alvenaria", pos: { x: 24, y: 26 }, name: "a alvenaria manchada" },
+  ];
+  const questRegions: QuestRegionDef[] = [
+    // Região nomeada cobrindo a ruína ao norte (rx=22..34, ry=10..18): entrar
+    // dispara `region_enter` uma vez.
+    { id: "test_ruina", rect: { x: 22, y: 10, w: 13, h: 9 } },
+  ];
+
+  return {
+    width: W, height: H, tiles, lights, decor, monsters, safeZones,
+    passZones: [], spawn, heatSources, freshWater, interactables, questRegions,
+  };
 }

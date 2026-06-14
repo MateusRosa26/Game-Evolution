@@ -50,8 +50,9 @@ que espera DECISÃO do criador, e onde cada fonte vive.
 
 ## 3. Números calibrados — Marcas Lote 1 (DECIDIDOS, jun/2026)
 
-> Bateria `2026-06-11-bateria-marcas-lote1-tipo1.md` (harness real Simulation). Convergidos
-> com o criador nesta rodada. **Ação pendente:** Chat A aplicar em `definitions.ts` (hoje ②=1.20).
+> Bateria `2026-06-11-bateria-marcas-lote1-tipo1.md` (harness real Simulation).
+> **CONFIRMADOS pelo criador (2026-06-12)** — não mais ✏️. Ação restante (Chat A): aplicar em
+> `definitions.ts` — ② 1.20→1.12 + `viaWeapon` ([C1]).
 
 | Ficha | Threshold | Efeito | Escopo | Tempo ≈ |
 |---|---|---|---|---|

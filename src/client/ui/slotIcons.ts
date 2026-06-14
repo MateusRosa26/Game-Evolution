@@ -8,7 +8,7 @@ import { Graphics } from "pixi.js";
 import type { EquipSlot } from "../../shared/protocol";
 
 /** Cinza do placeholder (slot vazio) e cor "vestida" (slot ocupado). */
-export const SLOT_ICON_EMPTY = 0x39414f;
+export const SLOT_ICON_EMPTY = 0x525d6e; // mais claro p/ destacar do slot escuro (era apagado)
 export const SLOT_ICON_FILLED = 0xbfc6d2;
 
 /** Desenha a silhueta do slot `slot` centrada em (cx, cy) no Graphics `g`. */

@@ -1,4 +1,15 @@
-import { TileId, WALKABLE, type MapData, type MapOpening, type MapPortal, type MapRect } from "../shared/types";
+import {
+  TileId,
+  WALKABLE,
+  type DoorDef,
+  type InteractableDef,
+  type MapData,
+  type MapDecor,
+  type MapOpening,
+  type MapPortal,
+  type MapRect,
+  type QuestRegionDef,
+} from "../shared/types";
 
 /** Uma camada de andar em runtime (localizada: offset + dimensões próprias). */
 interface FloorRuntime {
@@ -11,8 +22,13 @@ interface FloorRuntime {
   /** Máscaras só do andar base (overworld); andares extras = null por ora. */
   safe: Uint8Array | null;
   pass: Uint8Array | null;
+  /** Tiles ocupados por mobília que bloqueia (MapDecor.blocks). LOCAL ao rect. */
+  blocked: Uint8Array;
   portals: MapPortal[];
   openings: MapOpening[];
+  /** Hooks de quest do andar (esparsos; lista pequena → busca linear, como portals). */
+  interactables: InteractableDef[];
+  questRegions: QuestRegionDef[];
 }
 
 /**
@@ -28,12 +44,26 @@ export class World {
   readonly width: number;
   readonly height: number;
   private readonly floors = new Map<number, FloorRuntime>();
+  /**
+   * PORTAS do mapa (lista plana; o `z` de cada uma diz o andar). Lista pequena →
+   * busca linear, como `portals`. Aqui vivem as DEFINIÇÕES + o ESTADO RUNTIME
+   * GLOBAL de abertura (feel Tibia/Apogea, jun/2026): uma porta aberta vale para
+   * TODOS (não é mais per-character) e fecha sozinha após um tempo. O `keyReq`
+   * só gateia a AÇÃO de abrir — depois de aberta, qualquer um passa enquanto não
+   * fecha. A sim consulta `isDoorOpen` em `canEnter` e agenda o auto-fecha.
+   */
+  private readonly doors: DoorDef[];
+  /** Portas ABERTAS agora (estado runtime GLOBAL, por `DoorDef.id`). */
+  private readonly openDoors = new Set<string>();
+  /** Instante lógico (ms da sim) em que cada porta aberta deve fechar. */
+  private readonly doorCloseAt = new Map<string, number>();
 
   constructor(map: MapData) {
     this.map = map;
     this.baseZ = map.z ?? 0;
     this.width = map.width;
     this.height = map.height;
+    this.doors = map.doors ?? [];
     // andar base (overworld), full-size em offset (0,0)
     this.floors.set(this.baseZ, {
       z: this.baseZ,
@@ -44,8 +74,11 @@ export class World {
       tiles: map.tiles,
       safe: World.maskFrom(map.width, map.height, 0, 0, map.safeZones),
       pass: World.maskFrom(map.width, map.height, 0, 0, map.passZones),
+      blocked: World.blockedMaskFrom(map.width, map.height, 0, 0, map.decor),
       portals: map.portals ?? [],
       openings: map.openings ?? [],
+      interactables: map.interactables ?? [],
+      questRegions: map.questRegions ?? [],
     });
     // andares adicionais (z ≠ base): esgotos/cavernas/telhados, localizados
     for (const f of map.floors ?? []) {
@@ -58,8 +91,11 @@ export class World {
         tiles: f.tiles,
         safe: null,
         pass: null,
+        blocked: World.blockedMaskFrom(f.width, f.height, f.ox, f.oy, f.decor),
         portals: f.portals,
         openings: f.openings,
+        interactables: f.interactables ?? [],
+        questRegions: f.questRegions ?? [],
       });
     }
   }
@@ -74,6 +110,22 @@ export class World {
           if (lx >= 0 && ly >= 0 && lx < w && ly < h) mask[ly * w + lx] = 1;
         }
       }
+    }
+    return mask;
+  }
+
+  /**
+   * Máscara dos tiles ocupados por mobília que BLOQUEIA (MOBILIA-URBANA §3): só
+   * decor com `blocks:true` (barril/caixa/cerca/tenda/poço/balcão/braseiro/boneco/
+   * estacas/lenha) marca o tile como impassável; decor puro (saco/cesto/placa) e o
+   * `torch` não bloqueiam. Coords de decor são de MUNDO → recortadas ao rect do andar.
+   */
+  private static blockedMaskFrom(w: number, h: number, ox: number, oy: number, decor: MapDecor[]): Uint8Array {
+    const mask = new Uint8Array(w * h);
+    for (const d of decor) {
+      if (!d.blocks) continue;
+      const lx = d.x - ox, ly = d.y - oy;
+      if (lx >= 0 && ly >= 0 && lx < w && ly < h) mask[ly * w + lx] = 1;
     }
     return mask;
   }
@@ -104,7 +156,10 @@ export class World {
   }
 
   isWalkable(x: number, y: number, z: number = this.baseZ): boolean {
-    return this.inBounds(x, y, z) && WALKABLE[this.tileAt(x, y, z)];
+    if (!this.inBounds(x, y, z) || !WALKABLE[this.tileAt(x, y, z)]) return false;
+    // mobília bloqueante (barril/cerca/poço…) ocupa o tile: não-andável.
+    const f = this.floors.get(z)!;
+    return f.blocked[(y - f.oy) * f.width + (x - f.ox)] === 0;
   }
 
   /** Tile de zona segura? (entidades não bloqueiam; monstros não entram). */
@@ -141,6 +196,59 @@ export class World {
     return (this.map.freshWater ?? []).some((p) => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= range);
   }
 
+  /** Porta (def estática) neste tile/andar, se houver. */
+  doorAt(x: number, y: number, z: number = this.baseZ): DoorDef | null {
+    return this.doors.find((d) => d.pos.x === x && d.pos.y === y && d.z === z) ?? null;
+  }
+
+  /** Porta por id (a sim valida o alcance ao abrir). */
+  doorById(id: string): DoorDef | null {
+    return this.doors.find((d) => d.id === id) ?? null;
+  }
+
+  /** Defs de TODAS as portas (placement estático) — a sim projeta no snapshot
+   *  juntando o estado runtime GLOBAL (`isDoorOpen`) para o client desenhar. */
+  get allDoors(): readonly DoorDef[] {
+    return this.doors;
+  }
+
+  /** Há uma porta (def estática) neste tile/andar? (aberta ou fechada). */
+  isDoorTile(x: number, y: number, z: number = this.baseZ): boolean {
+    return this.doors.some((d) => d.pos.x === x && d.pos.y === y && d.z === z);
+  }
+
+  /** A porta `id` está ABERTA agora? (estado runtime global). */
+  isDoorOpen(id: string): boolean {
+    return this.openDoors.has(id);
+  }
+
+  /**
+   * ABRE a porta `id` no estado global e agenda o auto-fecha em `closeAt` (ms
+   * lógico). Reabrir uma porta já aberta apenas estende o prazo (ex.: alguém
+   * cruza de novo). A regra de PODER abrir (chave/destrancada) é da sim — World
+   * só guarda o estado. Idempotente quanto à abertura.
+   */
+  openDoorRuntime(id: string, closeAt: number): void {
+    this.openDoors.add(id);
+    this.doorCloseAt.set(id, closeAt);
+  }
+
+  /**
+   * Fecha as portas cujo prazo (`closeAt`) já venceu em `now`, EXCETO as que
+   * têm uma entidade EM CIMA do tile (callback `occupied` — senão prenderia
+   * alguém na porta). Portas presas mantêm o estado aberto; reavaliadas no
+   * próximo tick. Chamado uma vez por tick pela sim.
+   */
+  tickAutoCloseDoors(now: number, occupied: (d: DoorDef) => boolean): void {
+    for (const d of this.doors) {
+      const closeAt = this.doorCloseAt.get(d.id);
+      if (closeAt == null || now < closeAt) continue;
+      if (occupied(d)) continue; // não fecha na cara de quem está no vão
+      this.openDoors.delete(d.id);
+      this.doorCloseAt.delete(d.id);
+    }
+  }
+
   /** Portal (transição entre andares) neste tile, se houver. */
   portalAt(x: number, y: number, z: number = this.baseZ): MapPortal | null {
     const f = this.floors.get(z);
@@ -153,5 +261,28 @@ export class World {
     const f = this.floors.get(z);
     if (!f) return null;
     return f.openings.find((o) => o.x === x && o.y === y) ?? null;
+  }
+
+  /** Interagível de quest neste tile (mesmo andar), se houver. */
+  interactableAt(x: number, y: number, z: number = this.baseZ): InteractableDef | null {
+    const f = this.floors.get(z);
+    if (!f) return null;
+    return f.interactables.find((i) => i.pos.x === x && i.pos.y === y) ?? null;
+  }
+
+  /** Interagível de quest por id (mesmo andar) — a sim valida o alcance. */
+  interactableById(id: string, z: number = this.baseZ): InteractableDef | null {
+    const f = this.floors.get(z);
+    if (!f) return null;
+    return f.interactables.find((i) => i.id === id) ?? null;
+  }
+
+  /** Regiões de quest cujo retângulo contém (x,y) neste andar (0+; esparsas). */
+  questRegionsAt(x: number, y: number, z: number = this.baseZ): QuestRegionDef[] {
+    const f = this.floors.get(z);
+    if (!f) return [];
+    return f.questRegions.filter(
+      (r) => x >= r.rect.x && y >= r.rect.y && x < r.rect.x + r.rect.w && y < r.rect.y + r.rect.h,
+    );
   }
 }

@@ -3,6 +3,7 @@ import type { EntityKind } from "../shared/types";
 import type { OutfitState } from "../shared/outfits";
 import type { StatusEffect } from "./skills/status";
 import type { MoveDef } from "./moves";
+import type { AiBehavior } from "./bestiary";
 import type { QuestState } from "./quests";
 import type { EquipSlot } from "../shared/protocol";
 import type { BlockStats } from "./items/templates";
@@ -61,6 +62,11 @@ export interface SimEntity {
   attackDamage: number;
   /** Tipo de dano do ataque básico (mob; vem do template do bestiário). */
   attackType?: DamageType;
+  /**
+   * Alcance do ataque básico em tiles (Chebyshev) — só mob shooter (atira à
+   * distância). undefined = melee (1 tile). Copiado do template no spawn.
+   */
+  attackRange?: number;
   /** Cooldown de ataque, em ms. */
   attackCooldownMs: number;
   /**
@@ -109,6 +115,15 @@ export interface SimEntity {
   keys: Set<string>;
   /** Baús já SAQUEADOS por este personagem (single-use por jogador). chestId. */
   lootedChests: Set<string>;
+  // NOTA (jun/2026): o estado "porta aberta" deixou de ser per-character. Agora é
+  // GLOBAL + auto-fecha (feel Tibia/Apogea), guardado em `World` (`isDoorOpen`).
+  // O `keyReq` só gateia a AÇÃO de abrir (anda-pra-abrir / interact). Sem set aqui.
+  /**
+   * Regiões de quest (`QuestRegionDef.id`) que este personagem JÁ disparou —
+   * o evento `region_enter` é one-shot por personagem (entrar de novo não
+   * re-dispara). Cresce só quando há regiões no mapa (uso raro).
+   */
+  enteredRegions: Set<string>;
 
   // ── Equipamento (fundação de itens — DESIGN-EVOLUCAO.md §"Itens são instâncias") ──
   /**
@@ -133,6 +148,8 @@ export interface SimEntity {
    * sim (no online todos veem); null para mobs (sprite vem da espécie).
    */
   outfit: OutfitState | null;
+  /** Corpo/avatar (homem/mulher) — só players; ausente em mob/npc (usa fallback). */
+  bodyType?: string;
   /**
    * Guarda-roupa: ids de peças possuídas. Peças `free` nascem aqui; quest/
    * conteúdo pago adiciona ✏️. A validação de `setOutfit` é contra este set.
@@ -156,6 +173,18 @@ export interface SimEntity {
 
   // ── IA de monstro (null para player) ──
   ai: AiState | null;
+  /**
+   * Comportamento de IA (do template do bestiário) — a Simulation despacha por
+   * ele (chaser/territorial/shooter). null p/ player/NPC. Copiado no spawn.
+   */
+  behavior?: AiBehavior;
+  /**
+   * Mob TERRITORIAL já foi PROVOCADO? (recebeu dano de um jogador). Neutro =
+   * false (não agrega por proximidade); true = vira chaser e não volta a dormir.
+   * Setado pelo handler de `damage` da Simulation; resetado no respawn. Só
+   * relevante p/ behavior "territorial".
+   */
+  provoked?: boolean;
   /** Raio de aggro em tiles (Chebyshev). */
   aggroRadius: number;
   /** Spawn de origem — usado para respawn determinístico. */

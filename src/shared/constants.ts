@@ -27,5 +27,36 @@ export const BASE_WALK_MS = 250;
  */
 export const DIAGONAL_FACTOR = 1.45;
 
-/** Zoom da câmera. Remaster 128px: arte nativa renderiza 1:1 (~15 tiles na tela = visão fechada Tibia). */
-export const CAMERA_ZOOM = 1;
+/**
+ * Modelo de câmera estilo Tibia/Apogea: o que é FIXO é o número de tiles na tela
+ * (field of view), não o tamanho do tile em px. A câmera escala o tile pra caber
+ * na janela — redimensionou → tiles crescem/encolhem, contagem fica constante.
+ *
+ * Ancoramos na ALTURA: sempre `VIEW_TILES_H` tiles verticais (clássico Tibia=11).
+ * A largura flutua com o aspect ratio (telas largas mostram mais colunas). A arte
+ * 128px continua a fonte nativa — só desenha menor, sem perder resolução.
+ *
+ * Ajustável ao vivo com -/= (ver Game.ts): muda o alvo de tiles verticais.
+ */
+export let VIEW_TILES_H = 9;
+
+/** Limites do alvo de tiles verticais (tuning ao vivo). */
+export const VIEW_TILES_H_MIN = 7;
+export const VIEW_TILES_H_MAX = 18;
+
+export function setViewTilesH(n: number): void {
+  VIEW_TILES_H = Math.max(VIEW_TILES_H_MIN, Math.min(VIEW_TILES_H_MAX, Math.round(n)));
+}
+
+/**
+ * Zoom efetivo da câmera, DERIVADO da altura da tela e do alvo de tiles. NÃO é
+ * fonte da verdade: é recalculado a cada frame por `recomputeCameraZoom`. Os
+ * consumidores (Camera/WorldRenderer/Lighting) leem este `let` via ESM live
+ * binding, então enxergam o valor novo sem repasse por parâmetro.
+ */
+export let CAMERA_ZOOM = 1;
+
+/** Recalcula CAMERA_ZOOM p/ caber VIEW_TILES_H tiles na altura da tela. */
+export function recomputeCameraZoom(_screenW: number, screenH: number): void {
+  CAMERA_ZOOM = screenH / (VIEW_TILES_H * TILE_SIZE);
+}

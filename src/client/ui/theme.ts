@@ -8,7 +8,15 @@
  *
  * Tudo é apresentação: helpers desenham em `Graphics`/`Text` e nada mais.
  */
-import { Graphics, Text, type TextStyleFontWeight, type TextStyleOptions } from "pixi.js";
+import { Graphics, Sprite, Text, type TextStyleFontWeight, type TextStyleOptions } from "pixi.js";
+
+/**
+ * Escala global da UI (jun/2026): a camada inteira (`uiLayer`) é multiplicada por
+ * este fator no `Game`, encolhendo TODOS os painéis/slots/fontes de uma vez sem
+ * mexer no input — os eventos Pixi e as coords globais (`ev.global` /
+ * `getGlobalPosition`) respeitam o scale do container. Tunável aqui num lugar só.
+ */
+export const UI_SCALE = 0.8;
 
 /** Tokens de cor/medida da UI (0xRRGGBB). */
 export const UI = {
@@ -107,6 +115,17 @@ export function bar(
 export function slot(g: Graphics, x: number, y: number, size: number, filled = false): void {
   g.roundRect(x, y, size, size, 4).fill(filled ? UI.slotBgItem : UI.slotBg);
   g.roundRect(x, y, size, size, 4).stroke({ color: filled ? UI.slotBorderItem : UI.slotBorder, width: 1 });
+}
+
+/**
+ * Escala um sprite de item (master 96px, fonte única — vale tanto p/ slot de UI
+ * quanto p/ render no chão) para caber num slot quadrado de `size`, com margem.
+ * A UI não segue a régua de 1:1 do mundo (todos os itens escalam pelo mesmo
+ * fator no painel → sem mixel interno); downscale lê limpo.
+ */
+export function fitSpriteToSlot(spr: Sprite, size: number, margin = 10): void {
+  const nat = Math.max(spr.width, spr.height) || 1; // antes de escalar = tamanho da textura
+  spr.scale.set((size - margin) / nat);
 }
 
 /** Estilo de texto padrão da UI (com contorno para legibilidade sobre o mundo). */

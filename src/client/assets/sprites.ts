@@ -80,7 +80,11 @@ export class Px {
   }
 
   texture(): Texture {
-    return Texture.from(this.canvas);
+    const t = Texture.from(this.canvas);
+    // Arte do MUNDO: a câmera encolhe 128px→~120px (FOV ~9). linear dá downscale
+    // suave; nearest aqui quebraria o outline. UI fica em nearest (global).
+    t.source.scaleMode = "linear";
+    return t;
   }
 }
 
@@ -759,36 +763,76 @@ const IRON = "#20242c", IRON_HI = "#3a4150";
 const LINEN = "#b8a784", LINEN_SH = "#8f8060", LINEN_HI = "#cdbf9d";
 const CLOTH = "#9a4f3c", CLOTH_SH = "#6e3a2c"; // vermelho-poeira dessaturado (acento quente)
 
+// ── Rampas Lane 0 (PROPS-BRIEF): passos DERIVADOS das cores existentes por
+// interpolação (não inventa matiz). WD8 = madeira 8 níveis (sombra fria → luz
+// quente), IRN6 = aço 6 (idx 5 = specular), RST3 = ferrugem (acento quente, usar
+// densidade BAIXA — a 1:1 vira 1-2px). COOLRIM = bounce frio na beira da sombra.
+function hx2(h: string): [number, number, number] { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+function mixHex(a: string, b: string, t: number): string { const x = hx2(a), y = hx2(b); const p2 = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0"); return `#${p2(x[0] + (y[0] - x[0]) * t)}${p2(x[1] + (y[1] - x[1]) * t)}${p2(x[2] + (y[2] - x[2]) * t)}`; }
+function rampHex(stops: string[], n: number): string[] { const out: string[] = []; for (let i = 0; i < n; i++) { const t = (i / (n - 1)) * (stops.length - 1), lo = Math.floor(t); out.push(mixHex(stops[lo], stops[Math.min(stops.length - 1, lo + 1)], t - lo)); } return out; }
+const WD8 = rampHex(["#1c1610", WOOD_DK, WOOD, WOOD_LT, WOOD_HI, "#6e5740"], 8);
+const IRN6 = rampHex(["#14161c", IRON, "#2c3340", IRON_HI, "#5a6678"], 6);
+const RST3 = ["#3a2414", "#52331c", "#6e4626"];
+const COOLRIM = "#2c3744";
+// Latão 6 (idx 5 = glint quente) — derivado do latão velho (FITTING) já usado.
+const BRZ6 = rampHex(["#2f2412", "#3e3322", "#6b5a3a", "#8a7448", "#c2a052", "#ecd488"], 6);
+// Taipa 6 — derivada de PAL.plaster* (reboco de enxaimel).
+const PLR6 = rampHex(["#5f5645", "#776c58", PAL.plasterDark, PAL.plasterBase, PAL.plasterLight, "#b6ab90"], 6);
+// Viga de madeira com bevel limpo (aresta topo/esq lit, base/dir sombra) + grão
+// SUTIL determinístico. Reutilizada por parede/porta. cl = clamp.
+function beamFill(p: Px, x0: number, y0: number, w: number, h: number): void {
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const gx = x0 + x, gy = y0 + y; let idx = 2;
+    const g = w >= h ? Math.sin(gy * 1.6) * 0.5 + Math.sin(gx * 0.16) * 0.4 : Math.sin(gx * 1.6) * 0.5 + Math.sin(gy * 0.16) * 0.4;
+    if (g > 0.78) idx += 0.6; else if (g < -0.82) idx -= 0.6;
+    if (y === 0 || x === 0) idx += 1.7; else if (y === h - 1 || x === w - 1) idx -= 1.9;
+    p.px(gx, gy, WD8[Math.min(7, Math.max(0, Math.round(idx)))]);
+  }
+}
+const peg = (p: Px, cx: number, cy: number): void => { p.rect(cx - 1, cy - 1, 2, 2, WD8[1]); p.px(cx - 1, cy - 1, WD8[4]); p.px(cx, cy, WD8[0]); };
+
 // Light GLOBAL top-left, mesma da árvore/muro. Estes três são desenhados em
 // LOW-TOP-DOWN (vê-se a face de topo + a frente), pra casar a perspectiva do
 // mundo procedural — não em elevação frontal. `p.outline` fecha a silhueta.
 
-/** Barril (18×24): tampa elíptica visível no topo + cilindro com a luz
- *  envolvendo (highlight à esquerda do centro) + dois aros de ferro. */
-function makeBarrel(): Texture {
-  const p = new Px(18 * S, 24 * S);
-  const cx = 9 * S;
-  const top = 5 * S, bot = 21 * S;
-  // ramp do cilindro (luz top-left → pico perto de x=6): 12 colunas (corpo x 3..14)
-  const ramp = [WOOD_DK, WOOD, WOOD_LT, WOOD_HI, WOOD_LT, WOOD, WOOD, WOOD, WOOD, WOOD_DK, WOOD_DK, WOOD_DK];
-  for (let i = 0; i < 12; i++) p.rect((3 + i) * S, top, S, bot - top, ramp[i]);
-  // barriga: 1px pra fora nos lados no meio (silhueta arredondada)
-  for (let y = top + 4 * S; y < bot - 4 * S; y++) {
-    p.rect(2 * S, y, S, 1, ramp[0]);
-    p.rect(15 * S, y, S, 1, ramp[11]);
+/**
+ * Barril (PROPS-BRIEF Lane 0 — alvo PERFEITO): bojo (incha no meio) + aduelas
+ * foreshortened com costura + 3 aros de ferro ARREDONDADOS (specular no topo,
+ * aresta escura, rebites) + ferrugem LEVE + tampa convexa low-top-down + rim
+ * frio na beira da sombra. `seed` varia a instância (grão/ferrugem). Luz
+ * top-left. Anchor (0.5,1); sombra de contato é automática (não pintar aqui).
+ */
+function makeBarrel(seed = 11): Texture {
+  const W = 18 * S, H = 24 * S, p = new Px(W, H), rng = mulberry32(seed);
+  const cx = W / 2, top = Math.round(H * 0.16), bot = Math.round(H * 0.90);
+  const halfW = (y: number) => { const t = Math.min(1, Math.max(0, (y - top) / (bot - top))); return W * 0.30 + Math.sin(Math.PI * t) * W * 0.085; };
+  const aL = -0.5, NST = 9;
+  const shade = (rel: number) => (Math.cos(Math.asin(Math.min(1, Math.max(-1, rel))) - aL) + 0.48) / 1.48 * 7; // → idx WD8 (0..7)
+  const seams: number[] = []; for (let k = 1; k < NST; k++) seams.push(-Math.PI / 2 + (k * Math.PI) / NST);
+  // CORPO — bandas quantizadas (cilindro) + grão sutil por coluna + rim frio
+  for (let y = top; y <= bot; y++) {
+    const hw = halfW(y);
+    for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) {
+      const rel = (x - cx) / hw;
+      const idx = Math.round(Math.min(7, Math.max(0, shade(rel) + (Math.sin(x * 1.3 + seed) > 0.86 ? -0.5 : 0))));
+      p.px(x, y, rel > 0.92 ? mixHex(WD8[idx], COOLRIM, 0.4) : WD8[idx]);
+    }
   }
-  // costuras de duela (tábuas) entre os aros
-  for (const sx of [6, 9, 12]) p.rect(sx * S, top + S, S, bot - top - 2 * S, WOOD_DK);
-  // aros de ferro (2) — topo do aro pega luz
-  for (const ay of [8, 16]) {
-    p.rect(2 * S, ay * S, 14 * S, S, IRON_HI);
-    p.rect(2 * S, ay * S + S, 14 * S, 2 * S, IRON);
+  // COSTURAS das aduelas (ângulos iguais → foreshortening real na borda)
+  for (let y = top + 2; y <= bot - 2; y++) { const hw = halfW(y); for (const a of seams) { const x = Math.round(cx + Math.sin(a) * hw), bi = shade(Math.sin(a)); p.px(x, y, WD8[Math.max(0, Math.floor(bi) - 2)]); if (Math.sin(a) < 0.1) p.px(x + 1, y, WD8[Math.min(7, Math.floor(bi) + 1)]); } }
+  // 3 AROS arredondados + rebites + ferrugem LEVE (densidade baixa p/ 1:1)
+  const hoopYs = [0.16, 0.50, 0.84].map((f) => Math.round(top + (bot - top) * f));
+  const hg = Math.max(3, Math.round(H * 0.07));
+  for (const yc of hoopYs) {
+    for (let y = yc; y < yc + hg; y++) { const hw = halfW(y) + 0.5, ty = (y - yc) / (hg - 1); for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) { const rel = (x - cx) / hw; let idx = (shade(rel) / 7) * 4; if (y === yc) idx = 0.4; else if (ty < 0.34) idx += 1.6; else if (y === yc + hg - 1) idx = 0.2; let col = IRN6[Math.round(Math.min(5, Math.max(0, idx)))]; if (ty > 0.3 && rng() < 0.04) col = RST3[1 + Math.floor(rng() * 2)]; p.px(x, y, rel > 0.93 ? mixHex(col, COOLRIM, 0.4) : col); } }
+    const ym = yc + Math.floor(hg / 2);
+    for (const a of seams) { if (Math.abs(Math.sin(a)) > 0.85) continue; const x = Math.round(cx + Math.sin(a) * (halfW(ym) + 0.5)); p.px(x, ym - 1, IRN6[5]); p.px(x, ym, IRN6[0]); }
   }
-  // tampa elíptica no topo (a chave do low-top-down)
-  p.ellipse(cx, top, 6 * S, 2.4 * S, WOOD);
-  p.ellipse(cx, top, 5 * S, 1.8 * S, WOOD_LT);
-  for (let x = cx - 3 * S; x <= cx + S; x++) p.rect(x, top - 2 * S, 1, S, WOOD_HI); // crista lit (back rim)
-  for (let x = cx - 6 * S; x <= cx + 6 * S; x++) if (((x - cx) / (6 * S)) ** 2 <= 1) p.rect(x, top + 2 * S, 1, S, IRON); // aro da tampa
+  // TAMPA convexa low-top-down + aro de ferro + crista traseira-esq
+  const lrx = halfW(top) + 0.5, lry = Math.max(3, Math.round(H * 0.085));
+  for (let y = Math.floor(top - lry); y <= top + lry; y++) for (let x = Math.floor(cx - lrx); x <= cx + lrx; x++) { const e = ((x - cx) / lrx) ** 2 + ((y - top) / lry) ** 2; if (e > 1) continue; const back = (top - y) / lry, left = (cx - x) / lrx, dome = 1 - e; p.px(x, y, WD8[Math.round(Math.min(7, Math.max(1, 3.4 + back * 1.4 + left * 0.8 + dome * 0.8)))]); }
+  for (let a = 0; a < 360; a += 2) { const r = a * Math.PI / 180, x = cx + Math.cos(r) * lrx, y = top + Math.sin(r) * lry; p.px(x, y, Math.sin(r) < 0 ? IRN6[3] : IRN6[1]); }
+  for (let x = Math.round(cx - lrx * 0.7); x <= cx; x++) p.px(x, Math.round(top - lry), WD8[7]);
   p.outline(PROP_OUT);
   return p.texture();
 }
@@ -863,6 +907,479 @@ function makeStall(): Texture {
   return p.texture();
 }
 
+// ── Materiais extra do kit (derivados da paleta, mesma lógica de ramp) ──────
+// Pedra do poço: reusa o ramp frio de pedra da paleta (stone*) — casa com o muro.
+const STONE = PAL.stoneBase, STONE_DK = PAL.stoneDark, STONE_MID = PAL.stoneMid, STONE_LT = PAL.stoneLight, STONE_JOINT = PAL.stoneCrack;
+// Telha do teto do poço: mesma telha quente do makeRoof (122/86/66 base) chapada.
+const TILE_R = "#7a563f", TILE_R_HI = "#9a6f50", TILE_R_DK = "#523a2c";
+// Palha/feno (quente, dessaturada) — fardo, alvo do boneco, miolo da cesta.
+const STRAW = "#a98a4e", STRAW_LT = "#c4a55f", STRAW_DK = "#7c6238", STRAW_SH = "#5e4a2c";
+// Vime do cesto (mais frio/cinza que a palha) + brasa do braseiro.
+const WICKER = "#8a6e44", WICKER_LT = "#a4895a", WICKER_DK = "#5e4a2e";
+const EMBER_DK = "#7a2e16", EMBER = "#d8531f", EMBER_HI = "#ffab4a", EMBER_CORE = PAL.flameCore;
+
+/** Cerca / parapeito de madeira — AUTOTILE (mesma máscara do muro: N=1,E=2,S=4,
+ *  W=8). Postes nas pontas + 2 travessas horizontais; conecta em tira/canto sem
+ *  ser muro (baixa, vão por baixo). Desenhada no tile inteiro, ancorada na base;
+ *  a travessa fica na METADE de baixo do tile (a cerca é baixa). 16 peças. */
+function makeFenceTile(mask: number): Texture {
+  const SC = TILE_SIZE / 32; // escala do remaster (S local = vizinho sul, p/ casar o autotile do muro)
+  const p = new Px(TILE_SIZE, TILE_SIZE);
+  const N = (mask & 1) !== 0, E = (mask & 2) !== 0, S = (mask & 4) !== 0, W = (mask & 8) !== 0;
+  const cx = TILE_SIZE / 2;
+  const railTop = 18 * SC, railH = 4 * SC, rail2 = 26 * SC; // 2 travessas, baixas
+  const postTop = 14 * SC, postBot = 34 * SC, postW = 4 * SC; // poste curto
+  // travessa = barra horizontal lit no topo, sombra embaixo (volume cilíndrico leve)
+  const rail = (y: number, x0: number, x1: number) => {
+    p.rect(x0, y, x1 - x0, railH, WOOD);
+    p.rect(x0, y, x1 - x0, SC, WOOD_LT);
+    p.rect(x0, y + railH - SC, x1 - x0, SC, WOOD_DK);
+  };
+  // poste = pilar curto fincado: face lit à esq, sombra à dir, topo elíptico
+  const post = (px: number) => {
+    p.rect(px, postTop, postW, postBot - postTop, WOOD);
+    p.rect(px, postTop, SC, postBot - postTop, WOOD_LT);
+    p.rect(px + postW - SC, postTop, SC, postBot - postTop, WOOD_DK);
+    p.ellipse(px + postW / 2, postTop, postW / 2 + SC, 1.6 * SC, WOOD_HI); // topo encara o céu
+    p.rect(px, postBot - SC, postW, SC, WOOD_DK); // base em sombra de contato
+  };
+  // travessas horizontais p/ vizinhos E/W (corre o tile inteiro até a borda)
+  if (E || W) {
+    const x0 = W ? 0 : cx - postW / 2, x1 = E ? TILE_SIZE : cx + postW / 2;
+    rail(railTop, x0, x1);
+    rail(rail2, x0, x1);
+  }
+  // travessas verticais p/ vizinhos N/S (a "cerca" vira em L/coluna)
+  if (N || S) {
+    const y0 = N ? 0 : postTop, y1 = S ? TILE_SIZE : postBot;
+    for (const ry of [railTop, rail2]) {
+      p.rect(cx - railH / 2, y0, railH, y1 - y0, WOOD);
+      p.rect(cx - railH / 2, y0, SC, y1 - y0, WOOD_LT);
+      p.rect(cx + railH / 2 - SC, y0, SC, y1 - y0, WOOD_DK);
+      void ry;
+    }
+  }
+  // POSTE: sempre no centro (junção) e nas pontas livres (sem vizinho daquele lado)
+  post(cx - postW / 2);
+  if (!W) post(0);
+  if (!E) post(TILE_SIZE - postW);
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** 16 peças de cerca indexadas por máscara (autotile como o muro). */
+function makeFenceTiles(): Texture[] {
+  const out: Texture[] = [];
+  for (let m = 0; m < 16; m++) out.push(makeFenceTile(m));
+  return out;
+}
+
+/** Poço (40×48) — marco da Praça do Poço. Anel de pedra (ramp frio, boca escura)
+ *  + 2 postes + telhadinho de 2 águas (telha quente) + balde pendurado na corda.
+ *  Low-top-down: vê-se a boca elíptica do poço por cima do anel. */
+function makeWell(): Texture {
+  const p = new Px(40 * S, 48 * S);
+  const cx = 20 * S;
+  // ── anel de pedra (corpo cilíndrico, base do prop) ──
+  const ringTop = 26 * S, ringBot = 44 * S;
+  // ramp do cilindro (luz top-left): 24px de largura (x 8..32)
+  for (let x = 8 * S; x < 32 * S; x++) {
+    const t = (x - 8 * S) / (24 * S); // 0 esq → 1 dir
+    const c = t < 0.16 ? STONE_DK : t < 0.34 ? STONE_MID : t < 0.5 ? STONE_LT : t < 0.74 ? STONE : t < 0.9 ? STONE_MID : STONE_DK;
+    p.rect(x, ringTop, S, ringBot - ringTop, c);
+  }
+  // barriga arredondada (1px pra fora nos lados, no meio)
+  for (let y = ringTop + 3 * S; y < ringBot - 3 * S; y++) { p.rect(7 * S, y, S, 1, STONE_DK); p.rect(32 * S, y, S, 1, STONE_DK); }
+  // pedras do anel (juntas escuras verticais → alvenaria, não cilindro liso)
+  for (const jx of [12, 16, 20, 24, 28]) p.rect(jx * S, ringTop + 2 * S, S, ringBot - ringTop - 3 * S, STONE_JOINT);
+  p.rect(8 * S, ringBot - 2 * S, 24 * S, 2 * S, STONE_DK); // base em sombra de contato
+  // ── coroa + boca do poço (a face de topo, low-top-down) ──
+  p.ellipse(cx, ringTop, 13 * S, 4 * S, STONE_LT); // borda da coroa lit
+  p.ellipse(cx, ringTop, 12 * S, 3.4 * S, STONE_MID);
+  p.ellipse(cx, ringTop, 9 * S, 2.4 * S, "#0c1014"); // boca escura (poço fundo)
+  p.ellipse(cx, ringTop - S, 8 * S, 1.8 * S, "#060809");
+  for (let x = cx - 9 * S; x <= cx; x++) if (((x - cx) / (9 * S)) ** 2 <= 1) p.px(x, ringTop - 2 * S, "#1c242c"); // água reflete o céu (lado lit)
+  // ── postes do telhado (sobem do anel) ──
+  for (const px of [9, 28]) {
+    p.rect(px * S, 8 * S, 3 * S, 19 * S, WOOD);
+    p.rect(px * S, 8 * S, S, 19 * S, WOOD_LT);
+    p.rect((px + 2) * S, 8 * S, S, 19 * S, WOOD_DK);
+  }
+  // ── telhadinho de 2 águas (espigão no centro, beirais escuros) ──
+  for (let y = 0; y < 9 * S; y++) {
+    const half = Math.round((y / (9 * S)) * 18 * S) + 2 * S; // triângulo (largura cresce p/ baixo)
+    for (let dx = -half; dx <= half; dx++) {
+      const x = cx + dx;
+      const lit = dx < 0; // água esquerda pega luz
+      let c = lit ? TILE_R_HI : TILE_R;
+      if (y % (3 * S) === 0) c = TILE_R_DK; // sulco entre fiadas
+      if (Math.abs(dx) >= half - S) c = TILE_R_DK; // beiral escuro
+      p.px(x, 2 * S + y, c);
+    }
+  }
+  p.rect(cx - S, 0, 2 * S, 3 * S, TILE_R_HI); // espigão lit
+  p.rect(cx - 20 * S, 10 * S, 40 * S, S, "#3a2a20"); // linha de beiral (sombra)
+  // ── corda + balde pendurado no vão ──
+  p.rect(cx - 4 * S, 12 * S, S, 9 * S, "#5a4a30"); // corda
+  // balde de madeira com aro (low-top-down: tampa elíptica)
+  const bx = cx - 6 * S, by = 21 * S;
+  p.rect(bx, by, 5 * S, 4 * S, WOOD);
+  p.rect(bx, by, S, 4 * S, WOOD_LT);
+  p.rect(bx + 4 * S, by, S, 4 * S, WOOD_DK);
+  p.ellipse(bx + 2.5 * S, by, 3 * S, 1.2 * S, WOOD_HI); // boca do balde
+  p.rect(bx, by + S, 5 * S, S, IRON); // aro
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Balcão + toldo de loja (64×40) — TIRA acoplável à fachada de enxaimel (parede
+ *  sul): aba de toldo listrada no topo + balcão de tábuas embaixo → a casa lê como
+ *  loja. Largura de ~2 tiles; anchor na base (encosta na parede). */
+function makeShopCounter(): Texture {
+  const W = 64 * S;
+  const p = new Px(W, 40 * S);
+  // ── toldo (aba inclinada saindo da parede, listrado linho/pano) ──
+  const bands = 8, bw = W / bands;
+  for (let b = 0; b < bands; b++) {
+    const isL = b % 2 === 0;
+    const col = isL ? LINEN : CLOTH, hi = isL ? LINEN_HI : CLOTH, sh = isL ? LINEN_SH : CLOTH_SH;
+    const x0 = Math.round(b * bw), x1 = Math.round((b + 1) * bw);
+    // topo do toldo (recuado, sombra leve — encosta na parede) → vende a inclinação
+    p.rect(x0, 0, x1 - x0, 4 * S, sh);
+    // frente do toldo (caída)
+    p.rect(x0, 4 * S, x1 - x0, 8 * S, col);
+    p.rect(x0, 4 * S, x1 - x0, S, hi); // crista
+    p.rect(x0, 11 * S, x1 - x0, S, sh); // borda inferior
+    // franja escalopada
+    const sc = (x0 + x1) >> 1;
+    for (let k = 0; k < 3; k++) p.rect(sc - (2 - k) * S, (12 + k) * S, ((2 - k) * 2 + 1) * S, S, sh);
+  }
+  // suportes do toldo (2 mãos-francesas de ferro)
+  for (const sx of [6, W / S - 8]) { p.rect(sx * S, 4 * S, S, 11 * S, IRON); p.rect(sx * S - S, 14 * S, 2 * S, S, IRON_HI); }
+  // ── balcão (tampo lit visto de cima + face de tábuas) ──
+  const cTop = 24 * S;
+  p.rect(2 * S, cTop, W - 4 * S, 4 * S, WOOD_LT); // tampo
+  p.rect(2 * S, cTop, W - 4 * S, S, WOOD_HI); // aresta do tampo pega luz
+  p.rect(2 * S, cTop + 4 * S, W - 4 * S, 11 * S, WOOD); // face frontal
+  for (let x = 6 * S; x < W - 4 * S; x += 7 * S) p.rect(x, cTop + 4 * S, S, 11 * S, WOOD_DK); // juntas das tábuas
+  p.rect(2 * S, cTop + 4 * S, S, 11 * S, WOOD_LT); // canto esq lit
+  p.rect(W - 3 * S, cTop + 4 * S, S, 11 * S, WOOD_DK); // canto dir sombra
+  p.rect(2 * S, 38 * S, W - 4 * S, S, WOOD_DK); // base contato
+  // mercadoria no tampo (sacos), agrupada à esquerda (assimetria)
+  for (const sx of [8, 13, 19]) {
+    p.rect(sx * S, 20 * S, 3 * S, 4 * S, LINEN);
+    p.rect(sx * S, 20 * S, S, S, LINEN_HI);
+    p.rect(sx * S, 23 * S, 3 * S, S, LINEN_SH);
+  }
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Saco de pano amarrado (12×14) — vértice no topo (nó), barriga cheia; decor,
+ *  vai em grupo sobre mesa/chão. Low-top-down: pequena face de topo no nó. */
+function makeSack(): Texture {
+  const p = new Px(12 * S, 14 * S);
+  // barriga (ramp envolvendo: luz esq)
+  for (let x = 2 * S; x < 10 * S; x++) {
+    const t = (x - 2 * S) / (8 * S);
+    const c = t < 0.2 ? LINEN_SH : t < 0.4 ? LINEN : t < 0.6 ? LINEN_HI : t < 0.82 ? LINEN : LINEN_SH;
+    p.rect(x, 5 * S, S, 8 * S, c);
+  }
+  // arredonda a base e o ombro
+  p.rect(3 * S, 4 * S, 6 * S, S, LINEN);
+  p.rect(2 * S, 12 * S, 8 * S, S, LINEN_SH);
+  p.rect(4 * S, 13 * S, 4 * S, S, LINEN_SH);
+  // nó/gargalo amarrado (estreita no topo) + abas do nó
+  p.rect(4 * S, 2 * S, 4 * S, 3 * S, LINEN);
+  p.rect(4 * S, 2 * S, 4 * S, S, LINEN_HI);
+  p.rect(3 * S, 1 * S, S, 2 * S, LINEN_SH); // aba esq
+  p.rect(8 * S, 1 * S, S, 2 * S, LINEN_SH); // aba dir
+  p.rect(4 * S, 4 * S, 4 * S, S, LINEN_SH); // sombra sob o nó
+  // dobras de pano (2 vincos verticais)
+  p.rect(5 * S, 6 * S, S, 6 * S, LINEN_SH);
+  p.rect(8 * S, 6 * S, S, 5 * S, LINEN_SH);
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Cesto de vime (14×13) — boca elíptica aberta (low-top-down) com palha dentro
+ *  + corpo de vime trançado. Decor (mercadoria da feira). */
+function makeBasket(): Texture {
+  const p = new Px(14 * S, 13 * S);
+  const cx = 7 * S;
+  // corpo (tronco-cone: mais largo embaixo)
+  for (let y = 4 * S; y < 11 * S; y++) {
+    const t = (y - 4 * S) / (7 * S);
+    const halfW = (4 + t * 1.5) * S;
+    for (let x = cx - halfW; x <= cx + halfW; x++) {
+      const tx = (x - (cx - halfW)) / (2 * halfW);
+      p.px(x, y, tx < 0.22 ? WICKER_LT : tx < 0.7 ? WICKER : WICKER_DK);
+    }
+  }
+  // trançado: linhas horizontais escuras (fiadas de vime)
+  for (let y = 5 * S; y < 11 * S; y += 2 * S) p.rect(cx - 5 * S, y, 11 * S, S, WICKER_DK);
+  p.rect(cx - 5 * S, 10 * S, 11 * S, S, "#3e3220"); // base contato
+  // boca elíptica (aro + miolo de palha encarando o céu)
+  p.ellipse(cx, 4 * S, 5 * S, 2 * S, WICKER_LT); // aro lit
+  p.ellipse(cx, 4 * S, 4 * S, 1.4 * S, STRAW); // palha dentro
+  p.rect(cx - 2 * S, 3 * S, 3 * S, S, STRAW_LT); // palha pega luz
+  p.ellipse(cx, 4 * S + S, 4.5 * S, 1.2 * S, WICKER_DK); // sombra interna do aro
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Lenha empilhada (26×20) — toras em pilha: faces de TOPO (círculos da madeira
+ *  cortada, encaram o céu/observador) em cima + lateral das toras embaixo.
+ *  Bloqueia; encosta em parede e mata canto vazio. */
+function makeFirewood(): Texture {
+  const p = new Px(26 * S, 20 * S);
+  // lateral das toras (fiada de baixo) — cilindros deitados, luz no topo
+  for (const lx of [2, 9, 16]) {
+    p.rect(lx * S, 12 * S, 7 * S, 6 * S, WOOD);
+    p.rect(lx * S, 12 * S, 7 * S, S, WOOD_HI); // topo do cilindro pega luz
+    p.rect(lx * S, 17 * S, 7 * S, S, WOOD_DK); // baixo em sombra
+    p.rect(lx * S, 12 * S, 7 * S, S, WOOD_HI);
+  }
+  // faces de TOPO das toras (fiada de cima, recuada — círculos da madeira cortada)
+  const logTop = (cx: number, cy: number) => {
+    p.ellipse(cx, cy, 3.4 * S, 3 * S, WOOD); // casca
+    p.ellipse(cx, cy, 2.6 * S, 2.2 * S, "#7a5e3e"); // alburno
+    p.ellipse(cx, cy, 1.4 * S, 1.2 * S, "#8d6e48"); // cerne (anéis)
+    p.px(cx, cy, WOOD_DK); // medula
+    p.rect(cx - 2 * S, cy - 2 * S, 2 * S, S, WOOD_HI); // pega luz top-esq
+  };
+  logTop(6 * S, 7 * S); logTop(13 * S, 6 * S); logTop(20 * S, 7 * S);
+  logTop(9 * S, 11 * S); logTop(17 * S, 11 * S);
+  p.rect(2 * S, 18 * S, 21 * S, S, WOOD_DK); // base contato
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Fardo de feno (24×18) — bloco de palha amarrado com 2 cordas; topo lit.
+ *  Bloqueia; alternativa quente à lenha pra encher canto. */
+function makeHay(): Texture {
+  const p = new Px(24 * S, 18 * S);
+  // bloco (ramp suave: topo claro → base)
+  for (let y = 4 * S; y < 16 * S; y++) {
+    const t = (y - 4 * S) / (12 * S);
+    const c = t < 0.12 ? STRAW_LT : t < 0.55 ? STRAW : t < 0.85 ? STRAW_DK : STRAW_SH;
+    p.rect(3 * S, y, 18 * S, S, c);
+  }
+  // face de topo (encara o céu, mais clara) — leve overhang
+  p.rect(3 * S, 2 * S, 18 * S, 2 * S, STRAW_LT);
+  p.rect(4 * S, 1 * S, 16 * S, S, STRAW_LT);
+  // textura de palha: traços curtos horizontais (cluster, não ruído)
+  const rng = mulberry32(424);
+  for (let i = 0; i < Math.round(40 * S * S); i++) {
+    const x = 4 * S + (rng() * 16 * S | 0), y = 4 * S + (rng() * 11 * S | 0);
+    p.rect(x, y, (2 + (rng() * 2 | 0)) * S, S, rng() < 0.5 ? STRAW_DK : STRAW_LT);
+  }
+  // 2 cordas de amarrar (sombra escura com brilho do nó)
+  for (const cxr of [8, 16]) { p.rect(cxr * S, 2 * S, S, 14 * S, "#4a3a22"); p.rect(cxr * S, 8 * S, S, S, "#6a5630"); }
+  p.rect(3 * S, 16 * S, 18 * S, S, STRAW_SH); // base contato
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Placa de loja pendurada (20×26) — braço de ferro saindo da parede + tabuleta
+ *  de madeira com ÍCONE de ofício gravado. Decor (não bloqueia). `craft` escolhe
+ *  o ícone (martelo=ferreiro, almofariz=boticário, pão=padaria, genérico). */
+type Craft = "ferreiro" | "boticario" | "padaria" | "generico";
+function makeSign(craft: Craft): Texture {
+  const p = new Px(20 * S, 26 * S);
+  // braço de ferro horizontal (sai da parede, à esquerda) + suporte
+  p.rect(0, 2 * S, 14 * S, 2 * S, IRON);
+  p.rect(0, 2 * S, 14 * S, S, IRON_HI);
+  p.rect(12 * S, 1 * S, S, 4 * S, IRON); // ponta com gancho
+  // 2 correntes/argolas penduram a tabuleta
+  p.rect(5 * S, 4 * S, S, 3 * S, IRON_HI);
+  p.rect(13 * S, 4 * S, S, 3 * S, IRON_HI);
+  // tabuleta de madeira (face frontal + leve borda lit em cima)
+  const bx = 3 * S, by = 7 * S, bw = 14 * S, bh = 15 * S;
+  p.rect(bx, by, bw, bh, WOOD);
+  p.rect(bx, by, bw, S, WOOD_HI); // topo pega luz
+  p.rect(bx, by, S, bh, WOOD_LT); // lado esq lit
+  p.rect(bx + bw - S, by, S, bh, WOOD_DK); // lado dir sombra
+  p.rect(bx, by + bh - S, bw, S, WOOD_DK); // base
+  // moldura interna gravada (afunda → o ícone fica num campo escuro)
+  p.rect(bx + 2 * S, by + 2 * S, bw - 4 * S, bh - 4 * S, WOOD_DK);
+  // ── ÍCONE por ofício (claro, alto contraste sobre o campo escuro) ──
+  const icx = bx + bw / 2, icy = by + bh / 2;
+  if (craft === "ferreiro") {
+    // martelo: cabeça de ferro + cabo de madeira na diagonal
+    p.rect(icx - 3 * S, icy - 3 * S, 6 * S, 3 * S, IRON_HI); // cabeça
+    p.rect(icx - 3 * S, icy - 3 * S, 6 * S, S, "#6a727e");
+    for (let i = 0; i < 5; i++) p.rect(icx - S + i * S, icy + i * S, S, S, WOOD_LT); // cabo diagonal
+  } else if (craft === "boticario") {
+    // almofariz: tigela + pilão
+    p.ellipse(icx, icy + 2 * S, 4 * S, 2 * S, "#7c8390"); // tigela
+    p.rect(icx - 4 * S, icy + S, 8 * S, S, "#9aa1ac");
+    p.rect(icx + S, icy - 4 * S, S, 6 * S, WOOD_LT); // pilão
+    p.rect(icx + S, icy - 4 * S, S, S, WOOD_HI);
+  } else if (craft === "padaria") {
+    // pão: hogaça oval com corte no topo
+    p.ellipse(icx, icy, 5 * S, 3 * S, "#b88a4e");
+    p.ellipse(icx, icy - S, 4 * S, 2 * S, "#d8a860");
+    p.rect(icx - 2 * S, icy - S, 4 * S, S, "#7c5a30"); // corte
+  } else {
+    // genérico: losango (marca de feira)
+    for (let i = 0; i < 4; i++) { p.rect(icx - i * S, icy - 3 * S + i * S, (i * 2 + 1) * S, S, WOOD_HI); p.rect(icx - (3 - i) * S, icy + i * S, ((3 - i) * 2 + 1) * S, S, WOOD_LT); }
+  }
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Braseiro (22×26) — tigela de ferro de 3 pernas com brasa quente. ANIMADO
+ *  (3 frames, casa com o contador de tochas do WorldRenderer): a brasa pulsa.
+ *  É fonte de luz (luz quente registrada no render como a tocha). */
+function makeBrazierFrames(): Texture[] {
+  const frames: Texture[] = [];
+  for (let f = 0; f < 3; f++) {
+    const rng = mulberry32(440 + f * 7);
+    const p = new Px(22 * S, 26 * S);
+    const cx = 11 * S;
+    // 3 pernas de ferro (tripé): 2 à frente abertas + 1 atrás ao centro
+    p.rect(4 * S, 16 * S, 2 * S, 8 * S, IRON);
+    p.rect(16 * S, 16 * S, 2 * S, 8 * S, IRON);
+    p.rect(10 * S, 16 * S, 2 * S, 7 * S, "#181b22");
+    p.rect(4 * S, 23 * S, 3 * S, S, "#0e1014"); // pés (contato)
+    p.rect(15 * S, 23 * S, 3 * S, S, "#0e1014");
+    // tigela de ferro (tronco-cone invertido: estreita embaixo) — low-top-down
+    for (let y = 10 * S; y < 17 * S; y++) {
+      const t = (y - 10 * S) / (7 * S);
+      const halfW = (8 - t * 3) * S;
+      for (let x = cx - halfW; x <= cx + halfW; x++) {
+        const tx = (x - (cx - halfW)) / (2 * halfW);
+        p.px(x, y, tx < 0.2 ? IRON_HI : tx < 0.72 ? IRON : "#15181e");
+      }
+    }
+    p.rect(cx - 8 * S, 10 * S, 16 * S, S, IRON_HI); // lábio da tigela pega luz
+    // boca (vista de cima) — brasa: leito escuro + carvões em brasa que pulsam
+    p.ellipse(cx, 10 * S, 8 * S, 2.6 * S, "#1a0e08"); // leito
+    const glow = f === 1 ? 1.15 : f === 2 ? 0.9 : 1; // pulso
+    for (let i = 0; i < Math.round(14 * S * S); i++) {
+      const ex = cx - 6 * S + (rng() * 12 * S | 0), ey = 8 * S + (rng() * 4 * S | 0);
+      const r = rng() * glow;
+      p.rect(ex, ey, S, S, r < 0.4 ? EMBER_DK : r < 0.72 ? EMBER : r < 0.92 ? EMBER_HI : EMBER_CORE);
+    }
+    // chaminhas curtas que lambem por cima (oscilam por frame)
+    const fx = cx + (f === 1 ? -S : f === 2 ? S : 0);
+    p.rect(fx - S, 5 * S, 2 * S, 3 * S, EMBER_HI);
+    p.rect(fx, 4 * S, S, 2 * S, EMBER_CORE);
+    p.px(fx + (f === 2 ? S : -S), 6 * S, EMBER);
+    p.outline(PROP_OUT);
+    frames.push(p.texture());
+  }
+  return frames;
+}
+
+/** Boneco de treino (24×40) — poste fincado + alvo de palha amarrado com braço
+ *  cruzado (formato de "homem"). Pátio da Guilda. Bloqueia. */
+function makeTrainingDummy(): Texture {
+  const p = new Px(24 * S, 40 * S);
+  const cx = 12 * S;
+  // base/pé de madeira (cruzeta no chão)
+  p.rect(5 * S, 35 * S, 14 * S, 3 * S, WOOD_DK);
+  p.rect(5 * S, 35 * S, 14 * S, S, WOOD);
+  p.rect(7 * S, 37 * S, 10 * S, S, "#1a130c"); // contato
+  // poste central
+  p.rect(cx - 2 * S, 14 * S, 4 * S, 22 * S, WOOD);
+  p.rect(cx - 2 * S, 14 * S, S, 22 * S, WOOD_LT);
+  p.rect(cx + S, 14 * S, S, 22 * S, WOOD_DK);
+  // braço cruzado (travessa horizontal = "ombros")
+  p.rect(3 * S, 16 * S, 18 * S, 3 * S, WOOD);
+  p.rect(3 * S, 16 * S, 18 * S, S, WOOD_LT);
+  p.rect(3 * S, 18 * S, 18 * S, S, WOOD_DK);
+  // corpo de palha amarrado (alvo) — bojo de feno sobre o poste
+  for (let y = 8 * S; y < 26 * S; y++) {
+    const t = (y - 8 * S) / (18 * S);
+    const halfW = (7 - Math.abs(t - 0.45) * 6) * S; // mais bojudo no meio
+    const c = t < 0.15 ? STRAW_LT : t < 0.6 ? STRAW : t < 0.85 ? STRAW_DK : STRAW_SH;
+    for (let x = cx - halfW; x <= cx + halfW; x++) {
+      const tx = (x - (cx - halfW)) / (2 * halfW);
+      p.px(x, y, tx < 0.25 ? STRAW_LT : tx < 0.72 ? c : STRAW_SH); // luz à esq
+    }
+  }
+  // cordas de amarrar (3 cintas escuras) — "pescoço", "cintura", "quadril"
+  for (const cyr of [11, 17, 23]) { p.rect(cx - 7 * S, cyr * S, 14 * S, S, "#4a3a22"); p.rect(cx, cyr * S, S, S, "#6a5630"); }
+  // palha solta espetando (cluster nas pontas)
+  const rng = mulberry32(412);
+  for (let i = 0; i < Math.round(10 * S * S); i++) p.rect(cx - 6 * S + (rng() * 12 * S | 0), 8 * S + (rng() * 2 * S | 0), S, S, STRAW_LT);
+  // marca de alvo (riscos de impacto no centro)
+  p.rect(cx - S, 15 * S, S, 3 * S, STRAW_SH);
+  p.rect(cx + 2 * S, 18 * S, S, 2 * S, STRAW_SH);
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Estacas de obra (28×30) — 3 postes fincados desalinhados + ripas soltas
+ *  apoiadas (trecho da muralha "em obras"). Bloqueia. Cluster de canteiro. */
+function makeScaffold(): Texture {
+  const p = new Px(28 * S, 30 * S);
+  // 3 postes verticais de alturas/posições diferentes (assimetria de canteiro)
+  const posts: [number, number][] = [[3, 6], [12, 2], [21, 8]]; // [x, topY]
+  for (const [px, ty] of posts) {
+    p.rect(px * S, ty * S, 4 * S, (28 - ty) * S, WOOD);
+    p.rect(px * S, ty * S, S, (28 - ty) * S, WOOD_LT);
+    p.rect((px + 3) * S, ty * S, S, (28 - ty) * S, WOOD_DK);
+    p.ellipse((px + 2) * S, ty * S, 2.2 * S, 1.4 * S, WOOD_HI); // topo cortado pega luz
+    p.rect(px * S, 27 * S, 4 * S, S, "#1a130c"); // base fincada (contato)
+  }
+  // ripa diagonal apoiada (escora) — luz na face de cima
+  for (let i = 0; i < 18 * S; i++) {
+    const x = 4 * S + i, y = 24 * S - Math.floor(i * 0.9);
+    p.rect(x, y, 2 * S, 2 * S, WOOD);
+    p.px(x, y, WOOD_HI);
+  }
+  // ripa horizontal solta atravessando (travessa de andaime), em sombra leve
+  p.rect(2 * S, 12 * S, 24 * S, 3 * S, WOOD);
+  p.rect(2 * S, 12 * S, 24 * S, S, WOOD_LT);
+  p.rect(2 * S, 14 * S, 24 * S, S, WOOD_DK);
+  // pregos/amarras nas junções
+  for (const [px, py] of [[3, 12], [12, 12], [21, 12]] as const) p.rect(px * S + S, py * S, S, S, IRON_HI);
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/** Carroça de feira (40×30, OPCIONAL B-tier) — caçamba de tábuas + 2 rodas de
+ *  raios + timão. Parada num canto. Low-top-down: vê-se a borda interna da
+ *  caçamba. Bloqueia. (1ª candidata a upgrade PixelLab se ficar plana — §5.) */
+function makeCart(): Texture {
+  const p = new Px(40 * S, 30 * S);
+  // ── caçamba (caixa aberta de tábuas) ──
+  const bx = 6 * S, by = 8 * S, bw = 28 * S, bh = 12 * S;
+  // parede interna do fundo (vista por cima, mais escura → profundidade)
+  p.rect(bx + 2 * S, by, bw - 4 * S, 3 * S, "#241a10");
+  // face frontal de tábuas
+  p.rect(bx, by + 3 * S, bw, bh, WOOD);
+  for (let x = bx + 4 * S; x < bx + bw; x += 6 * S) p.rect(x, by + 3 * S, S, bh, WOOD_DK); // juntas
+  p.rect(bx, by + 3 * S, bw, S, WOOD_HI); // aresta superior (borda da caçamba) lit
+  p.rect(bx, by + 3 * S, S, bh, WOOD_LT); // canto esq
+  p.rect(bx + bw - S, by + 3 * S, S, bh, WOOD_DK); // canto dir
+  p.rect(bx, by + 3 * S + bh - S, bw, S, WOOD_DK); // base da caçamba
+  // longarinas/chassi sob a caçamba
+  p.rect(bx - 2 * S, by + 14 * S, bw + 4 * S, 2 * S, WOOD_DK);
+  // timão (vara de puxar, sai à esquerda)
+  p.rect(0, by + 13 * S, 8 * S, 2 * S, WOOD);
+  p.rect(0, by + 13 * S, 8 * S, S, WOOD_LT);
+  // ── 2 rodas de raios (aro escuro + cubo + raios) ──
+  const wheel = (wx: number) => {
+    const wy = 24 * S, R = 5 * S;
+    p.ellipse(wx, wy, R, R, IRON); // pneu/aro
+    p.ellipse(wx, wy, R - S, R - S, "#0e1014"); // vão
+    p.ellipse(wx, wy, R - S, R - S * 0.6, "#0e1014");
+    // raios (cruz + diagonais)
+    for (const [dx, dy] of [[1, 0], [0, 1], [0.7, 0.7], [-0.7, 0.7]] as const)
+      for (let r = 1; r < R; r++) p.px(wx + dx * r, wy + dy * r, WICKER), p.px(wx - dx * r, wy - dy * r, WICKER);
+    p.ellipse(wx, wy, 1.6 * S, 1.6 * S, IRON_HI); // cubo (pega luz)
+    // brilho no aro (top-left)
+    for (let a = 200; a < 260; a += 6) { const rad = a * Math.PI / 180; p.px(wx + Math.cos(rad) * R, wy + Math.sin(rad) * R, IRON_HI); }
+  };
+  wheel(12 * S); wheel(30 * S);
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
 /**
  * Muralha AUTOTILE (estilo Tibia). 16 peças indexadas por máscara de vizinhos
  * que TAMBÉM são muro: bit N=1, E=2, S=4, W=8.
@@ -877,6 +1394,10 @@ function makeStall(): Texture {
 // Altura do tile de muro (32×54 @32px): face ALTA pra dar volume (estilo Apogea/Tibia).
 const WALL_H = 54 * S;
 const WALL_TOP_H = 14 * S; // espessura do topo visto de cima
+// Altura do tile de parede de CASA (enxaimel). Exportada porque a PORTA tem que
+// nascer exatamente com esta altura e a largura do tile pra sentar FLUSH no vão
+// (sem vão entre a folha e a ombreira). Casa makeHouseWallTile ↔ makeDoor.
+const HOUSE_WALL_H = 44 * S;
 function makeWallTile(mask: number, seed: number): Texture {
   const SC = TILE_SIZE / 32; // escala do remaster (S local = vizinho sul)
   const rng = mulberry32(seed + mask * 97 + 1);
@@ -1053,32 +1574,49 @@ function makeGate(wTiles: number, seed: number): Texture {
 function makeHouseWallTile(mask: number, seed: number, feature: "window" | "door" | null): Texture {
   const SC = TILE_SIZE / 32;
   const rng = mulberry32(seed + mask * 31 + 1);
-  const HH = 44 * SC; // altura do tile de parede de casa
+  const HH = HOUSE_WALL_H; // altura do tile de parede de casa (= largura/altura da porta)
   const p = new Px(TILE_SIZE, HH);
   const N = (mask & 1) !== 0, W = (mask & 8) !== 0, E = (mask & 2) !== 0;
-  const PLA = [PAL.plasterDark, PAL.plasterBase, PAL.plasterLight];
-  const BEAM = PAL.woodPost, BEAML = PAL.woodPostLight, BEAMD = PAL.trunkDark, OUT = "#10141c";
-  const TOPH = 7 * SC;
-  // viga superior fina (frechal visto de cima)
-  p.rect(0, 0, TILE_SIZE, TOPH, BEAM);
-  for (let i = 0; i < Math.round(10 * SC * SC); i++) p.rect(Math.floor(rng() * TILE_SIZE), Math.floor(rng() * TOPH), SC, SC, rng() < 0.5 ? BEAML : BEAMD);
-  if (!N) p.rect(0, SC, TILE_SIZE, SC, BEAML);
-  // FACE de taipa SEMPRE (enquadrada por vigas)
-  for (let y = TOPH; y < HH; y++) for (let x = 0; x < TILE_SIZE; x++) p.px(x, y, PLA[Math.floor(rng() * PLA.length)]);
-  p.rect(0, TOPH, TILE_SIZE, 3 * SC, BEAM); p.rect(0, TOPH, TILE_SIZE, SC, BEAML);
-  p.rect(0, 40 * SC, TILE_SIZE, 4 * SC, BEAM); p.rect(0, 40 * SC, TILE_SIZE, SC, BEAMD);
-  for (const sx of [0, 14, 29]) { p.rect(sx * SC, TOPH, 3 * SC, HH - TOPH, BEAM); p.rect(sx * SC, TOPH, SC, HH - TOPH, BEAML); }
-  if (feature === "window") {
-    p.rect(9 * SC, 16 * SC, 14 * SC, 16 * SC, "#1a2026"); p.rect(9 * SC, 16 * SC, 14 * SC, SC, "#0d1116");
-    p.rect(8 * SC, 15 * SC, 16 * SC, SC, BEAM); p.rect(8 * SC, 32 * SC, 16 * SC, SC, BEAM); p.rect(8 * SC, 15 * SC, SC, 18 * SC, BEAM); p.rect(23 * SC, 15 * SC, SC, 18 * SC, BEAM);
-    p.rect(15 * SC, 16 * SC, SC, 16 * SC, BEAM); p.rect(9 * SC, 23 * SC, 14 * SC, SC, BEAM);
-    p.rect(11 * SC, 18 * SC, SC, SC, "#39505e"); p.rect(12 * SC, 18 * SC, SC, SC, "#39505e"); p.rect(18 * SC, 18 * SC, SC, SC, "#39505e");
-  } else if (feature === "door") {
-    p.rect(9 * SC, 12 * SC, 14 * SC, 32 * SC, BEAM);
-    for (let x = 10 * SC; x < 23 * SC; x += 3 * SC) p.rect(x, 13 * SC, SC, 30 * SC, (x / SC) % 2 ? BEAMD : BEAML);
-    p.rect(9 * SC, 20 * SC, 14 * SC, 2 * SC, BEAMD); p.rect(9 * SC, 34 * SC, 14 * SC, 2 * SC, BEAMD);
-    p.rect(20 * SC, 29 * SC, SC, SC, "#caa64a"); p.rect(20 * SC, 30 * SC, SC, SC, "#8d7330");
+  const BEAMD = PAL.trunkDark, OUT = "#10141c";
+  const TOPH = 7 * SC, midY = 40 * SC, postW = 3 * SC, postsX = [0, 14, 29].map((s) => s * SC);
+  // 1) REBOCO trowelado nos VÃOS (internos, entre postes → seam-safe): textura de
+  //    baixa freq + AO de recesso perto das vigas + sujeira na base + rachadura.
+  const nz = (x: number, y: number) => Math.sin(x * 0.09 + 1.7) * 0.4 + Math.sin(y * 0.12 + 0.5) * 0.32 + Math.sin((x + y) * 0.05) * 0.4 + Math.sin(x * 0.3 - y * 0.18) * 0.14;
+  const aoR = 5 * SC / 4;
+  for (let y = TOPH; y < HH; y++) for (let x = 0; x < TILE_SIZE; x++) {
+    let v = 2.9 + nz(x, y) + (rng() - 0.5) * 0.4;
+    let dx = Infinity; for (const px of postsX) dx = Math.min(dx, Math.abs(x - (px + postW)), Math.abs(x - px));
+    if (dx < aoR) v -= (aoR - dx) / aoR * 1.4;                                  // AO nas bordas do vão (recesso)
+    if (Math.abs(y - midY) < 5 * SC) v -= (5 * SC - Math.abs(y - midY)) / (5 * SC) * 0.5;
+    if (y > HH - 5 * SC) v -= (y - (HH - 5 * SC)) / (5 * SC) * 1.0;             // umidade/sujeira na base
+    const vv = Math.min(5, Math.max(0, v)), lo = Math.floor(vv);
+    p.px(x, y, PLR6[Math.min(5, lo + (vv - lo > 0.5 ? 1 : 0))]);
   }
+  { const bx = (rng() < 0.5 ? 9 : 20) * SC; let cxk = bx; for (let y = 14 * SC; y < 36 * SC; y++) { cxk += rng() < 0.4 ? (rng() < 0.5 ? -1 : 1) : 0; p.px(cxk, y, PLR6[0]); if (rng() < 0.25) p.px(cxk + 1, y, PLR6[1]); } } // rachadura interna
+  // 2) VIGAS com grão/bevel (MESMAS posições do esqueleto) + cavilhas nas junções
+  beamFill(p, 0, 0, TILE_SIZE, TOPH);                       // frechal
+  if (!N) p.rect(0, SC, TILE_SIZE, SC, WD8[5]);             // aresta de cima lit (sem vizinho N)
+  beamFill(p, 0, TOPH, TILE_SIZE, 3 * SC);                  // viga sob o frechal
+  beamFill(p, 0, midY, TILE_SIZE, 4 * SC);                  // viga do meio
+  for (const px of postsX) beamFill(p, Math.min(px, TILE_SIZE - postW), TOPH, postW, HH - TOPH); // postes
+  for (const px of postsX) { const cxp = Math.min(px, TILE_SIZE - postW) + 1; peg(p, cxp, TOPH + 2 * SC); peg(p, cxp, midY + 2 * SC); }
+  // 3) FEATURE
+  if (feature === "window") {
+    const wx = 9 * SC, wy = 15 * SC, ww = 14 * SC, wh = 18 * SC;
+    for (let y = wy; y < wy + wh; y++) for (let x = wx; x < wx + ww; x++) p.px(x, y, mixHex("#16202c", "#2c3e50", ((x - wx) / ww + (wy + wh - y) / wh) / 2)); // vidro azul-noite
+    for (let i = 0; i < 6; i++) p.px(wx + 1 + Math.floor(rng() * (ww - 2)), wy + 1 + Math.floor(rng() * (wh - 2)), rng() < 0.4 ? "#cfe0ea" : "#7f9fb0"); // estrelinhas
+    beamFill(p, wx - SC, wy - SC, ww + 2 * SC, SC); beamFill(p, wx - SC, wy + wh, ww + 2 * SC, SC);   // caixilho h
+    beamFill(p, wx - SC, wy - SC, SC, wh + 2 * SC); beamFill(p, wx + ww, wy - SC, SC, wh + 2 * SC);   // caixilho v
+    for (let y = wy; y < wy + wh; y++) p.px(wx + ww / 2 - 1, y, WD8[1]); for (let x = wx; x < wx + ww; x++) p.px(x, wy + wh / 2, WD8[1]); // cruzeta
+    p.rect(wx - SC, wy + wh + SC, ww + 2 * SC, SC, "rgba(0,0,0,0.3)"); // peitoril sombra
+  } else if (feature === "door") {
+    const dx0 = 9 * SC, dw = 14 * SC, dy0 = 12 * SC, dyb = HH - 1, dh = dyb - dy0;
+    for (let x = dx0; x < dx0 + dw; x++) { const u = (x - dx0) / dw, inPl = (x - dx0) % (3 * SC) / (3 * SC); let base = 1.6 + (1 - Math.abs(u - 0.34) * 1.9) * 3.0 + (inPl < 0.12 ? 0.7 : inPl > 0.88 ? -1.2 : 0); for (let y = dy0; y < dyb; y++) p.px(x, y, WD8[Math.min(7, Math.max(0, Math.round(base + (y === dy0 ? 1 : y === dyb - 1 ? -1.4 : 0))))]); }
+    beamFill(p, dx0 - SC, dy0 - SC, dw + 2 * SC, SC); beamFill(p, dx0 - SC, dy0 - SC, SC, dh + SC); beamFill(p, dx0 + dw, dy0 - SC, SC, dh + SC); // batente
+    for (const by of [dy0 + 6 * SC, dyb - 8 * SC]) { for (let y = by; y < by + 2 * SC; y++) for (let x = dx0; x < dx0 + dw; x++) { const ty = (y - by) / (2 * SC - 1); p.px(x, y, IRN6[y === by ? 0 : ty < 0.5 ? 4 : 1]); } for (let k = 2 * SC; k < dw; k += 4 * SC) { p.px(dx0 + k, by, IRN6[5]); p.px(dx0 + k, by + 1, IRN6[0]); } } // cintas + rebites
+    for (let a = 0; a < 360; a += 12) p.px(dx0 + dw - 4 * SC + Math.cos(a * Math.PI / 180) * 1.6 * SC, (dy0 + dyb) / 2 + Math.sin(a * Math.PI / 180) * 1.6 * SC, IRN6[3]); // argola
+  }
+  // 4) base + edges autotile (PRESERVADO EXATO — não mexer: é a costura)
   p.rect(0, 38 * SC, TILE_SIZE, 2 * SC, "rgba(0,0,0,0.18)");
   p.rect(0, 41 * SC, TILE_SIZE, 3 * SC, "rgba(0,0,0,0.35)");
   if (!W) { p.rect(0, 0, 2 * SC, HH, BEAMD); p.rect(0, 0, SC, HH, OUT); }
@@ -1548,6 +2086,182 @@ function makeStairs(): Texture {
   return p.texture();
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Baú & Porta (loop tutorial: container→chave→porta). Mesmo low-top-down
+// dos props (face de topo + frente), luz top-left, 3 valores por material,
+// outline manual (silhueta depende dele). Sombra de contato vem da camada
+// `shadows` do WorldRenderer. Anchor (0.5,1) no render → desenhar na base.
+// ──────────────────────────────────────────────────────────────────────
+
+// Ferragens do baú/porta agora usam as rampas BRZ6 (latão, fechadura) e IRN6
+// (aço, cintas/dobradiças) — ver helpers no topo.
+const PIT_DK = "#0a0d12"; // interior fundo (boca do baú / vão da porta aberta)
+
+/**
+ * Baú de madeira com aros e fechadura (30×26). `open=false`: tampa abaulada
+ * fechada + chapa de fechadura ao centro. `open=true`: tampa erguida pra trás
+ * (face interna visível) revelando o interior VAZIO e escuro — o feedback "já
+ * saquei". Low-top-down: corpo frontal + leve face de topo na borda da tampa.
+ */
+function makeChest(open: boolean): Texture {
+  const W = 30 * S, H = 26 * S, p = new Px(W, H);
+  const cx = W / 2, x0 = 12, w = 96, bodyTop = 50, bodyBot = 98; // caixa larga e baixa
+  const cl = (v: number, m: number) => Math.min(m, Math.max(0, v));
+  const straps = [x0 + 4, cx, x0 + w - 5];
+  // banda de ferro vertical (mais fina/calma p/ 1:1 — specular contido, sem ferrugem;
+  // o brilho forte fica só nos rebites pra não competir com a madeira/fechadura).
+  const strapV = (bxC: number, yA: number, yB: number) => {
+    const BW = 3;
+    for (let y = yA; y < yB; y++) for (let dx = -BW; dx <= BW; dx++) {
+      const u = (dx + BW) / (2 * BW); let idx = u < 0.2 ? 4 : u > 0.82 ? 1 : 2 + (u < 0.5 ? 0.5 : 0);
+      if (y === yA || y === yB - 1) idx = 0.5;
+      p.px(bxC + dx, y, IRN6[Math.round(cl(idx, 5))]);
+    }
+    for (let y = yA + 7; y < yB - 4; y += 16) { p.px(bxC - 1, y, IRN6[4]); p.px(bxC, y, IRN6[5]); p.px(bxC + 1, y, IRN6[1]); p.px(bxC, y + 1, IRN6[0]); }
+  };
+  const feet = () => { for (const fx of [x0, x0 + w - 8]) for (let y = bodyBot - 1; y < bodyBot + 3; y++) for (let x = fx; x < fx + 8; x++) { const u = (x - fx) / 8; p.px(x, y, IRN6[y === bodyBot + 2 ? 0 : u < 0.3 ? 4 : u > 0.78 ? 1 : 2]); } };
+  // ── CORPO de TÁBUAS (sempre): luz envolvente + SULCO escuro nítido entre as
+  //    tábuas (aresta esq lit / sulco fundo à dir) → lê como madeira mesmo de longe ──
+  const nBoard = 5, bw = w / nBoard;
+  for (let x = x0; x < x0 + w; x++) {
+    const u = (x - x0) / w; let base = 1.9 + (1 - Math.abs(u - 0.34) * 1.7) * 3.4;
+    const inB = ((x - x0) % bw) / bw;
+    if (inB < 0.08) base += 0.9; else if (inB > 0.9) base -= 2.1; // tábua lit à esq / sulco fundo à dir
+    for (let y = bodyTop; y < bodyBot; y++) {
+      let idx = base;
+      if (y === bodyTop) idx += 0.6; else if (y >= bodyBot - 2) idx -= 1.6;
+      if (u > 0.93) idx *= 0.55;
+      p.px(x, y, WD8[Math.round(cl(idx, 7))]);
+    }
+  }
+
+  if (!open) {
+    // ── TAMPA em LOW-TOP-DOWN: FACE DE TOPO clara (encara o céu) + FACE FRONTAL bem
+    //    mais ESCURA → o salto de valor topo/frente vende a profundidade (não chapado) ──
+    const lidBot = bodyTop, lidFrontTop = 30, lidRy = 14;
+    for (let x = x0; x < x0 + w; x++) { // 1) face FRONTAL (escura, vertical)
+      const u = (x - x0) / w;
+      for (let y = lidFrontTop; y < lidBot; y++) { const vy = (y - lidFrontTop) / (lidBot - lidFrontTop); const idx = Math.round(cl(2.7 + (0.5 - Math.abs(u - 0.33)) * 1.7 - vy * 1.2, 7)); p.px(x, y, u > 0.92 ? mixHex(WD8[idx], COOLRIM, 0.4) : WD8[idx]); }
+    }
+    for (let y = lidFrontTop - lidRy; y <= lidFrontTop + lidRy - 6; y++) for (let x = x0; x < x0 + w; x++) { // 2) FACE DE TOPO (clara, horizontal)
+      const ex = (x - cx) / (w / 2 - 1), ey = (y - lidFrontTop) / lidRy; if (ex * ex + ey * ey > 1) continue;
+      const back = (lidFrontTop - y) / lidRy, left = (cx - x) / (w / 2);
+      p.px(x, y, WD8[Math.round(cl(5.0 + back * 1.1 + left * 0.5, 7))]);
+    }
+    for (const dx of [-32, -14, 0, 14, 32]) for (let y = lidFrontTop - lidRy + 1; y < lidFrontTop; y++) { const x = cx + dx, ex = (x - cx) / (w / 2 - 1), ey = (y - lidFrontTop) / lidRy; if (ex * ex + ey * ey <= 0.92) p.px(x, y, WD8[3]); } // tábuas front-to-back
+    for (let x = cx - 28; x < cx + 4; x++) p.px(x, lidFrontTop - lidRy, "#8a7556"); // crista de céu (highlight quente)
+    for (let x = x0 + 1; x < x0 + w - 1; x++) { p.px(x, bodyTop, WD8[0]); p.px(x, bodyTop + 1, WD8[1]); } // sombra do beiral no corpo
+    const strapTop = lidFrontTop - lidRy + 3;
+    for (const bxC of straps) strapV(bxC, strapTop, bodyBot); // straps sobem do topo até a base
+    feet();
+    // FECHADURA de latão (foco COMPACTO — menor): chapa topo-redondo + buraco + glint
+    const lkw = 18, lkh = 24, lkx = cx - lkw / 2, lky = lidBot - 9;
+    for (let y = lky; y < lky + lkh; y++) for (let x = lkx; x < lkx + lkw; x++) {
+      const u = (x - lkx) / lkw, v = (y - lky) / lkh;
+      if (v < 0.24 && Math.abs(u - 0.5) / 0.5 > Math.sin((v / 0.24) * Math.PI / 2)) continue; // topo redondo
+      const idx = cl(3.0 + (0.5 - Math.abs(u - 0.30)) * 2.3 - v * 0.8 + (y === lky || x === lkx ? 1.2 : 0) - (y === lky + lkh - 1 || x === lkx + lkw - 1 ? 1.5 : 0), 5);
+      p.px(x, y, BRZ6[Math.round(idx)]);
+    }
+    const hx = cx, hy = lky + 12;
+    for (let yy = -3; yy <= 5; yy++) for (let xx = -2; xx <= 2; xx++) { if ((yy < 1 && xx * xx + yy * yy <= 4) || (yy >= 1 && Math.abs(xx) <= 1)) p.px(hx + xx, hy + yy, PIT_DK); }
+    p.px(hx - 1, hy - 2, BRZ6[5]); // borda lit do buraco
+    p.px(lkx + 3, lky + 3, "#fbe6b0"); p.px(lkx + 2, lky + 3, BRZ6[5]); p.px(lkx + 3, lky + 2, BRZ6[5]); // glint compacto
+  } else {
+    // ── ABERTO (saqueado): tampa erguida FULL-WIDTH (mesma silhueta do fechado,
+    //    cantos arredondados) mostrando o AVESSO + boca escura. Não estreita. ──
+    for (const bxC of straps) strapV(bxC, bodyTop, bodyBot);
+    feet();
+    p.rect(x0 + 3, bodyTop - 2, w - 6, 6, PIT_DK);               // boca (interior vazio escuro)
+    p.rect(x0 + 5, bodyTop, w - 10, 2, "#141821");
+    const lrBot = bodyTop - 2, lrTop = 6;
+    const rdome = (x: number) => { const side = (w / 2) - Math.abs(x - cx); let te = lrTop; if (side < 10) te += (10 - side) * 0.9; return Math.round(te); }; // cantos arredondados (= fechado)
+    for (let x = x0 + 1; x < x0 + w - 1; x++) { // AVESSO: escuro no fundo (topo) → RIM inferior lit
+      const te = rdome(x), u = (x - x0) / w;
+      for (let y = te; y < lrBot; y++) { const vy = (y - te) / (lrBot - te); p.px(x, y, WD8[Math.round(cl(1.8 + vy * 2.4 + (0.5 - Math.abs(u - 0.4)) * 0.9, 7))]); }
+    }
+    for (let x = x0 + 2; x < x0 + w - 2; x++) { p.px(x, rdome(x), WD8[2]); p.px(x, lrBot - 1, WD8[6]); } // aresta de topo (avesso) + rim inferior lit
+    for (const bxC of straps) for (let y = rdome(bxC) + 1; y < lrBot - 1; y++) { p.px(bxC, y, IRN6[2]); p.px(bxC - 1, y, IRN6[1]); } // straps no avesso (alinhadas com as do corpo)
+    for (const hxg of [x0 + 8, x0 + w - 11]) { p.rect(hxg, bodyTop - 3, 4, 4, IRN6[2]); p.px(hxg, bodyTop - 3, IRN6[4]); } // dobradiças (eixo)
+  }
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
+/**
+ * Porta de uma casa de enxaimel — nasce com a LARGURA do tile e a ALTURA da
+ * parede de casa (TILE_SIZE × HOUSE_WALL_H), pra sentar FLUSH no vão da parede:
+ * a moldura de madeira encosta na ombreira dos dois lados e a verga casa com o
+ * frechal do enxaimel (zero vão entre folha e parede). Anchor (0.5,1), mesma
+ * baseY dos tiles de parede.
+ *
+ * `open=false`: folha de pranchas maciças preenchendo o vão (3 valores, luz
+ * topo-esq, sombra de contato, aros de ferro + argola).
+ * `open=true`: VÊ-ATRAVÉS (Tibia/Apogea) — o miolo do vão fica TRANSPARENTE (o
+ * chão interior aparece por baixo no WorldRenderer), só a FOLHA encostada de
+ * lado na ombreira + a moldura permanecem. NUNCA pinta retângulo preto.
+ */
+function makeDoor(open: boolean): Texture {
+  const W = TILE_SIZE, H = HOUSE_WALL_H, p = new Px(W, H);
+  const cl = (v: number, m: number) => Math.min(m, Math.max(0, v));
+  const TOPH = 7 * S, JAMB_W = 3 * S, headH = 4 * S, sillH = 4 * S;
+  const ox = JAMB_W, ow = W - 2 * JAMB_W, oy = TOPH + headH, oBot = H - sillH, oh = oBot - oy;
+  // FOLHA de pranchas (luz envolvente + bevel por prancha + grão raro + topo/base) — contraste p/ 1:1
+  const leaf = (fx: number, fw: number, fh: number, litShift: number): void => {
+    const nPl = Math.max(3, Math.round(fw / (3 * S))), plW = fw / nPl;
+    for (let x = fx; x < fx + fw; x++) {
+      const u = (x - fx) / fw; let base = 1.7 + (1 - Math.abs(u - (0.30 + litShift)) * 1.9) * 3.2;
+      const inPl = ((x - fx) % plW) / plW; if (inPl < 0.1) base += 0.7; else if (inPl > 0.9) base -= 1.4;
+      for (let y = oy; y < oy + fh; y++) { let idx = base + (Math.sin(x * 1.3 + y * 0.12) > 0.9 ? -0.5 : 0); if (y === oy) idx += 1.0; else if (y === oy + fh - 1) idx -= 1.6; p.px(x, y, WD8[Math.round(cl(idx, 7))]); }
+    }
+  };
+  // STRAP-DOBRADIÇA: a ferragem horizontal É a dobradiça (strap forjado do lado da
+  // articulação esquerda, com pino/boss + ponta afunilada + rebites). Evita a
+  // sobreposição "dobradiça em cima da barra". `len` = comprimento a partir de ox.
+  const strapHinge = (hy: number, len: number): void => {
+    const ht = 3 * S, taper = 4 * S;
+    for (let i = 0; i < len; i++) {
+      let h2 = ht; if (i > len - taper) h2 = Math.max(1, ht - Math.round((i - (len - taper)) / taper * (ht - 1)));
+      const y0 = hy + Math.floor((ht - h2) / 2);
+      for (let j = 0; j < h2; j++) p.px(ox + i, y0 + j, IRN6[j === 0 ? 4 : j === h2 - 1 ? 0 : 2]); // topo lit, base escura
+    }
+    for (let yy = -2; yy <= 2; yy++) for (let xx = -2; xx <= 2; xx++) if (xx * xx + yy * yy <= 4) p.px(ox + 2 * S + xx, hy + Math.floor(ht / 2) + yy, IRN6[2]); // pino/boss
+    p.px(ox + 2 * S - 1, hy + Math.floor(ht / 2) - 1, IRN6[4]);
+    for (let k = 5 * S; k < len - 2 * S; k += 5 * S) { p.px(ox + k, hy + S, IRN6[5]); p.px(ox + k, hy + S + 1, IRN6[0]); } // rebites
+  };
+  // CINTA de ferro horizontal (linha de reforço da porta) — arredondada + rebites
+  const band = (bx: number, bw: number, by: number): void => {
+    for (let y = by; y < by + 3 * S; y++) { const ty = (y - by) / (3 * S - 1); for (let x = bx; x < bx + bw; x++) { let idx = 2; if (y === by) idx = 0.4; else if (ty < 0.4) idx = 4; else if (y === by + 3 * S - 1) idx = 0.2; p.px(x, y, IRN6[Math.round(cl(idx, 5))]); } }
+    for (let k = 3 * S; k < bw - 2; k += 5 * S) { p.px(bx + k, by + S, IRN6[5]); p.px(bx + k, by + 2 * S, IRN6[0]); }
+  };
+  // ── MOLDURA (grão+bevel) flush nas bordas do tile → senta no vão da parede ──
+  beamFill(p, 0, 0, W, TOPH);                                    // frechal
+  beamFill(p, 0, 0, JAMB_W, H); beamFill(p, W - JAMB_W, 0, JAMB_W, H); // ombreiras
+  beamFill(p, JAMB_W, TOPH, W - 2 * JAMB_W, headH);              // verga
+
+  if (!open) {
+    leaf(ox, ow, oh, 0);                                         // folha fechada
+    p.rect(ox, oy, ow, S, WD8[0]); p.rect(ox, oy, S, oh, WD8[0]); // AO no rebaixo (separa folha↔moldura)
+    band(ox, ow, oy + 7 * S); band(ox, ow, oBot - 10 * S);      // 2 linhas de ferro (cintas de reforço, largura total)
+    strapHinge(oy + 2 * S, Math.round(ow * 0.22)); strapHinge(oBot - 5 * S, Math.round(ow * 0.22)); // dobradiças nas PONTAS (topo/base), separadas das cintas
+    // chapa + argola de ferro na direita (lado oposto à dobradiça)
+    const rx = ox + ow - 6 * S, ry = oy + Math.round(oh * 0.5);
+    for (let y = ry - 3 * S; y < ry + 3 * S; y++) for (let x = rx; x < rx + 4 * S; x++) { const u = (x - rx) / (4 * S); p.px(x, y, IRN6[y === ry - 3 * S ? 4 : u < 0.3 ? 3 : u > 0.8 ? 1 : 2]); }
+    for (let a = 0; a < 360; a += 5) { const r = a * Math.PI / 180, x = rx + 2 * S + Math.cos(r) * 2.4 * S, y = ry + 4 * S + Math.sin(r) * 2.4 * S; p.px(x, y, Math.sin(r) < -0.2 && Math.cos(r) < 0 ? IRN6[5] : Math.sin(r) > 0.4 ? IRN6[1] : IRN6[3]); }
+  } else {
+    // VÊ-ATRAVÉS: vão TRANSPARENTE (chão aparece). Só reveal + folha aberta à esquerda.
+    p.rect(ox, oy, ow, S, WD8[0]); p.rect(ox + ow - S, oy, S, oh, WD8[0]); // testa/ombreira interna (sombra do recuo)
+    const fw = 5 * S; leaf(ox, fw, oh, 0.04);                    // folha aberta (estreita, de canto)
+    p.rect(ox + fw - S, oy, S, oh, WD8[0]);                      // canto livre da folha (aresta escura)
+    band(ox, fw, oy + 7 * S); band(ox, fw, oBot - 10 * S);      // cintas na folha estreita
+    strapHinge(oy + 2 * S, fw - S); strapHinge(oBot - 5 * S, fw - S); // dobradiças nas pontas
+  }
+  // soleira/limiar (sempre) + sombra de contato funda
+  beamFill(p, 0, H - sillH, W, sillH);
+  p.rect(0, H - 2 * S, W, 2 * S, "rgba(0,0,0,0.32)");
+  p.outline(PROP_OUT);
+  return p.texture();
+}
+
 /** Gradiente radial para as luzes (branco → transparente, falloff suave). */
 function makeLightTexture(): Texture {
   const size = 256;
@@ -1744,10 +2458,35 @@ export interface SpriteLibrary {
   swamp: Texture[];
   trees: Texture[];
   rocks: Texture[];
-  /** Mobília urbana (kit de feira), anchor bottom: barril / caixa / tenda. */
-  barrel: Texture;
+  /** Mobília urbana (kit de feira), anchor bottom: barril / caixa / tenda.
+   *  `barrels` = variantes seedadas (PROPS-BRIEF: 5 barris ≠ idênticos). */
+  barrels: Texture[];
   crate: Texture;
   stall: Texture;
+  /** Cerca/parapeito de madeira — AUTOTILE 16 máscaras (N=1,E=2,S=4,W=8). */
+  fence: Texture[];
+  /** Poço da Praça (anel de pedra + telhadinho + balde), anchor bottom. */
+  well: Texture;
+  /** Balcão+toldo de loja (tira ~2 tiles acoplável à fachada sul), anchor bottom. */
+  shopCounter: Texture;
+  /** Saco de pano amarrado (decor), anchor bottom. */
+  sack: Texture;
+  /** Cesto de vime com palha (decor), anchor bottom. */
+  basket: Texture;
+  /** Lenha empilhada (faces de topo das toras), anchor bottom. */
+  firewood: Texture;
+  /** Fardo de feno amarrado, anchor bottom. */
+  hay: Texture;
+  /** Placas de loja por ofício (braço de ferro + tabuleta com ícone) — decor. */
+  signs: { ferreiro: Texture; boticario: Texture; padaria: Texture; generico: Texture };
+  /** Braseiro de brasa — 3 frames (anima como a tocha) + fonte de luz quente. */
+  brazierFrames: Texture[];
+  /** Boneco de treino (poste + alvo de palha) do pátio da Guilda, anchor bottom. */
+  trainingDummy: Texture;
+  /** Estacas de obra (postes + ripas) do trecho em obras, anchor bottom. */
+  scaffold: Texture;
+  /** Carroça de feira (B-tier opcional), anchor bottom. */
+  cart: Texture;
   /** Muralha autotile: 16 máscaras (N=1,E=2,S=4,W=8) × variantes de nuance. */
   walls: Texture[][];
   // ── Subsolo (procedural; rocha orgânica + água suja) — SISTEMA-ANDARES.md ──
@@ -1779,6 +2518,12 @@ export interface SpriteLibrary {
   manhole: Texture;
   /** Escada (descida/subida entre andares). */
   stairs: Texture;
+  /** Baú do mundo (FECHADO e ABERTO/vazio) — anchor base, y-sorted. */
+  chestClosed: Texture;
+  chestOpen: Texture;
+  /** Porta trancada (FECHADA e ABERTA) — anchor base, y-sorted. */
+  doorClosed: Texture;
+  doorOpen: Texture;
   shadow: Texture;
   /** Decais espalhados no chão (baked no chunk): grama/terra/pedra/esgoto/caverna. */
   scatter: { grass: Texture[]; dirt: Texture[]; stone: Texture[]; sewer: Texture[]; cave: Texture[] };
@@ -1803,9 +2548,21 @@ export function createSprites(): SpriteLibrary {
     // Árvores: PixelLab (curadoria) quando carregadas; fallback procedural.
     trees: PIXELLAB.trees.length > 0 ? PIXELLAB.trees : [makeTree(101), makeTree(202), makeTree(303)],
     rocks: [makeRock(401), makeRock(402)],
-    barrel: makeBarrel(),
+    barrels: [makeBarrel(11), makeBarrel(29), makeBarrel(47), makeBarrel(83)],
     crate: makeCrate(),
     stall: makeStall(),
+    fence: makeFenceTiles(),
+    well: makeWell(),
+    shopCounter: makeShopCounter(),
+    sack: makeSack(),
+    basket: makeBasket(),
+    firewood: makeFirewood(),
+    hay: makeHay(),
+    signs: { ferreiro: makeSign("ferreiro"), boticario: makeSign("boticario"), padaria: makeSign("padaria"), generico: makeSign("generico") },
+    brazierFrames: makeBrazierFrames(),
+    trainingDummy: makeTrainingDummy(),
+    scaffold: makeScaffold(),
+    cart: makeCart(),
     walls: makeWallTiles(),
     // Esgoto/caverna: rocha orgânica procedural (campo 128 seamless, sliced em 16).
     sewerFloor: makeOrganicRockField(801, SEWER_ROCK),
@@ -1828,6 +2585,10 @@ export function createSprites(): SpriteLibrary {
     targetMarker: makeTargetMarker(),
     manhole: makeManhole(),
     stairs: makeStairs(),
+    chestClosed: makeChest(false),
+    chestOpen: makeChest(true),
+    doorClosed: makeDoor(false),
+    doorOpen: makeDoor(true),
     shadow: makeShadow(),
     scatter: makeScatterDecals(),
     stoneTransition: makeStoneTransition(404),

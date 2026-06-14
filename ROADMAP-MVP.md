@@ -115,7 +115,7 @@ Objetivo: **Alvorada jogável de ponta a ponta** com poucos mobs/quests, mas com
 
 ## Fase 3 — Cidades 2–4 → a estrada pra dentro + a Capital
 
-> **Reframe pelo espinho de progressão (jun/2026, ver `DESIGN-MUNDO.md` §Progressão do mundo):** "cidades 2–4" **não** são 3 vilas-irmãs da fronteira. O escopo do lançável é **"o primeiro ato até a Capital"** — direção: fronteira (Região 1) → **estrada pra dentro** (1–2 regiões MIDLANDS T3–4, arco ② do Necromante) → **a Capital monumental** como clímax (o "cheguei à civilização", marcado via bind de santuário). Charneca/Brumal seguem como fronteira/spawn; o que muda é que o pós-MVP **aponta inward**, não pra mais fronteira. Cap-alvo ~lvl 35–40.
+> **Reframe pelo espinho de progressão (jun/2026, ver `DESIGN-MUNDO.md` §Progressão do mundo):** "cidades 2–4" **não** são 3 vilas-irmãs da fronteira. O escopo do lançável é **"o primeiro ato até a Capital"** — direção: fronteira (Região 1) → **estrada pra dentro** (1–2 regiões MIDLANDS T3–4, arco ② do Necromante) → **a Capital monumental** como clímax (o "cheguei à civilização", marcado via bind de santuário). Charneca/Brumal seguem como fronteira (**destinos, não berços** — modelo de spawn revisado jun/2026: berço único no MVP = Alvorada, ver `EXPLORACAO.md`); o que muda é que o pós-MVP **aponta inward**, não pra mais fronteira. Cap-alvo ~lvl 35–40.
 
 - [ ] **F5 (design primeiro)**: world-designer + loremaster desenham as cidades 2–4 (mapa, POIs, NPCs, quests) no padrão da fatia-1. **Pré-requisito de tudo abaixo.**
 - [ ] **F2/F3**: portar conteúdo dessas cidades (mobs T2–T3, ~15–35 quests, NPCs, mapas).

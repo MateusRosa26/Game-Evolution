@@ -29,7 +29,7 @@ function setOutfit(set: string, colors: { head: number; torso: number; legs: num
 
 async function main() {
   const app = new Application();
-  await app.init({ width: 1340, height: 7200, background: 0x0a0c10 });
+  await app.init({ width: 1340, height: 8400, background: 0x0a0c10 });
   document.body.appendChild(app.canvas);
 
   await loadPixellabAssets();
@@ -180,15 +180,34 @@ async function main() {
   // MOBÍLIA URBANA — kit de feira (barril/caixa/tenda) sobre grama e pedra @6x
   const propsY = gridY + 24 + Math.ceil(OUTFIT_COLORS.length / 26) * 20 + 40;
   const props: { name: string; tex: Texture }[] = [
-    { name: "barril", tex: sprites.barrel },
+    { name: "barril", tex: sprites.barrels[0] },
     { name: "caixa", tex: sprites.crate },
     { name: "tenda", tex: sprites.stall },
+    { name: "poço", tex: sprites.well },
+    { name: "balcão-loja", tex: sprites.shopCounter },
+    { name: "braseiro", tex: sprites.brazierFrames[0] },
+    { name: "boneco-treino", tex: sprites.trainingDummy },
+    { name: "estacas-obra", tex: sprites.scaffold },
+    { name: "carroça", tex: sprites.cart },
+    { name: "lenha", tex: sprites.firewood },
+    { name: "feno", tex: sprites.hay },
+    { name: "saco", tex: sprites.sack },
+    { name: "cesto", tex: sprites.basket },
+    { name: "placa-ferreiro", tex: sprites.signs.ferreiro },
+    { name: "placa-boticário", tex: sprites.signs.boticario },
+    { name: "placa-padaria", tex: sprites.signs.padaria },
+    // cerca autotile: peça de tira horizontal (E|W) e canto (S|E) p/ ler a conexão
+    { name: "cerca (tira)", tex: sprites.fence[0b1010] },
+    { name: "cerca (canto)", tex: sprites.fence[0b0110] },
   ];
-  let px = 8;
+  // wrap em linhas (são muitos props agora): cada prop = par grama/pedra lado a
+  // lado; quebra quando estoura a largura do canvas, somando a altura da fileira.
+  const SC = 6, MAXW = 1320, GAP = 14, ROWGAP = 26;
+  let px = 8, py = propsY + 24, rowH = 0;
   for (const { name, tex } of props) {
+    const W = tex.width * SC, H = tex.height * SC, pairW = W * 2 + GAP + 16;
+    if (px + pairW > MAXW) { px = 8; py += rowH + ROWGAP; rowH = 0; } // nova fileira
     for (const [bg, label] of [[sprites.grass[0], "grama"], [sprites.stoneFloor[0], "pedra"]] as const) {
-      const SC = 6;
-      const W = tex.width * SC, H = tex.height * SC;
       const tile = new Container();
       const bgSprite = new Sprite(bg);
       bgSprite.width = W;
@@ -197,20 +216,21 @@ async function main() {
       const spr = new Sprite(tex);
       spr.scale.set(SC);
       tile.addChild(spr);
-      tile.position.set(px, propsY + 24);
+      tile.position.set(px, py);
       root.addChild(tile);
       const cap = new Text({
         text: `${name} (${label})`,
         style: { fontFamily: "monospace", fontSize: 12, fill: 0x7d8794 },
       });
-      cap.position.set(px, propsY + 24 + H + 2);
+      cap.position.set(px, py + H + 2);
       root.addChild(cap);
-      px += W + 12;
+      px += W + GAP;
     }
     px += 16;
+    rowH = Math.max(rowH, H + 16);
   }
   const propsLabel = new Text({
-    text: "MOBÍLIA URBANA — barril / caixa / tenda (kit de feira) @6x",
+    text: "MOBÍLIA URBANA — kit completo (S/A/B) sobre grama e pedra @6x",
     style: { fontFamily: "monospace", fontSize: 14, fill: 0xe8e4d8 },
   });
   propsLabel.position.set(8, propsY);

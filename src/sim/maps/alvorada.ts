@@ -1,4 +1,4 @@
-import { TileId, type ChestDef, type FloorLayer, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect } from "../../shared/types";
+import { TileId, WALKABLE, type ChestDef, type DoorDef, type FloorLayer, type InteractableDef, type MapData, type MapDecor, type MapLight, type MapMonster, type MapPortal, type MapRect, type QuestRegionDef } from "../../shared/types";
 import { CREATURES } from "../bestiary";
 import { mulberry32, valueNoise } from "../rng";
 
@@ -56,23 +56,51 @@ const CROSSINGS: { y: number; tile: TileId; half: number; lit: boolean }[] = [
 
 // ── §3.3: edifícios-âncora — retângulos em coord-cidade, porta EXATA do GRID.
 // Footprints são "engenharia a partir das âncoras" (§12) — afináveis.
-type Building = { name: string; rect: [number, number, number, number]; door: [number, number] };
+// `doorId`/`doorName` = id estável e rótulo da DoorDef gerada no tile `door` (toda
+// casa entrável ganha porta, feel Tibia); `lockKey` = chave que tranca (só a casa
+// inicial — o resto abre andando, sem chave).
+// ── Arquétipo de edifício (mata "casas todas iguais" — PROPS-BRIEF.md Lane 1).
+// Esta é a camada de PLACEMENT do Mundo: marca, por prédio, qual estilo de telhado
+// + material de parede + adereços de fachada ele recebe. Os kits de sprite ainda
+// NÃO existem (entram com as Lanes 1/2 do brief via style/material em makeRoof/
+// makeHouseWallTile + kinds novos chamine/estandarte/beiral_lampiao). Campos
+// opcionais e ainda não consumidos pelo render — quando os sprites chegarem, o
+// cliente lê daqui via snapshot. `roof`/`wall` default = telha/enxaimel (comum).
+type RoofStyle = "telha" | "colmo" | "ardosia" | "tabua";
+type WallMaterial = "enxaimel" | "pedra" | "taipa_pobre" | "meia_pedra";
+type Adorno = "chamine" | "chamine_fumaca" | "estandarte" | "beiral_lampiao";
+type Building = {
+  name: string;
+  rect: [number, number, number, number];
+  door: [number, number];
+  doorId: string;
+  doorName: string;
+  lockKey?: string;
+  roof?: RoofStyle;       // default "telha"
+  wall?: WallMaterial;    // default "enxaimel"
+  adornos?: Adorno[];     // fachada — chaminé/estandarte/lampião
+};
 const BUILDINGS: Building[] = [
-  { name: "Estalagem do Vau (Bartolo/Bento — Q1/Q6)", rect: [16, 37, 24, 42], door: [20, 42] },
-  { name: "Loja Geral (Nina — Q2)", rect: [21, 34, 27, 38], door: [24, 38] },
-  { name: "Boticário (Silas — Q3)", rect: [28, 34, 34, 38], door: [31, 38] },
-  { name: "Ferreiro (Duarte — Q4/Q9)", rect: [16, 24, 24, 28], door: [20, 28] },
-  { name: "Depot (banco/armazém)", rect: [35, 27, 42, 32], door: [38, 32] },
-  { name: "Câmara (Augusto)", rect: [42, 42, 50, 46], door: [46, 46] },
-  { name: "Quartel da Guarda (Capitão Vidal — Q5/Q8)", rect: [3, 31, 12, 36], door: [8, 36] },
-  { name: "Capela do Coveiro (Abel — Q10)", rect: [12, 8, 18, 12], door: [15, 12] },
-  { name: "Templo (Gabriel — R4)", rect: [16, 9, 26, 14], door: [20, 14] },
-  { name: "Torre Arcana (Leonor — R2)", rect: [27, 13, 33, 18], door: [30, 18] },
-  { name: "Guilda dos Guerreiros (Ricardo — R1)", rect: [40, 12, 50, 18], door: [44, 18] },
-  { name: "Taverna do Cais (Tobias/Telmo — Q12/Q9)", rect: [46, 25, 54, 30], door: [50, 30] },
-  { name: "Armazéns (Cais)", rect: [46, 42, 55, 46], door: [50, 46] },
-  { name: "Casa inicial (Rosa — nascimento)", rect: [25, 41, 31, 46], door: [28, 46] },
+  // Cais/lojas — comuns e funcionais; estalagem/taverna em tábua+meia-pedra com vida (fumaça/lampião).
+  { name: "Estalagem do Vau (Bartolo/Bento — Q1/Q6)", rect: [16, 37, 24, 42], door: [20, 42], doorId: "porta_estalagem", doorName: "a porta da Estalagem", roof: "tabua", wall: "meia_pedra", adornos: ["chamine_fumaca", "beiral_lampiao"] },
+  { name: "Loja Geral (Nina — Q2)", rect: [21, 34, 27, 38], door: [24, 38], doorId: "porta_loja", doorName: "a porta da Loja", roof: "telha", wall: "enxaimel" },
+  { name: "Boticário (Silas — Q3)", rect: [28, 34, 34, 38], door: [31, 38], doorId: "porta_boticario", doorName: "a porta do Boticário", roof: "telha", wall: "enxaimel" },
+  { name: "Ferreiro (Duarte — Q4/Q9)", rect: [16, 24, 24, 28], door: [20, 28], doorId: "porta_ferreiro", doorName: "a porta do Ferreiro", roof: "telha", wall: "pedra", adornos: ["chamine_fumaca"] },
+  { name: "Depot (banco/armazém)", rect: [35, 27, 42, 32], door: [38, 32], doorId: "porta_depot", doorName: "a porta do Depot", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  // Cívicos/sacros/importantes — pedra + ardósia (frio/sólido) + estandarte.
+  { name: "Câmara (Augusto)", rect: [42, 42, 50, 46], door: [46, 46], doorId: "porta_camara", doorName: "a porta da Câmara", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  { name: "Quartel da Guarda (Capitão Vidal — Q5/Q8)", rect: [3, 31, 12, 36], door: [8, 36], doorId: "porta_quartel", doorName: "a porta do Quartel", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  { name: "Capela do Coveiro (Abel — Q10)", rect: [12, 8, 18, 12], door: [15, 12], doorId: "porta_capela", doorName: "a porta da Capela", roof: "ardosia", wall: "pedra" },
+  { name: "Templo (Gabriel — R4)", rect: [16, 9, 26, 14], door: [20, 14], doorId: "porta_templo", doorName: "a porta do Templo", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  { name: "Torre Arcana (Leonor — R2)", rect: [27, 13, 33, 18], door: [30, 18], doorId: "porta_torre", doorName: "a porta da Torre", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  { name: "Guilda dos Guerreiros (Ricardo — R1)", rect: [40, 12, 50, 18], door: [44, 18], doorId: "porta_guilda", doorName: "a porta da Guilda", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  // Cais — tábua + meia-pedra, gasto pela maresia.
+  { name: "Taverna do Cais (Tobias/Telmo — Q12/Q9)", rect: [46, 25, 54, 30], door: [50, 30], doorId: "porta_taverna", doorName: "a porta da Taverna", roof: "tabua", wall: "meia_pedra", adornos: ["beiral_lampiao"] },
+  { name: "Armazéns (Cais)", rect: [46, 42, 55, 46], door: [50, 46], doorId: "porta_armazens", doorName: "a porta dos Armazéns", roof: "tabua", wall: "meia_pedra" },
+  { name: "Casa inicial (Rosa — nascimento)", rect: [25, 41, 31, 46], door: [28, 46], doorId: "porta_casa_inicial", doorName: "a porta de saída", lockKey: "chave_casa_inicial", roof: "telha", wall: "enxaimel", adornos: ["chamine_fumaca"] },
 ];
+// Granja (fora da muralha): moinho/celeiro recebem colmo+taipa_pobre quando os
+// kits chegarem — placement deles é hardcoded mais abaixo (buildings.push), não no array.
 // DESVIO: Capela [12..18] e Templo [16..26] do GRID colidiam; Capela encolhida
 // 1 tile a oeste mantendo a porta canônica (15,12). Templo porta (20,14) exata.
 
@@ -162,27 +190,30 @@ const SPOTS: Spot[] = [
     id: "S7 Ninho de Aranhas (T2 — sem trilha)",
     rect: [260, 60, 300, 90],
     spawns: [
-      [268, 68, "aranha_das_cavernas"],
-      [278, 75, "aranha_das_cavernas"],
-      [288, 70, "aranha_das_cavernas"],
-      [272, 84, "aranha_das_cavernas"],
-      [292, 82, "aranha_das_cavernas"],
+      [268, 68, "aranha"],
+      [278, 75, "aranha"],
+      [288, 70, "aranha"],
+      [272, 84, "aranha"],
+      [292, 82, "aranha"],
     ],
   },
   {
     id: "S9 Juncal dos Fundeiros (T1→T2 — Q14)",
     rect: [175, 150, 205, 185],
+    // ✏️ Goblin Fundeiro (ranged "shooter") ainda não existe como espécie (regra de
+    // naming singular + sem mob de longe nesta fatia) — spawna o `goblin` base por
+    // ora. Quando o primeiro atirador entrar, troca aqui.
     spawns: [
-      [198, 155, "goblin_fundeiro"],
-      [201, 165, "goblin_fundeiro"],
-      [197, 175, "goblin_fundeiro"],
-      [202, 180, "goblin_fundeiro"],
-      [180, 153, "goblin_fundeiro"],
-      [178, 170, "goblin_fundeiro"],
+      [198, 155, "goblin"],
+      [201, 165, "goblin"],
+      [197, 175, "goblin"],
+      [202, 180, "goblin"],
+      [180, 153, "goblin"],
+      [178, 170, "goblin"],
     ],
   },
   {
-    id: "S10 Matagal dos Javalis (T2 — Q6/Q7, named Presa-Torta ✏️)",
+    id: "S10 Matagal dos Javalis (T2 — Q6/Q7, named Presa-Torta)",
     rect: [235, 230, 275, 270],
     spawns: [
       [242, 238, "javali"],
@@ -191,17 +222,20 @@ const SPOTS: Spot[] = [
       [248, 258, "javali"],
       [260, 263, "javali"],
       [270, 252, "javali"],
+      // Presa-Torta (named, Q7 ato 2): 1 no fundo do Matagal. O template já tem
+      // respawn longo (bestiary.ts) — não phasing, mob único do mundo.
+      [255, 250, "presa_torta"],
     ],
   },
   {
     id: "S11 Bandidos da Ponte (T2 — Q9/Q11)",
     rect: [150, 260, 185, 290],
     spawns: [
-      [155, 266, "bandido_da_estrada"],
-      [160, 275, "bandido_da_estrada"],
-      [156, 284, "bandido_da_estrada"],
-      [175, 280, "bandido_da_estrada"],
-      [180, 268, "bandido_da_estrada"],
+      [155, 266, "bandido"],
+      [160, 275, "bandido"],
+      [156, 284, "bandido"],
+      [175, 280, "bandido"],
+      [180, 268, "bandido"],
     ],
   },
 ];
@@ -397,9 +431,20 @@ export function generateAlvoradaMap(): MapData {
   torch(...city(41, 35));
   torch(...city(34, 43));
   torch(...city(41, 43));
-  // Bueiro da Praça (E01, Q1 aponta): marcado como pedra escura ✏️ vira escada
-  // de esgoto quando A1 existir (mapa separado, próximo milestone)
-  set(...city(36, 38), TileId.StoneFloor);
+  // As 5 BOCAS de esgoto (§7.1) — cada boeiro cai no A1 (atalho urbano por baixo).
+  // O marcador (grade de ferro) e o portal `hole` vêm de ALVORADA_PORTALS e desenham
+  // sobre QUALQUER chão; só forço pedra se o terreno original não for andável — assim
+  // a grade da Capela/Guilda/Cais assenta na grama/terra natural (sem quadrado solto).
+  for (const [bcx, bcy] of [
+    [15, 13], // Capela do Coveiro (Alto)
+    [44, 20], // pátio da Guilda
+    [41, 33], // Depot — lateral L (fora da porta e do eixo do bueiro da Praça)
+    [36, 38], // Praça do Poço — bueiro principal (Q1 aponta)
+    [50, 40], // Cais (Armazéns)
+  ] as const) {
+    const [bx, by] = city(bcx, bcy);
+    if (!WALKABLE[get(bx, by)]) set(bx, by, TileId.StoneFloor);
+  }
 
   // Ruas de terra ligando portões → praça
   const STREETS: [number, number][][] = [
@@ -452,6 +497,95 @@ export function generateAlvoradaMap(): MapData {
 
   // Balsa FECHADA (§3.3): píer de tábuas do Cais até a água (promessa: Pontal)
   for (let x = 159; x <= 166; x++) set(x, 128, TileId.Bridge);
+
+  // ════ 6b. MOBÍLIA URBANA (MOBILIA-URBANA.md §4/§5) — vila viva ════
+  // Kit PROCEDURAL (decisão de design: NÃO usar PixelLab). 3 camadas: estruturas
+  // de comércio ABERTAS (tenda/balcão/placa), props de USO (barril/caixa/saco/
+  // lenha/feno) e DELIMITADORES (cerca/estacas). Estratégia §4: ASSIMETRIA, nunca
+  // centralizar 1-a-1, clutter AGRUPADO (3–5 peças encostadas) nos CANTOS/VÃOS —
+  // jamais sobre porta, estrada, bueiro ou o caminho do nascimento.
+  //
+  // `dec()` ancora em coord-CIDADE (via city()); `blk` define colisão (MapDecor.
+  // blocks → tile impassável na sim). Guarda: peça que BLOQUEIA só pousa em tile
+  // ANDÁVEL hoje (não sela porta/rua nem duplica muro — pula em silêncio se cair em
+  // sólido); decor puro (saco/placa) pode encostar em parede. Determinístico (sem
+  // rng): o placement é AUTORAL (assimetria/cluster vêm das coords, não do acaso).
+  const dec = (cx: number, cy: number, kind: MapDecor["kind"], blk = false) => {
+    const [x, y] = city(cx, cy);
+    if (blk && !WALKABLE[get(x, y)]) return; // tile já sólido: não duplica/sela
+    decor.push({ x, y, kind, ...(blk ? { blocks: true } : {}) });
+  };
+  // braseiro = fonte de luz quente móvel (luz vem dos DADOS, como a tocha — §3).
+  const brazier = (cx: number, cy: number, radius = 4) => {
+    const [x, y] = city(cx, cy);
+    if (!WALKABLE[get(x, y)]) return;
+    decor.push({ x, y, kind: "braseiro", blocks: true });
+    lights.push({ x, y, color: 0xff7a36, radius, intensity: 0.8, flicker: true });
+  };
+
+  // ── FEIRA na Praça do Poço (§4 — o maior salto de "vila") ──
+  // Poço no CENTRO (assenta na água-doce city(37,39): o marco que dá nome à praça
+  // e a fonte de cozinha são a MESMA peça). Bloqueia o tile; cozinha-se ao lado
+  // (nearWater = Chebyshev ≤1) e os 8 vizinhos ficam livres (bueiro (36,38) e ruas
+  // intactos). Tendas em ANEL IRREGULAR colado às bordas, fugindo das 4 bocas de
+  // rua (N≈x38, O≈y38, S≈(33,42), SE≈(42,44)) e dos vizinhos do poço.
+  dec(37, 39, "poco", true);
+  // tendas (5, assimétricas — cantos NO/NE/SO/SE/S da praça, nunca enfileiradas).
+  // x34 no topo é a parede L do Boticário (some na praça) → banca NO foge p/ x35.
+  dec(35, 36, "tenda", true);
+  dec(40, 35, "tenda", true);
+  dec(34, 42, "tenda", true);
+  dec(41, 41, "tenda", true);
+  dec(39, 43, "tenda", true);
+  // mercadoria AGRUPADA junto de cada tenda (saco/cesto = decor; caixa = bloqueia)
+  dec(33, 36, "saco"); dec(33, 37, "saco"); dec(35, 37, "caixa", true); // banca NO
+  dec(40, 34, "caixa", true); dec(41, 34, "saco"); dec(39, 35, "saco");  // banca NE (saco fora da tocha 41,35)
+  dec(33, 42, "saco"); dec(35, 43, "saco"); dec(35, 42, "caixa", true);  // banca SO (caixa fora da tocha 34,43)
+  dec(42, 41, "saco"); dec(41, 42, "caixa", true);                       // banca SE
+  dec(38, 42, "saco"); dec(40, 43, "saco");                              // banca S
+  // pilha de caixas/barris num canto morto da praça (clutter agrupado, §4)
+  // (caixa a x34, NÃO x33: x33,39 é o balcão do Boticário — evita prop empilhado)
+  dec(34, 39, "caixa", true); dec(33, 40, "barril", true); dec(34, 40, "caixa", true);
+
+  // ── FACHADAS viram LOJAS (§4): balcão/placa/clutter NA FRENTE da porta. A parede
+  // sul da casa NÃO é andável (HouseWall) → peça que bloqueia pousa UM tile à frente
+  // (ground andável), nunca no vão da porta nem no tile do NPC; a PLACA pendura na
+  // parede (decor puro). Tile de aproximação da porta (logo abaixo) fica LIVRE.
+  // Loja Geral (Nina, porta (24,38)) — balcão a O, clutter a L; aproximação (24,39).
+  dec(22, 39, "balcao", true); dec(23, 38, "placa");
+  dec(26, 39, "caixa", true); dec(27, 39, "barril", true); dec(26, 40, "saco");
+  // Boticário (Silas, porta (31,38)) — balcão a L, clutter a O; aproximação (31,39).
+  dec(33, 39, "balcao", true); dec(32, 38, "placa");
+  dec(28, 39, "barril", true); dec(29, 39, "caixa", true); dec(28, 40, "saco");
+  // Ferreiro (Duarte, porta (20,28)) — balcão a L + forja (braseiro/lenha) a O;
+  // a rua sai da porta pela coluna x20 (20,29)→(20,36): NADA em x20. Aprox. (20,29).
+  dec(22, 29, "balcao", true); dec(22, 28, "placa");
+  brazier(18, 29); dec(17, 29, "lenha", true); dec(23, 29, "caixa", true);
+  // Estalagem do Vau (Bartolo, porta (20,42)) — barris de cerveja a L + placa;
+  // fogão é interior (não mexer). Aproximação (20,43) livre.
+  dec(22, 43, "barril", true); dec(23, 43, "barril", true); dec(22, 44, "caixa", true);
+  dec(18, 42, "placa");
+
+  // ── QUEBRAR O GRID (§4): cercas definindo quintais/becos + clutter nos vãos ──
+  // Quintal a O da Loja Geral / N da Estalagem (vão uniforme entre as casas-caixa).
+  // Cerca em L (autotile pega os cantos); vão deixado p/ entrar; clutter dentro.
+  for (let cy = 32; cy <= 33; cy++) dec(28, cy, "cerca", true); // lance vertical
+  dec(29, 33, "cerca", true); dec(30, 33, "cerca", true);        // dobra p/ leste
+  dec(29, 32, "lenha", true); dec(30, 32, "lenha", true); // lenha/feno = mesmo kind
+  // viela entre Boticário (sul) e Depot (norte): pilha encostada (mata canto vazio)
+  dec(34, 33, "caixa", true); dec(35, 33, "barril", true);
+
+  // ── PÁTIO DA MILÍCIA / GUILDA (R1, Guilda rect [40..50,12..18], porta (44,18)):
+  // braseiro + boneco de treino (treino). Ricardo em (44,18) — fica no vão; planto
+  // ao lado, sem tapar a porta nem a rua da guilda (40,21)→(44,19).
+  dec(46, 19, "boneco_treino", true); dec(47, 19, "boneco_treino", true);
+  brazier(42, 19); dec(41, 19, "lenha", true);
+
+  // ── MURALHA "EM OBRAS" (§3.1): trechos de gap O (city x2, y44..50) e S (city
+  // y58, x6..12) — estacas de obra + ripas soltas (gancho físico do v4). Pousa
+  // na grama do gap (andável), nunca na muralha de pedra.
+  dec(2, 45, "estacas", true); dec(2, 47, "estacas", true); dec(3, 46, "lenha", true);
+  dec(7, 58, "estacas", true); dec(10, 58, "estacas", true); dec(9, 57, "caixa", true);
 
   // ════ 7. POIs fora da muralha ════
   // Gruta dos Morcegos (S3 — barranco N da colina): bolsão rochoso
@@ -560,17 +694,46 @@ export function generateAlvoradaMap(): MapData {
     safeZones.push({ x: x0 + 1, y: y0 + 1, w: x1 - x0 - 1, h: y1 - y0 - 1 });
   }
 
-  // NPCs da fatia (elenco NPCS.md — só os necessários pra quest implementada).
-  // Bartolo: Estalagem do Vau, atrás do balcão — city(20,39) → local (120,119).
-  // Treinadores de classe (ritos R1-R4): posições PROVISÓRIAS na rua aberta ao sul
-  // da casa-tutorial (andável, alcançável do spawn). ✏️ world-designer realoca pros
-  // distritos canônicos (Pátio da Milícia / Casa do Mago / Beco dos Ladinos / Capela).
+  // NPCs falantes da fatia (GRID §4 + §3.3 portas dos edifícios). Cada um POUSA
+  // na porta do seu edifício (vão = StoneFloor andável, alcançável da rua) via
+  // city(). Coords-cidade da tabela §4; conferidas tile-a-tile contra o paint da
+  // cidade (todas andáveis). Bento NÃO entra (fundido no Bartolo, jun/2026).
+  // ✏️ posições finas = world-designer; aqui é o placement de integração.
+  const npc = (npcId: string, name: string, cx: number, cy: number) => {
+    const [x, y] = city(cx, cy);
+    return { npcId, name, x, y };
+  };
+  // FIX (jun/2026 — "Bartolo travando a porta"): antes, cada NPC de prédio caía
+  // EM CIMA do tile-porta do seu edifício (a coord-âncora do GRID é a porta) e,
+  // com o anda-pra-abrir + bloqueio de corpo, SELAVA a entrada. Agora cada um
+  // pousa 1–2 tiles DENTRO (atrás do balcão), em tile andável do interior, longe
+  // da porta/baú/spawn. Coords antigas (= porta) anotadas ao lado. Os que já
+  // estavam fora do vão (hugo/rosa/telmo/vincente/amaro/augusto/marco) ficam.
   const npcSpawns = [
-    { npcId: "bartolo", name: "Bartolo", x: 120, y: 119 },
-    { npcId: "ricardo", name: "Ricardo", x: 125, y: 128 },
-    { npcId: "leonor", name: "Leonor", x: 131, y: 128 },
-    { npcId: "vincente", name: "Vincente", x: 125, y: 129 },
-    { npcId: "gabriel", name: "Gabriel", x: 131, y: 129 },
+    // ── Baixa (cluster de utilidade + ofícios) ──
+    npc("bartolo", "Bartolo", 20, 40), // Estalagem do Vau (Q1/Q6) — atrás do balcão (era a porta 20,42)
+    npc("nina", "Nina", 24, 36), // Loja Geral (Q2) — interior (era a porta 24,38)
+    npc("silas", "Silas", 31, 36), // Boticário (Q3) — interior (era a porta 31,38)
+    npc("duarte", "Duarte", 20, 26), // Ferreiro (Q4/Q9) — interior (era a porta 20,28)
+    npc("vidal", "Vidal", 8, 34), // Quartel da Guarda (Q5/Q8/Q9) — interior (era a porta 8,36)
+    npc("hugo", "Hugo", 26, 30), // mineiro aposentado (Q13 — sussurrador), canto da Baixa
+    npc("rosa", "Rosa", 28, 43), // casa inicial (tutorial) — interior andável (128,123),
+    //   na safeZone, SEM tapar a PORTA (128,126), o spawn (128,124) nem os baús
+    //   (127/129,123). Antes caía em (128,126) = único vão de saída da casa, FORA
+    //   da safeZone interior, e BLOQUEAVA o player preso lá dentro (fix jun/2026).
+    // ── Alto (fé/arcano + treino) ──
+    npc("abel", "Abel", 15, 10), // Capela do Coveiro (Q10) — interior (era a porta 15,12)
+    npc("gabriel", "Gabriel", 20, 12), // Templo (R4) — interior (era a porta 20,14)
+    npc("leonor", "Leonor", 30, 16), // Casa do Mago / Torre (R2) — interior (era a porta 30,18)
+    npc("ricardo", "Ricardo", 44, 16), // Pátio da Milícia / Guilda (R1) — interior (era a porta 44,18)
+    // ── Cais (taverna/becos/armazéns) ──
+    npc("tobias", "Tobias", 50, 28), // Taverna do Cais (Q12 — sussurrador) — interior (era a porta 50,30)
+    npc("telmo", "Telmo", 51, 29), // Taverneiro (elo Q9)
+    npc("vincente", "Vincente", 52, 38), // Beco dos Ladinos (R3)
+    npc("amaro", "Amaro", 48, 41), // caçador-peleteiro (Q7) — junto à Câmara/Armazéns (door (48,42) cai na parede; 1 tile ao N, andável)
+    npc("augusto", "Augusto", 46, 47), // Câmara (flavor) — door (46,46) clobrada pelo Armazém vizinho; 1 tile ao S, andável
+    // ── Fora da muralha: Marco, vigia de Atalaia, na estrada leste perto da borda ──
+    { npcId: "marco", name: "Marco", x: 336, y: 150 }, // destino da Q4 (estrada leste, P24)
   ];
 
   // Cozinha (COZINHA.md): fonte de calor = fogão da Estalagem do Vau (interior,
@@ -582,19 +745,112 @@ export function generateAlvoradaMap(): MapData {
   const heatSources = [{ x: hx, y: hy }];
   const freshWater = [{ x: wx, y: wy }];
 
-  // ════ Baús de TESTE (provisório) — ✏️ orçamento real = QUESTS.md "baús M3" ════
-  // Exercitam o sistema fim-a-fim perto do nascimento (spawn 128,124):
-  // aberto · concede-chave · trancado-por-chave · gate de nível.
+  // ════ Baús da fatia (GRID §8 — orçamento 8 baús, piramidal) ════
+  // Loot SÓ com templateIds existentes (templates.ts). Base utilitária/armadura
+  // T1 (B6/B7/B8), meio gear (B1–B4), 1 lacrado nv10 (B5). Posições = GRID §8/§9,
+  // conferidas andáveis (overworld) / SewerFloor (B5 no A2). ✏️ M3/Balancista fina
+  // o conteúdo. A casa inicial (containers domésticos) vem logo abaixo, NÃO conta
+  // como baú do orçamento.
   const chests: ChestDef[] = [
-    { id: "bau_teste_aberto", pos: { x: 128, y: 122 }, z: 0, name: "Baú Velho",
-      loot: { items: [{ templateId: "pao", qty: 2 }], gold: 25 } },
-    { id: "bau_teste_chave", pos: { x: 126, y: 124 }, z: 0, name: "Baú do Zelador",
-      loot: { items: [{ templateId: "queijo" }], grantsKey: "chave_porao" } },
-    { id: "bau_teste_trancado", pos: { x: 130, y: 124 }, z: 0, name: "Baú Trancado",
-      keyReq: "chave_porao", loot: { items: [{ templateId: "pocao_vida_pequena" }], gold: 100 } },
-    { id: "bau_teste_nivel", pos: { x: 128, y: 126 }, z: 0, name: "Baú do Veterano",
-      levelReq: 5, loot: { items: [{ templateId: "espada_curta" }] } },
+    // ── meio (gear) ──
+    { id: "b1_moinho_porao", pos: { x: 60, y: 250 }, z: 0, name: "Baú dos Corvos",
+      loot: { items: [{ templateId: "tunica_de_couro" }, { templateId: "corda" }], gold: 40 } }, // Q12 (Moinho, porão)
+    { id: "b2_caverna_goblin", pos: { x: 240, y: 40 }, z: 0, name: "Baú do Bando Goblin",
+      loot: { items: [{ templateId: "coifa_de_couro" }], gold: 60 } }, // Q8 ato 3 (fundo da Caverna, atrás do Orc)
+    { id: "b3_minas_perdidas", pos: { x: 330, y: 30 }, z: 0, name: "Baú Guardado da Mina",
+      loot: { items: [{ templateId: "cota_de_malha" }], gold: 120 } }, // Q13 (fundo das Minas) — gear T2 + gold alto
+    { id: "b4_margem_leste", pos: { x: 220, y: 170 }, z: 0, name: "Baú da Margem",
+      loot: { items: [{ templateId: "calcas_de_couro" }], gold: 50 } }, // Q14 (segredo — pós-pedras ④)
+    // ── lacrado (a promessa visível do early game) ──
+    { id: "b5_esgoto_lacrado", pos: { x: 138, y: 144 }, z: -2, name: "Baú Lacrado",
+      levelReq: 10, loot: { items: [{ templateId: "elmo_de_ferro" }, { templateId: "escudo_de_ferro" }], gold: 80 } }, // A2, à vista (luz fria já marca este tile)
+    // ── base (armadura T1 / utilitário) ──
+    { id: "b6_granja", pos: { x: 31, y: 86 }, z: 0, name: "Baú do Celeiro",
+      loot: { items: [{ templateId: "botas_de_couro" }, { templateId: "corda" }] } }, // Granja (celeiro) — base
+    { id: "b7_gruta_morcegos", pos: { x: 140, y: 60 }, z: 0, name: "Baú Empoeirado",
+      loot: { items: [{ templateId: "tocha", qty: 3 }, { templateId: "corda" }], gold: 20 } }, // Gruta dos Morcegos (fundo) — utilitário
+    { id: "b8_ninho_aranhas", pos: { x: 290, y: 82 }, z: 0, name: "Baú no Casulo",
+      loot: { items: [{ templateId: "calcas_de_couro" }] } }, // Ninho de Aranhas (canto curioso S7) — armadura T1
   ];
+
+  // ════ Casa inicial (GRID §3.3/§8) — containers domésticos do NASCIMENTO ════
+  // Modelados como ChestDef (o motor de baú já existe; container doméstico = baú
+  // que não conta no orçamento). Spawn é em (128,124), dentro da casa inicial
+  // (rect city[25,41]→[31,46]); estes baús ficam ao lado, em tiles andáveis do
+  // interior. O 1º container concede a 1ª CHAVE (grantsKey "chave_casa_inicial").
+  chests.push(
+    { id: "casa_inicial_bau", pos: { x: 127, y: 123 }, z: 0, name: "Baú de Casa",
+      loot: { items: [{ templateId: "gibao_roto" }, { templateId: "botas_surradas" }], grantsKey: "chave_casa_inicial" } },
+    { id: "casa_inicial_arca", pos: { x: 129, y: 123 }, z: 0, name: "Arca Velha",
+      loot: { items: [{ templateId: "espada_cega" }, { templateId: "sacola_de_pano" }] } },
+  );
+
+  // ════ Portas de TODA casa entrável (feel Tibia/Apogea — EXPLORACAO.md) ════
+  // Uma DoorDef no tile-porta de CADA edifício do BUILDINGS (vão na HouseWall, já
+  // StoneFloor pelo loop acima). TODAS destrancadas — abrem ANDANDO no vão (a sim
+  // abre + auto-fecha, estado GLOBAL) ou via `interact` — EXCETO a casa inicial,
+  // que mantém `keyReq` "chave_casa_inicial": o loop-assinatura container→chave→
+  // porta do tutorial. O player nasce preso, abre o baú (gibão/botas + a chave, que
+  // NÃO tem keyReq → sempre alcançável: nunca fica preso insolúvel), e sai pela
+  // porta (128,126) = city door (28,46), o único vão da casa. Fechada bloqueia
+  // (mob nunca abre → casas seladas pra criatura). Coord-cidade → local via city().
+  const doors: DoorDef[] = BUILDINGS.map((b) => {
+    const [dx, dy] = city(...b.door);
+    return {
+      id: b.doorId,
+      pos: { x: dx, y: dy },
+      z: 0,
+      name: b.doorName,
+      ...(b.lockKey ? { keyReq: b.lockKey } : {}),
+    };
+  });
+  // GARANTIA: todo tile-porta é um VÃO andável (StoneFloor). A maioria já é (o loop
+  // dos BUILDINGS pinta a porta), mas prédios que se TOCAM podem ter a parede de um
+  // vizinho clobrando o vão do outro na ordem de paint — caso real: a porta da Câmara
+  // (146,126) cai sob a parede O dos Armazéns. Forçar aqui mantém a porta sempre
+  // atravessável (senão a porta FECHADA seria bloqueio-duplo de tile sólido). A casa
+  // inicial (128,126) já é StoneFloor — idempotente.
+  for (const d of doors) set(d.pos.x, d.pos.y, TileId.StoneFloor);
+
+  // ════ Interativos de quest no OVERWORLD (z=0) — hook `interact` (GRID §10) ════
+  // Cada id casa com um `QuestStageDef` type:"interact" (conferidos nos defs em
+  // quests/defs/*.ts). Os do SUBSOLO (q10 no A2) vão no FloorLayer do andar.
+  // NOTA q11_carta_rabiscada: a Q11 é ABERTA-POR-ITEM (a Carta Rabiscada é loot
+  // raro do `bandido`; LER a carta é o gatilho) — NÃO é ponto de mapa. NÃO é
+  // plantada aqui; o ancoradouro de leitura vem do futuro hook item→quest (ver o
+  // cabeçalho de q11_tesouro.ts). Plantá-la como interactable de mundo daria um
+  // gatilho físico que a quest não quer — deixada de fora de propósito.
+  const interactables: InteractableDef[] = [
+    { id: "q2_fardo", pos: { x: 40, y: 92 }, name: "o fardo largado" }, // Q2 — terreiro da Granja
+    { id: "q6_fogueira_estalagem", pos: { x: hx, y: hy }, name: "a fogueira da estalagem" }, // Q6 — = heatSource (118,120)
+    { id: "q9_carga_roubada", pos: { x: 156, y: 267 }, name: "a carga roubada" }, // Q9 — acampamento dos bandidos
+    { id: "q12_moinho_porao", pos: { x: 60, y: 250 }, name: "o porão do moinho" }, // Q12 — porão do Moinho Velho
+    { id: "q13_bau_guardado", pos: { x: 330, y: 30 }, name: "o baú guardado" }, // Q13 — fundo das Minas
+    { id: "q14_pedras", pos: { x: 185, y: 161 }, name: "as pedras de passagem" }, // Q14 — a travessia ④ (tile real das pedras no junco)
+  ];
+
+  // ════ Regiões de quest no OVERWORLD (z=0) — hook `region_enter` (GRID §10) ════
+  // Cada id casa com um `QuestStageDef` type:"region_enter". As do SUBSOLO
+  // (esgoto_a2 / porao_afogado_a3) vão nos FloorLayers dos andares.
+  const questRegions: QuestRegionDef[] = [
+    { id: "acampamento_goblin", rect: { x: 185, y: 35, w: 45, h: 35 } }, // Q8a2 — S5 [185..230]×[35..70]
+    { id: "minas_perdidas", rect: { x: 325, y: 27, w: 10, h: 8 } }, // Q13 — boca da mina NE remoto [325..335]×[27..35]
+    { id: "moinho_porao", rect: { x: 56, y: 246, w: 8, h: 8 } }, // Q12 — interior do Moinho [56..64]×[246..254]
+    { id: "q14_margem_leste", rect: { x: 210, y: 160, w: 20, h: 20 } }, // Q14 — pouso da travessia ④ [210..230]×[160..180]
+  ];
+
+  // Garante que todo ANCORADOURO de overworld (baú z=0 + interactable) pouse em
+  // tile ANDÁVEL — mesma régua do loop de spawns: se caiu em árvore/pedra/muro
+  // (scatter procedural por cima de um POI, ex. B8 no Ninho), abre pra grama.
+  // Determinístico e idempotente; não mexe em água (anchors foram escolhidos
+  // fora d'água). Subsolo (z≠0) é alvenaria sólida — não passa por aqui.
+  const clearAnchor = (x: number, y: number) => {
+    const t = get(x, y);
+    if (t === TileId.Tree || t === TileId.Rock || t === TileId.Wall || t === TileId.HouseWall)
+      set(x, y, TileId.StoneFloor);
+  };
+  for (const c of chests) if (c.z === 0) clearAnchor(c.pos.x, c.pos.y);
+  for (const it of interactables) clearAnchor(it.pos.x, it.pos.y);
 
   return {
     id: "alvorada",
@@ -611,104 +867,270 @@ export function generateAlvoradaMap(): MapData {
     respawn,
     npcSpawns,
     chests,
+    doors,
+    interactables,
+    questRegions,
     heatSources,
     freshWater,
     portals: ALVORADA_PORTALS,
-    floors: [buildSewerA1()],
+    floors: [buildSewerA1(), buildSewerA2(), buildSewerA3()],
   };
 }
 
-// ─────────────────────────── esgotos (z-levels) ───────────────────────────
+// ─── esgotos (z-levels) — A1/A2/A3, visão completa do GRID §7 (3 andares) ───
 
-/**
- * Esgoto A1 (z=-1) — Fase 1 de andares (SISTEMA-ANDARES). Já NÃO é um quadrado: é
- * uma REDE de galerias de alvenaria úmida sob a cidade, ligadas por uma galeria-
- * espinha com uma TRINCHEIRA de água servida (rasa, vadeável) correndo no meio:
- *
- *   • câmara de ENTRADA (plataforma sob o boeiro) no centro;
- *   • câmara-SUMP a oeste, onde a trincheira despeja numa POÇA FUNDA (hazard);
- *   • câmara de RUÍNAS ao norte com pilares de alvenaria antiga (telegrafa o A2);
- *   • câmara LESTE (fundo do trecho, mobs mais fortes) e galeria SUL;
- *   • tochas nas paredes (o subsolo é breu — §6) e a escada de volta no boeiro.
- *
- * Mobs: ratos nas galerias rasas + 1-2 ESQUELETOS (T2) no fundo (ruínas/leste) —
- * o tier sobe conforme se afasta da entrada (pilar 3). ✏️ refinar com GRID §7
- * (5 bocas, A2/A3 por buraco/boca, baú lacrado).
- */
-const A1_OX = 112, A1_OY = 94, A1_W = 46, A1_H = 40;
-function buildSewerA1(): FloorLayer {
-  const t: TileId[] = new Array(A1_W * A1_H).fill(TileId.SewerWall);
+// Origens/tamanhos das 3 camadas (coords de MUNDO — modelo esparso do SISTEMA-ANDARES).
+// O A1 cobre o footprint da cidade (as 5 bocas caem aqui dentro = atalho urbano).
+const A1_OX = 110, A1_OY = 88, A1_W = 52, A1_H = 50;
+const A2_OX = 110, A2_OY = 120, A2_W = 98, A2_H = 56; // dungeon O + galeria alagada → margem leste
+const A3_OX = 128, A3_OY = 150, A3_W = 28, A3_H = 16; // Porão Afogado (bolsão minúsculo)
+
+// As 5 bocas em coord-LOCAL do A1 (world boca − origem A1). Ver §7.1.
+const A1_BOCAS: Record<string, [number, number]> = {
+  capela: [5, 5],   // world (115,93)
+  guilda: [34, 12], // world (144,100)
+  depot: [31, 25],  // world (141,113) — realocado p/ lateral L do Depot
+  praca: [26, 30],  // world (136,118) — bueiro principal (Q1)
+  cais: [40, 32],   // world (150,120)
+};
+
+/** Helper de pintura por andar (coords LOCAIS à camada). */
+function floorPainter(w: number, h: number) {
+  const t: TileId[] = new Array(w * h).fill(TileId.SewerWall);
   const lset = (lx: number, ly: number, tile: TileId) => {
-    if (lx >= 0 && ly >= 0 && lx < A1_W && ly < A1_H) t[ly * A1_W + lx] = tile;
+    if (lx >= 0 && ly >= 0 && lx < w && ly < h) t[ly * w + lx] = tile;
   };
   const room = (x0: number, y0: number, x1: number, y1: number, tile: TileId) => {
     for (let ly = y0; ly <= y1; ly++) for (let lx = x0; lx <= x1; lx++) lset(lx, ly, tile);
   };
+  return { t, lset, room };
+}
 
-  // ── CÂMARAS (chão de esgoto) ──
-  room(22, 18, 31, 30, TileId.SewerFloor); // A — entrada (plataforma sob o boeiro)
-  room(4, 16, 15, 29, TileId.SewerFloor);  // B — câmara-sump (oeste)
-  room(18, 4, 30, 13, TileId.SewerFloor);  // C — ruínas (norte)
-  room(33, 19, 43, 31, TileId.SewerFloor); // D — câmara leste (fundo)
-  room(17, 31, 29, 37, TileId.SewerFloor); // E — galeria sul
-
-  // ── CORREDORES (3 de largura) ligando as câmaras à espinha ──
-  room(13, 22, 22, 24, TileId.SewerFloor); // espinha oeste  A↔B
-  room(31, 22, 34, 24, TileId.SewerFloor); // espinha leste  A↔D
-  room(24, 13, 26, 18, TileId.SewerFloor); // ligação norte  A↔C
-  room(23, 30, 25, 31, TileId.SewerFloor); // ligação sul    A↔E
-
-  // ── TRINCHEIRA de água servida na espinha (y23), fora das câmaras ──
-  for (let lx = 12; lx <= 21; lx++) lset(lx, 23, TileId.Sewage); // oeste (sump → A)
-  for (let lx = 32; lx <= 41; lx++) lset(lx, 23, TileId.Sewage); // leste (A → D)
-  // POÇA FUNDA: a trincheira oeste despeja no sump da câmara B (impassável)
-  room(6, 20, 11, 26, TileId.DeepWater);
-
-  // ── RUÍNAS de alvenaria antiga (telegrafa o A2) + pilares de galeria ──
-  lset(21, 6, TileId.OldMasonryWall); lset(22, 6, TileId.OldMasonryWall);
-  lset(27, 9, TileId.OldMasonryWall); lset(26, 10, TileId.OldMasonryWall);
-  lset(24, 5, TileId.OldMasonryWall);
-  lset(25, 21, TileId.OldMasonryWall); lset(29, 28, TileId.OldMasonryWall); // pilares na entrada
-
-  lset(26, 24, TileId.SewerFloor); // garante chão sob o boeiro (landing seco)
-
+/**
+ * Esgoto A1 (z=−1) — galerias rasas T1, o ATALHO URBANO sob a cidade (GRID §7.2):
+ * uma ESPINHA E-W ligando as 5 bocas (Capela/Guilda/Depot/Praça/Cais), com câmaras
+ * tapando nela. Trincheira de água servida na espinha; câmara-SUMP com poça funda
+ * (hazard) a SO; câmara de RUÍNAS ao N com alvenaria antiga (telegrafa o A2). Ratos
+ * nas galerias + 2 esqueletos T2 no fundo (ruínas/SE). 2 descidas (escada) pro A2.
+ */
+function buildSewerA1(): FloorLayer {
+  const { t, lset, room } = floorPainter(A1_W, A1_H);
   const wx = (lx: number) => A1_OX + lx, wy = (ly: number) => A1_OY + ly;
+
+  // ESPINHA-ATALHO: corredor E-W no meio (y23-25), liga a cidade inteira por baixo
+  room(4, 23, 47, 25, TileId.SewerFloor);
+
+  // CÂMARAS de boca + conteúdo
+  room(3, 3, 9, 9, TileId.SewerFloor);     // Capela (NO)
+  room(30, 8, 39, 15, TileId.SewerFloor);  // Guilda (NE)
+  room(23, 20, 33, 28, TileId.SewerFloor); // Depot (centro) — encosta na espinha
+  room(21, 27, 31, 35, TileId.SewerFloor); // Praça (centro-S, entrada principal)
+  room(35, 27, 45, 35, TileId.SewerFloor); // Cais (SE)
+  room(15, 2, 28, 9, TileId.SewerFloor);   // RUÍNAS (N) — telegrafa o A2
+  room(3, 33, 12, 45, TileId.SewerFloor);  // câmara-SUMP (SO)
+
+  // TAPS verticais ligando cada câmara à espinha
+  room(5, 8, 7, 23, TileId.SewerFloor);    // Capela → espinha
+  room(33, 15, 35, 23, TileId.SewerFloor); // Guilda → espinha
+  room(21, 9, 23, 23, TileId.SewerFloor);  // Ruínas → espinha
+  room(25, 25, 27, 30, TileId.SewerFloor); // Praça/Depot → espinha
+  room(39, 25, 41, 28, TileId.SewerFloor); // Cais → espinha
+  room(6, 25, 8, 33, TileId.SewerFloor);   // espinha → sump
+
+  // TRINCHEIRA de água servida na espinha (fora das câmaras)
+  for (let lx = 12; lx <= 20; lx++) lset(lx, 24, TileId.Sewage);
+  for (let lx = 30; lx <= 38; lx++) lset(lx, 24, TileId.Sewage);
+  // POÇA FUNDA no sump (impassável)
+  room(5, 37, 10, 43, TileId.DeepWater);
+
+  // RUÍNAS: pilares de alvenaria antiga (telegrafa o A2)
+  lset(18, 4, TileId.OldMasonryWall); lset(19, 4, TileId.OldMasonryWall);
+  lset(24, 6, TileId.OldMasonryWall); lset(25, 7, TileId.OldMasonryWall);
+  lset(21, 8, TileId.OldMasonryWall);
+
+  // chão seco garantido sob cada boeiro (landing)
+  for (const [bx, by] of Object.values(A1_BOCAS)) lset(bx, by, TileId.SewerFloor);
+
   const decor: MapDecor[] = [];
   const lights: MapLight[] = [];
-  // tocha de parede: sprite + luz quente trêmula (mesmo padrão da superfície)
   const torch = (lx: number, ly: number, radius = 5) => {
     decor.push({ x: wx(lx), y: wy(ly), kind: "torch" });
     lights.push({ x: wx(lx), y: wy(ly), color: 0xffa14e, radius, intensity: 0.85, flicker: true });
   };
-  torch(26, 17); // entrada (norte)
-  torch(21, 19); torch(32, 19); // flancos da entrada
-  torch(3, 22, 6); // câmara-sump
-  torch(24, 3, 6); // ruínas
-  torch(44, 25, 6); // câmara leste
-  torch(16, 34); // galeria sul
+  torch(6, 6); torch(34, 11); torch(27, 23); torch(24, 30); torch(40, 30);
+  torch(22, 4, 6); torch(5, 35, 6);
+
+  // ESCADAS DE VOLTA: uma sob cada boeiro (sobe pra superfície)
+  const ups: MapPortal[] = Object.values(A1_BOCAS).map(([bx, by]) => ({
+    x: wx(bx), y: wy(by), kind: "stairs", to: { x: wx(bx), y: wy(by), z: 0 },
+  }));
+  // DESCIDAS A1→A2 (escada; o v4 mostra duas — §7.2): ruínas (N) e SE (fundo)
+  const downRuins: MapPortal = { x: wx(22), y: wy(4), kind: "stairs", to: { x: A2_OX + 12, y: A2_OY + 9, z: -2 } };
+  const downSE: MapPortal = { x: wx(43), y: wy(33), kind: "stairs", to: { x: A2_OX + 48, y: A2_OY + 30, z: -2 } };
 
   return {
     z: -1, ox: A1_OX, oy: A1_OY, width: A1_W, height: A1_H,
-    tiles: t,
-    lights, decor,
+    tiles: t, lights, decor,
     monsters: [
-      { x: wx(27), y: wy(20), species: "rato" }, // entrada
-      { x: wx(13), y: wy(18), species: "rato" }, // sump
-      { x: wx(20), y: wy(34), species: "rato" }, // galeria sul
-      { x: wx(37), y: wy(22), species: "rato" }, // espinha leste
-      { x: wx(24), y: wy(9), species: "esqueleto" },     // ruínas (T2 — fundo)
-      { x: wx(40), y: wy(28), species: "esqueleto" },    // câmara leste (T2 — fundo)
+      { x: wx(7), y: wy(20), species: "rato" },
+      { x: wx(34), y: wy(20), species: "rato" },
+      { x: wx(15), y: wy(24), species: "rato" },
+      { x: wx(40), y: wy(24), species: "rato" },
+      { x: wx(22), y: wy(6), species: "esqueleto" },  // ruínas (T2 — fundo)
+      { x: wx(42), y: wy(31), species: "esqueleto" }, // SE (T2 — fundo)
     ],
-    // escada de volta EXATAMENTE embaixo do boeiro (138,118) → sobe pra praça
-    portals: [{ x: 138, y: 118, kind: "stairs", to: { x: 138, y: 118, z: 0 } }],
+    portals: [...ups, downRuins, downSE],
     openings: [],
     ambient: 0x0a0e14, // breu do subsolo
   };
 }
 
-/** Boeiro na praça (z=0) → desce DIRETO embaixo pro A1 (mesma coluna). 1ª das 5
- *  bocas (✏️ +4). Clica pra descer (kind ≠ stairs). */
-const ALVORADA_PORTALS: MapPortal[] = [{ x: 138, y: 118, kind: "hole", to: { x: 138, y: 118, z: -1 } }];
+/**
+ * Esgoto A2 (z=−2) — galerias antigas T2, "dungeon de verdade" (GRID §7.3): câmaras
+ * de alvenaria a O (sob a cidade), a ALVENARIA MANCHADA do Q10, o BAÚ LACRADO nv10
+ * visível (promessa early-game), e uma GALERIA ALAGADA correndo a LESTE até desembocar
+ * na margem do rio (travessia secreta ⑤). O MERGULHO alagado desce pro A3 (mão-única).
+ * Aranhas T2. Custo de fuga já maior que o A1.
+ */
+function buildSewerA2(): FloorLayer {
+  const { t, lset, room } = floorPainter(A2_W, A2_H);
+  const wx = (lx: number) => A2_OX + lx, wy = (ly: number) => A2_OY + ly;
+
+  // CÂMARAS do trecho-dungeon (oeste, sob a cidade)
+  room(8, 5, 24, 16, TileId.SewerFloor);   // entrada vinda da descida das ruínas
+  room(38, 24, 54, 38, TileId.SewerFloor); // câmara SE (vinda da descida SE) — fundo
+  room(12, 22, 30, 40, TileId.SewerFloor); // galeria central (Q10 + baú)
+  room(16, 16, 22, 22, TileId.SewerFloor); // liga entrada → central
+  room(30, 28, 38, 32, TileId.SewerFloor); // liga central → SE
+
+  // GALERIA ALAGADA → margem leste (travessia secreta ⑤): some da câmara SE,
+  // SERPENTEIA e MERGULHA sob o rio (x~175-189) com poças fundas ladeando e um
+  // RESPIRO seco no meio, e emerge na margem leste (no lugar do antigo tubo reto).
+  room(52, 28, 67, 33, TileId.SewerFloor); // saída da câmara SE
+  room(62, 33, 67, 40, TileId.SewerFloor); // curva pro sul
+  room(64, 37, 95, 41, TileId.SewerFloor); // corrida sob o rio → leste
+  room(70, 34, 75, 41, TileId.SewerFloor); // air-pocket (respiro sob o rio)
+  room(88, 34, 95, 41, TileId.SewerFloor); // câmara de saída (margem leste)
+  // POÇAS FUNDAS ladeando (hazard que se contorna — NÃO bloqueia a passagem)
+  room(78, 33, 84, 35, TileId.DeepWater);
+  room(66, 41, 71, 43, TileId.DeepWater);
+  room(84, 41, 90, 43, TileId.DeepWater);
+  // lâmina de água servida correndo no meio (rasa, vadeável) — pintada por último
+  // pra garantir que o caminho nunca fica vedado por poça
+  for (let lx = 54; lx <= 66; lx++) lset(lx, 31, TileId.Sewage);
+  for (let lx = 64; lx <= 94; lx++) lset(lx, 39, TileId.Sewage);
+
+  // ALVENARIA ANTIGA manchada (Q10) — "mais velha que a cidade"
+  lset(20, 30, TileId.OldMasonryWall); lset(21, 30, TileId.OldMasonryWall);
+  lset(20, 31, TileId.OldMasonryWall); lset(21, 31, TileId.OldMasonryWall);
+
+  // MERGULHO pro A3: lip de água servida (vadeável, andável) → poça funda atrás.
+  // O buraco fica no lip (Sewage), senão cairia em DeepWater (não-andável = inalcançável).
+  room(17, 38, 21, 40, TileId.DeepWater);
+  lset(18, 37, TileId.Sewage); lset(19, 37, TileId.Sewage); lset(20, 37, TileId.Sewage);
+
+  const decor: MapDecor[] = [];
+  const lights: MapLight[] = [];
+  const torch = (lx: number, ly: number, radius = 5) => {
+    decor.push({ x: wx(lx), y: wy(ly), kind: "torch" });
+    lights.push({ x: wx(lx), y: wy(ly), color: 0xffa14e, radius, intensity: 0.8, flicker: true });
+  };
+  torch(10, 7); torch(22, 23); torch(50, 26); torch(36, 30, 6);
+  torch(72, 37, 4); // respiro sob o rio (air-pocket)
+  torch(91, 37, 4); // câmara de saída na margem
+  // baú lacrado: marco luminoso frio pra "promessa visível" (sistema de baú = track Itens)
+  lights.push({ x: wx(28), y: wy(24), color: 0x6fa8ff, radius: 4, intensity: 0.5, flicker: false });
+
+  return {
+    z: -2, ox: A2_OX, oy: A2_OY, width: A2_W, height: A2_H,
+    tiles: t, lights, decor,
+    monsters: [
+      { x: wx(14), y: wy(10), species: "aranha" },
+      { x: wx(16), y: wy(26), species: "aranha" }, // galeria central (longe da alvenaria Q10)
+      { x: wx(46), y: wy(30), species: "aranha" },
+      { x: wx(48), y: wy(34), species: "esqueleto" }, // fundo SE
+    ],
+    portals: [
+      // volta pro A1 (sob as descidas que chegam aqui)
+      { x: wx(12), y: wy(9), kind: "stairs", to: { x: A1_OX + 22, y: A1_OY + 4, z: -1 } },
+      { x: wx(48), y: wy(30), kind: "stairs", to: { x: A1_OX + 43, y: A1_OY + 33, z: -1 } },
+      // galeria alagada → margem leste do rio (travessia secreta ⑤): emerge logo a
+      // leste do rio, FORA da muralha (cruzou por baixo da água)
+      { x: wx(92), y: wy(38), kind: "cave", to: { x: 202, y: 158, z: 0 } },
+      // MERGULHO alagado → A3 (mão-única, custo de fuga máximo): some no lip alagado
+      { x: wx(19), y: wy(37), kind: "hole", to: { x: A3_OX + 12, y: A3_OY + 8, z: -3 } },
+    ],
+    openings: [],
+    // Q10 (A Água do Poço): a alvenaria manchada das ruínas (interact) + a região
+    // do andar inteiro (region_enter). O ancoradouro do interact pousa no chão
+    // SECO (SewerFloor) colado à mancha (alvenaria = parede não-andável), pra o
+    // alcance do `interact` casar. A região é o footprint do A2.
+    interactables: [
+      { id: "q10_alvenaria_manchada", z: -2, pos: { x: wx(19), y: wy(30) }, name: "a alvenaria manchada" }, // mancha em (130,150)
+    ],
+    questRegions: [
+      { id: "esgoto_a2", z: -2, rect: { x: A2_OX, y: A2_OY, w: A2_W, h: A2_H } }, // Q10 — todo o andar A2
+    ],
+    ambient: 0x070a10, // mais escuro que o A1
+  };
+}
+
+/**
+ * Esgoto A3 (z=−3) — o PORÃO AFOGADO T3 (GRID §7.4): bolsão minúsculo, breu quase
+ * total, água por toda parte. NÃO é spot de farm — é arrepio (1º sussurro da
+ * Contaminação por baixo). Só se chega pelo mergulho do A2. ✏️ GHOUL (T3, undead)
+ * agora no bestiário — substitui o esqueleto-placeholder. Escada de volta
+ * provisória (o gate por CORDA do §3 entra quando a ferramenta existir).
+ */
+function buildSewerA3(): FloorLayer {
+  const { t, lset, room } = floorPainter(A3_W, A3_H);
+  const wx = (lx: number) => A3_OX + lx, wy = (ly: number) => A3_OY + ly;
+
+  room(4, 4, 23, 11, TileId.SewerFloor); // a câmara afogada
+  // lâmina d'água cobrindo o chão (rasa, vadeável) + uma poça funda ao fundo
+  for (let lx = 5; lx <= 22; lx++) for (let ly = 5; ly <= 10; ly++) if ((lx + ly) % 3 === 0) lset(lx, ly, TileId.Sewage);
+  room(18, 8, 22, 10, TileId.DeepWater);
+  lset(12, 8, TileId.SewerFloor); // landing seco do mergulho (world 140,158)
+
+  const decor: MapDecor[] = [];
+  const lights: MapLight[] = [];
+  // uma única tocha mortiça — o resto é breu (custo de fuga = medo)
+  decor.push({ x: wx(6), y: wy(5), kind: "torch" });
+  lights.push({ x: wx(6), y: wy(5), color: 0x8fb0c0, radius: 4, intensity: 0.55, flicker: true });
+
+  return {
+    z: -3, ox: A3_OX, oy: A3_OY, width: A3_W, height: A3_H,
+    tiles: t, lights, decor,
+    monsters: [
+      { x: wx(16), y: wy(7), species: "ghoul" }, // T3 undead — fundo do Porão Afogado
+      { x: wx(8), y: wy(6), species: "ghoul" },
+    ],
+    portals: [
+      // volta provisória pro A2 (no fim do bolsão) — vira gate de CORDA depois
+      { x: wx(12), y: wy(8), kind: "stairs", to: { x: A2_OX + 19, y: A2_OY + 37, z: -2 } },
+    ],
+    openings: [],
+    // Q15 (O Porão Afogado): ENTRAR no A3 É a descoberta (region_enter). A região
+    // cobre a câmara afogada (room(4,4,23,11)). Sem interactable/NPC: a quest fecha
+    // no registro do diário (ver q15_porao.ts). Os ghouls já vivem aqui (arrepio).
+    questRegions: [
+      { id: "porao_afogado_a3", z: -3, rect: { x: wx(4), y: wy(4), w: 20, h: 8 } }, // [132..151]×[154..161]
+    ],
+    ambient: 0x04060a, // o mais escuro: breu do fundo
+  };
+}
+
+/** As 5 BOCAS na superfície (z=0): `hole` = clica pra descer DIRETO embaixo pro A1
+ *  (mesma coluna). Marcador = grade de ferro (WorldRenderer.buildPortalMarkers). */
+const ALVORADA_PORTALS: MapPortal[] = (
+  [
+    [115, 93], // Capela
+    [144, 100], // Guilda
+    [141, 113], // Depot (realocado — lateral L)
+    [136, 118], // Praça (Q1)
+    [150, 120], // Cais
+  ] as const
+).map(([x, y]) => ({ x, y, kind: "hole", to: { x, y, z: -1 } }));
 
 // ─────────────────────────── helpers de pintura ───────────────────────────
 

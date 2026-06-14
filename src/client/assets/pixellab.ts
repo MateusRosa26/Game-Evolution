@@ -15,7 +15,7 @@ import tree1Url from "./img/scenery/tree1.png";
 import tree2Url from "./img/scenery/tree2.png";
 
 /** Norma de densidade jun/2026: chars exibidos 1:1 (1 px do sprite = 1 px do mundo). */
-export const PIXELLAB_CHAR_SCALE = 1.0;
+export const PIXELLAB_CHAR_SCALE = 1.0; // char = 1 tile (128px nativo). 1.25 (160px) ficava maior que mobs/mundo.
 
 /** Registry preenchido por loadPixellabAssets() antes do Game nascer. */
 export const PIXELLAB: {
@@ -67,6 +67,13 @@ export const PIXELLAB: {
    * fallback procedural (label/silhueta).
    */
   items: Record<string, Texture>;
+  /**
+   * SPRITES DE NPC do elenco (jun/2026): 1 PNG estático (sul) por NPC,
+   * img/npcs/<npcId>.png. Chave = npcId estável da sim (bartolo, leonor…).
+   * O client escolhe por `EntityState.npcId`; ausência = fallback cidadão
+   * procedural. Estático: o mesmo frame serve as 4 direções (NPC não anda).
+   */
+  npcs: Record<string, Texture>;
 } = {
   trees: [],
   swampTrees: [],
@@ -79,6 +86,7 @@ export const PIXELLAB: {
   knightPieces: {},
   knightPiecesAtk: {},
   items: {},
+  npcs: {},
 };
 
 /** Espécies que voam: o client desenha levemente acima do chão (charme barato). */
@@ -108,6 +116,29 @@ const ITEM_URLS = import.meta.glob("./img/items/**/*.png", {
   query: "?url",
   import: "default",
 }) as Record<string, string>;
+// Sprites de NPC (1 PNG estático por NPC) — img/npcs/<npcId>.png
+const NPC_URLS = import.meta.glob("./img/npcs/*.png", {
+  eager: true,
+  query: "?url",
+  import: "default",
+}) as Record<string, string>;
+
+/**
+ * Marca arte do MUNDO p/ filtro linear (a câmera encolhe 128px na tela, FOV ~9;
+ * nearest no downscale não-inteiro quebra outline/cintila). Caminha recursivo
+ * sobre Texture | Texture[] | Record. ITENS (UI) NÃO passam por aqui — ficam em
+ * nearest (default global) p/ ícone crocante na mochila.
+ */
+function linearizeWorld(v: unknown): void {
+  if (!v) return;
+  if (v instanceof Texture) {
+    v.source.scaleMode = "linear";
+  } else if (Array.isArray(v)) {
+    for (const x of v) linearizeWorld(x);
+  } else if (typeof v === "object") {
+    for (const x of Object.values(v)) linearizeWorld(x);
+  }
+}
 
 /** Flip horizontal de uma textura (oeste = espelho de leste). */
 function flipped(tex: Texture): Texture {
@@ -181,7 +212,8 @@ export async function loadPixellabAssets(): Promise<void> {
     dirs.w = dirs.e.map(flipped);
     if (dirs.s.length && dirs.e.length && dirs.n.length) PIXELLAB.charBodies[set] = dirs;
   }
-  PIXELLAB.knight = PIXELLAB.charBodies["knight"] ?? Object.values(PIXELLAB.charBodies)[0] ?? null;
+  // Corpo padrão (fallback de quem não tem corpo próprio) = HOMEM jovem canônico.
+  PIXELLAB.knight = PIXELLAB.charBodies["homem"] ?? Object.values(PIXELLAB.charBodies)[0] ?? null;
 
   // Mobs: img/mobs/<species>/[atk_]<dir><frame>.png → Record<Facing, Texture[]>
   const bySpecies = new Map<string, { atk: boolean; dir: string; frame: number; url: string }[]>();
@@ -257,4 +289,25 @@ export async function loadPixellabAssets(): Promise<void> {
     const m = path.match(/([^/]+)\.png$/);
     if (m) PIXELLAB.items[m[1].replace(/-/g, "_")] = itemTexes[i];
   });
+
+  // NPCs: img/npcs/<npcId>.png → PIXELLAB.npcs[npcId] (1 sprite estático sul).
+  const npcEntries = Object.entries(NPC_URLS);
+  const npcTexes = await Promise.all(npcEntries.map(([, url]) => Assets.load<Texture>(url)));
+  npcEntries.forEach(([path], i) => {
+    const m = path.match(/([^/]+)\.png$/);
+    if (m) PIXELLAB.npcs[m[1]] = npcTexes[i];
+  });
+
+  // Filtro linear na arte do mundo (NÃO em PIXELLAB.items — ícones ficam crocantes).
+  linearizeWorld([
+    PIXELLAB.trees,
+    PIXELLAB.swampTrees,
+    PIXELLAB.charBodies,
+    PIXELLAB.mobs,
+    PIXELLAB.mobAttacks,
+    PIXELLAB.knightPieces,
+    PIXELLAB.knightPiecesAtk,
+    PIXELLAB.knightAttack,
+    PIXELLAB.npcs,
+  ]);
 }

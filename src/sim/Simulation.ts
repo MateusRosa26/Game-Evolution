@@ -1,6 +1,7 @@
 import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS, msToTicks } from "../shared/constants";
 import {
   DEFAULT_OUTFIT_BY_CLASS,
+  isValidBodyType,
   isValidOutfitColor,
   OUTFIT_PART_BY_ID,
   OUTFIT_PARTS,
@@ -25,6 +26,7 @@ import {
   type ChestDef,
   type DamageType,
   type Dir8,
+  type DoorDef,
   type MapData,
   type PlayerClass,
   type Vec2,
@@ -47,9 +49,17 @@ import {
   goldWeight,
 } from "./items";
 import type { BlockStats } from "./items/templates";
-import { updateChaser } from "./monsterAi";
-import { creditQuestKill, QUESTS, type QuestState } from "./quests";
-import { ContainerRegistry, type Container } from "./items/containers";
+import { hasLineOfSight, updateChaser, updateShooter, updateTerritorial } from "./monsterAi";
+import {
+  creditQuestEvent,
+  creditQuestTurnIn,
+  initialQuestState,
+  questCollectStage,
+  stageCounter,
+  QUESTS,
+  type QuestStage,
+} from "./quests";
+import { ContainerRegistry, maxStackOf, type Container, type ContainerSlotContent } from "./items/containers";
 import { mulberry32, type Rng } from "./rng";
 import { DIALOGUES, dialogueView } from "./dialogue";
 import {
@@ -122,6 +132,9 @@ interface CombatSession {
 /** Janela de inatividade que fecha uma sessão de combate (ms lógicos). */
 const COMBAT_IDLE_MS = 4000;
 
+/** Tempo que uma porta fica aberta antes do auto-fecha (ms lógicos, ~Tibia). */
+const DOOR_AUTOCLOSE_MS = 4000;
+
 /**
  * Simulação autoritativa do jogo. Roda em ticks discretos com tempo lógico
  * próprio (tick * TICK_MS) — zero dependência de browser/render.
@@ -142,6 +155,9 @@ export class Simulation {
   /** Cadáveres saqueáveis no chão (decaem). */
   private corpses: { id: number; containerId: number; pos: Vec2; z: number; species: string | null; name: string; decayAtTick: number }[] = [];
   private nextCorpseId = 1;
+  /** Itens largados no chão (pilha por tile; persistem até alguém pegar). */
+  private groundItems: { id: number; pos: Vec2; z: number; content: Exclude<ContainerSlotContent, null> }[] = [];
+  private nextGroundItemId = 1;
   /** Baús do mundo: defs ESTÁTICAS do mapa (imutáveis; saque é per-jogador). */
   private chests: ChestDef[] = [];
   /** RNG da sim (loot etc.) — seedado e determinístico. */
@@ -205,6 +221,12 @@ export class Simulation {
   private canEnter(mover: SimEntity, x: number, y: number): boolean {
     const z = mover.z;
     if (!this.world.isWalkable(x, y, z)) return false;
+    // PORTA (feel Tibia/Apogea): aberta GLOBAL → qualquer um passa. Fechada →
+    // bloqueia SEMPRE (é parede até abrir). Abrir é por CLIQUE (`interact` →
+    // `openDoor`), nunca andando: o `walkTo` mira o tile livre adjacente e o
+    // cliente dispara o `interact` ao chegar em alcance (pendingDoorId).
+    const door = this.world.doorAt(x, y, z);
+    if (door && !this.world.isDoorOpen(door.id)) return false;
     if (this.world.isSafeZone(x, y, z)) return mover.kind !== "monster";
     if (this.world.isPassZone(x, y, z)) return true;
     const occ = this.occupancy.get(this.tileKey(x, y, z));
@@ -463,6 +485,8 @@ export class Simulation {
       block: null,
       // Outfit default da classe; guarda-roupa nasce com as peças FREE.
       outfit: structuredCloneOutfit(DEFAULT_OUTFIT_BY_CLASS[cls]),
+      bodyType: "homem", // avatar inicial; a hotkey 0 cicla homem↔mulher
+
       wardrobe: new Set(OUTFIT_PARTS.filter((p) => p.free).map((p) => p.id)),
       // Kit inicial da classe (compra em NPC é M2+).
       knownSkills: [...STARTER_KITS[cls]],
@@ -479,6 +503,7 @@ export class Simulation {
       openContainers: new Set(),
       keys: new Set(),
       lootedChests: new Set(),
+      enteredRegions: new Set(),
       backpackContainerId: null,
     };
     // Arma inicial da classe como instância única equipada (DESIGN-EVOLUCAO.md
@@ -494,9 +519,8 @@ export class Simulation {
     // regen), o novato precisa de comida pra recuperar desde o lvl 1 — senão o
     // primeiro arranhão vira softlock injusto. Queijo ensina o sustain; o rato
     // devolve mais. ✏️ quantidade tunável (5×60s = ~5min de saciedade inicial).
-    for (let i = 0; i < 5; i++) {
-      this.containers.add(bolso, { kind: "item", instanceId: this.items.create("queijo").id });
-    }
+    // Empilhável: entram como UM stack de 5 (Queijo é stackable, teto 12).
+    this.containers.addItemStackAware(this.items, bolso, "queijo", 5);
     this.entities.set(id, entity);
     // Bloqueio de corpo: nasce no tile livre mais próximo do spawn e ocupa-o.
     const sp = this.nearestFree(entity, entity.pos);
@@ -580,7 +604,13 @@ export class Simulation {
     const creatureLevel = creatureLevelForTier(template.tier);
     grantKillXp(prog, attacker, template.xp, creatureLevel, this.bus, ev.context);
     // Quests com etapa de caça avançam pelo MESMO evento (mapId ✏️ multi-mapa).
-    creditQuestKill(attacker.quests, ev.victim.species, this.world.map.id ?? "alvorada");
+    if (ev.victim.species) {
+      creditQuestEvent(attacker.quests, {
+        kind: "kill",
+        species: ev.victim.species,
+        mapId: this.world.map.id ?? "alvorada",
+      });
+    }
     // O crescimento de stats por level up pode ter mudado o dano de auto-attack.
     this.recomputePlayerDerived(attacker, prog);
   }
@@ -627,6 +657,7 @@ export class Simulation {
       nextAttackAt: 0,
       attackDamage: template.attackDamage,
       attackType: template.attackType,
+      attackRange: template.attackRange, // só shooter usa (>1); undefined = melee
       // Quantizado à grade de ticks (mesma razão do stepMs/cooldown do player).
       attackCooldownMs: this.quantizeToTickMs(template.attackCooldownMs),
       nextItemUseAt: 0,
@@ -641,6 +672,8 @@ export class Simulation {
       skillCooldowns: {},
       status: [],
       ai: "idle",
+      behavior: template.behavior, // a Simulation despacha a IA por ele
+      provoked: false, // territorial: neutro até apanhar (resetado em todo spawn)
       aggroRadius: template.aggroRadius,
       spawnPos: { x: pos.x, y: pos.y },
       respawnMs, // override por-spot (undefined = usa template.respawnMs no death)
@@ -654,6 +687,7 @@ export class Simulation {
       openContainers: new Set(),
       keys: new Set(),
       lootedChests: new Set(),
+      enteredRegions: new Set(),
       backpackContainerId: null,
     });
     this.occupancy.set(this.tileKey(pos.x, pos.y, z), id);
@@ -708,6 +742,7 @@ export class Simulation {
         openContainers: new Set(),
         keys: new Set(),
         lootedChests: new Set(),
+        enteredRegions: new Set(),
         backpackContainerId: null,
       });
       this.occupancy.set(this.tileKey(n.x, n.y, this.world.baseZ), id);
@@ -730,6 +765,30 @@ export class Simulation {
     return target;
   }
 
+  /**
+   * Tile adjacente (8-viz) a `target` que `mover` consegue ALCANÇAR (tem caminho),
+   * o mais próximo. Pra mirar uma porta fechada (= parede, abre só por clique): o
+   * player encosta do lado DELE, não no interior isolado atrás da porta — que é
+   * `canEnter` mas inalcançável (`nearestFree` o pegaria e o A* falharia).
+   */
+  private reachableAdjacent(mover: SimEntity, target: Vec2): Vec2 | null {
+    const cands: Vec2[] = [];
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const x = target.x + dx;
+        const y = target.y + dy;
+        if (this.canEnter(mover, x, y)) cands.push({ x, y });
+      }
+    cands.sort((a, b) => chebyshev(mover.pos, a) - chebyshev(mover.pos, b));
+    for (const c of cands) {
+      if (mover.pos.x === c.x && mover.pos.y === c.y) return c;
+      const path = findPath(this.world, mover.pos, c, { isBlocked: this.blockedFor(mover), z: mover.z });
+      if (path) return c;
+    }
+    return null;
+  }
+
   /** Diálogo exige proximidade contínua: afastou (>3 tiles) ou NPC sumiu → fecha. */
   private pruneDialogues(): void {
     for (const e of this.entities.values()) {
@@ -737,6 +796,28 @@ export class Simulation {
       const npc = this.entities.get(e.activeDialogue.npcEntityId);
       if (!npc || npc.dead || npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) e.activeDialogue = null;
     }
+  }
+
+  /**
+   * DEV/teste (headless): aceita uma quest num jogador sem passar pelo diálogo
+   * (a aceitação normal é via efeito `acceptQuest` no `dialogueChoice`). Espelha
+   * o mesmo seed (`initialQuestState`). Usado pelos smoke/balance harnesses para
+   * exercitar etapas sem montar o cast de NPCs. Não muda regra alguma.
+   */
+  __debugAcceptQuest(entityId: number, questId: string): void {
+    const e = this.entities.get(entityId);
+    if (!e || !QUESTS[questId] || e.quests.has(questId)) return;
+    e.quests.set(questId, initialQuestState());
+  }
+
+  /**
+   * DEV/teste (headless): lê o ciclo de vida (`active`/`report`/`completed`) de
+   * uma quest do jogador — projeção read-only do estado já exposto no snapshot
+   * (`QuestJournalEntry`), mais direta para asserts de harness. undefined = quest
+   * não está no mapa do jogador.
+   */
+  __debugQuestStage(entityId: number, questId: string): QuestStage | undefined {
+    return this.entities.get(entityId)?.quests.get(questId)?.stage;
   }
 
   handleCommand(entityId: number, cmd: ClientCommand): void {
@@ -747,7 +828,14 @@ export class Simulation {
         e.intent = cmd.dir ? { kind: "dir", dir: cmd.dir } : null;
         break;
       case "walkTo": {
-        const goal = nearestWalkable(this.world, { x: Math.round(cmd.x), y: Math.round(cmd.y) }, 3, e.z);
+        const want = { x: Math.round(cmd.x), y: Math.round(cmd.y) };
+        // Porta fechada é parede (abre só por clique → `interact`): mira o tile
+        // livre adjacente pro player encostar; o cliente dispara o `interact` ao
+        // chegar em alcance. Senão, o A* falharia (goal bloqueado → null).
+        const door = this.world.doorAt(want.x, want.y, e.z);
+        const goal = door && !this.world.isDoorOpen(door.id)
+          ? this.reachableAdjacent(e, want)
+          : nearestWalkable(this.world, want, 3, e.z);
         if (!goal) break;
         const path = findPath(this.world, e.pos, goal, { isBlocked: this.blockedFor(e), z: e.z });
         if (path && path.length > 0) e.intent = { kind: "path", path, goal };
@@ -805,6 +893,10 @@ export class Simulation {
         if (npc.z !== e.z || chebyshev(e.pos, npc.pos) > 3) break; // alcance de conversa (mesmo andar)
         const dlg = DIALOGUES[npc.npcKey];
         if (!dlg) break;
+        // Etapas `talk` avançam por VISITAR o NPC (uma quest cuja etapa atual é
+        // talk:<este npc> progride). Antes de montar a view, então a fala já
+        // reflete o passo cumprido.
+        creditQuestEvent(e.quests, { kind: "talk", npcId: npc.npcKey });
         const talkerCls = this.progressions.get(e.id)?.cls ?? "classless";
         e.activeDialogue = { npcEntityId: npc.id, view: dlg.root(e.quests, talkerCls) };
         this.pendingChat.push({
@@ -829,27 +921,60 @@ export class Simulation {
         if (res.effects?.acceptQuest) {
           const def = QUESTS[res.effects.acceptQuest];
           if (def && !e.quests.has(def.id)) {
-            e.quests.set(def.id, { stage: "active", kills: 0 } satisfies QuestState);
+            e.quests.set(def.id, initialQuestState());
+            // Aceitar É falar com o giver: credita o evento `talk` na mesma hora,
+            // então uma 1ª etapa `talk` (ex.: Q1 talk→kill) já avança pra de caça
+            // — preserva o comportamento de uma etapa do shape antigo.
+            creditQuestEvent(e.quests, { kind: "talk", npcId: npc.npcKey ?? "" });
           }
         }
         if (res.effects?.completeQuest) {
           const def = QUESTS[res.effects.completeQuest];
           const st = def ? e.quests.get(def.id) : undefined;
           if (def && st && st.stage === "report") {
-            st.stage = "completed";
-            // Recompensa de ouro = pilha depositada no bolso (modelo Tibia).
             const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
-            if (bp) this.containers.depositGold(bp, def.rewards.gold);
-            this.sysMessage(e.id, `Quest concluída: ${def.name}. +${def.rewards.gold} ouro, +${def.rewards.xp} XP.`);
-            const prog = this.progressions.get(e.id);
-            if (prog) {
-              // XP de quest: mesma rotina do kill-XP, sem criatura (level 0 = sem corte).
-              grantKillXp(prog, e, def.rewards.xp, 0, this.bus, {
-                tick: this.tickCount,
-                night: false,
-              });
-              this.recomputePlayerDerived(e, prog);
+            // Pré-checa espaço STACK-AWARE pros itens de recompensa (mesma filosofia
+            // do baú: sem vaga, BLOQUEIA e nada se perde — o jogador libera e reporta
+            // de novo). Q1/ritos não dão item → itemSlots=0 → no-op (idêntico ao antigo).
+            const itemSlots = bp ? this.lootSlotsNeeded(bp, def.rewards.items ?? []) : 0;
+            const freeSlots = bp ? bp.slots.filter((s) => s === null).length : 0;
+            if (itemSlots > 0 && freeSlots < itemSlots) {
+              this.sysMessage(e.id, "Sua mochila está cheia para a recompensa — abra espaço.");
+            } else {
+              st.stage = "completed";
+              // Recompensa de ouro = pilha depositada no bolso (modelo Tibia).
+              if (bp) this.containers.depositGold(bp, def.rewards.gold);
+              // Itens de recompensa: stack-aware (empilháveis fundem; gear vira instância única).
+              if (bp) {
+                for (const r of def.rewards.items ?? []) {
+                  this.containers.addItemStackAware(this.items, bp, r.templateId, r.qty ?? 1);
+                }
+              }
+              // Chave abstrata (flag permanente no personagem — ChestDef.keyReq).
+              if (def.rewards.grantsKey) e.keys.add(def.rewards.grantsKey);
+              this.sysMessage(e.id, `Quest concluída: ${def.name}. +${def.rewards.gold} ouro, +${def.rewards.xp} XP.`);
+              const prog = this.progressions.get(e.id);
+              if (prog) {
+                // XP de quest: mesma rotina do kill-XP, sem criatura (level 0 = sem corte).
+                grantKillXp(prog, e, def.rewards.xp, 0, this.bus, {
+                  tick: this.tickCount,
+                  night: false,
+                });
+                this.recomputePlayerDerived(e, prog);
+              }
             }
+          }
+        }
+        // Entrega de etapa `collect`: o diálogo pede a entrega (turnInStage); a
+        // sim confere o bolso, CONSOME os itens e avança a etapa. Só funciona se
+        // a etapa atual da quest é collect deste NPC E o bolso tem o lote.
+        if (res.effects?.turnInStage && npc.npcKey) {
+          const questId = res.effects.turnInStage;
+          const stg = questCollectStage(e.quests, questId, npc.npcKey);
+          const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+          if (stg && bp && this.countInBolso(bp, stg.templateId) >= stg.count) {
+            this.removeFromBolso(bp, stg.templateId, stg.count);
+            creditQuestTurnIn(e.quests, questId);
           }
         }
         // Rito de classe: o treinador dispara a transição (valida gold+quest e
@@ -935,6 +1060,11 @@ export class Simulation {
         this.openChest(e, cmd.chestId);
         break;
       }
+      case "interact": {
+        if (e.kind !== "player") break;
+        this.interact(e, cmd.interactableId);
+        break;
+      }
       case "openContainer": {
         if (e.kind !== "player") break;
         if (this.containerAccessible(e, cmd.containerId)) e.openContainers.add(cmd.containerId);
@@ -982,6 +1112,11 @@ export class Simulation {
           );
         });
         if (valid) e.outfit = structuredCloneOutfit(o);
+        break;
+      }
+      case "setBody": {
+        // Avatar do herói (homem/mulher) — valida contra a lista canônica.
+        if (e.kind === "player" && isValidBodyType(cmd.body)) e.bodyType = cmd.body;
         break;
       }
       case "debugGrantOutfit": {
@@ -1112,8 +1247,13 @@ export class Simulation {
       rng: this.combatRng,
       effectsOf: (id) => this.tracking.activeEffects(id, this.equippedInstanceIdsOf(id)),
       sessionFacts: (id) => this.effectSessionFacts(id),
-      // Tomar dano cancela a conjuração em andamento do alvo (cast-time).
-      onDamaged: (target) => { if (target.casting) this.cancelCast(target); },
+      // Tomar dano cancela a conjuração em andamento do alvo (cast-time) E
+      // PROVOCA o mob territorial (javali): neutro até apanhar, vira chaser ao
+      // sofrer o 1º dano (monsterAi.updateTerritorial lê `provoked`).
+      onDamaged: (target) => {
+        if (target.casting) this.cancelCast(target);
+        if (target.kind === "monster" && target.behavior === "territorial") target.provoked = true;
+      },
     };
     // areaDamage referencia `ctx` (já construído) — atribuído após o literal.
     ctx.areaDamage = (tiles, sourceId, amount, dt) => this.dealAreaDamage(ctx, tiles, sourceId, amount, dt);
@@ -1150,7 +1290,18 @@ export class Simulation {
           // age de novo no tick seguinte (MECANICAS-DE-MOB.md §1).
           if (now >= e.activeMove.resolveAt) this.resolveMove(e, ctx);
         } else {
-          updateChaser(ctx, this.world, e, players, now, this.blockedFor(e));
+          // Despacha a IA por comportamento do bestiário (default = chaser).
+          const isBlocked = this.blockedFor(e);
+          switch (e.behavior) {
+            case "shooter":
+              updateShooter(ctx, this.world, e, players, now, isBlocked);
+              break;
+            case "territorial":
+              updateTerritorial(ctx, this.world, e, players, now, isBlocked);
+              break;
+            default:
+              updateChaser(ctx, this.world, e, players, now, isBlocked);
+          }
         }
       }
     }
@@ -1183,6 +1334,12 @@ export class Simulation {
       if (e.intent.kind === "dir") this.stepInDirection(e, e.intent.dir, now);
       else this.stepAlongPath(e, now);
     }
+
+    // ── 3.4 Auto-fecha de portas (feel Tibia): fecha as vencidas, menos as com
+    // alguém em cima. Após o movimento → quem acabou de pisar no vão a mantém. ──
+    this.world.tickAutoCloseDoors(now, (d) =>
+      this.occupancy.has(this.tileKey(d.pos.x, d.pos.y, d.z)),
+    );
 
     // ── 3.5 Conjurações com cast-time que venceram: resolve AGORA (após
     // movimento/dano deste tick — mover/tomar dano no tick do fim ainda cancela). ──
@@ -1308,6 +1465,44 @@ export class Simulation {
    * FIXO direto ao bolso; BLOQUEIA sem espaço (nada se perde) e só marca como
    * saqueado quando o loot de fato entrou. Ver `ChestDef`/`ChestLoot`.
    */
+  /**
+   * Quantos slots VAZIOS um lote de loot precisa, STACK-AWARE: empilháveis
+   * preenchem primeiro as pilhas parciais existentes e só transbordam pra slots
+   * novos (cada um ≤ maxStack); gear/não-empilhável = 1 slot/unidade. Acumula a
+   * folga ao longo das linhas (várias do mesmo template somam no mesmo balde) —
+   * fiel ao que `addItemStackAware` faria. NÃO muta o container.
+   */
+  private lootSlotsNeeded(c: Container, items: { templateId: string; qty?: number }[]): number {
+    // Folga inicial das pilhas parciais existentes, por template.
+    const room = new Map<string, number>();
+    for (const s of c.slots) {
+      if (s?.kind === "stack") {
+        const max = maxStackOf(s.templateId);
+        room.set(s.templateId, (room.get(s.templateId) ?? 0) + (max - s.count));
+      }
+    }
+    let slots = 0;
+    for (const it of items) {
+      let left = it.qty ?? 1;
+      const max = maxStackOf(it.templateId);
+      if (max > 1) {
+        const have = room.get(it.templateId) ?? 0;
+        const used = Math.min(have, left);
+        room.set(it.templateId, have - used);
+        left -= used;
+        if (left > 0) {
+          const newSlots = Math.ceil(left / max);
+          slots += newSlots;
+          // sobra de capacidade do último slot novo vira folga p/ linhas seguintes.
+          room.set(it.templateId, (room.get(it.templateId) ?? 0) + (newSlots * max - left));
+        }
+      } else {
+        slots += left; // não-empilhável: 1 slot/unidade
+      }
+    }
+    return slots;
+  }
+
   private openChest(e: SimEntity, chestId: string): void {
     const chest = this.chests.find((c) => c.id === chestId);
     if (!chest) return;
@@ -1333,27 +1528,85 @@ export class Simulation {
     }
     const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
     if (!bp) return;
-    // Pré-checa espaço: 1 slot por item; ouro só precisa de slot se não há pilha.
-    const itemCount = (chest.loot.items ?? []).reduce((n, it) => n + (it.qty ?? 1), 0);
+    // Pré-checa espaço STACK-AWARE (empilhável funde em pilha parcial; gear = 1
+    // slot/unidade). Sem vaga, BLOQUEIA e nada se perde (filosofia do baú).
     const needsGoldSlot = (chest.loot.gold ?? 0) > 0 && !bp.slots.some((s) => s?.kind === "gold");
-    const needed = itemCount + (needsGoldSlot ? 1 : 0);
+    let needed = needsGoldSlot ? 1 : 0;
+    needed += this.lootSlotsNeeded(bp, chest.loot.items ?? []);
     const free = bp.slots.filter((s) => s === null).length;
     if (needed > free) {
       this.sysMessage(e.id, "Abra espaço na mochila primeiro.");
       return;
     }
     // Concede o loot (determinístico) e fecha o saque para este personagem.
+    // Stack-aware: empilháveis fundem num slot; gear vira instância única.
     for (const it of chest.loot.items ?? []) {
-      const qty = it.qty ?? 1;
-      for (let i = 0; i < qty; i++) {
-        const inst = this.items.create(it.templateId);
-        this.containers.add(bp, { kind: "item", instanceId: inst.id });
-      }
+      this.containers.addItemStackAware(this.items, bp, it.templateId, it.qty ?? 1);
     }
     if (chest.loot.gold) this.containers.depositGold(bp, chest.loot.gold);
     if (chest.loot.grantsKey) e.keys.add(chest.loot.grantsKey);
     e.lootedChests.add(chestId);
     this.sysMessage(e.id, `Você abriu ${label}.`);
+  }
+
+  /**
+   * Interage com um ponto/objeto de cenário de quest próximo (`InteractableDef`).
+   * Hook de mundo da etapa `interact`: REUSA a régua reach-based do baú (≤2 tiles,
+   * mesmo andar) e, ao alcançar, emite `creditQuestEvent({kind:"interact"})` — que
+   * avança UMA vez a etapa `interact` ativa que casa o id (a quest é quem rastreia
+   * "já interagi", via stage; o interactable é só o ancoradouro no mundo).
+   */
+  private interact(e: SimEntity, interactableId: string): void {
+    // PORTA antes do interactable de quest: o MESMO comando `interact` abre uma
+    // porta trancada (reusa a régua reach-based + a CHAVE abstrata do baú). Id de
+    // porta e de interactable são namespaces distintos no mapa — sem colisão.
+    const door = this.world.doorById(interactableId);
+    if (door) {
+      this.openDoor(e, door);
+      return;
+    }
+    const it = this.world.interactableById(interactableId, e.z);
+    if (!it) return;
+    // Alcance: ≤2 tiles no mesmo andar (mesma régua do baú/cadáver).
+    if ((it.z ?? this.world.baseZ) !== e.z || chebyshev(e.pos, it.pos) > 2) return;
+    creditQuestEvent(e.quests, { kind: "interact", interactableId });
+    this.sysMessage(e.id, `Você examina ${it.name ?? "o objeto"}.`);
+  }
+
+  /**
+   * Abre uma PORTA próxima via `interact` — ALTERNATIVA ao anda-pra-abrir (o
+   * clique/uso à distância ≤2 tiles, sem encostar). Reusa a régua reach-based e a
+   * CHAVE abstrata (`SimEntity.keys` / `DoorDef.keyReq`). Sem chave → "trancada".
+   * Estado de abertura é GLOBAL (`World`) + auto-fecha agendado (feel Tibia): já
+   * aberta → só estende o prazo. Fecha o loop tutorial: baú → chave → porta → sair.
+   */
+  private openDoor(e: SimEntity, door: DoorDef): void {
+    if (door.z !== e.z || chebyshev(e.pos, door.pos) > 2) return;
+    const label = door.name ?? "a porta";
+    if (door.keyReq != null && !e.keys.has(door.keyReq)) {
+      this.sysMessage(e.id, `${label} está trancada.`);
+      return;
+    }
+    const already = this.world.isDoorOpen(door.id);
+    this.world.openDoorRuntime(door.id, this.now() + DOOR_AUTOCLOSE_MS);
+    if (!already) this.sysMessage(e.id, `Você abriu ${label}.`);
+  }
+
+  /**
+   * Detecta ENTRADA numa região de quest (`QuestRegionDef`) na posição atual do
+   * jogador e emite `region_enter` UMA vez por região por personagem. Chamado a
+   * cada passo committed (em `tryStep`). O set `enteredRegions` é o guarda do
+   * one-shot: a 1ª vez que o tile cai dentro de um rect, emite e marca; depois,
+   * andar dentro/reentrar não re-dispara. Sem regiões no mapa = no-op barato
+   * (lista vazia). Mapas sem `region_enter` ativa nas quests também: o filtro
+   * de etapa em `creditQuestEvent` ignora.
+   */
+  private checkRegionEnter(e: SimEntity): void {
+    for (const r of this.world.questRegionsAt(e.pos.x, e.pos.y, e.z)) {
+      if (e.enteredRegions.has(r.id)) continue;
+      e.enteredRegions.add(r.id);
+      creditQuestEvent(e.quests, { kind: "region_enter", regionId: r.id });
+    }
   }
 
   /** Peso TOTAL que o jogador carrega: equipamento + bolso (itens + ouro).
@@ -1369,8 +1622,13 @@ export class Simulation {
     if (bp) {
       for (const s of bp.slots) {
         if (!s || s.kind === "gold") continue;
-        const t = getItemTemplate(this.items.get(s.instanceId)?.templateId ?? "");
-        if (t) w += t.weight;
+        if (s.kind === "stack") {
+          // pilha fungível: peso = unidades × peso do template.
+          w += (getItemTemplate(s.templateId)?.weight ?? 0) * s.count;
+        } else {
+          const t = getItemTemplate(this.items.get(s.instanceId)?.templateId ?? "");
+          if (t) w += t.weight;
+        }
       }
       // ouro: peso COM TETO (150 moedas) — soma o total, não por slot
       w += goldWeight(this.containers.totalGold(bp));
@@ -1386,7 +1644,9 @@ export class Simulation {
 
   /** Um `ItemRef` aponta para algo que o jogador JÁ carrega? (equip ou bolso) */
   private refIsCarried(e: SimEntity, ref: ItemRef): boolean {
-    return ref.kind === "equip" || ref.containerId === e.backpackContainerId;
+    if (ref.kind === "equip") return true;
+    if (ref.kind === "ground") return false;
+    return ref.containerId === e.backpackContainerId;
   }
 
   // ── Comércio (loja de NPC) — toda regra na sim; o client só envia comandos ──
@@ -1477,7 +1737,8 @@ export class Simulation {
       this.sysMessage(e.id, "Ouro insuficiente.");
       return;
     }
-    if (this.containers.freeSlot(bp) < 0) {
+    // Espaço stack-aware: empilhável cabe numa pilha parcial mesmo sem slot vazio.
+    if (!this.containers.canFit(bp, templateId, 1)) {
       this.sysMessage(e.id, "Sua mochila está cheia.");
       return;
     }
@@ -1489,8 +1750,7 @@ export class Simulation {
       return;
     }
     this.containers.withdrawGold(bp, entry.price);
-    const inst = this.items.create(templateId);
-    this.containers.add(bp, { kind: "item", instanceId: inst.id });
+    this.containers.addItemStackAware(this.items, bp, templateId, 1);
     this.sysMessage(e.id, `Você comprou ${tpl.name} por ${entry.price} de ouro.`);
   }
 
@@ -1524,24 +1784,35 @@ export class Simulation {
    * Consome 1 unidade no sucesso. Item sem efeito de uso = ignorado.
    */
   private useItem(e: SimEntity, ref: ItemRef): void {
-    // Resolve a instância carregada + como removê-la (consumir 1) ao usar.
-    let instanceId: number | null = null;
+    // Resolve o template a usar + como consumir 1 unidade. Suporta instância
+    // (`item`/equip) E pilha fungível (`stack`): comer 1 de um stack de 12 → 11
+    // (e o slot some ao chegar a 0). O consumo SÓ roda no sucesso do efeito.
+    let templateId: string | null = null;
     let consume: (() => void) | null = null;
     if (ref.kind === "container") {
       if (!this.containerAccessible(e, ref.containerId)) return;
       const c = this.containers.get(ref.containerId);
       const content = c?.slots[ref.slot];
-      if (!c || !content || content.kind !== "item") return;
-      instanceId = content.instanceId;
-      consume = () => { c.slots[ref.slot] = null; };
+      if (!c || !content) return;
+      if (content.kind === "item") {
+        templateId = this.items.get(content.instanceId)?.templateId ?? null;
+        consume = () => { c.slots[ref.slot] = null; };
+      } else if (content.kind === "stack") {
+        templateId = content.templateId;
+        consume = () => {
+          const s = c.slots[ref.slot];
+          if (s?.kind === "stack" && --s.count <= 0) c.slots[ref.slot] = null;
+        };
+      } else {
+        return; // ouro não se usa
+      }
     } else if (ref.kind === "equip") {
       const id = e.equipment[ref.slot];
       if (id == null) return;
-      instanceId = id;
+      templateId = this.items.get(id)?.templateId ?? null;
       consume = () => { delete e.equipment[ref.slot]; };
     }
-    if (instanceId == null || !consume) return;
-    const templateId = this.items.get(instanceId)?.templateId ?? "";
+    if (templateId == null || !consume) return;
     const tpl = getItemTemplate(templateId);
     const effect = tpl?.consume;
     if (!tpl || !effect) return; // nada de efeito de uso → ignora
@@ -1592,25 +1863,18 @@ export class Simulation {
     });
   }
 
-  /** Quantas instâncias de `templateId` o jogador tem no bolso. */
+  /**
+   * Quantas unidades de `templateId` o jogador tem no bolso — por COUNT (soma as
+   * pilhas `stack` E conta instâncias `item` do mesmo template). Uma quest collect
+   * de N comidas fecha com um único stack de N (ver `ContainerRegistry.countOf`).
+   */
   private countInBolso(bp: Container, templateId: string): number {
-    let n = 0;
-    for (const s of bp.slots) {
-      if (s?.kind === "item" && this.items.get(s.instanceId)?.templateId === templateId) n++;
-    }
-    return n;
+    return this.containers.countOf(this.items, bp, templateId);
   }
 
-  /** Remove `qty` instâncias de `templateId` do bolso (libera os slots). */
+  /** Remove `qty` unidades de `templateId` do bolso (debita stacks E instâncias). */
   private removeFromBolso(bp: Container, templateId: string, qty: number): void {
-    let left = qty;
-    for (let i = 0; i < bp.slots.length && left > 0; i++) {
-      const s = bp.slots[i];
-      if (s?.kind === "item" && this.items.get(s.instanceId)?.templateId === templateId) {
-        bp.slots[i] = null;
-        left--;
-      }
-    }
+    this.containers.removeOf(this.items, bp, templateId, qty);
   }
 
   /**
@@ -1648,10 +1912,10 @@ export class Simulation {
         return;
       }
     }
-    // Consome os inputs (libera ≥1 slot) e produz o prato no bolso.
+    // Consome os inputs (libera ≥1 slot) e produz o prato no bolso (stack-aware:
+    // o prato é empilhável — funde numa pilha existente ou usa o slot liberado).
     for (const inp of recipe.inputs) this.removeFromBolso(bp, inp.templateId, inp.qty);
-    const inst = this.items.create(recipe.output);
-    this.containers.add(bp, { kind: "item", instanceId: inst.id });
+    this.containers.addItemStackAware(this.items, bp, recipe.output, 1);
     const tpl = getItemTemplate(recipe.output);
     this.sysMessage(e.id, `Você preparou ${tpl?.name ?? recipe.name}.`);
   }
@@ -1696,6 +1960,11 @@ export class Simulation {
    * container⇄equipamento (hand1/hand2/armor). Ouro = pilha que move/funde.
    */
   private moveItem(e: SimEntity, from: ItemRef, to: ItemRef): void {
+    // origem: CHÃO (pegar uma pilha largada perto)
+    if (from.kind === "ground") {
+      this.pickUpFromGround(e, from.groundItemId, to);
+      return;
+    }
     // origem
     if (from.kind === "container") {
       if (!this.containerAccessible(e, from.containerId)) return;
@@ -1711,6 +1980,9 @@ export class Simulation {
           const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
           const cur = bp ? this.containers.totalGold(bp) : 0;
           added = goldWeight(cur + content.amount) - goldWeight(cur);
+        } else if (content.kind === "stack") {
+          // pilha fungível: peso = unidades × peso do template.
+          added = (getItemTemplate(content.templateId)?.weight ?? 0) * content.count;
         } else {
           added = getItemTemplate(this.items.get(content.instanceId)?.templateId ?? "")?.weight ?? 0;
         }
@@ -1718,6 +1990,15 @@ export class Simulation {
           this.sysMessage(e.id, "Pesado demais — sem capacidade de carga.");
           return;
         }
+      }
+      // largar no chão: valida o tile mirado (parede/visão/alcance) ANTES de tirar
+      // do slot — se não dá, nada se move.
+      if (to.kind === "ground") {
+        const target = to.pos ?? { x: e.pos.x, y: e.pos.y };
+        if (!this.canDropAt(e, target)) { this.sysMessage(e.id, "Não dá pra largar aí."); return; }
+        this.dropContentAt(e, content, target);
+        c.slots[from.slot] = null;
+        return;
       }
       if (content.kind === "gold") {
         // arrastar ouro: move/funde a pilha no slot de destino (não equipa).
@@ -1731,6 +2012,26 @@ export class Simulation {
         } else if (tgt.kind === "gold") {
           tgt.amount += content.amount;
           c.slots[from.slot] = null;
+        }
+        return;
+      }
+      if (content.kind === "stack") {
+        // arrastar pilha fungível: move pro slot vazio ou FUNDE numa pilha do mesmo
+        // template (até o teto; o excedente fica na origem). Nunca equipa (fungível).
+        if (to.kind !== "container" || !this.containerAccessible(e, to.containerId)) return;
+        const dst = this.containers.get(to.containerId);
+        if (!dst || to.slot >= dst.capacity) return;
+        const tgt = dst.slots[to.slot];
+        if (tgt == null) {
+          dst.slots[to.slot] = content;
+          c.slots[from.slot] = null;
+        } else if (tgt.kind === "stack" && tgt.templateId === content.templateId) {
+          const max = maxStackOf(content.templateId);
+          const room = max - tgt.count;
+          const moved = Math.min(room, content.count);
+          tgt.count += moved;
+          content.count -= moved;
+          if (content.count <= 0) c.slots[from.slot] = null;
         }
         return;
       }
@@ -1750,19 +2051,54 @@ export class Simulation {
       c.slots[from.slot] = null;
       e.equipment[to.slot] = inst.id;
       this.emitEquip(e, "equip", to.slot, inst.id);
+      // Vestir mochila → o bolso cresce pra capacidade dela (8→16).
+      if (to.slot === "backpack") this.syncBackpackCapacity(e);
       this.afterEquipChange(e);
       return;
     }
     // origem: equipamento
     const instId = e.equipment[from.slot];
     if (instId == null) return;
+    if (to.kind === "ground") {
+      // largar gear vestido no chão. A mochila vestida orfanaria o bolso — bloqueia.
+      if (from.slot === "backpack") {
+        this.sysMessage(e.id, "Tire a mochila pro inventário antes de largá-la.");
+        return;
+      }
+      const target = to.pos ?? { x: e.pos.x, y: e.pos.y };
+      if (!this.canDropAt(e, target)) { this.sysMessage(e.id, "Não dá pra largar aí."); return; }
+      this.dropContentAt(e, { kind: "item", instanceId: instId }, target);
+      this.emitEquip(e, "unequip", from.slot, instId);
+      delete e.equipment[from.slot];
+      this.afterEquipChange(e);
+      return;
+    }
     if (to.kind === "container") {
       if (!this.containerAccessible(e, to.containerId)) return;
       const dst = this.containers.get(to.containerId);
       if (!dst || dst.slots[to.slot] !== null || to.slot >= dst.capacity) return;
+      // Tirar a mochila encolhe o bolso pra base: só rola se o espaço extra
+      // (além da base) estiver vazio — incluindo o slot de destino, se ele cair
+      // no range extra (encolher o apagaria). Senão bloqueia (nada se perde).
+      if (from.slot === "backpack") {
+        const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+        if (bp) {
+          const blockedByDest = to.containerId === bp.id && to.slot >= this.basePocketCapacity;
+          let extraOccupied = false;
+          for (let i = this.basePocketCapacity; i < bp.capacity; i++) {
+            if (bp.slots[i] != null) { extraOccupied = true; break; }
+          }
+          if (blockedByDest || extraOccupied) {
+            this.sysMessage(e.id, "Esvazie a mochila antes de tirá-la.");
+            return;
+          }
+        }
+      }
       dst.slots[to.slot] = { kind: "item", instanceId: instId };
       this.emitEquip(e, "unequip", from.slot, instId);
       delete e.equipment[from.slot];
+      // Tirou a mochila → o bolso volta à capacidade-base (slots extras já vazios).
+      if (from.slot === "backpack") this.syncBackpackCapacity(e);
       this.afterEquipChange(e);
       return;
     }
@@ -1775,10 +2111,113 @@ export class Simulation {
     this.afterEquipChange(e);
   }
 
+  /** Quão longe (Chebyshev) dá pra largar/mirar um item no chão. */
+  private readonly dropRange = 12;
+
+  /**
+   * Dá pra largar no tile `pos`? Nos próprios pés sempre; senão precisa ser tile
+   * ANDÁVEL (não parede/void), dentro do alcance e com LINHA DE VISÃO (sem parede
+   * no meio). É a régua de "qualquer lugar visível sem barreira física".
+   */
+  private canDropAt(e: SimEntity, pos: Vec2): boolean {
+    if (pos.x === e.pos.x && pos.y === e.pos.y) return true;
+    if (!this.world.isWalkable(pos.x, pos.y, e.z)) return false;
+    if (chebyshev(e.pos, pos) > this.dropRange) return false;
+    return hasLineOfSight(this.world, e.pos, pos, e.z);
+  }
+
+  /** Cria uma pilha de item no chão, no tile dado (validado pelo chamador). */
+  private dropContentAt(e: SimEntity, content: Exclude<ContainerSlotContent, null>, pos: Vec2): void {
+    this.groundItems.push({
+      id: this.nextGroundItemId++,
+      pos: { x: pos.x, y: pos.y },
+      z: e.z,
+      content,
+    });
+  }
+
+  /**
+   * Pega uma pilha do chão (≤1 tile, mesmo andar). Auto-coloca no container de
+   * destino (funde gold/stack, abre slot p/ gear) ou veste direto num slot de
+   * equip. Bloqueia por peso e por falta de espaço (nada se perde); pilha parcial
+   * que não coube fica no chão com o resto.
+   */
+  private pickUpFromGround(e: SimEntity, groundItemId: number | undefined, to: ItemRef): void {
+    const idx = this.groundItems.findIndex((g) => g.id === groundItemId);
+    if (idx < 0) return;
+    const gi = this.groundItems[idx];
+    if (gi.z !== e.z || chebyshev(e.pos, gi.pos) > 1) return; // fora de alcance
+    const content = gi.content;
+
+    // chão → chão: realoca a mesma pilha pro tile mirado (pega de perto, joga longe).
+    if (to.kind === "ground") {
+      const target = to.pos ?? { x: e.pos.x, y: e.pos.y };
+      if (!this.canDropAt(e, target)) { this.sysMessage(e.id, "Não dá pra largar aí."); return; }
+      gi.pos = { x: target.x, y: target.y };
+      gi.z = e.z;
+      return;
+    }
+
+    // destino: vestir direto (só gear-instância num slot que aceita)
+    if (to.kind === "equip") {
+      if (content.kind !== "item") return;
+      const inst = this.items.get(content.instanceId);
+      if (!inst || !this.slotAccepts(to.slot, inst.templateId) || e.equipment[to.slot] != null) return;
+      const w = getItemTemplate(inst.templateId)?.weight ?? 0;
+      if (this.carriedWeight(e) + w > this.maxCarryOf(e)) {
+        this.sysMessage(e.id, "Pesado demais — sem capacidade de carga.");
+        return;
+      }
+      e.equipment[to.slot] = inst.id;
+      this.emitEquip(e, "equip", to.slot, inst.id);
+      if (to.slot === "backpack") this.syncBackpackCapacity(e);
+      this.afterEquipChange(e);
+      this.groundItems.splice(idx, 1);
+      return;
+    }
+
+    // destino: um container acessível (o bolso, em geral) — auto-place.
+    if (to.kind !== "container" || !this.containerAccessible(e, to.containerId)) return;
+    const dst = this.containers.get(to.containerId);
+    if (!dst) return;
+
+    // peso: pegar do chão TRAZ carga nova.
+    let added: number;
+    if (content.kind === "gold") {
+      const cur = this.containers.totalGold(dst);
+      added = goldWeight(cur + content.amount) - goldWeight(cur);
+    } else if (content.kind === "stack") {
+      added = (getItemTemplate(content.templateId)?.weight ?? 0) * content.count;
+    } else {
+      added = getItemTemplate(this.items.get(content.instanceId)?.templateId ?? "")?.weight ?? 0;
+    }
+    if (this.carriedWeight(e) + added > this.maxCarryOf(e)) {
+      this.sysMessage(e.id, "Pesado demais — sem capacidade de carga.");
+      return;
+    }
+
+    if (content.kind === "gold") {
+      const left = this.containers.depositGold(dst, content.amount);
+      if (left === content.amount) { this.sysMessage(e.id, "Sem espaço."); return; }
+      if (left > 0) { content.amount = left; return; } // parcial: resto fica no chão
+    } else if (content.kind === "stack") {
+      const left = this.containers.addItemStackAware(this.items, dst, content.templateId, content.count);
+      if (left === content.count) { this.sysMessage(e.id, "Sem espaço."); return; }
+      if (left > 0) { content.count = left; return; }
+    } else {
+      const slot = this.containers.freeSlot(dst);
+      if (slot < 0) { this.sysMessage(e.id, "Sem espaço."); return; }
+      dst.slots[slot] = { kind: "item", instanceId: content.instanceId };
+    }
+    this.groundItems.splice(idx, 1);
+  }
+
   /** O template cabe neste slot de equipamento? (mapeamento DESIGN-ITENS) */
   private slotAccepts(slot: EquipSlot, templateId: string): boolean {
     const t = getItemTemplate(templateId);
     if (!t) return false;
+    // Mochila/sacola: item `container` veste no slot de mochila (cresce o bolso).
+    if (t.category === "container") return slot === "backpack";
     if (t.slot === "weapon" || t.slot === "shield") return slot === "hand1" || slot === "hand2";
     if (t.slot === "armor") return slot === "armor";
     if (t.slot === "helmet") return slot === "helmet";
@@ -1811,6 +2250,26 @@ export class Simulation {
     e.equippedWeaponId = t?.slot === "weapon" ? inst!.id : null;
     const prog = this.progressions.get(e.id);
     if (prog) this.recomputePlayerDerived(e, prog);
+  }
+
+  /** Capacidade do bolso SEM mochila vestida (os "bolsos" do nascimento). */
+  private readonly basePocketCapacity = 8;
+
+  /**
+   * Sincroniza a capacidade do bolso com a mochila vestida: com mochila no slot
+   * `backpack`, o bolso cresce pro `containerCapacity` dela (16); sem mochila,
+   * volta à base (8). Crescer é sempre seguro; ENCOLHER só é chamado depois que
+   * o caminho de tirar a mochila garantiu os slots extras vazios (ver moveItem).
+   */
+  private syncBackpackCapacity(e: SimEntity): void {
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (!bp) return;
+    const bagId = e.equipment.backpack;
+    const bag = bagId != null ? this.items.get(bagId) : null;
+    const cap = bag
+      ? getItemTemplate(bag.templateId)?.containerCapacity ?? this.basePocketCapacity
+      : this.basePocketCapacity;
+    this.containers.setCapacity(bp, cap);
   }
 
   /** Cadáveres: decai vencidos; afastou → fecha a janela do jogador. */
@@ -1892,10 +2351,11 @@ export class Simulation {
               if (g > 0) this.containers.add(c, { kind: "gold", amount: g });
             }
             // Drops de item: cada um rolado por sua chance (RNG de loot da sim).
+            // Stack-aware: empilhável (reagente/comida) funde no cadáver; gear vira
+            // instância única. Mantém o RNG inalterado (1 rolagem por drop).
             for (const drop of lt.items ?? []) {
               if (this.lootRng() < drop.chance) {
-                const inst = this.items.create(drop.templateId);
-                this.containers.add(c, { kind: "item", instanceId: inst.id });
+                this.containers.addItemStackAware(this.items, c, drop.templateId, 1);
               }
             }
           }
@@ -2013,6 +2473,8 @@ export class Simulation {
     // Bloqueio de corpo: tile precisa estar andável E livre (canEnter).
     // Diagonal estilo Tibia (decidido jun/2026): só o destino importa —
     // cortar quina é permitido (mesma regra do A* em pathfinding.ts).
+    // Porta fechada é parede (canEnter barra): abrir é por CLIQUE (interact →
+    // openDoor), nunca pisando. Sem anda-pra-abrir.
     if (!this.canEnter(e, nx, ny)) return false;
     // Mover CANCELA a conjuração em andamento (decisão do task: move OU tomar dano).
     if (e.casting) this.cancelCast(e);
@@ -2033,6 +2495,11 @@ export class Simulation {
         const clicked = e.intent?.kind === "path" && e.intent.goal.x === nx && e.intent.goal.y === ny;
         if (portal.kind === "stairs" || clicked) this.transition(e, portal.to);
       }
+      // Hook de mundo da etapa `region_enter`: lê regiões na posição/andar ATUAL
+      // (pós-`transition`, então chegar por portal numa região conta). One-shot
+      // por personagem via `enteredRegions` — re-entrar não re-dispara, e nunca
+      // dispara duas vezes andando dentro do mesmo rect. SISTEMA-QUESTS.md.
+      this.checkRegionEnter(e);
     }
     return true;
   }
@@ -2111,6 +2578,11 @@ export class Simulation {
 
   private emitSnapshot(events: SnapshotEvent[]): void {
     const entities: EntityState[] = [];
+    // Jogador "dono" do snapshot (modelo local = único player): projeta o estado
+    // per-character de baús/portas (saque/aberta). No online vira o destinatário
+    // do delta. Sem player ainda (boot) → estados caem para o default fechado.
+    let viewer: SimEntity | undefined;
+    for (const e of this.entities.values()) if (e.kind === "player") { viewer = e; break; }
     for (const e of this.entities.values()) {
       const state: EntityState = {
         id: e.id,
@@ -2128,6 +2600,8 @@ export class Simulation {
         maxMp: e.maxMp,
         status: projectStatus(e, this.tickCount),
       };
+      // NPC: id estável p/ o client escolher o sprite do elenco (img/npcs/<id>.png).
+      if (e.npcKey) state.npcId = e.npcKey;
       // Telegraph de mecânica (MECANICAS-DE-MOB.md): move em windup — info PÚBLICA
       // por design (o client DEVE poder desenhar o aviso). ≠ condição secreta.
       if (e.activeMove) {
@@ -2155,6 +2629,7 @@ export class Simulation {
         const weapon = this.projectWeapon(e);
         if (weapon) state.weapon = weapon;
         if (e.outfit) state.outfit = structuredCloneOutfit(e.outfit);
+        if (e.bodyType) state.bodyType = e.bodyType;
         state.wardrobe = [...e.wardrobe];
         // Alvo selecionado é POR-JOGADOR: vai na própria entidade, não no topo
         // do snapshot — cada client lê o targetId da SUA entidade (pronto pro
@@ -2184,17 +2659,22 @@ export class Simulation {
           const c = this.containers.get(cid);
           if (!c) return;
           const items: ContainerView["items"] = [];
+          const stacks: ContainerView["stacks"] = [];
           const goldPiles: ContainerView["goldPiles"] = [];
           c.slots.forEach((s, i) => {
             if (!s) return;
-            if (s.kind === "gold") goldPiles.push({ slot: i, amount: s.amount });
-            else {
+            if (s.kind === "gold") {
+              goldPiles.push({ slot: i, amount: s.amount });
+            } else if (s.kind === "stack") {
+              const t = getItemTemplate(s.templateId);
+              if (t) stacks.push({ slot: i, templateId: t.id, name: t.name, count: s.count });
+            } else {
               const inst = this.items.get(s.instanceId);
               const t = inst ? getItemTemplate(inst.templateId) : null;
               if (inst && t) items.push({ slot: i, instanceId: inst.id, templateId: t.id, name: t.name });
             }
           });
-          views.push({ containerId: c.id, name: c.name, capacity: c.capacity, items, goldPiles });
+          views.push({ containerId: c.id, name: c.name, capacity: c.capacity, items, stacks, goldPiles });
         };
         for (const cid of e.openContainers) pushView(cid);
         // Loja aberta: garante a view do bolso (mesmo sem janela de container
@@ -2236,9 +2716,11 @@ export class Simulation {
               entry: st.stage === "completed" ? def?.journalCompleted ?? "" : def?.journalActive ?? "",
               completed: st.stage === "completed",
             };
-            // contador SÓ nas diretas com etapa de caça (decisão jun/2026)
-            if (def?.layer === "direta" && def.kill && st.stage !== "completed") {
-              entry.counter = { cur: st.kills, max: def.kill.count };
+            // contador SÓ nas diretas, e só quando a etapa atual conta progresso
+            // (kill/collect) — decisão jun/2026; mostra o "4/8" da etapa corrente.
+            if (def && def.layer === "direta" && st.stage !== "completed") {
+              const c = stageCounter(def, st);
+              if (c) entry.counter = c;
             }
             return entry;
           });
@@ -2256,11 +2738,32 @@ export class Simulation {
         species: c.species,
         name: c.name,
       })),
+      groundItems: this.groundItems.map((g) => {
+        const c = g.content;
+        const base = { id: g.id, pos: { x: g.pos.x, y: g.pos.y }, z: g.z };
+        if (c.kind === "gold") return { ...base, templateId: "gold", name: "Ouro", count: c.amount, kind: "gold" as const };
+        if (c.kind === "stack")
+          return { ...base, templateId: c.templateId, name: getItemTemplate(c.templateId)?.name ?? c.templateId, count: c.count, kind: "stack" as const };
+        const tid = this.items.get(c.instanceId)?.templateId ?? "";
+        return { ...base, templateId: tid, name: getItemTemplate(tid)?.name ?? tid, count: 1, kind: "item" as const };
+      }),
+      // Baú/porta carregam o estado PER-CHARACTER (saque/aberta) projetado para o
+      // jogador conectado. No modelo local há um único player; quando o snapshot
+      // virar per-jogador (delta no online), `viewer` é a entidade do destinatário.
+      // O client SÓ desenha — quem decide saqueado/aberto é a sim (per-character).
       chests: this.chests.map((c) => ({
         id: c.id,
         pos: { x: c.pos.x, y: c.pos.y },
         z: c.z,
         name: c.name ?? "Baú",
+        looted: viewer ? viewer.lootedChests.has(c.id) : false,
+      })),
+      doors: this.world.allDoors.map((d) => ({
+        id: d.id,
+        pos: { x: d.pos.x, y: d.pos.y },
+        z: d.z,
+        name: d.name ?? "a porta",
+        open: this.world.isDoorOpen(d.id), // estado GLOBAL (feel Tibia)
       })),
       events,
     };

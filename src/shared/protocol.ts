@@ -44,6 +44,8 @@ export type ClientCommand =
    * guarda-roupa no futuro — a validação de posse já mora aqui.
    */
   | { type: "setOutfit"; outfit: OutfitState }
+  /** Troca o CORPO/avatar do herói (homem/mulher). A sim valida (BODY_TYPES). */
+  | { type: "setBody"; body: string }
   /** Conversar com um NPC próximo (abre/avança o diálogo na sim). */
   | { type: "talk"; npcId: number }
   /** Escolher uma opção do diálogo ativo. */
@@ -60,6 +62,12 @@ export type ClientCommand =
   | { type: "closeShop" }
   /** Abrir um baú próximo (saque single-use: concede o loot ao bolso na sim). */
   | { type: "openChest"; chestId: string }
+  /**
+   * Interagir com um objeto/ponto de cenário de quest próximo (`InteractableDef`).
+   * Reach-based (mesma régua do baú); a sim valida distância/andar e emite o
+   * evento de quest `interact` que avança a etapa ativa que casa o id.
+   */
+  | { type: "interact"; interactableId: string }
   /** Abrir um container (mochila equipada, cadáver próximo, mochila aninhada). */
   | { type: "openContainer"; containerId: number }
   | { type: "closeContainer"; containerId: number }
@@ -175,6 +183,12 @@ export interface EntityState {
   name: string;
   /** Espécie da criatura (escolhe o sprite no client); null para player/npc. */
   species: string | null;
+  /**
+   * Id estável do NPC (ex.: "bartolo") — presente SOMENTE em NPCs, escolhe o
+   * sprite específico do elenco no client (img/npcs/<npcId>.png). undefined para
+   * player/mob. É o mesmo `npcKey` da sim (liga diálogo/comércio/quest ao visual).
+   */
+  npcId?: string;
   /** Tile lógico atual. */
   pos: Vec2;
   /** Andar (z-level) — SISTEMA-ANDARES.md. O client renderiza só o andar do
@@ -234,6 +248,8 @@ export interface EntityState {
    * jogadores. Estado da sim: no online, todos veem o outfit de todos.
    */
   outfit?: OutfitState;
+  /** Corpo/avatar (homem/mulher) — SOMENTE jogadores; a rotação (hotkey 0) cicla. */
+  bodyType?: string;
   /** Peças possuídas (ids) — SOMENTE o próprio jogador (para a UI de outfit). */
   wardrobe?: string[];
   /**
@@ -298,8 +314,12 @@ export interface Snapshot {
   entities: EntityState[];
   /** Cadáveres saqueáveis no chão (decai na sim). */
   corpses: CorpseView[];
+  /** Itens largados no chão (qualquer um vê; pega clicando). */
+  groundItems: GroundItemView[];
   /** Baús do mundo (placement estático; estado de saque é per-jogador na sim). */
   chests: ChestView[];
+  /** Portas do mundo (placement estático; estado "aberta" é per-jogador na sim). */
+  doors: DoorView[];
   /** Eventos one-shot deste tick (não persistem). */
   events: SnapshotEvent[];
 }
@@ -329,7 +349,13 @@ export type ItemRef =
   /** Slot numérico dentro de um container aberto. */
   | { kind: "container"; containerId: number; slot: number }
   /** Slot de equipamento do próprio jogador. */
-  | { kind: "equip"; slot: EquipSlot };
+  | { kind: "equip"; slot: EquipSlot }
+  /**
+   * O CHÃO. Como destino (largar): `pos` é o tile mirado (omitido = pés do
+   * jogador); a sim valida parede/visão/alcance. Como origem (pegar): `groundItemId`
+   * identifica a pilha. Origem ground + destino ground = realocar a pilha.
+   */
+  | { kind: "ground"; groundItemId?: number; pos?: Vec2 };
 
 /** Item dentro de um container (projeção mínima p/ UI + tooltip). */
 export interface ContainedItemView {
@@ -345,12 +371,27 @@ export interface GoldPileView {
   amount: number;
 }
 
+/**
+ * Pilha de item FUNGÍVEL num slot (comida/reagente/poção empilháveis — modelo
+ * Tibia generalizado do ouro). `count` é a quantidade no slot (o client desenha
+ * o número sobre o ícone). NÃO carrega instanceId (itens fungíveis não têm ID/
+ * ledger — só o gear empilha como instância única).
+ */
+export interface ItemStackView {
+  slot: number;
+  templateId: string;
+  name: string;
+  count: number;
+}
+
 /** Container aberto (mochila, cadáver…) — uma janela na UI por view. */
 export interface ContainerView {
   containerId: number;
   name: string;
   capacity: number;
   items: ContainedItemView[];
+  /** Pilhas fungíveis (templateId + count por slot) — o client desenha a contagem. */
+  stacks: ItemStackView[];
   goldPiles: GoldPileView[];
 }
 
@@ -359,6 +400,20 @@ export interface EquippedItemView {
   instanceId: number;
   templateId: string;
   name: string;
+}
+
+/** Item largado no chão (projeção de mundo — qualquer um vê; client desenha no tile). */
+export interface GroundItemView {
+  id: number;
+  pos: Vec2;
+  /** Andar (z-level) — client só mostra os do andar atual. */
+  z: number;
+  templateId: string;
+  name: string;
+  /** Quantidade (pilha fungível ou ouro); 1 p/ instância única de gear. */
+  count: number;
+  /** Tipo do conteúdo (gold tem sprite próprio no client). */
+  kind: "item" | "stack" | "gold";
 }
 
 /** Cadáver saqueável no chão (projeção de mundo — qualquer um vê). */
@@ -378,6 +433,30 @@ export interface ChestView {
   pos: Vec2;
   /** Andar (z-level) — client só mostra os do andar atual. */
   z: number;
+  name: string;
+  /**
+   * Já saqueado pelo JOGADOR desta sessão (per-character — `SimEntity.lootedChests`).
+   * O client troca o sprite (baú aberto/vazio) e não anima a abertura de novo. NÃO é
+   * estado do mundo (cada jogador tem o seu): vem projetado para o player conectado.
+   */
+  looted: boolean;
+}
+
+/**
+ * Porta do mundo (placement estático; o estado "aberta" é GLOBAL na sim, com
+ * auto-fecha — feel Tibia/Apogea). Espelha `ChestView`: o client desenha fechada/
+ * aberta e manda `interact` no clique. A definição (chave/etc.) é regra da sim —
+ * aqui só o
+ * que o client precisa pra DESENHAR e MIRAR o clique.
+ */
+export interface DoorView {
+  /** Id estável da porta (o client manda em `interact`). */
+  id: string;
+  pos: Vec2;
+  /** Andar (z-level) — client só mostra as do andar atual. */
+  z: number;
+  /** Aberta agora (estado GLOBAL; auto-fecha). Fechada bloqueia o tile. */
+  open: boolean;
   name: string;
 }
 
