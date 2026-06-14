@@ -58,7 +58,7 @@ import {
   QUESTS,
   type QuestStage,
 } from "./quests";
-import { ContainerRegistry, type Container } from "./items/containers";
+import { ContainerRegistry, maxStackOf, type Container } from "./items/containers";
 import { mulberry32, type Rng } from "./rng";
 import { DIALOGUES, dialogueView } from "./dialogue";
 import {
@@ -525,9 +525,8 @@ export class Simulation {
     // regen), o novato precisa de comida pra recuperar desde o lvl 1 — senão o
     // primeiro arranhão vira softlock injusto. Queijo ensina o sustain; o rato
     // devolve mais. ✏️ quantidade tunável (5×60s = ~5min de saciedade inicial).
-    for (let i = 0; i < 5; i++) {
-      this.containers.add(bolso, { kind: "item", instanceId: this.items.create("queijo").id });
-    }
+    // Empilhável: entram como UM stack de 5 (Queijo é stackable, teto 12).
+    this.containers.addItemStackAware(this.items, bolso, "queijo", 5);
     this.entities.set(id, entity);
     // Bloqueio de corpo: nasce no tile livre mais próximo do spawn e ocupa-o.
     const sp = this.nearestFree(entity, entity.pos);
@@ -909,10 +908,10 @@ export class Simulation {
           const st = def ? e.quests.get(def.id) : undefined;
           if (def && st && st.stage === "report") {
             const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
-            // Pré-checa espaço pros itens de recompensa (mesma filosofia do baú:
-            // sem vaga, BLOQUEIA e nada se perde — o jogador libera e reporta de
-            // novo). Q1/ritos não dão item → itemSlots=0 → no-op (idêntico ao antigo).
-            const itemSlots = (def.rewards.items ?? []).reduce((n, r) => n + (r.qty ?? 1), 0);
+            // Pré-checa espaço STACK-AWARE pros itens de recompensa (mesma filosofia
+            // do baú: sem vaga, BLOQUEIA e nada se perde — o jogador libera e reporta
+            // de novo). Q1/ritos não dão item → itemSlots=0 → no-op (idêntico ao antigo).
+            const itemSlots = bp ? this.lootSlotsNeeded(bp, def.rewards.items ?? []) : 0;
             const freeSlots = bp ? bp.slots.filter((s) => s === null).length : 0;
             if (itemSlots > 0 && freeSlots < itemSlots) {
               this.sysMessage(e.id, "Sua mochila está cheia para a recompensa — abra espaço.");
@@ -920,13 +919,10 @@ export class Simulation {
               st.stage = "completed";
               // Recompensa de ouro = pilha depositada no bolso (modelo Tibia).
               if (bp) this.containers.depositGold(bp, def.rewards.gold);
-              // Itens de recompensa: 1 instância por unidade no bolso.
+              // Itens de recompensa: stack-aware (empilháveis fundem; gear vira instância única).
               if (bp) {
                 for (const r of def.rewards.items ?? []) {
-                  for (let n = 0; n < (r.qty ?? 1); n++) {
-                    const inst = this.items.create(r.templateId);
-                    this.containers.add(bp, { kind: "item", instanceId: inst.id });
-                  }
+                  this.containers.addItemStackAware(this.items, bp, r.templateId, r.qty ?? 1);
                 }
               }
               // Chave abstrata (flag permanente no personagem — ChestDef.keyReq).
@@ -1439,6 +1435,44 @@ export class Simulation {
    * FIXO direto ao bolso; BLOQUEIA sem espaço (nada se perde) e só marca como
    * saqueado quando o loot de fato entrou. Ver `ChestDef`/`ChestLoot`.
    */
+  /**
+   * Quantos slots VAZIOS um lote de loot precisa, STACK-AWARE: empilháveis
+   * preenchem primeiro as pilhas parciais existentes e só transbordam pra slots
+   * novos (cada um ≤ maxStack); gear/não-empilhável = 1 slot/unidade. Acumula a
+   * folga ao longo das linhas (várias do mesmo template somam no mesmo balde) —
+   * fiel ao que `addItemStackAware` faria. NÃO muta o container.
+   */
+  private lootSlotsNeeded(c: Container, items: { templateId: string; qty?: number }[]): number {
+    // Folga inicial das pilhas parciais existentes, por template.
+    const room = new Map<string, number>();
+    for (const s of c.slots) {
+      if (s?.kind === "stack") {
+        const max = maxStackOf(s.templateId);
+        room.set(s.templateId, (room.get(s.templateId) ?? 0) + (max - s.count));
+      }
+    }
+    let slots = 0;
+    for (const it of items) {
+      let left = it.qty ?? 1;
+      const max = maxStackOf(it.templateId);
+      if (max > 1) {
+        const have = room.get(it.templateId) ?? 0;
+        const used = Math.min(have, left);
+        room.set(it.templateId, have - used);
+        left -= used;
+        if (left > 0) {
+          const newSlots = Math.ceil(left / max);
+          slots += newSlots;
+          // sobra de capacidade do último slot novo vira folga p/ linhas seguintes.
+          room.set(it.templateId, (room.get(it.templateId) ?? 0) + (newSlots * max - left));
+        }
+      } else {
+        slots += left; // não-empilhável: 1 slot/unidade
+      }
+    }
+    return slots;
+  }
+
   private openChest(e: SimEntity, chestId: string): void {
     const chest = this.chests.find((c) => c.id === chestId);
     if (!chest) return;
@@ -1464,22 +1498,20 @@ export class Simulation {
     }
     const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
     if (!bp) return;
-    // Pré-checa espaço: 1 slot por item; ouro só precisa de slot se não há pilha.
-    const itemCount = (chest.loot.items ?? []).reduce((n, it) => n + (it.qty ?? 1), 0);
+    // Pré-checa espaço STACK-AWARE (empilhável funde em pilha parcial; gear = 1
+    // slot/unidade). Sem vaga, BLOQUEIA e nada se perde (filosofia do baú).
     const needsGoldSlot = (chest.loot.gold ?? 0) > 0 && !bp.slots.some((s) => s?.kind === "gold");
-    const needed = itemCount + (needsGoldSlot ? 1 : 0);
+    let needed = needsGoldSlot ? 1 : 0;
+    needed += this.lootSlotsNeeded(bp, chest.loot.items ?? []);
     const free = bp.slots.filter((s) => s === null).length;
     if (needed > free) {
       this.sysMessage(e.id, "Abra espaço na mochila primeiro.");
       return;
     }
     // Concede o loot (determinístico) e fecha o saque para este personagem.
+    // Stack-aware: empilháveis fundem num slot; gear vira instância única.
     for (const it of chest.loot.items ?? []) {
-      const qty = it.qty ?? 1;
-      for (let i = 0; i < qty; i++) {
-        const inst = this.items.create(it.templateId);
-        this.containers.add(bp, { kind: "item", instanceId: inst.id });
-      }
+      this.containers.addItemStackAware(this.items, bp, it.templateId, it.qty ?? 1);
     }
     if (chest.loot.gold) this.containers.depositGold(bp, chest.loot.gold);
     if (chest.loot.grantsKey) e.keys.add(chest.loot.grantsKey);
@@ -1560,8 +1592,13 @@ export class Simulation {
     if (bp) {
       for (const s of bp.slots) {
         if (!s || s.kind === "gold") continue;
-        const t = getItemTemplate(this.items.get(s.instanceId)?.templateId ?? "");
-        if (t) w += t.weight;
+        if (s.kind === "stack") {
+          // pilha fungível: peso = unidades × peso do template.
+          w += (getItemTemplate(s.templateId)?.weight ?? 0) * s.count;
+        } else {
+          const t = getItemTemplate(this.items.get(s.instanceId)?.templateId ?? "");
+          if (t) w += t.weight;
+        }
       }
       // ouro: peso COM TETO (150 moedas) — soma o total, não por slot
       w += goldWeight(this.containers.totalGold(bp));
@@ -1668,7 +1705,8 @@ export class Simulation {
       this.sysMessage(e.id, "Ouro insuficiente.");
       return;
     }
-    if (this.containers.freeSlot(bp) < 0) {
+    // Espaço stack-aware: empilhável cabe numa pilha parcial mesmo sem slot vazio.
+    if (!this.containers.canFit(bp, templateId, 1)) {
       this.sysMessage(e.id, "Sua mochila está cheia.");
       return;
     }
@@ -1680,8 +1718,7 @@ export class Simulation {
       return;
     }
     this.containers.withdrawGold(bp, entry.price);
-    const inst = this.items.create(templateId);
-    this.containers.add(bp, { kind: "item", instanceId: inst.id });
+    this.containers.addItemStackAware(this.items, bp, templateId, 1);
     this.sysMessage(e.id, `Você comprou ${tpl.name} por ${entry.price} de ouro.`);
   }
 
@@ -1715,24 +1752,35 @@ export class Simulation {
    * Consome 1 unidade no sucesso. Item sem efeito de uso = ignorado.
    */
   private useItem(e: SimEntity, ref: ItemRef): void {
-    // Resolve a instância carregada + como removê-la (consumir 1) ao usar.
-    let instanceId: number | null = null;
+    // Resolve o template a usar + como consumir 1 unidade. Suporta instância
+    // (`item`/equip) E pilha fungível (`stack`): comer 1 de um stack de 12 → 11
+    // (e o slot some ao chegar a 0). O consumo SÓ roda no sucesso do efeito.
+    let templateId: string | null = null;
     let consume: (() => void) | null = null;
     if (ref.kind === "container") {
       if (!this.containerAccessible(e, ref.containerId)) return;
       const c = this.containers.get(ref.containerId);
       const content = c?.slots[ref.slot];
-      if (!c || !content || content.kind !== "item") return;
-      instanceId = content.instanceId;
-      consume = () => { c.slots[ref.slot] = null; };
+      if (!c || !content) return;
+      if (content.kind === "item") {
+        templateId = this.items.get(content.instanceId)?.templateId ?? null;
+        consume = () => { c.slots[ref.slot] = null; };
+      } else if (content.kind === "stack") {
+        templateId = content.templateId;
+        consume = () => {
+          const s = c.slots[ref.slot];
+          if (s?.kind === "stack" && --s.count <= 0) c.slots[ref.slot] = null;
+        };
+      } else {
+        return; // ouro não se usa
+      }
     } else if (ref.kind === "equip") {
       const id = e.equipment[ref.slot];
       if (id == null) return;
-      instanceId = id;
+      templateId = this.items.get(id)?.templateId ?? null;
       consume = () => { delete e.equipment[ref.slot]; };
     }
-    if (instanceId == null || !consume) return;
-    const templateId = this.items.get(instanceId)?.templateId ?? "";
+    if (templateId == null || !consume) return;
     const tpl = getItemTemplate(templateId);
     const effect = tpl?.consume;
     if (!tpl || !effect) return; // nada de efeito de uso → ignora
@@ -1783,25 +1831,18 @@ export class Simulation {
     });
   }
 
-  /** Quantas instâncias de `templateId` o jogador tem no bolso. */
+  /**
+   * Quantas unidades de `templateId` o jogador tem no bolso — por COUNT (soma as
+   * pilhas `stack` E conta instâncias `item` do mesmo template). Uma quest collect
+   * de N comidas fecha com um único stack de N (ver `ContainerRegistry.countOf`).
+   */
   private countInBolso(bp: Container, templateId: string): number {
-    let n = 0;
-    for (const s of bp.slots) {
-      if (s?.kind === "item" && this.items.get(s.instanceId)?.templateId === templateId) n++;
-    }
-    return n;
+    return this.containers.countOf(this.items, bp, templateId);
   }
 
-  /** Remove `qty` instâncias de `templateId` do bolso (libera os slots). */
+  /** Remove `qty` unidades de `templateId` do bolso (debita stacks E instâncias). */
   private removeFromBolso(bp: Container, templateId: string, qty: number): void {
-    let left = qty;
-    for (let i = 0; i < bp.slots.length && left > 0; i++) {
-      const s = bp.slots[i];
-      if (s?.kind === "item" && this.items.get(s.instanceId)?.templateId === templateId) {
-        bp.slots[i] = null;
-        left--;
-      }
-    }
+    this.containers.removeOf(this.items, bp, templateId, qty);
   }
 
   /**
@@ -1839,10 +1880,10 @@ export class Simulation {
         return;
       }
     }
-    // Consome os inputs (libera ≥1 slot) e produz o prato no bolso.
+    // Consome os inputs (libera ≥1 slot) e produz o prato no bolso (stack-aware:
+    // o prato é empilhável — funde numa pilha existente ou usa o slot liberado).
     for (const inp of recipe.inputs) this.removeFromBolso(bp, inp.templateId, inp.qty);
-    const inst = this.items.create(recipe.output);
-    this.containers.add(bp, { kind: "item", instanceId: inst.id });
+    this.containers.addItemStackAware(this.items, bp, recipe.output, 1);
     const tpl = getItemTemplate(recipe.output);
     this.sysMessage(e.id, `Você preparou ${tpl?.name ?? recipe.name}.`);
   }
@@ -1902,6 +1943,9 @@ export class Simulation {
           const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
           const cur = bp ? this.containers.totalGold(bp) : 0;
           added = goldWeight(cur + content.amount) - goldWeight(cur);
+        } else if (content.kind === "stack") {
+          // pilha fungível: peso = unidades × peso do template.
+          added = (getItemTemplate(content.templateId)?.weight ?? 0) * content.count;
         } else {
           added = getItemTemplate(this.items.get(content.instanceId)?.templateId ?? "")?.weight ?? 0;
         }
@@ -1922,6 +1966,26 @@ export class Simulation {
         } else if (tgt.kind === "gold") {
           tgt.amount += content.amount;
           c.slots[from.slot] = null;
+        }
+        return;
+      }
+      if (content.kind === "stack") {
+        // arrastar pilha fungível: move pro slot vazio ou FUNDE numa pilha do mesmo
+        // template (até o teto; o excedente fica na origem). Nunca equipa (fungível).
+        if (to.kind !== "container" || !this.containerAccessible(e, to.containerId)) return;
+        const dst = this.containers.get(to.containerId);
+        if (!dst || to.slot >= dst.capacity) return;
+        const tgt = dst.slots[to.slot];
+        if (tgt == null) {
+          dst.slots[to.slot] = content;
+          c.slots[from.slot] = null;
+        } else if (tgt.kind === "stack" && tgt.templateId === content.templateId) {
+          const max = maxStackOf(content.templateId);
+          const room = max - tgt.count;
+          const moved = Math.min(room, content.count);
+          tgt.count += moved;
+          content.count -= moved;
+          if (content.count <= 0) c.slots[from.slot] = null;
         }
         return;
       }
@@ -2083,10 +2147,11 @@ export class Simulation {
               if (g > 0) this.containers.add(c, { kind: "gold", amount: g });
             }
             // Drops de item: cada um rolado por sua chance (RNG de loot da sim).
+            // Stack-aware: empilhável (reagente/comida) funde no cadáver; gear vira
+            // instância única. Mantém o RNG inalterado (1 rolagem por drop).
             for (const drop of lt.items ?? []) {
               if (this.lootRng() < drop.chance) {
-                const inst = this.items.create(drop.templateId);
-                this.containers.add(c, { kind: "item", instanceId: inst.id });
+                this.containers.addItemStackAware(this.items, c, drop.templateId, 1);
               }
             }
           }
@@ -2348,6 +2413,8 @@ export class Simulation {
         maxMp: e.maxMp,
         status: projectStatus(e, this.tickCount),
       };
+      // NPC: id estável p/ o client escolher o sprite do elenco (img/npcs/<id>.png).
+      if (e.npcKey) state.npcId = e.npcKey;
       // Telegraph de mecânica (MECANICAS-DE-MOB.md): move em windup — info PÚBLICA
       // por design (o client DEVE poder desenhar o aviso). ≠ condição secreta.
       if (e.activeMove) {
@@ -2404,17 +2471,22 @@ export class Simulation {
           const c = this.containers.get(cid);
           if (!c) return;
           const items: ContainerView["items"] = [];
+          const stacks: ContainerView["stacks"] = [];
           const goldPiles: ContainerView["goldPiles"] = [];
           c.slots.forEach((s, i) => {
             if (!s) return;
-            if (s.kind === "gold") goldPiles.push({ slot: i, amount: s.amount });
-            else {
+            if (s.kind === "gold") {
+              goldPiles.push({ slot: i, amount: s.amount });
+            } else if (s.kind === "stack") {
+              const t = getItemTemplate(s.templateId);
+              if (t) stacks.push({ slot: i, templateId: t.id, name: t.name, count: s.count });
+            } else {
               const inst = this.items.get(s.instanceId);
               const t = inst ? getItemTemplate(inst.templateId) : null;
               if (inst && t) items.push({ slot: i, instanceId: inst.id, templateId: t.id, name: t.name });
             }
           });
-          views.push({ containerId: c.id, name: c.name, capacity: c.capacity, items, goldPiles });
+          views.push({ containerId: c.id, name: c.name, capacity: c.capacity, items, stacks, goldPiles });
         };
         for (const cid of e.openContainers) pushView(cid);
         // Loja aberta: garante a view do bolso (mesmo sem janela de container

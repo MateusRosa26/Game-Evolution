@@ -309,8 +309,11 @@ export class EntityRenderer {
     // PixelLab primeiro (norma 1:1); procedural segue como fallback eterno.
     if (e.species && PIXELLAB.mobs[e.species]) return PIXELLAB.mobs[e.species];
     if (e.species === "rato") return this.sprites.rat;
-    // NPCs: cidadão procedural (distinto do herói) até a arte por elenco ✏️
+    // NPCs: sprite do elenco (PixelLab, estático sul) escolhido pelo npcId. Um
+    // frame só → serve as 4 direções (NPC não anda). Ausência = cidadão procedural.
     if (e.kind === "npc") {
+      const tex = e.npcId ? PIXELLAB.npcs[e.npcId] : undefined;
+      if (tex) return { s: [tex], e: [tex], n: [tex], w: [tex] };
       return outfitTextures(
         {
           head: { part: "cabeca_cidadao", color: 21 },
@@ -333,6 +336,7 @@ export class EntityRenderer {
   /** Chave do visual atual (detecta troca de outfit/arma em runtime). */
   private skinKeyOf(e: EntityState): string {
     if (e.species) return e.species;
+    if (e.kind === "npc") return `npc|${e.npcId ?? "cidadao"}`;
     const o = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
     if (PIXELLAB.knight) {
       // corpo por classe: visual muda com o SET do torso (com alias citizen→aldeao,

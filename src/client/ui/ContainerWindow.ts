@@ -2,7 +2,9 @@
  * Janela de CONTAINER (bolso/mochila/cadáver) — uma por container aberto
  * (estilo Tibia; DESIGN-ITENS "cada uma abre sua janela").
  *
- * Grade de slots: item = quadradinho com iniciais + tooltip nome; pilha de
+ * Grade de slots: item = quadradinho com iniciais + tooltip nome; pilha
+ * fungível (`stack`: comida/reagente/poção) = mesmo ícone do item + o NÚMERO da
+ * contagem no canto inferior-direito (estilo Tibia, só quando >1); pilha de
  * gold = moeda com a quantia (clique = saquear). Drag & drop via ItemDnD.
  * Apresentação pura: tudo vira comando pra sim.
  */
@@ -115,7 +117,11 @@ export class ContainerWindow {
       const sx = PAD + (i % COLS) * (SLOT + GAP);
       const sy = HEADER_H + PAD + Math.floor(i / COLS) * (SLOT + GAP);
       const cell = new Graphics();
-      const filled = !!(v.items.find((it) => it.slot === i) || v.goldPiles.find((g) => g.slot === i));
+      const filled = !!(
+        v.items.find((it) => it.slot === i) ||
+        v.stacks.find((s) => s.slot === i) ||
+        v.goldPiles.find((g) => g.slot === i)
+      );
       slot(cell, 0, 0, SLOT, filled);
       cell.position.set(sx, sy);
       this.slotLayer.addChild(cell);
@@ -130,37 +136,12 @@ export class ContainerWindow {
       });
 
       const item = v.items.find((it) => it.slot === i);
+      const stack = v.stacks.find((s) => s.slot === i);
       const gold = v.goldPiles.find((g) => g.slot === i);
       if (item) {
         // sprite real do item (img/items/<id>.png) quando existir; senão o
         // placeholder de iniciais + nome (itens ainda sem arte aprovada).
-        const tex = PIXELLAB.items[item.templateId];
-        if (tex) {
-          const spr = new Sprite(tex);
-          spr.anchor.set(0.5);
-          fitSpriteToSlot(spr, SLOT);
-          spr.position.set(SLOT / 2, SLOT / 2);
-          spr.eventMode = "none";
-          cell.addChild(spr);
-        } else {
-          const label = new Text({
-            text: item.name.slice(0, 2).toUpperCase(),
-            style: { fontFamily: "monospace", fontSize: 18, fontWeight: "bold", fill: 0xe8e4d8 },
-          });
-          label.resolution = 3;
-          label.anchor.set(0.5);
-          label.position.set(SLOT / 2, SLOT / 2 - 6);
-          const name = new Text({
-            text: item.name.length > 9 ? item.name.slice(0, 9) + "…" : item.name,
-            style: { fontFamily: "monospace", fontSize: 8, fill: hex(PAL.attrLabel) },
-          });
-          name.resolution = 3;
-          name.anchor.set(0.5);
-          name.position.set(SLOT / 2, SLOT - 11);
-          label.eventMode = "none";
-          name.eventMode = "none";
-          cell.addChild(label, name);
-        }
+        this.drawItemIcon(cell, item.templateId, item.name);
         cell.eventMode = "static";
         cell.cursor = "grab";
         cell.on("pointerdown", (ev: FederatedPointerEvent) => {
@@ -175,6 +156,29 @@ export class ContainerWindow {
         cell.on("pointerover", () => {
           const p = cell.getGlobalPosition();
           this.tooltip.show(item.name, p.x, p.y, SLOT);
+        });
+        cell.on("pointerout", () => this.tooltip.hide());
+      } else if (stack) {
+        // pilha fungível (comida/reagente/poção): MESMO ícone do item + a
+        // contagem no canto inferior-direito (estilo Tibia, só quando >1).
+        // Arrastar move a pilha INTEIRA (a sim funde/transborda no destino);
+        // split por quantidade fica ✏️ futuro. Botão direito = usar 1 unidade
+        // (consumível) — a sim decrementa a pilha e zera o slot ao chegar a 0.
+        this.drawItemIcon(cell, stack.templateId, stack.name);
+        if (stack.count > 1) cell.addChild(stackBadge(stack.count));
+        cell.eventMode = "static";
+        cell.cursor = "grab";
+        cell.on("pointerdown", (ev: FederatedPointerEvent) => {
+          ev.stopPropagation();
+          if (ev.button === 2) {
+            this.send.useItem(ref);
+            return;
+          }
+          this.dnd.start(ref, stack.name, ev.global.x, ev.global.y);
+        });
+        cell.on("pointerover", () => {
+          const p = cell.getGlobalPosition();
+          this.tooltip.show(`${stack.name} (${stack.count})`, p.x, p.y, SLOT);
         });
         cell.on("pointerout", () => this.tooltip.hide());
       } else if (gold) {
@@ -212,4 +216,67 @@ export class ContainerWindow {
     }
     this.dnd.setSlots(`container:${this.containerId}`, dropSlots);
   }
+
+  /**
+   * Desenha o conteúdo visual de um item/pilha num slot: o sprite real
+   * (`img/items/<id>.png`) quando há arte aprovada; senão o placeholder de
+   * iniciais + nome. Compartilhado pelo render de item e de pilha fungível (a
+   * pilha é o mesmo ícone + a contagem por cima — desenhada pelo chamador).
+   */
+  private drawItemIcon(cell: Container, templateId: string, name: string): void {
+    const tex = PIXELLAB.items[templateId];
+    if (tex) {
+      const spr = new Sprite(tex);
+      spr.anchor.set(0.5);
+      fitSpriteToSlot(spr, SLOT);
+      spr.position.set(SLOT / 2, SLOT / 2);
+      spr.eventMode = "none";
+      cell.addChild(spr);
+      return;
+    }
+    const label = new Text({
+      text: name.slice(0, 2).toUpperCase(),
+      style: { fontFamily: "monospace", fontSize: 18, fontWeight: "bold", fill: 0xe8e4d8 },
+    });
+    label.resolution = 3;
+    label.anchor.set(0.5);
+    label.position.set(SLOT / 2, SLOT / 2 - 6);
+    const nameText = new Text({
+      text: name.length > 9 ? name.slice(0, 9) + "…" : name,
+      style: { fontFamily: "monospace", fontSize: 8, fill: hex(PAL.attrLabel) },
+    });
+    nameText.resolution = 3;
+    nameText.anchor.set(0.5);
+    nameText.position.set(SLOT / 2, SLOT - 11);
+    label.eventMode = "none";
+    nameText.eventMode = "none";
+    cell.addChild(label, nameText);
+  }
+}
+
+/**
+ * Badge de contagem de pilha (estilo Tibia): pílula escura no canto inferior-
+ * direito do slot com o número. Sem interação (o slot inteiro é a área de
+ * clique/drag).
+ */
+function stackBadge(count: number): Container {
+  const badge = new Container();
+  const txt = new Text({
+    text: String(count),
+    style: { fontFamily: "monospace", fontSize: 11, fontWeight: "bold", fill: 0xe8e4d8 },
+  });
+  txt.resolution = 3;
+  txt.anchor.set(1, 1); // ancorado pelo canto inferior-direito
+  const padX = 3;
+  const bw = txt.width + padX * 2;
+  const bh = txt.height + 2;
+  const bx = SLOT - 3; // margem do canto
+  const by = SLOT - 3;
+  const bg = new Graphics();
+  bg.roundRect(bx - bw, by - bh, bw, bh, 3).fill({ color: 0x10141c, alpha: 0.82 });
+  bg.roundRect(bx - bw, by - bh, bw, bh, 3).stroke({ color: 0x2c3545, width: 1 });
+  txt.position.set(bx - padX, by - 1);
+  badge.addChild(bg, txt);
+  badge.eventMode = "none";
+  return badge;
 }

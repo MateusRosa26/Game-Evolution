@@ -67,6 +67,13 @@ export const PIXELLAB: {
    * fallback procedural (label/silhueta).
    */
   items: Record<string, Texture>;
+  /**
+   * SPRITES DE NPC do elenco (jun/2026): 1 PNG estático (sul) por NPC,
+   * img/npcs/<npcId>.png. Chave = npcId estável da sim (bartolo, leonor…).
+   * O client escolhe por `EntityState.npcId`; ausência = fallback cidadão
+   * procedural. Estático: o mesmo frame serve as 4 direções (NPC não anda).
+   */
+  npcs: Record<string, Texture>;
 } = {
   trees: [],
   swampTrees: [],
@@ -79,6 +86,7 @@ export const PIXELLAB: {
   knightPieces: {},
   knightPiecesAtk: {},
   items: {},
+  npcs: {},
 };
 
 /** Espécies que voam: o client desenha levemente acima do chão (charme barato). */
@@ -104,6 +112,12 @@ const KNIGHT_ATTACK_URLS = import.meta.glob("./img/chars/knight/attack/*.png", {
 }) as Record<string, string>;
 // Sprites de item (1 PNG por item) — img/items/<categoria>/<id>.png (recursivo)
 const ITEM_URLS = import.meta.glob("./img/items/**/*.png", {
+  eager: true,
+  query: "?url",
+  import: "default",
+}) as Record<string, string>;
+// Sprites de NPC (1 PNG estático por NPC) — img/npcs/<npcId>.png
+const NPC_URLS = import.meta.glob("./img/npcs/*.png", {
   eager: true,
   query: "?url",
   import: "default",
@@ -256,5 +270,13 @@ export async function loadPixellabAssets(): Promise<void> {
   itemEntries.forEach(([path], i) => {
     const m = path.match(/([^/]+)\.png$/);
     if (m) PIXELLAB.items[m[1].replace(/-/g, "_")] = itemTexes[i];
+  });
+
+  // NPCs: img/npcs/<npcId>.png → PIXELLAB.npcs[npcId] (1 sprite estático sul).
+  const npcEntries = Object.entries(NPC_URLS);
+  const npcTexes = await Promise.all(npcEntries.map(([, url]) => Assets.load<Texture>(url)));
+  npcEntries.forEach(([path], i) => {
+    const m = path.match(/([^/]+)\.png$/);
+    if (m) PIXELLAB.npcs[m[1]] = npcTexes[i];
   });
 }

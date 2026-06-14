@@ -192,10 +192,18 @@ export interface ItemTemplate {
   slot?: ItemSlot;
   /**
    * Empilhável? (tochas, reagentes, comida comum). Quando `true`, várias unidades
-   * ocupam um slot só. M2 implementa a contagem por slot; aqui é só metadado de
-   * dados (o ouro já empilha por caminho próprio — ver `ContainerRegistry`).
+   * fungíveis ocupam UM slot (`stack` — ver `addItemStackAware`). Item SEM
+   * `stackable` NUNCA empilha: cada unidade é uma `ItemInstance` única (gear com
+   * ledger). O ouro empilha por caminho próprio (`gold`).
    */
   stackable?: boolean;
+  /**
+   * Teto de unidades por pilha (`stack`). Presente só em itens `stackable`. Acima
+   * disso, transborda pra um novo slot (estilo Tibia: comida/poção/reagente têm
+   * teto baixo; ver `maxStackOf`). Default quando ausente = 12 (comida/reagente/
+   * poção). O ouro NÃO usa isto (stacka ilimitado em `gold`).
+   */
+  maxStack?: number;
   /** Tags de arquétipo de arma (lentes de tracking). Ausente em não-armas. */
   tags?: ItemTag[];
   rarity: ItemRarity;
@@ -391,6 +399,7 @@ export const PAO: ItemTemplate = {
   name: "Pão",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // comida — default
   weight: 2,
   rarity: "common",
   // Comida barata: regen na TAXA-BASE (1.0× = ~2 HP/s p/ knight base), saciedade
@@ -405,6 +414,7 @@ export const CARNE_ASSADA: ItemTemplate = {
   name: "Carne Assada",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // comida — default
   weight: 4,
   rarity: "common",
   // Cozido / receita simples (escala de preparo, cap 3×): regen 2.0× (~4 HP/s L1)
@@ -422,6 +432,7 @@ export const QUEIJO: ItemTemplate = {
   name: "Queijo",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // criador pediu explícito
   weight: 2,
   rarity: "common",
   consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
@@ -433,6 +444,7 @@ export const POCAO_VIDA_PEQUENA: ItemTemplate = {
   name: "Poção de Vida Pequena",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // poção — default
   weight: 3,
   rarity: "common",
   // Cura de EMERGÊNCIA instantânea + exausto curto. Bateria consumíveis
@@ -455,6 +467,7 @@ export const CARNE_CRUA: ItemTemplate = {
   name: "Carne Crua",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // comida/insumo — default
   weight: 3,
   rarity: "common",
   consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
@@ -466,6 +479,7 @@ export const SAL_GEMA: ItemTemplate = {
   name: "Sal-gema",
   category: "ingredient",
   stackable: true,
+  maxStack: 12, // ingrediente — default
   weight: 1,
   rarity: "common",
 };
@@ -476,6 +490,7 @@ export const PIMENTA_LONGA: ItemTemplate = {
   name: "Pimenta-longa",
   category: "ingredient",
   stackable: true,
+  maxStack: 12, // ingrediente — default
   weight: 1,
   rarity: "uncommon",
 };
@@ -486,6 +501,7 @@ export const MEL_SILVESTRE: ItemTemplate = {
   name: "Mel Silvestre",
   category: "ingredient",
   stackable: true,
+  maxStack: 12, // ingrediente — default
   weight: 2,
   rarity: "uncommon",
 };
@@ -496,6 +512,7 @@ export const POTE: ItemTemplate = {
   name: "Pote",
   category: "vessel",
   stackable: true,
+  maxStack: 8, // ✏️ vasilhame volumoso (8 de peso) — teto menor que comida; criador tunar
   weight: 8,
   rarity: "common",
 };
@@ -509,6 +526,7 @@ export const SOPA: ItemTemplate = {
   name: "Sopa",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // prato — default
   weight: 8,
   rarity: "common",
   // Sopa: o buff de combate mais BÁSICO — +1 na base de dano da arma (espada
@@ -522,6 +540,7 @@ export const QUEIJO_QUENTE: ItemTemplate = {
   name: "Queijo Quente",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // prato — default
   weight: 3,
   rarity: "common",
   // Sem buff de stat (decisão criador): é o premium de SUSTAIN — regen 3× +
@@ -535,6 +554,7 @@ export const CARNE_CURADA: ItemTemplate = {
   name: "Carne Curada",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // prato — default
   weight: 4,
   rarity: "common",
   // Comida do guerreiro: +2 na base de dano da arma (premium acima da Sopa). ✏️ Balancista.
@@ -547,6 +567,7 @@ export const FAVO_ASSADO: ItemTemplate = {
   name: "Favo Assado",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // prato — default
   weight: 2,
   rarity: "common",
   consume: { kind: "food", regenMult: 3.0, durationMs: 150_000 },
@@ -576,6 +597,7 @@ export const TOCHA: ItemTemplate = {
   name: "Tocha",
   category: "tool",
   stackable: true,
+  maxStack: 12, // ✏️ ferramenta consumível (queima) — 12 como suprimento; criador tunar
   weight: 3,
   rarity: "common",
 };
@@ -597,6 +619,7 @@ export const CAUDA_DE_RATO: ItemTemplate = {
   name: "Cauda de Rato",
   category: "material",
   stackable: true,
+  maxStack: 12, // reagente/troféu — default
   weight: 1,
   rarity: "common",
 };
@@ -614,6 +637,7 @@ export const ASA_DE_MORCEGO: ItemTemplate = {
   name: "Asa de Morcego",
   category: "material",
   stackable: true,
+  maxStack: 12, // reagente — default
   weight: 1,
   rarity: "common",
 };
@@ -624,6 +648,7 @@ export const GLANDULA_DE_VENENO: ItemTemplate = {
   name: "Glândula de Veneno",
   category: "material",
   stackable: true,
+  maxStack: 12, // reagente — default
   weight: 1,
   rarity: "common",
 };
@@ -634,6 +659,7 @@ export const SEDA: ItemTemplate = {
   name: "Seda",
   category: "material",
   stackable: true,
+  maxStack: 12, // reagente — default
   weight: 1,
   rarity: "common",
 };
@@ -645,6 +671,7 @@ export const CARNE_DE_CACA: ItemTemplate = {
   name: "Carne de Caça",
   category: "consumable",
   stackable: true,
+  maxStack: 12, // comida/insumo — default
   weight: 3,
   rarity: "common",
   consume: { kind: "food", regenMult: 1.0, durationMs: 60_000 },
@@ -656,6 +683,7 @@ export const PELE_DE_LOBO: ItemTemplate = {
   name: "Pele de Lobo",
   category: "material",
   stackable: true,
+  maxStack: 12, // ✏️ couro volumoso (4 de peso) — 12 ok, mas criador pode baixar p/ "decisão de mochila"
   weight: 4,
   rarity: "common",
 };
@@ -666,6 +694,7 @@ export const COURO_GROSSO: ItemTemplate = {
   name: "Couro Grosso",
   category: "material",
   stackable: true,
+  maxStack: 12, // ✏️ couro pesado (6 de peso) — 12 ok, criador pode baixar
   weight: 6,
   rarity: "common",
 };
@@ -676,6 +705,7 @@ export const PRESA_DE_JAVALI: ItemTemplate = {
   name: "Presa de Javali",
   category: "material",
   stackable: true,
+  maxStack: 12, // troféu — default
   weight: 2,
   rarity: "common",
 };
@@ -686,6 +716,7 @@ export const OSSO: ItemTemplate = {
   name: "Osso",
   category: "material",
   stackable: true,
+  maxStack: 12, // material/reagente — default
   weight: 3,
   rarity: "common",
 };
@@ -697,6 +728,7 @@ export const ORELHA_DE_GOBLIN: ItemTemplate = {
   name: "Orelha de Goblin",
   category: "material",
   stackable: true,
+  maxStack: 12, // ✏️ prova de abate (bounty/coleta Q8) — se a quota da Q8 passar de 12, subir o teto
   weight: 1,
   rarity: "common",
 };
@@ -708,6 +740,7 @@ export const SUCATA_DE_ARMA: ItemTemplate = {
   name: "Sucata de Arma",
   category: "material",
   stackable: true,
+  maxStack: 12, // ✏️ sucata pesada (12 de peso/un.) — teto alto pesa MUITO; criador pode baixar
   weight: 12,
   rarity: "common",
 };

@@ -181,6 +181,12 @@ export interface EntityState {
   name: string;
   /** Espécie da criatura (escolhe o sprite no client); null para player/npc. */
   species: string | null;
+  /**
+   * Id estável do NPC (ex.: "bartolo") — presente SOMENTE em NPCs, escolhe o
+   * sprite específico do elenco no client (img/npcs/<npcId>.png). undefined para
+   * player/mob. É o mesmo `npcKey` da sim (liga diálogo/comércio/quest ao visual).
+   */
+  npcId?: string;
   /** Tile lógico atual. */
   pos: Vec2;
   /** Andar (z-level) — SISTEMA-ANDARES.md. O client renderiza só o andar do
@@ -353,12 +359,27 @@ export interface GoldPileView {
   amount: number;
 }
 
+/**
+ * Pilha de item FUNGÍVEL num slot (comida/reagente/poção empilháveis — modelo
+ * Tibia generalizado do ouro). `count` é a quantidade no slot (o client desenha
+ * o número sobre o ícone). NÃO carrega instanceId (itens fungíveis não têm ID/
+ * ledger — só o gear empilha como instância única).
+ */
+export interface ItemStackView {
+  slot: number;
+  templateId: string;
+  name: string;
+  count: number;
+}
+
 /** Container aberto (mochila, cadáver…) — uma janela na UI por view. */
 export interface ContainerView {
   containerId: number;
   name: string;
   capacity: number;
   items: ContainedItemView[];
+  /** Pilhas fungíveis (templateId + count por slot) — o client desenha a contagem. */
+  stacks: ItemStackView[];
   goldPiles: GoldPileView[];
 }
 
