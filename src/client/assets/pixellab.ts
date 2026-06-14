@@ -15,7 +15,7 @@ import tree1Url from "./img/scenery/tree1.png";
 import tree2Url from "./img/scenery/tree2.png";
 
 /** Norma de densidade jun/2026: chars exibidos 1:1 (1 px do sprite = 1 px do mundo). */
-export const PIXELLAB_CHAR_SCALE = 1.25; // char do player: 1.25× tile (asset 128px nativo → ~160px)
+export const PIXELLAB_CHAR_SCALE = 1.0; // char = 1 tile (128px nativo). 1.25 (160px) ficava maior que mobs/mundo.
 
 /** Registry preenchido por loadPixellabAssets() antes do Game nascer. */
 export const PIXELLAB: {

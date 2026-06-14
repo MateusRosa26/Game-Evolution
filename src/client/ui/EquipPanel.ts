@@ -19,7 +19,7 @@ import { fitSpriteToSlot, panelFrame, slot } from "./theme";
 import { drawEquipIcon, SLOT_ICON_EMPTY, SLOT_ICON_FILLED } from "./slotIcons";
 import type { Tooltip } from "./Tooltip";
 
-const SLOT = 64; // remaster 128px (jun/2026): densidade de UI subiu p/ compor com o mundo
+const SLOT = 48; // reduzido (jun/2026): o equip a 64 ficava grande demais mesmo com UI_SCALE
 const ICON_BASE = 36; // silhuetas de slotIcons.ts foram desenhadas p/ ~36px → escala = SLOT/ICON_BASE
 const GAP = 8;
 const PAD = 12;
@@ -129,8 +129,11 @@ export class EquipPanel {
         spr.eventMode = "none";
         cell.addChild(spr);
       } else {
-        // silhueta desenhada em Graphics próprio centrado em (0,0) e escalado p/ o slot
+        // silhueta desenhada em Graphics próprio centrado em (0,0) e escalado p/ o slot.
+        // Sombra deslocada ATRÁS (dá profundidade/definição) + silhueta por cima —
+        // sem isso a forma chapada some no fundo escuro do slot ("apagada").
         const icon = new Graphics();
+        drawEquipIcon(icon, cellDef.slot, 0.7, 0.8, 0x090c12);
         drawEquipIcon(icon, cellDef.slot, 0, 0, item ? SLOT_ICON_FILLED : SLOT_ICON_EMPTY);
         icon.scale.set(SLOT / ICON_BASE);
         icon.position.set(SLOT / 2, SLOT / 2);

@@ -1,4 +1,4 @@
-import { Container, Graphics, type Renderer, RenderTexture, Sprite, Text } from "pixi.js";
+import { Container, FederatedWheelEvent, Graphics, Rectangle, type Renderer, RenderTexture, Sprite, Text } from "pixi.js";
 import { TileId, type MapData } from "../../shared/types";
 import { makeDraggable } from "./draggable";
 import { panelFrame, titleText, UI } from "./theme";
@@ -20,7 +20,9 @@ import { panelFrame, titleText, UI } from "./theme";
  * O conjunto de explorados vive no client por ora — quando entrar save/online,
  * vira progresso de exploração persistido (estado do jogador).
  */
-const SIZE = 156; // lado da área do mapa (px)
+const MIN_SIZE = 156; // lado mínimo (= tamanho atual); a roda do mouse aumenta até MAX_SIZE
+const MAX_SIZE = 360;
+const SIZE_STEP = 24; // px por tique de roda
 const PX = 3; // px por tile
 const REVEAL = 7; // raio (em tiles) revelado ao redor do jogador
 const PAD = 6;
@@ -67,6 +69,8 @@ export class Minimap {
   private last = { x: -9999, y: -9999 };
   private userPos: { x: number; y: number } | null = null;
   private screenW = 0;
+  /** Lado atual da janela do mapa (px) — a roda do mouse ajusta [MIN_SIZE, MAX_SIZE]. */
+  private size = MIN_SIZE;
 
   constructor(private renderer: Renderer) {
     this.title = titleText("Mapa");
@@ -76,14 +80,24 @@ export class Minimap {
       this.userPos = { x, y };
       this.layout();
     });
+    // Roda do mouse sobre o minimapa = aumenta/diminui a janela (zoom).
+    this.container.on("wheel", (e: FederatedWheelEvent) => {
+      e.preventDefault?.();
+      const dir = e.deltaY < 0 ? 1 : -1;
+      const next = Math.max(MIN_SIZE, Math.min(MAX_SIZE, this.size + dir * SIZE_STEP));
+      if (next !== this.size) {
+        this.size = next;
+        this.layout();
+      }
+    });
   }
 
   /** Largura/altura totais do painel (o dock de equip se ancora abaixo disto). */
   get height(): number {
-    return UI.headerH + PAD + SIZE + PAD;
+    return UI.headerH + PAD + this.size + PAD;
   }
   get width(): number {
-    return SIZE + PAD * 2;
+    return this.size + PAD * 2;
   }
 
   /** Troca o mapa exibido pelo do ANDAR ativo (chamado ao descer/subir). Mantém a
@@ -153,8 +167,8 @@ export class Minimap {
     // Centro do tile do jogador alinhado ao centro da janela; arredonda p/ pixel
     // inteiro (nearest) e evitar shimmer de subpixel no scroll.
     this.mapSprite.position.set(
-      Math.round(innerX + SIZE / 2 - (px + 0.5) * PX),
-      Math.round(innerY + SIZE / 2 - (py + 0.5) * PX),
+      Math.round(innerX + this.size / 2 - (px + 0.5) * PX),
+      Math.round(innerY + this.size / 2 - (py + 0.5) * PX),
     );
   }
 
@@ -162,18 +176,19 @@ export class Minimap {
     const w = this.width;
     const pos = this.userPos ?? { x: this.screenW - w - 12, y: 12 };
     this.container.position.set(pos.x, pos.y);
+    this.container.hitArea = new Rectangle(0, 0, w, this.height); // roda pega na área toda
     panelFrame(this.bg, w, this.height);
     this.title.position.set(PAD + 2, UI.headerH / 2);
     const innerX = PAD;
     const innerY = UI.headerH + PAD;
     // máscara + fundo de névoa cobrem exatamente a área de mapa
     this.maskG.clear();
-    this.maskG.rect(innerX, innerY, SIZE, SIZE).fill(0xffffff);
+    this.maskG.rect(innerX, innerY, this.size, this.size).fill(0xffffff);
     this.fog.clear();
-    this.fog.rect(innerX, innerY, SIZE, SIZE).fill(0x05070b);
+    this.fog.rect(innerX, innerY, this.size, this.size).fill(0x05070b);
     // blip do jogador: fixo no centro (desenhado uma vez, não por passo)
-    const cx = innerX + SIZE / 2;
-    const cy = innerY + SIZE / 2;
+    const cx = innerX + this.size / 2;
+    const cy = innerY + this.size / 2;
     this.blip.clear();
     this.blip.circle(cx, cy, 3).fill(0xffe27a);
     this.blip.circle(cx, cy, 3).stroke({ color: UI.textShadow, width: 1 });
