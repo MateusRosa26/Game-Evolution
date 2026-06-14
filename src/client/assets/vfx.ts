@@ -193,12 +193,17 @@ function iceProjectile(): DrawFn {
     drawShard(ctx, cx - s * 0.12, cy + s * 0.12, s * 0.08, s * 0.16, Math.PI / 2 - 0.6, 0.9);
   };
 }
+/** Leque de cristais que BROTAM do chão no impacto (dx, altura, largura, inclinação). */
+const ICE_SPIKES: [number, number, number, number][] = [
+  [-0.17, 0.20, 0.060, -0.42], [-0.08, 0.31, 0.078, -0.14],
+  [0.01, 0.38, 0.088, 0.02], [0.10, 0.28, 0.072, 0.20], [0.19, 0.18, 0.056, 0.46],
+];
 function iceShatter(): DrawFn {
   const r = rng(77);
-  const N = 9;
+  const N = 7;
   const dirs = Array.from({ length: N }, () => ({ a: r() * Math.PI * 2, sp: 0.5 + r() * 0.5, sz: 0.6 + r() * 0.6, rot: r() * Math.PI }));
   return (ctx, s, t) => {
-    const cx = s / 2, cy = s * 0.58;
+    const cx = s / 2, cy = s * 0.58, groundY = cy + s * 0.08;
     const fade = 1 - t;
     // clarão frio inicial + anel de gelo
     const flash = Math.max(0, 1 - t / 0.25);
@@ -212,7 +217,7 @@ function iceShatter(): DrawFn {
     ctx.globalAlpha = 0.6 * fade;
     ctx.lineWidth = 2;
     ctx.strokeStyle = "#bfeeff";
-    ctx.beginPath(); ctx.ellipse(cx, cy + s * 0.08, ring, ring * 0.45, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(cx, groundY, ring, ring * 0.45, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.globalAlpha = 1;
     // cacos voando pra fora e caindo
     for (const d of dirs) {
@@ -220,6 +225,14 @@ function iceShatter(): DrawFn {
       const x = cx + Math.cos(d.a) * dist;
       const y = cy + Math.sin(d.a) * dist * 0.6 + t * t * s * 0.18; // gravidade
       drawShard(ctx, x, y, s * 0.06 * d.sz, s * 0.13 * d.sz, d.rot + t * 3, fade);
+    }
+    // CRISTAIS brotando do solo: crescem rápido (pop), seguram e somem no fim
+    const grow = 1 - (1 - Math.min(1, t / 0.30)) ** 3; // ease-out cubic na subida
+    const spikeAlpha = t < 0.70 ? 1 : Math.max(0, 1 - (t - 0.70) / 0.30);
+    for (const [dx, h, w, tilt] of ICE_SPIKES) {
+      const half = s * h * grow * 0.5; // drawShard mede do centro (altura visível = 2×half)
+      if (half < 0.5) continue;
+      drawShard(ctx, cx + dx * s, groundY - half, s * w, half, tilt, spikeAlpha);
     }
   };
 }
