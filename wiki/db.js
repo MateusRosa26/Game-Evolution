@@ -587,11 +587,41 @@ export function renderDbPage($doc, page, data) {
 
 const BEHAVIORS = ["Perseguidor", "Atirador", "Covarde", "Matilha", "Territorial", "Estacionário"];
 
+// --- Sprites ANIMADOS de mob (sprite-strip + CSS steps; gerados por tools/wiki-mob-strips.mjs) ---
+// A wiki vira bancada de teste: o card mostra o walk animado; hover troca pro ataque.
+// MOB_SPRITES = manifest gerado (espécie → nº de frames walk/atk). Espécie sem arte = "sem arte".
+// Ao integrar um mob novo: rode o tool e atualize este objeto com a saída do manifest.
+const MOB_SPRITE_BASE = "sprites/";
+const MOB_FRAME_PX = 64; // frames de mob são 64px (loader do client); a strip é N×64.
+const MOB_SPRITES = { rato: { walk: 4, atk: 5 }, goblin: { walk: 4, atk: 5 }, lobo: { walk: 4, atk: 5 }, morcego: { walk: 4, atk: 5 }, javali: { walk: 4, atk: 8 } };
+// nome exibível → slug de espécie: minúsculas, sem acento, 1ª palavra ("Goblin Fundeiro" → goblin).
+function mobSlug(name) {
+  const s = String(name).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  if (MOB_SPRITES[s]) return s;
+  const first = s.split(/[\s-]+/)[0];
+  return MOB_SPRITES[first] ? first : s;
+}
+function mobSpriteCSS() {
+  const ns = new Set(); for (const s of Object.values(MOB_SPRITES)) { ns.add(s.walk); ns.add(s.atk); }
+  const keyframes = [...ns].map((n) => `@keyframes mstep${n}{to{background-position-x:-${MOB_FRAME_PX * n}px}}`).join("");
+  const classes = Object.entries(MOB_SPRITES).map(([sp, f]) =>
+    `.ms-${sp}{background-image:url(${MOB_SPRITE_BASE}${sp}-walk.png);animation:mstep${f.walk} .8s steps(${f.walk}) infinite}` +
+    `.ms-${sp}:hover{background-image:url(${MOB_SPRITE_BASE}${sp}-atk.png);animation:mstep${f.atk} .55s steps(${f.atk}) infinite}`
+  ).join("");
+  return `<style>.mobsprite{width:${MOB_FRAME_PX}px;height:${MOB_FRAME_PX}px;image-rendering:pixelated;background-repeat:no-repeat;background-position:0 0;border-radius:4px;flex:none;background-color:#222a20}.mobsprite-none{width:${MOB_FRAME_PX}px;height:${MOB_FRAME_PX}px;border:1px dashed #3a3f4a;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#5a6070;font-size:.6rem;text-align:center;line-height:1.1;flex:none}${keyframes}${classes}</style>`;
+}
+function mobSpriteEl(c) {
+  const sp = mobSlug(c.name);
+  if (MOB_SPRITES[sp]) return `<div class="mobsprite ms-${sp}" title="${esc(c.name)} — walk (passe o mouse: ataque)"></div>`;
+  return `<div class="mobsprite-none" title="sprite pendente">sem<br>arte</div>`;
+}
+
 function renderBestiary($doc, data) {
-  $doc.innerHTML = `
+  const withArt = data.creatures.filter((c) => MOB_SPRITES[mobSlug(c.name)]).length;
+  $doc.innerHTML = mobSpriteCSS() + `
     <header class="db-header">
       <h1>🐲 Bestiário</h1>
-      <p class="db-sub"><strong>${data.creatures.length} criaturas padrão</strong> em <strong>${data.families.length} famílias</strong>, tiers T1–T5.
+      <p class="db-sub"><strong>${data.creatures.length} criaturas padrão</strong> em <strong>${data.families.length} famílias</strong>, tiers T1–T5 · <strong>${withArt} com sprite animado</strong> (hover = ataque).
         Família define tema, habitat e fraquezas; a diferenciação vem dos ataques.
         Fonte: <a href="#/bestiario">DESIGN-BESTIARIO.md</a></p>
     </header>
@@ -740,6 +770,7 @@ function creatureCard(c, data) {
   const fc = FAMILY_COLORS[c.family] ?? "#8890a0";
   const lv = levelLabel(c, data.tierLevels);
   return `<article class="creature-card" style="--fc:${fc}">
+    <div style="margin-bottom:8px">${mobSpriteEl(c)}</div>
     <div class="cc-top">
       <h3>${esc(c.name)}</h3>
       <span class="tier-badge" style="--tc:${TIER_COLORS["T" + c.tierMax] ?? "#8890a0"}">${esc(c.tierStr)}</span>

@@ -1,0 +1,22 @@
+{
+  "rato": {
+    "walk": 4,
+    "atk": 5
+  },
+  "goblin": {
+    "walk": 4,
+    "atk": 5
+  },
+  "lobo": {
+    "walk": 4,
+    "atk": 5
+  },
+  "morcego": {
+    "walk": 4,
+    "atk": 5
+  },
+  "javali": {
+    "walk": 4,
+    "atk": 8
+  }
+}

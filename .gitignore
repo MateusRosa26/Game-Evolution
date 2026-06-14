@@ -4,6 +4,7 @@ dist/
 *.png
 !src/**/*.png
 !design/**/*.png
+!wiki/sprites/**/*.png
 .DS_Store
 __pycache__/
 
