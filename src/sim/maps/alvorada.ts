@@ -82,21 +82,24 @@ type Building = {
 };
 const BUILDINGS: Building[] = [
   // Cais/lojas — comuns e funcionais; estalagem/taverna em tábua+meia-pedra com vida (fumaça/lampião).
-  { name: "Estalagem do Vau (Bartolo/Bento — Q1/Q6)", rect: [16, 37, 24, 42], door: [20, 42], doorId: "porta_estalagem", doorName: "a porta da Estalagem", roof: "tabua", wall: "meia_pedra", adornos: ["chamine_fumaca", "beiral_lampiao"] },
+  // DESVIO (layout jun/2026): leste 24→20 p/ desempilhar da Loja (overlap x21-24,y37-38); inn 5×6, porta ao centro (18,42).
+  { name: "Estalagem do Vau (Bartolo/Bento — Q1/Q6)", rect: [16, 37, 20, 42], door: [18, 42], doorId: "porta_estalagem", doorName: "a porta da Estalagem", roof: "tabua", wall: "meia_pedra", adornos: ["chamine_fumaca", "beiral_lampiao"] },
   { name: "Loja Geral (Nina — Q2)", rect: [21, 34, 27, 38], door: [24, 38], doorId: "porta_loja", doorName: "a porta da Loja", roof: "telha", wall: "enxaimel" },
   { name: "Boticário (Silas — Q3)", rect: [28, 34, 34, 38], door: [31, 38], doorId: "porta_boticario", doorName: "a porta do Boticário", roof: "telha", wall: "enxaimel" },
   { name: "Ferreiro (Duarte — Q4/Q9)", rect: [16, 24, 24, 28], door: [20, 28], doorId: "porta_ferreiro", doorName: "a porta do Ferreiro", roof: "telha", wall: "pedra", adornos: ["chamine_fumaca"] },
   { name: "Depot (banco/armazém)", rect: [35, 27, 42, 32], door: [38, 32], doorId: "porta_depot", doorName: "a porta do Depot", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
   // Cívicos/sacros/importantes — pedra + ardósia (frio/sólido) + estandarte.
-  { name: "Câmara (Augusto)", rect: [42, 42, 50, 46], door: [46, 46], doorId: "porta_camara", doorName: "a porta da Câmara", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
+  // DESVIO (layout jun/2026): leste 50→47 + Armazéns oeste 46→49 = viela de 1 tile (x48); antes overlap 5×5 com porta dupla.
+  { name: "Câmara (Augusto)", rect: [42, 42, 47, 46], door: [46, 46], doorId: "porta_camara", doorName: "a porta da Câmara", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
   { name: "Quartel da Guarda (Capitão Vidal — Q5/Q8)", rect: [3, 31, 12, 36], door: [8, 36], doorId: "porta_quartel", doorName: "a porta do Quartel", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
-  { name: "Capela do Coveiro (Abel — Q10)", rect: [12, 8, 18, 12], door: [15, 12], doorId: "porta_capela", doorName: "a porta da Capela", roof: "ardosia", wall: "pedra" },
+  // DESVIO (layout jun/2026): leste 18→15 p/ não invadir o Templo (overlap x16-18,y9-12); porta/grade ficam.
+  { name: "Capela do Coveiro (Abel — Q10)", rect: [12, 8, 15, 12], door: [15, 12], doorId: "porta_capela", doorName: "a porta da Capela", roof: "ardosia", wall: "pedra" },
   { name: "Templo (Gabriel — R4)", rect: [16, 9, 26, 14], door: [20, 14], doorId: "porta_templo", doorName: "a porta do Templo", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
   { name: "Torre Arcana (Leonor — R2)", rect: [27, 13, 33, 18], door: [30, 18], doorId: "porta_torre", doorName: "a porta da Torre", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
   { name: "Guilda dos Guerreiros (Ricardo — R1)", rect: [40, 12, 50, 18], door: [44, 18], doorId: "porta_guilda", doorName: "a porta da Guilda", roof: "ardosia", wall: "pedra", adornos: ["estandarte"] },
   // Cais — tábua + meia-pedra, gasto pela maresia.
   { name: "Taverna do Cais (Tobias/Telmo — Q12/Q9)", rect: [46, 25, 54, 30], door: [50, 30], doorId: "porta_taverna", doorName: "a porta da Taverna", roof: "tabua", wall: "meia_pedra", adornos: ["beiral_lampiao"] },
-  { name: "Armazéns (Cais)", rect: [46, 42, 55, 46], door: [50, 46], doorId: "porta_armazens", doorName: "a porta dos Armazéns", roof: "tabua", wall: "meia_pedra" },
+  { name: "Armazéns (Cais)", rect: [49, 42, 55, 46], door: [50, 46], doorId: "porta_armazens", doorName: "a porta dos Armazéns", roof: "tabua", wall: "meia_pedra" },
   { name: "Casa inicial (Rosa — nascimento)", rect: [25, 41, 31, 46], door: [28, 46], doorId: "porta_casa_inicial", doorName: "a porta de saída", lockKey: "chave_casa_inicial", roof: "telha", wall: "enxaimel", adornos: ["chamine_fumaca"] },
 ];
 // Granja (fora da muralha): moinho/celeiro recebem colmo+taipa_pobre quando os
@@ -563,8 +566,8 @@ export function generateAlvoradaMap(): MapData {
   brazier(18, 29); dec(17, 29, "lenha", true); dec(23, 29, "caixa", true);
   // Estalagem do Vau (Bartolo, porta (20,42)) — barris de cerveja a L + placa;
   // fogão é interior (não mexer). Aproximação (20,43) livre.
-  dec(22, 43, "barril", true); dec(23, 43, "barril", true); dec(22, 44, "caixa", true);
-  dec(18, 42, "placa");
+  dec(22, 43, "barril", true); dec(23, 43, "barril", true); dec(22, 44, "caixa", true); // barris no vão lateral leste do inn (inn agora x16-20)
+  dec(16, 42, "placa"); // era (18,42) = hoje o vão da porta; placa foge p/ a parede sul a O
 
   // ── QUEBRAR O GRID (§4): cercas definindo quintais/becos + clutter nos vãos ──
   // Quintal a O da Loja Geral / N da Estalagem (vão uniforme entre as casas-caixa).
@@ -711,7 +714,7 @@ export function generateAlvoradaMap(): MapData {
   // estavam fora do vão (hugo/rosa/telmo/vincente/amaro/augusto/marco) ficam.
   const npcSpawns = [
     // ── Baixa (cluster de utilidade + ofícios) ──
-    npc("bartolo", "Bartolo", 20, 40), // Estalagem do Vau (Q1/Q6) — atrás do balcão (era a porta 20,42)
+    npc("bartolo", "Bartolo", 18, 40), // Estalagem do Vau (Q1/Q6) — atrás do balcão (inn encolhido p/ x16-20; porta agora 18,42)
     npc("nina", "Nina", 24, 36), // Loja Geral (Q2) — interior (era a porta 24,38)
     npc("silas", "Silas", 31, 36), // Boticário (Q3) — interior (era a porta 31,38)
     npc("duarte", "Duarte", 20, 26), // Ferreiro (Q4/Q9) — interior (era a porta 20,28)
@@ -722,7 +725,7 @@ export function generateAlvoradaMap(): MapData {
     //   (127/129,123). Antes caía em (128,126) = único vão de saída da casa, FORA
     //   da safeZone interior, e BLOQUEAVA o player preso lá dentro (fix jun/2026).
     // ── Alto (fé/arcano + treino) ──
-    npc("abel", "Abel", 15, 10), // Capela do Coveiro (Q10) — interior (era a porta 15,12)
+    npc("abel", "Abel", 14, 10), // Capela do Coveiro (Q10) — interior (capela encolhida p/ x12-15; era 15,10 na parede leste)
     npc("gabriel", "Gabriel", 20, 12), // Templo (R4) — interior (era a porta 20,14)
     npc("leonor", "Leonor", 30, 16), // Casa do Mago / Torre (R2) — interior (era a porta 30,18)
     npc("ricardo", "Ricardo", 44, 16), // Pátio da Milícia / Guilda (R1) — interior (era a porta 44,18)
