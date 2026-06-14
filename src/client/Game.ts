@@ -1,5 +1,5 @@
 import { Container, Sprite, type Application } from "pixi.js";
-import { TILE_SIZE } from "../shared/constants";
+import { TILE_SIZE, VIEW_TILES_H, setViewTilesH, recomputeCameraZoom } from "../shared/constants";
 import type { ClientTransport, EntityState, Snapshot } from "../shared/protocol";
 import { BODY_TYPES } from "../shared/outfits";
 import { UI_SCALE } from "./ui/theme";
@@ -163,6 +163,8 @@ export class Game {
     this.sprites = createSprites();
     // Minimapa desenha no GPU (RenderTexture do andar) → precisa do renderer já pronto.
     this.minimap = new Minimap(this.app.renderer);
+    // minimapa empurra/puxa o equip ao redimensionar (só se estiver colado nele)
+    this.minimap.onResized = (before, after) => this.equipPanel.shiftIfDockedAt(before, after);
 
     this.tileCursor = new Sprite(this.sprites.tileCursor);
     this.tileCursor.alpha = 0.55;
@@ -256,6 +258,19 @@ export class Game {
       if (ev.code === "F8") {
         ev.preventDefault();
         this.transport.send({ type: "debugGrantOutfit" });
+      }
+      // -/= (TUNING): alvo de tiles verticais ao vivo (FOV estilo Tibia). Mais
+      // tiles = tiles menores na tela. Achar o ponto e travar VIEW_TILES_H em
+      // constants.ts. O zoom é derivado disso a cada frame.
+      if (ev.code === "Minus") {
+        ev.preventDefault();
+        setViewTilesH(VIEW_TILES_H - 1);
+        console.log(`[fov] VIEW_TILES_H = ${VIEW_TILES_H}`);
+      }
+      if (ev.code === "Equal") {
+        ev.preventDefault();
+        setViewTilesH(VIEW_TILES_H + 1);
+        console.log(`[fov] VIEW_TILES_H = ${VIEW_TILES_H}`);
       }
     });
     this.mouse = new Mouse(this.app.canvas, (sx, sy) => {
@@ -697,6 +712,10 @@ export class Game {
   private frame(deltaMS: number): void {
     const screenW = this.app.screen.width;
     const screenH = this.app.screen.height;
+
+    // zoom derivado do FOV (Tibia-like): caber VIEW_TILES_H tiles na altura da
+    // tela. Recalcula antes de follow/streaming/apply, que leem CAMERA_ZOOM.
+    recomputeCameraZoom(screenW, screenH);
 
     this.worldRenderer?.tick(deltaMS);
     this.entityRenderer?.tick(deltaMS);

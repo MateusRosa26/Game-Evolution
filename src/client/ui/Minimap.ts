@@ -73,6 +73,8 @@ export class Minimap {
   private size = MIN_SIZE;
   private btnPlus = new Graphics();
   private btnMinus = new Graphics();
+  /** Avisa quem está docado embaixo (ex.: equip) quando a BASE muda no resize. */
+  onResized: ((bottomBefore: number, bottomAfter: number) => void) | null = null;
 
   constructor(private renderer: Renderer) {
     this.title = titleText("Mapa");
@@ -104,8 +106,11 @@ export class Minimap {
     g.on("pointerdown", (e) => e.stopPropagation());
     g.on("pointertap", (e) => {
       e.stopPropagation();
+      const before = this.container.y + this.height;
       this.size = Math.max(MIN_SIZE, Math.min(MAX_SIZE, this.size + delta));
       this.layout();
+      const after = this.container.y + this.height;
+      if (before !== after) this.onResized?.(before, after);
     });
   }
 
