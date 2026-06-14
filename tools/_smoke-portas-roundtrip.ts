@@ -109,34 +109,45 @@ function walkToward(x: number, y: number, budget: number): Vec2 {
   return posOf();
 }
 
-// ════ (B) ROUND-TRIP numa casa DESTRANCADA (Loja) ════
+// ════ (B) ROUND-TRIP numa casa DESTRANCADA (Loja) — CLICK-pra-abrir ════
 console.log("\n(B) Round-trip (entra E sai de uma casa destrancada):");
-// 1) libertar o player do tutorial (nasce trancado na casa inicial):
-sim.handleCommand(pid, { type: "openChest", chestId: "casa_inicial_bau" }); // ganha a chave
-sim.tick();
+const cheb = (a: Vec2, b: Vec2) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+function approach(x: number, y: number, budget: number): void {
+  sim.handleCommand(pid, { type: "walkTo", x, y });
+  for (let i = 0; i < budget; i++) { sim.tick(); if (cheb(posOf(), { x, y }) <= 1) break; }
+}
+function clickDoor(id: string): void {
+  sim.handleCommand(pid, { type: "interact", interactableId: id }); sim.tick();
+}
+// 1) libertar o player do tutorial (nasce trancado): pega a chave (baú) e CLICA a porta
+sim.handleCommand(pid, { type: "openChest", chestId: "casa_inicial_bau" }); sim.tick();
 const lojaDoor = doors.find((d) => d.id === "porta_loja")!;
 const casaDoor = doors.find((d) => d.id === "porta_casa_inicial")!;
-// sai da casa inicial pelo SUL (porta city(28,46)=world(128,126); interior ao N)
+approach(casaDoor.pos.x, casaDoor.pos.y, 300);
+clickDoor("porta_casa_inicial");
 const outside = walkToward(casaDoor.pos.x, casaDoor.pos.y + 2, 400);
 check(`saiu da casa inicial (chegou a (${outside.x},${outside.y}), y≥${casaDoor.pos.y})`,
   outside.y >= casaDoor.pos.y, `não saiu da casa inicial — (${outside.x},${outside.y})`);
 
-// 2) ENTRA na Loja: porta world (124,118), interior 1 tile ao N (124,117)
-const startPos = posOf();
+// 2) ENTRA na Loja: aproxima, CLICA, atravessa (porta world (124,118), interior 1 ao N)
 const lojaInside: Vec2 = { x: lojaDoor.pos.x, y: lojaDoor.pos.y - 1 };
 check(`porta_loja começa FECHADA`, !doorOpen("porta_loja"), `já estava aberta`);
-const inPos = walkToward(lojaInside.x, lojaInside.y, 500);
+approach(lojaDoor.pos.x, lojaDoor.pos.y, 500);
+clickDoor("porta_loja");
+check(`porta_loja abriu ao CLICAR`, doorOpen("porta_loja"), `não abriu ao clicar`);
+const inPos = walkToward(lojaInside.x, lojaInside.y, 200);
 check(`ENTROU na Loja (chegou ao interior (${inPos.x},${inPos.y}))`,
   inPos.x === lojaInside.x && inPos.y === lojaInside.y,
-  `não entrou na Loja — parou em (${inPos.x},${inPos.y}) (começou em ${startPos.x},${startPos.y})`);
-check(`porta_loja abriu ao entrar`, doorOpen("porta_loja"), `porta_loja não abriu no anda-pra-abrir`);
+  `não entrou na Loja — parou em (${inPos.x},${inPos.y})`);
 
-// 3) SAI da Loja: volta pro vão e 2 tiles ao S (de volta à rua). Prova que não prende.
-const backPos = walkToward(lojaDoor.pos.x, lojaDoor.pos.y + 2, 500);
+// 3) SAI da Loja: clica de DENTRO e atravessa de volta — prova que não prende.
+approach(lojaDoor.pos.x, lojaDoor.pos.y, 200);
+clickDoor("porta_loja");
+const backPos = walkToward(lojaDoor.pos.x, lojaDoor.pos.y + 2, 300);
 check(`SAIU da Loja de volta à rua (chegou a (${backPos.x},${backPos.y}), y>${lojaDoor.pos.y})`,
   backPos.y > lojaDoor.pos.y,
   `ficou preso na Loja — parou em (${backPos.x},${backPos.y})`);
-check(`o player de fato se moveu nos dois sentidos (entrou ≠ saiu)`,
+check(`o player se moveu nos dois sentidos (entrou ≠ saiu)`,
   !(inPos.x === backPos.x && inPos.y === backPos.y),
   `posição final == posição interior — não houve saída real`);
 

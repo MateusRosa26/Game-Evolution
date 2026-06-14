@@ -214,27 +214,15 @@ export class Simulation {
    * ejetado nem trava o mecanismo); fora delas, tile ocupado por entidade
    * viva bloqueia.
    */
-  /**
-   * `mover` PODE abrir esta porta? Destrancada (sem `keyReq`) → sempre; trancada
-   * → só com a chave abstrata (`SimEntity.keys`). Não muda estado; é a régua de
-   * "anda-pra-abrir" do `canEnter` e do passo committed. (A casa inicial é a
-   * única trancada hoje — reabre a cada vez com a `chave_casa_inicial`.)
-   */
-  private canOpenDoor(mover: SimEntity, door: DoorDef): boolean {
-    return door.keyReq == null || mover.keys.has(door.keyReq);
-  }
-
   private canEnter(mover: SimEntity, x: number, y: number): boolean {
     const z = mover.z;
     if (!this.world.isWalkable(x, y, z)) return false;
     // PORTA (feel Tibia/Apogea): aberta GLOBAL → qualquer um passa. Fechada →
-    // bloqueia, EXCETO se um PLAYER pode abri-la andando (destrancada, ou tem a
-    // chave): aí o tile conta como atravessável e a abertura acontece no passo
-    // committed (`tryStep`). Monstros nunca abrem porta → casa selada pra mob.
+    // bloqueia SEMPRE (é parede até abrir). Abrir é por CLIQUE (`interact` →
+    // `openDoor`), nunca andando: o `walkTo` mira o tile livre adjacente e o
+    // cliente dispara o `interact` ao chegar em alcance (pendingDoorId).
     const door = this.world.doorAt(x, y, z);
-    if (door && !this.world.isDoorOpen(door.id)) {
-      if (mover.kind !== "player" || !this.canOpenDoor(mover, door)) return false;
-    }
+    if (door && !this.world.isDoorOpen(door.id)) return false;
     if (this.world.isSafeZone(x, y, z)) return mover.kind !== "monster";
     if (this.world.isPassZone(x, y, z)) return true;
     const occ = this.occupancy.get(this.tileKey(x, y, z));
@@ -771,6 +759,30 @@ export class Simulation {
     return target;
   }
 
+  /**
+   * Tile adjacente (8-viz) a `target` que `mover` consegue ALCANÇAR (tem caminho),
+   * o mais próximo. Pra mirar uma porta fechada (= parede, abre só por clique): o
+   * player encosta do lado DELE, não no interior isolado atrás da porta — que é
+   * `canEnter` mas inalcançável (`nearestFree` o pegaria e o A* falharia).
+   */
+  private reachableAdjacent(mover: SimEntity, target: Vec2): Vec2 | null {
+    const cands: Vec2[] = [];
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const x = target.x + dx;
+        const y = target.y + dy;
+        if (this.canEnter(mover, x, y)) cands.push({ x, y });
+      }
+    cands.sort((a, b) => chebyshev(mover.pos, a) - chebyshev(mover.pos, b));
+    for (const c of cands) {
+      if (mover.pos.x === c.x && mover.pos.y === c.y) return c;
+      const path = findPath(this.world, mover.pos, c, { isBlocked: this.blockedFor(mover), z: mover.z });
+      if (path) return c;
+    }
+    return null;
+  }
+
   /** Diálogo exige proximidade contínua: afastou (>3 tiles) ou NPC sumiu → fecha. */
   private pruneDialogues(): void {
     for (const e of this.entities.values()) {
@@ -810,7 +822,14 @@ export class Simulation {
         e.intent = cmd.dir ? { kind: "dir", dir: cmd.dir } : null;
         break;
       case "walkTo": {
-        const goal = nearestWalkable(this.world, { x: Math.round(cmd.x), y: Math.round(cmd.y) }, 3, e.z);
+        const want = { x: Math.round(cmd.x), y: Math.round(cmd.y) };
+        // Porta fechada é parede (abre só por clique → `interact`): mira o tile
+        // livre adjacente pro player encostar; o cliente dispara o `interact` ao
+        // chegar em alcance. Senão, o A* falharia (goal bloqueado → null).
+        const door = this.world.doorAt(want.x, want.y, e.z);
+        const goal = door && !this.world.isDoorOpen(door.id)
+          ? this.reachableAdjacent(e, want)
+          : nearestWalkable(this.world, want, 3, e.z);
         if (!goal) break;
         const path = findPath(this.world, e.pos, goal, { isBlocked: this.blockedFor(e), z: e.z });
         if (path && path.length > 0) e.intent = { kind: "path", path, goal };
@@ -2269,26 +2288,9 @@ export class Simulation {
     // Bloqueio de corpo: tile precisa estar andável E livre (canEnter).
     // Diagonal estilo Tibia (decidido jun/2026): só o destino importa —
     // cortar quina é permitido (mesma regra do A* em pathfinding.ts).
-    if (!this.canEnter(e, nx, ny)) {
-      // ANDA-PRA-ABRIR (feel Tibia): bateu numa porta FECHADA que não consegue
-      // abrir (trancada, sem chave) → avisa uma vez por toque, em vez de parar
-      // mudo. canEnter já barrou; aqui só a mensagem (sem mudar estado).
-      const door = e.kind === "player" ? this.world.doorAt(nx, ny, e.z) : null;
-      if (door && !this.world.isDoorOpen(door.id) && !this.canOpenDoor(e, door)) {
-        this.sysMessage(e.id, `${door.name ?? "A porta"} está trancada.`);
-      }
-      return false;
-    }
-    // ANDA-PRA-ABRIR (feel Tibia): pisar numa porta fechada que o player PODE
-    // abrir (destrancada ou com a chave) ABRE-a no estado global e agenda o
-    // auto-fecha; o passo segue normalmente (o tile já passou no canEnter).
-    if (e.kind === "player") {
-      const door = this.world.doorAt(nx, ny, e.z);
-      if (door && !this.world.isDoorOpen(door.id)) {
-        this.world.openDoorRuntime(door.id, now + DOOR_AUTOCLOSE_MS);
-        this.sysMessage(e.id, `Você abriu ${door.name ?? "a porta"}.`);
-      }
-    }
+    // Porta fechada é parede (canEnter barra): abrir é por CLIQUE (interact →
+    // openDoor), nunca pisando. Sem anda-pra-abrir.
+    if (!this.canEnter(e, nx, ny)) return false;
     // Mover CANCELA a conjuração em andamento (decisão do task: move OU tomar dano).
     if (e.casting) this.cancelCast(e);
     this.moveTo(e, nx, ny);

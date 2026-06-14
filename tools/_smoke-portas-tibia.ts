@@ -1,6 +1,7 @@
 /**
- * VERIFICADOR — Portas v2 (feel Tibia/Apogea): porta em toda casa, anda-pra-abrir,
- * auto-fecha, NPCs fora do vão. Sim pura (sem client).
+ * VERIFICADOR — Portas v3 (CLICK-pra-abrir): a porta é PAREDE até o jogador
+ * CLICAR nela (interact → openDoor). NÃO existe mais anda-pra-abrir. Auto-fecha
+ * mantém. NPCs fora do vão. Sim pura (sem client).
  *
  * Rodar:
  *   npx esbuild tools/_smoke-portas-tibia.ts --bundle --platform=node \
@@ -24,7 +25,7 @@ const map: MapData = generateAlvoradaMap();
 const world = new World(map);
 const doors = map.doors ?? [];
 
-console.log("VERIFICADOR — portas v2 (Tibia/Apogea)\n");
+console.log("VERIFICADOR — portas v3 (click-pra-abrir)\n");
 
 // ════ (1) PORTA EM TODA CASA ════
 console.log("(1) Porta em toda casa entrável:");
@@ -37,13 +38,11 @@ check(`14 portas geradas (got ${doors.length})`, doors.length === 14, `esperado 
 for (const id of expectIds) {
   check(`porta "${id}" existe`, doors.some((d) => d.id === id), `faltou ${id}`);
 }
-// toda porta num tile que é vão (StoneFloor andável) e marcada como door-tile
 for (const d of doors) {
   check(`"${d.id}" em tile andável (${d.pos.x},${d.pos.y}) + isDoorTile`,
     world.isWalkable(d.pos.x, d.pos.y, d.z) && world.isDoorTile(d.pos.x, d.pos.y, d.z),
     `"${d.id}" em (${d.pos.x},${d.pos.y}) tile=${world.tileAt(d.pos.x, d.pos.y, d.z)}`);
 }
-// só a casa inicial trancada
 const locked = doors.filter((d) => d.keyReq != null);
 check(`só 1 porta trancada (casa inicial)`, locked.length === 1 && locked[0].id === "porta_casa_inicial",
   `trancadas: ${locked.map((d) => d.id).join(",")}`);
@@ -73,96 +72,92 @@ function posOf(pid: number): Vec2 {
 function doorOpen(id: string): boolean {
   return snap?.doors.find((d) => d.id === id)?.open ?? false;
 }
-function walkToward(s: Simulation, pid: number, x: number, y: number, budget: number): void {
+const cheb = (a: Vec2, b: Vec2) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+/** Anda até ficar ADJACENTE (cheb≤1) do alvo (porta fechada vira nearestFree). */
+function approach(s: Simulation, pid: number, x: number, y: number, budget: number): boolean {
+  s.handleCommand(pid, { type: "walkTo", x, y });
+  for (let i = 0; i < budget; i++) {
+    s.tick();
+    if (cheb(posOf(pid), { x, y }) <= 1) return true;
+  }
+  return false;
+}
+/** Anda até a posição EXATA (x,y). */
+function walkExact(s: Simulation, pid: number, x: number, y: number, budget: number): boolean {
   s.handleCommand(pid, { type: "walkTo", x, y });
   for (let i = 0; i < budget; i++) {
     s.tick();
     const p = posOf(pid);
-    if (p.x === x && p.y === y) return;
+    if (p.x === x && p.y === y) return true;
   }
+  return false;
 }
-/** Liberta o player do tutorial: abre o baú (ganha a chave) e sai da casa inicial. */
-function freeFromHouse(s: Simulation, pid: number): void {
-  s.handleCommand(pid, { type: "openChest", chestId: "casa_inicial_bau" });
+function clickDoor(s: Simulation, pid: number, id: string): void {
+  s.handleCommand(pid, { type: "interact", interactableId: id });
   s.tick();
-  // sai pela porta (128,126) rumo à Praça — anda-pra-abrir cruza com a chave.
-  walkToward(s, pid, 137, 118, 600);
+}
+function clickChest(s: Simulation, pid: number, id: string): void {
+  s.handleCommand(pid, { type: "openChest", chestId: id });
+  s.tick();
 }
 
-// ════ (3) ANDA-PRA-ABRIR uma porta DESTRANCADA (Estalagem, porta (120,122)) ════
-console.log("\n(3) Anda-pra-abrir (porta destrancada):");
-// Estalagem door city(20,42) = world (120,122). Interior atrás é y≤121.
-const estDoor = doors.find((d) => d.id === "porta_estalagem")!;
+// ════ (3) PORTA TRANCADA (casa inicial) — clique exige chave ════
+console.log("\n(3) Porta trancada (casa inicial) — clique exige chave:");
+const casa = doors.find((d) => d.id === "porta_casa_inicial")!;
+const casaOut: Vec2 = { x: casa.pos.x, y: casa.pos.y + 1 }; // 1 fora (sul)
 const sim = makeSim();
-const pid = sim.addPlayer("Andarilho");
+const pid = sim.addPlayer("Aldeao");
 sim.tick();
-freeFromHouse(sim, pid); // sai do tutorial primeiro (player nasce trancado dentro)
-const insideEst: Vec2 = { x: estDoor.pos.x, y: estDoor.pos.y - 1 }; // 1 tile dentro
-check(`porta_estalagem começa FECHADA`, !doorOpen("porta_estalagem"), `já estava aberta`);
-// 1º para EM CIMA do vão (prova: porta abriu) — depois entra 1 tile.
-walkToward(sim, pid, estDoor.pos.x, estDoor.pos.y, 400);
-check(`a porta ABRIU ao pisar no vão (estado global no snapshot)`, doorOpen("porta_estalagem"),
-  `porta_estalagem não consta aberta ao pisar no vão`);
-walkToward(sim, pid, insideEst.x, insideEst.y, 50);
-const afterEst = posOf(pid);
-check(`player ATRAVESSOU pra dentro da estalagem (chegou a (${afterEst.x},${afterEst.y}))`,
-  afterEst.x === insideEst.x && afterEst.y === insideEst.y,
-  `player não entrou — parou em (${afterEst.x},${afterEst.y})`);
+// player nasce DENTRO; aproxima e CLICA sem chave
+approach(sim, pid, casa.pos.x, casa.pos.y, 200);
+clickDoor(sim, pid, "porta_casa_inicial");
+check(`sem chave: porta NÃO abre ao clicar`, !doorOpen("porta_casa_inicial"), `abriu sem chave`);
+walkExact(sim, pid, casaOut.x, casaOut.y, 120); // tenta sair: parede
+check(`sem chave: player preso dentro (não cruzou)`, posOf(pid).y <= casa.pos.y - 1,
+  `cruzou trancada → (${posOf(pid).x},${posOf(pid).y})`);
+// pega a chave (baú) e CLICA → abre
+clickChest(sim, pid, "casa_inicial_bau");
+approach(sim, pid, casa.pos.x, casa.pos.y, 200);
+clickDoor(sim, pid, "porta_casa_inicial");
+check(`com chave: clique ABRE a porta`, doorOpen("porta_casa_inicial"), `não abriu com chave`);
+walkExact(sim, pid, casaOut.x, casaOut.y, 200);
+check(`com chave: player ATRAVESSA pra fora (${posOf(pid).x},${posOf(pid).y})`,
+  posOf(pid).y >= casa.pos.y, `não saiu mesmo com a chave`);
 
-// ════ (4) AUTO-FECHA: porta fecha sozinha ~4s depois (player saiu de cima) ════
-console.log("\n(4) Auto-fecha (player longe do vão):");
-// player está 1 tile dentro (não em cima da porta). Espera > 4s lógicos.
-// TICK_MS=50 → 4000ms = 80 ticks; roda 100 com folga.
-for (let i = 0; i < 100; i++) sim.tick();
-check(`porta_estalagem FECHOU sozinha (auto-close)`, !doorOpen("porta_estalagem"),
-  `porta_estalagem ainda aberta após ~5s sem ninguém no vão`);
+// ════ (4) PORTA DESTRANCADA (estalagem) — PAREDE até clicar ════
+console.log("\n(4) Porta destrancada (estalagem) — parede → clique → atravessa:");
+const est = doors.find((d) => d.id === "porta_estalagem")!;
+const estIn: Vec2 = { x: est.pos.x, y: est.pos.y - 1 }; // 1 dentro (norte)
+approach(sim, pid, est.pos.x, est.pos.y, 800);
+check(`estalagem começa FECHADA`, !doorOpen("porta_estalagem"), `já estava aberta`);
+walkExact(sim, pid, estIn.x, estIn.y, 150); // tenta entrar SEM clicar → parede
+check(`fechada é PAREDE: não entrou sem clicar (${posOf(pid).x},${posOf(pid).y})`,
+  !(posOf(pid).x === estIn.x && posOf(pid).y === estIn.y), `atravessou porta fechada`);
+approach(sim, pid, est.pos.x, est.pos.y, 400);
+clickDoor(sim, pid, "porta_estalagem");
+check(`clique ABRE a estalagem`, doorOpen("porta_estalagem"), `não abriu ao clicar`);
+walkExact(sim, pid, estIn.x, estIn.y, 150);
+check(`atravessa pra dentro (${posOf(pid).x},${posOf(pid).y})`,
+  posOf(pid).x === estIn.x && posOf(pid).y === estIn.y, `não entrou após abrir`);
 
-// ════ (5) NÃO FECHA com player EM CIMA do vão ════
-console.log("\n(5) Auto-fecha NÃO prende quem está no vão:");
-const sim2 = makeSim();
-const pid2 = sim2.addPlayer("NoVao");
-sim2.tick();
-freeFromHouse(sim2, pid2); // sai do tutorial primeiro
-// anda até PARAR exatamente no tile da porta (não 1 dentro). Para isso, mira
-// o próprio tile da porta como destino.
-walkToward(sim2, pid2, estDoor.pos.x, estDoor.pos.y, 400);
-const onDoorPos = posOf(pid2);
-check(`player parado EM CIMA da porta (${onDoorPos.x},${onDoorPos.y})`,
-  onDoorPos.x === estDoor.pos.x && onDoorPos.y === estDoor.pos.y,
-  `player não parou no vão — (${onDoorPos.x},${onDoorPos.y})`);
-check(`porta aberta com player no vão`, doorOpen("porta_estalagem"), `porta não está aberta`);
-for (let i = 0; i < 100; i++) sim2.tick(); // > auto-close, mas player segue no vão
-check(`porta SEGUE aberta (não fechou na cara do player)`, doorOpen("porta_estalagem"),
-  `porta fechou com player em cima — prenderia/glitch`);
-// agora ele sai → porta deve fechar
-walkToward(sim2, pid2, estDoor.pos.x, estDoor.pos.y - 1, 50);
-for (let i = 0; i < 100; i++) sim2.tick();
-check(`após sair do vão, porta auto-fecha`, !doorOpen("porta_estalagem"),
-  `porta não fechou depois do player liberar o tile`);
+// ════ (5) AUTO-FECHA (~4s sem ninguém no vão) ════
+console.log("\n(5) Auto-fecha (player longe do vão):");
+for (let i = 0; i < 120; i++) sim.tick(); // TICK_MS=50 → 4000ms=80 ticks; roda 120
+check(`estalagem auto-fechou sozinha`, !doorOpen("porta_estalagem"), `não fechou após ~6s`);
 
-// ════ (6) PORTA TRANCADA bloqueia anda-pra-abrir sem chave ════
-console.log("\n(6) Porta trancada barra o anda-pra-abrir sem chave:");
-const sim3 = makeSim();
-const pid3 = sim3.addPlayer("SemChave");
-sim3.tick();
-// casa inicial: player nasce dentro; tenta sair pela porta (128,126) SEM abrir o baú.
-const casaDoor = doors.find((d) => d.id === "porta_casa_inicial")!;
-walkToward(sim3, pid3, casaDoor.pos.x, casaDoor.pos.y + 1, 200); // tenta cruzar pra fora (sul)
-const stuck = posOf(pid3);
-check(`player SEM chave preso (não cruzou a porta trancada) — (${stuck.x},${stuck.y})`,
-  stuck.y <= casaDoor.pos.y - 1, `player atravessou porta trancada — (${stuck.x},${stuck.y})`);
-check(`porta_casa_inicial continua FECHADA no snapshot`, !doorOpen("porta_casa_inicial"),
-  `porta trancada consta aberta sem chave`);
-
-// com a chave (abre o baú) → anda-pra-abrir funciona
-sim3.handleCommand(pid3, { type: "openChest", chestId: "casa_inicial_bau" });
-sim3.tick();
-walkToward(sim3, pid3, casaDoor.pos.x, casaDoor.pos.y + 2, 200); // agora sai pro sul
-const freed = posOf(pid3);
-check(`COM chave: anda-pra-abrir cruza a porta trancada (${freed.x},${freed.y})`,
-  freed.y >= casaDoor.pos.y, `player não saiu mesmo com a chave — (${freed.x},${freed.y})`);
-check(`porta_casa_inicial consta ABERTA após cruzar com a chave`, doorOpen("porta_casa_inicial"),
-  `porta não abriu via anda-pra-abrir com a chave`);
+// ════ (6) NÃO FECHA com player EM CIMA do vão ════
+console.log("\n(6) Auto-fecha NÃO prende quem está no vão:");
+approach(sim, pid, est.pos.x, est.pos.y, 200);
+clickDoor(sim, pid, "porta_estalagem");
+walkExact(sim, pid, est.pos.x, est.pos.y, 60); // entra no tile da porta (aberta)
+const onv = posOf(pid);
+check(`player parado no vão (${onv.x},${onv.y})`,
+  onv.x === est.pos.x && onv.y === est.pos.y, `não parou no vão`);
+for (let i = 0; i < 120; i++) sim.tick();
+check(`porta SEGUE aberta com player no vão`, doorOpen("porta_estalagem"), `fechou na cara do player`);
+walkExact(sim, pid, estIn.x, estIn.y, 60); // sai do vão
+for (let i = 0; i < 120; i++) sim.tick();
+check(`após liberar o vão, auto-fecha`, !doorOpen("porta_estalagem"), `não fechou depois de liberar`);
 
 console.log(`\n${failures === 0 ? PASS + " TODOS OS CHECKS PASSARAM" : FAIL + ` ${failures} CHECK(S) FALHARAM`}`);
 if (issues.length) { console.log("\nISSUES:"); for (const i of issues) console.log(`  - ${i}`); }
