@@ -1,9 +1,13 @@
+import "./client/ui/dom/ui.css";
 import { Application, TextureStyle } from "pixi.js";
 import { loadPixellabAssets } from "./client/assets/pixellab";
 import { Game } from "./client/Game";
 import { LocalServer } from "./net/LocalServer";
 
-// Pixel art: nunca suavizar texturas.
+// Pixel art: default CROCANTE (nearest) — UI, ícones, texto. A arte do MUNDO
+// (terreno/objetos/chars/mobs) faz opt-in de "linear" no ponto de criação
+// (sprites.ts/pixellab.ts/WorldRenderer), porque a câmera a encolhe (FOV ~9) e
+// nearest no downscale não-inteiro quebra outline/cintila.
 TextureStyle.defaultOptions.scaleMode = "nearest";
 
 async function boot(): Promise<void> {

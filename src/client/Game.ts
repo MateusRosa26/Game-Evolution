@@ -22,7 +22,7 @@ import { ItemDnD } from "./ui/dnd";
 import { ChatWindow } from "./ui/ChatWindow";
 import { Minimap } from "./ui/Minimap";
 import { Tooltip } from "./ui/Tooltip";
-import { CharacterPanel } from "./ui/CharacterPanel";
+import { CharacterPanel } from "./ui/dom/CharacterPanel";
 import { OutfitPanel } from "./ui/OutfitPanel";
 import { SkillBar } from "./ui/SkillBar";
 import { TrackingToast } from "./ui/TrackingToast";
@@ -81,15 +81,23 @@ export class Game {
   private sprites: SpriteLibrary;
   private camera = new Camera();
   private hud = new Hud();
-  private charPanel = new CharacterPanel((attr) =>
-    this.transport.send({ type: "allocateStatPoint", attr }),
+  private charPanel = new CharacterPanel(
+    document.getElementById("ui-root")!,
+    (attr) => this.transport.send({ type: "allocateStatPoint", attr }),
   );
   private outfitPanel = new OutfitPanel((outfit) =>
     this.transport.send({ type: "setOutfit", outfit }),
   );
   private skillBar = new SkillBar();
   private trackingToast = new TrackingToast();
-  private dnd = new ItemDnD((from, to) => this.transport.send({ type: "moveItem", from, to }));
+  private dnd = new ItemDnD(
+    (from, to) => this.transport.send({ type: "moveItem", from, to }),
+    // Soltou o item sobre o MUNDO (fora de qualquer painel) = largar no chão.
+    (from, sx, sy) => {
+      if (this.uiBlocksClick(sx, sy)) return;
+      this.transport.send({ type: "moveItem", from, to: { kind: "ground" } });
+    },
+  );
   private dialogueWin = new DialogueWindow((optionId) =>
     this.transport.send({ type: "dialogueChoice", optionId }),
   );
@@ -114,6 +122,10 @@ export class Game {
   /** Baús/portas do andar atual (do snapshot) — alvos do clique→comando. */
   private lastChests: Snapshot["chests"] = [];
   private lastDoors: Snapshot["doors"] = [];
+  /** Itens no chão do andar atual (do snapshot) — alvos do clique→pegar. */
+  private lastGroundItems: Snapshot["groundItems"] = [];
+  /** Item no chão clicado de longe: anda até ele e pega ao chegar (≤1 tile). */
+  private pendingPickupId: number | null = null;
   private keyboard!: Keyboard;
   private chat = new ChatWindow((text) => this.transport.send({ type: "say", text }));
   /** NPC que o jogador clicou de longe: anda até ele e conversa ao chegar. */
@@ -391,7 +403,6 @@ export class Game {
   /** True se (sx,sy) está sobre um painel de UI visível (janelas clicáveis). */
   private uiBlocksClick(sx: number, sy: number): boolean {
     const panels = [
-      this.charPanel.container,
       this.outfitPanel.container,
       this.equipPanel.container,
       this.journal.container,
@@ -452,8 +463,7 @@ export class Game {
     this.uiLayer.addChild(this.skillBar.container);
     this.skillBar.resize(uw, uh);
 
-    // Painel de personagem por cima da HUD (oculto até apertar C).
-    this.uiLayer.addChild(this.charPanel.container);
+    // Painel de personagem: migrado p/ DOM (#ui-root), auto-anexado no constructor.
     this.charPanel.resize(uh);
 
     // Janela de outfit (oculta até apertar O).

@@ -1,0 +1,112 @@
+/*
+ * UI em DOM (jun/2026) — migração da UI de PixiJS p/ HTML+CSS sobre o canvas.
+ * O mundo (e overlays no mundo: HP/nome/dano) seguem no canvas/Pixi; as molduras
+ * fixas (HUD, painéis, janelas) viram DOM — flexbox/eventos/drag de graça, e
+ * compatível com Steam (Electron/Tauri = webview embarcado). Tokens espelham a
+ * paleta de `palette.ts` (PAL) p/ manter o dark medieval coerente com o canvas.
+ */
+:root {
+  --ui-panel-bg: rgba(20, 24, 33, 0.95); /* PAL.panelBg #141821 */
+  --ui-panel-border: #3a4150; /* PAL.panelBorder */
+  --ui-panel-header: #1d2330; /* PAL.panelHeader */
+  --ui-gold: #e8cf6a; /* PAL.levelGold */
+  --ui-label: #9aa3b6; /* PAL.attrLabel */
+  --ui-value: #f0ece0; /* PAL.attrValue */
+  --ui-btn: #2e5f38; /* PAL.btnPlus */
+  --ui-btn-hover: #4a9156; /* PAL.btnPlusHover */
+  --ui-stroke: #10141c; /* contorno do texto (simula o stroke do Pixi) */
+}
+
+#ui-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* cliques fora dos painéis vazam pro canvas (mundo) */
+  overflow: hidden;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+  -webkit-font-smoothing: none;
+  user-select: none;
+}
+
+/* Painel genérico (moldura Apogea) */
+#ui-root .ui-panel {
+  position: absolute;
+  pointer-events: auto; /* o painel captura o clique → não vaza pro mundo */
+  background: var(--ui-panel-bg);
+  border: 1px solid var(--ui-panel-border);
+  border-radius: 7px;
+  color: var(--ui-value);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+#ui-root .ui-header {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 12px;
+  background: var(--ui-panel-header);
+  border-bottom: 1px solid var(--ui-panel-border);
+  border-radius: 7px 7px 0 0;
+  color: var(--ui-gold);
+  font-weight: bold;
+  font-size: 12px;
+  text-shadow: 1px 1px 0 var(--ui-stroke);
+  cursor: grab;
+}
+
+/* ── Painel de Personagem ── */
+#ui-root .char-panel {
+  width: 220px;
+}
+#ui-root .char-summary {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--ui-label);
+  line-height: 1.55;
+  text-shadow: 1px 1px 0 var(--ui-stroke);
+}
+#ui-root .char-summary .char-class {
+  color: var(--ui-gold);
+  font-weight: bold;
+}
+#ui-root .char-attrs {
+  padding: 2px 12px 12px;
+}
+#ui-root .attr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+}
+#ui-root .attr-label {
+  flex: 1;
+  color: var(--ui-label);
+  font-size: 12px;
+  text-shadow: 1px 1px 0 var(--ui-stroke);
+}
+#ui-root .attr-value {
+  color: var(--ui-value);
+  font-weight: bold;
+  font-size: 13px;
+  text-shadow: 1px 1px 0 var(--ui-stroke);
+}
+#ui-root .attr-plus {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border: 1px solid var(--ui-stroke);
+  border-radius: 3px;
+  background: var(--ui-btn);
+  color: #eef4e6;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+#ui-root .attr-plus:hover:not(:disabled) {
+  background: var(--ui-btn-hover);
+}
+#ui-root .attr-plus:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
