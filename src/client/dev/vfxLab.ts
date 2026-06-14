@@ -5,7 +5,7 @@
  * Acesso: http://localhost:5173/vfx-lab.html
  */
 import { Application, Container, Graphics, Sprite, Text, TextureStyle, type Texture } from "pixi.js";
-import { blastFrames, projectileFrames, softGlow, VFX_ELEMENTS, type VfxElement } from "../assets/vfx";
+import { blastFrames, projectileFrames, softGlow, vfxAdditive, VFX_ELEMENTS, type VfxElement } from "../assets/vfx";
 
 TextureStyle.defaultOptions.scaleMode = "nearest";
 
@@ -33,16 +33,16 @@ function floorCell(parent: Container, x: number, y: number, w: number, h: number
 }
 
 /** Projétil viajando da esquerda → direita, com cauda (afterimages). */
-function travelDemo(frames: Texture[], px: number, cellX: number, cellY: number, cellW: number, cellH: number, root: Container): Demo {
+function travelDemo(frames: Texture[], additive: boolean, px: number, cellX: number, cellY: number, cellW: number, cellH: number, root: Container): Demo {
   const layer = new Container();
   layer.position.set(cellX, cellY);
   root.addChild(layer);
-  const TRAIL = 5;
+  const TRAIL = additive ? 5 : 3;
   const sprites: Sprite[] = [];
   for (let i = 0; i < TRAIL; i++) {
     const s = new Sprite(frames[0]);
     s.anchor.set(0.5);
-    s.blendMode = "add";
+    if (additive) s.blendMode = "add";
     s.width = s.height = px * (1 - i * 0.12);
     s.alpha = 1 - i * 0.18;
     layer.addChild(s);
@@ -66,7 +66,7 @@ function travelDemo(frames: Texture[], px: number, cellX: number, cellY: number,
 }
 
 /** Explosão nascendo do chão, com clarão de luz + chamuscado no piso. */
-function blastDemo(frames: Texture[], px: number, cellX: number, cellY: number, cellW: number, cellH: number, root: Container): Demo {
+function blastDemo(frames: Texture[], additive: boolean, px: number, cellX: number, cellY: number, cellW: number, cellH: number, root: Container): Demo {
   const layer = new Container();
   layer.position.set(cellX, cellY);
   root.addChild(layer);
@@ -80,10 +80,10 @@ function blastDemo(frames: Texture[], px: number, cellX: number, cellY: number, 
   flash.blendMode = "add";
   flash.tint = 0xffb25a;
   flash.position.set(gx, gy);
-  layer.addChild(flash);
+  if (additive) layer.addChild(flash);
   const spr = new Sprite(frames[0]);
   spr.anchor.set(0.5, 0.62);
-  spr.blendMode = "add";
+  if (additive) spr.blendMode = "add";
   spr.width = spr.height = px;
   spr.position.set(gx, gy);
   layer.addChild(spr);
@@ -133,8 +133,9 @@ async function main() {
     caption(root, LABEL[el], labX, y + ROW_H / 2 - 8, 0xc2cdd8, 14);
     floorCell(root, leftX, y, colW, ROW_H);
     floorCell(root, rightX, y, colW, ROW_H);
-    demos.push(travelDemo(projectileFrames(el), 78, leftX, y, colW, ROW_H, root));
-    demos.push(blastDemo(blastFrames(el), 150, rightX, y, colW, ROW_H, root));
+    const add = vfxAdditive(el);
+    demos.push(travelDemo(projectileFrames(el), add, 78, leftX, y, colW, ROW_H, root));
+    demos.push(blastDemo(blastFrames(el), add, 150, rightX, y, colW, ROW_H, root));
   }
 
   app.ticker.add((ticker) => {
