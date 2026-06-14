@@ -5,7 +5,7 @@ import { DEFAULT_OUTFIT_BY_CLASS, OUTFIT_PART_BY_ID } from "../../shared/outfits
 import type { DamageType, Facing } from "../../shared/types";
 import { outfitTextures } from "../assets/outfit/compose";
 import { paperdollAttackTextures } from "../assets/outfit/paperdoll";
-import { FLYING_SPECIES, PIXELLAB } from "../assets/pixellab";
+import { FLYING_SPECIES, PIXELLAB, PIXELLAB_CHAR_SCALE } from "../assets/pixellab";
 import { makeProcKnight128, type SpriteLibrary } from "../assets/sprites";
 import { skillMeta } from "../ui/skillMeta";
 
@@ -22,19 +22,18 @@ const WALK_CYCLE = [1, 0, 2, 0];
  * cada corpo gerado tem o seu; calibrado NO OLHO ao integrar (diagonais).
  */
 const BODY_SOUTH_BIAS: Record<string, 1 | -1> = {
-  knight: -1,
-  mage: 1,
-  aldeao: 1, // pose sul frontal/simétrica — segue a convenção padrão dos corpos
+  homem: 1, // pose sul frontal/simétrica (canônicos base-avatar 128px)
+  mulher: 1,
 };
 
 /**
  * Alias do SET do outfit → SET do CORPO (charBodies). O corpo é escolhido pelo
- * set do torso, mas alguns sets de outfit não têm corpo próprio e emprestam o de
- * outro: o `citizen` (a cara do CLASSLESS e dos NPCs) usa o corpo do ALDEÃO
- * jovem até o rito dar uma classe (que troca o torso → set knight/mage/etc).
+ * set do torso, mas os sets de ROUPA não têm corpo próprio e emprestam um corpo
+ * base: `citizen` (a cara do CLASSLESS) usa o corpo do HOMEM jovem; os sets de
+ * classe (knight/mage/etc) caem no corpo padrão (homem) até terem corpo próprio.
  */
 const BODY_SET_ALIAS: Record<string, string> = {
-  citizen: "aldeao",
+  citizen: "homem",
 };
 
 /** SET do corpo a partir do SET do torso do outfit (aplica o alias acima). */
@@ -323,7 +322,7 @@ export class EntityRenderer {
         null,
       );
     }
-    const outfit = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
+    const outfit = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.classless;
     // CORPO POR CLASSE (receita jun/2026): o SET do torso do outfit escolhe o
     // corpo inteiro (janela O = troca de classe visual). Sem corpo → fallback.
     // Alias: classless/NPC (set citizen) emprestam o corpo do aldeão.
@@ -337,11 +336,11 @@ export class EntityRenderer {
   private skinKeyOf(e: EntityState): string {
     if (e.species) return e.species;
     if (e.kind === "npc") return `npc|${e.npcId ?? "cidadao"}`;
-    const o = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight;
+    const o = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.classless;
     if (PIXELLAB.knight) {
-      // corpo por classe: visual muda com o SET do torso (com alias citizen→aldeao,
-      // p/ o skinKey carregar o set do CORPO — usado pelo viés de espelho diagonal)
-      return `body|${bodySetOf(OUTFIT_PART_BY_ID[o.torso.part]?.set) ?? "knight"}`;
+      // corpo por set do torso (alias citizen→homem) — o skinKey carrega o set do
+      // CORPO, usado pelo viés de espelho diagonal e pelo cache de skin.
+      return `body|${bodySetOf(OUTFIT_PART_BY_ID[o.torso.part]?.set) ?? "homem"}`;
     }
     return `${o.head.part}.${o.head.color}|${o.torso.part}.${o.torso.color}|${o.legs.part}.${o.legs.color}|${e.weapon?.templateId ?? "-"}`;
   }
@@ -350,7 +349,7 @@ export class EntityRenderer {
   private attackTexturesFor(e: EntityState): Record<Facing, Texture[]> | null {
     if (e.species) return PIXELLAB.mobAttacks[e.species] ?? null;
     if (!PIXELLAB.knight) return null;
-    return paperdollAttackTextures(e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.knight);
+    return paperdollAttackTextures(e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.classless);
   }
 
   /** Cadáveres no chão: sprite do mob de lado + escurecido (apresentação). */
@@ -1022,7 +1021,13 @@ export class EntityRenderer {
     // inteira (=2 p/ 64px) os enche no tile sem shim fracionário. O char paperdoll
     // já vem 128 (compose.ts) → altura nativa ≥ TILE_SIZE, fator 1 (intocado).
     const nativeH = textures[e.facing][0]?.height || TILE_SIZE;
-    const upscale = e.species ? Math.max(1, Math.round(TILE_SIZE / nativeH)) : 1;
+    // mob: upscale INTEIRO enche o tile (64→128). PLAYER: 1.25× tile (asset 128px
+    // nativo → ~160px), tunável em PIXELLAB_CHAR_SCALE. NPC: sprite próprio já no alvo.
+    const upscale = e.species
+      ? Math.max(1, Math.round(TILE_SIZE / nativeH))
+      : e.kind === "npc"
+        ? 1
+        : PIXELLAB_CHAR_SCALE;
     if (upscale !== 1) sprite.scale.set(upscale);
     // Grounding: voadores pairam (offset fixo); terrestres descem pelo padding
     // transparente medido no load — sem isso o sprite "flutuava" no tile. O baseline

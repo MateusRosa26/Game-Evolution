@@ -15,7 +15,7 @@ import tree1Url from "./img/scenery/tree1.png";
 import tree2Url from "./img/scenery/tree2.png";
 
 /** Norma de densidade jun/2026: chars exibidos 1:1 (1 px do sprite = 1 px do mundo). */
-export const PIXELLAB_CHAR_SCALE = 1.0;
+export const PIXELLAB_CHAR_SCALE = 1.25; // char do player: 1.25× tile (asset 128px nativo → ~160px)
 
 /** Registry preenchido por loadPixellabAssets() antes do Game nascer. */
 export const PIXELLAB: {
@@ -195,7 +195,8 @@ export async function loadPixellabAssets(): Promise<void> {
     dirs.w = dirs.e.map(flipped);
     if (dirs.s.length && dirs.e.length && dirs.n.length) PIXELLAB.charBodies[set] = dirs;
   }
-  PIXELLAB.knight = PIXELLAB.charBodies["knight"] ?? Object.values(PIXELLAB.charBodies)[0] ?? null;
+  // Corpo padrão (fallback de quem não tem corpo próprio) = HOMEM jovem canônico.
+  PIXELLAB.knight = PIXELLAB.charBodies["homem"] ?? Object.values(PIXELLAB.charBodies)[0] ?? null;
 
   // Mobs: img/mobs/<species>/[atk_]<dir><frame>.png → Record<Facing, Texture[]>
   const bySpecies = new Map<string, { atk: boolean; dir: string; frame: number; url: string }[]>();
