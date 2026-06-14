@@ -1,6 +1,7 @@
 import { BASE_WALK_MS, DIAGONAL_FACTOR, TICK_MS, msToTicks } from "../shared/constants";
 import {
   DEFAULT_OUTFIT_BY_CLASS,
+  isValidBodyType,
   isValidOutfitColor,
   OUTFIT_PART_BY_ID,
   OUTFIT_PARTS,
@@ -481,6 +482,8 @@ export class Simulation {
       block: null,
       // Outfit default da classe; guarda-roupa nasce com as peças FREE.
       outfit: structuredCloneOutfit(DEFAULT_OUTFIT_BY_CLASS[cls]),
+      bodyType: "homem", // avatar inicial; a hotkey 0 cicla homem↔mulher
+
       wardrobe: new Set(OUTFIT_PARTS.filter((p) => p.free).map((p) => p.id)),
       // Kit inicial da classe (compra em NPC é M2+).
       knownSkills: [...STARTER_KITS[cls]],
@@ -1106,6 +1109,11 @@ export class Simulation {
           );
         });
         if (valid) e.outfit = structuredCloneOutfit(o);
+        break;
+      }
+      case "setBody": {
+        // Avatar do herói (homem/mulher) — valida contra a lista canônica.
+        if (e.kind === "player" && isValidBodyType(cmd.body)) e.bodyType = cmd.body;
         break;
       }
       case "debugGrantOutfit": {
@@ -2444,6 +2452,7 @@ export class Simulation {
         const weapon = this.projectWeapon(e);
         if (weapon) state.weapon = weapon;
         if (e.outfit) state.outfit = structuredCloneOutfit(e.outfit);
+        if (e.bodyType) state.bodyType = e.bodyType;
         state.wardrobe = [...e.wardrobe];
         // Alvo selecionado é POR-JOGADOR: vai na própria entidade, não no topo
         // do snapshot — cada client lê o targetId da SUA entidade (pronto pro

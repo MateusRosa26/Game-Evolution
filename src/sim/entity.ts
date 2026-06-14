@@ -148,6 +148,8 @@ export interface SimEntity {
    * sim (no online todos veem); null para mobs (sprite vem da espécie).
    */
   outfit: OutfitState | null;
+  /** Corpo/avatar (homem/mulher) — só players; ausente em mob/npc (usa fallback). */
+  bodyType?: string;
   /**
    * Guarda-roupa: ids de peças possuídas. Peças `free` nascem aqui; quest/
    * conteúdo pago adiciona ✏️. A validação de `setOutfit` é contra este set.

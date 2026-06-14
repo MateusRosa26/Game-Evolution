@@ -1,7 +1,7 @@
 import { Container, Sprite, type Application } from "pixi.js";
 import { TILE_SIZE } from "../shared/constants";
 import type { ClientTransport, EntityState, Snapshot } from "../shared/protocol";
-import { OUTFIT_PART_BY_ID, OUTFIT_PARTS } from "../shared/outfits";
+import { BODY_TYPES } from "../shared/outfits";
 import { TileId, type MapData } from "../shared/types";
 import { createSprites, type SpriteLibrary } from "./assets/sprites";
 import { Camera } from "./Camera";
@@ -249,7 +249,7 @@ export class Game {
       // janela de outfit). A sim valida posse — o client só pede.
       if (ev.code === "Digit0") {
         ev.preventDefault();
-        this.cycleOutfitSet();
+        this.cycleBody();
       }
       // F8 (DEV): desbloqueia o catálogo inteiro de peças no guarda-roupa.
       if (ev.code === "F8") {
@@ -392,33 +392,16 @@ export class Game {
   }
 
   /**
-   * Hotkey 0: veste o próximo SET completo possuído (mantendo as cores atuais
-   * por slot). Apresentação/atalho — a sim valida posse de cada peça.
+   * Hotkey 0: cicla o CORPO/avatar do herói (homem↔mulher). A aparência é estado
+   * da sim (no online todos veem): o client manda `setBody`, a sim valida e projeta.
    */
-  private cycleOutfitSet(): void {
+  private cycleBody(): void {
     const me = this.playerState;
-    if (!me?.outfit || !me.wardrobe) return;
-    const owned = new Set(me.wardrobe);
-    // sets dos quais o jogador possui as 3 peças, na ordem do catálogo
-    const fullSets: string[] = [];
-    for (const part of OUTFIT_PARTS) {
-      if (fullSets.includes(part.set)) continue;
-      const pieces = OUTFIT_PARTS.filter((q) => q.set === part.set);
-      if (pieces.length === 3 && pieces.every((q) => owned.has(q.id))) fullSets.push(part.set);
-    }
-    if (fullSets.length === 0) return;
-    const currentSet = OUTFIT_PART_BY_ID[me.outfit.torso.part]?.set;
-    const next = fullSets[(fullSets.indexOf(currentSet ?? "") + 1) % fullSets.length];
-    const bySlot = (slot: "head" | "torso" | "legs") =>
-      OUTFIT_PARTS.find((q) => q.set === next && q.slot === slot)!.id;
-    this.transport.send({
-      type: "setOutfit",
-      outfit: {
-        head: { part: bySlot("head"), color: me.outfit.head.color },
-        torso: { part: bySlot("torso"), color: me.outfit.torso.color },
-        legs: { part: bySlot("legs"), color: me.outfit.legs.color },
-      },
-    });
+    if (!me) return;
+    const list = BODY_TYPES as readonly string[];
+    const idx = list.indexOf(me.bodyType ?? list[0]);
+    const next = list[(idx + 1) % list.length];
+    this.transport.send({ type: "setBody", body: next });
   }
 
   private buildWorld(map: MapData): void {

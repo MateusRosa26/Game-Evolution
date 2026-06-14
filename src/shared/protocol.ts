@@ -44,6 +44,8 @@ export type ClientCommand =
    * guarda-roupa no futuro — a validação de posse já mora aqui.
    */
   | { type: "setOutfit"; outfit: OutfitState }
+  /** Troca o CORPO/avatar do herói (homem/mulher). A sim valida (BODY_TYPES). */
+  | { type: "setBody"; body: string }
   /** Conversar com um NPC próximo (abre/avança o diálogo na sim). */
   | { type: "talk"; npcId: number }
   /** Escolher uma opção do diálogo ativo. */
@@ -246,6 +248,8 @@ export interface EntityState {
    * jogadores. Estado da sim: no online, todos veem o outfit de todos.
    */
   outfit?: OutfitState;
+  /** Corpo/avatar (homem/mulher) — SOMENTE jogadores; a rotação (hotkey 0) cicla. */
+  bodyType?: string;
   /** Peças possuídas (ids) — SOMENTE o próprio jogador (para a UI de outfit). */
   wardrobe?: string[];
   /**

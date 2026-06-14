@@ -323,10 +323,9 @@ export class EntityRenderer {
       );
     }
     const outfit = e.outfit ?? DEFAULT_OUTFIT_BY_CLASS.classless;
-    // CORPO POR CLASSE (receita jun/2026): o SET do torso do outfit escolhe o
-    // corpo inteiro (janela O = troca de classe visual). Sem corpo → fallback.
-    // Alias: classless/NPC (set citizen) emprestam o corpo do aldeão.
-    const set = bodySetOf(OUTFIT_PART_BY_ID[outfit.torso.part]?.set);
+    // CORPO: o `bodyType` (homem/mulher) escolhido pelo jogador tem prioridade;
+    // senão cai no SET do torso (alias citizen→homem) e no corpo padrão (homem).
+    const set = e.bodyType ?? bodySetOf(OUTFIT_PART_BY_ID[outfit.torso.part]?.set);
     const body = (set && PIXELLAB.charBodies[set]) || PIXELLAB.knight;
     if (body) return body;
     return outfitTextures(outfit, e.weapon?.templateId ?? null);
@@ -340,7 +339,7 @@ export class EntityRenderer {
     if (PIXELLAB.knight) {
       // corpo por set do torso (alias citizen→homem) — o skinKey carrega o set do
       // CORPO, usado pelo viés de espelho diagonal e pelo cache de skin.
-      return `body|${bodySetOf(OUTFIT_PART_BY_ID[o.torso.part]?.set) ?? "homem"}`;
+      return `body|${e.bodyType ?? bodySetOf(OUTFIT_PART_BY_ID[o.torso.part]?.set) ?? "homem"}`;
     }
     return `${o.head.part}.${o.head.color}|${o.torso.part}.${o.torso.color}|${o.legs.part}.${o.legs.color}|${e.weapon?.templateId ?? "-"}`;
   }
