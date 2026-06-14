@@ -1,20 +1,30 @@
 /*
  * UI em DOM (jun/2026) — migração da UI de PixiJS p/ HTML+CSS sobre o canvas.
- * O mundo (e overlays no mundo: HP/nome/dano) seguem no canvas/Pixi; as molduras
- * fixas (HUD, painéis, janelas) viram DOM — flexbox/eventos/drag de graça, e
- * compatível com Steam (Electron/Tauri = webview embarcado). Tokens espelham a
- * paleta de `palette.ts` (PAL) p/ manter o dark medieval coerente com o canvas.
+ *
+ * FILOSOFIA (jun/2026, pedido do criador): a UI é MOLDURA, não protagonista. O
+ * jogador quer ver os ITENS/equipamento e as BARRAS (HP/mana), não a cor da
+ * interface. Então a moldura é NEUTRA — grafite dark-mode, baixo contraste,
+ * confortável p/ olhar o tempo todo (mesmo conceito do dark mode da web). A COR
+ * fica reservada ao CONTEÚDO: barras de recurso (sóbrias) e ícones de item, mais
+ * acentos funcionais discretos (ouro, nível, "+"). Zero tema gritante.
  */
 :root {
-  --ui-panel-bg: rgba(20, 24, 33, 0.95); /* PAL.panelBg #141821 */
-  --ui-panel-border: #3a4150; /* PAL.panelBorder */
-  --ui-panel-header: #1d2330; /* PAL.panelHeader */
-  --ui-gold: #e8cf6a; /* PAL.levelGold */
-  --ui-label: #9aa3b6; /* PAL.attrLabel */
-  --ui-value: #f0ece0; /* PAL.attrValue */
-  --ui-btn: #2e5f38; /* PAL.btnPlus */
-  --ui-btn-hover: #4a9156; /* PAL.btnPlusHover */
-  --ui-stroke: #10141c; /* contorno do texto (simula o stroke do Pixi) */
+  /* moldura neutra (grafite) */
+  --ui-bg-top: #212121; /* topo do painel (leve relevo) */
+  --ui-bg-bot: #191919; /* base */
+  --ui-border: #393939; /* borda sutil */
+  --ui-edge: #0d0d0d; /* anel escuro fino */
+  --ui-header-top: #2a2a2a;
+  --ui-header-bot: #232323;
+  --ui-divider: rgba(255, 255, 255, 0.05); /* divisórias internas neutras */
+  /* texto */
+  --ui-text: #e4e2dd; /* off-white neutro (títulos/valores) */
+  --ui-dim: #94928b; /* cinza-médio (rótulos) */
+  --ui-stroke: #0c0c0d; /* contorno do texto */
+  /* acentos FUNCIONAIS sóbrios (não decoram a moldura) */
+  --ui-gold-soft: #c2a55c; /* ouro/nível/XP — âmbar dessaturado */
+  --ui-olive: #56703c; /* "+" (positivo, sóbrio) */
+  --ui-olive-lit: #6a874a;
 }
 
 #ui-root {
@@ -27,15 +37,15 @@
   user-select: none;
 }
 
-/* Painel genérico (moldura Apogea) */
+/* Painel genérico — placa grafite neutra, relevo discreto */
 #ui-root .ui-panel {
   position: absolute;
   pointer-events: auto; /* o painel captura o clique → não vaza pro mundo */
-  background: var(--ui-panel-bg);
-  border: 1px solid var(--ui-panel-border);
-  border-radius: 7px;
-  color: var(--ui-value);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(180deg, var(--ui-bg-top), var(--ui-bg-bot));
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  color: var(--ui-text);
+  box-shadow: 0 0 0 1px var(--ui-edge), 0 3px 12px rgba(0, 0, 0, 0.5);
 }
 
 #ui-root .ui-header {
@@ -43,48 +53,55 @@
   align-items: center;
   height: 26px;
   padding: 0 12px;
-  background: var(--ui-panel-header);
-  border-bottom: 1px solid var(--ui-panel-border);
-  border-radius: 7px 7px 0 0;
-  color: var(--ui-gold);
+  background: linear-gradient(180deg, var(--ui-header-top), var(--ui-header-bot));
+  border-bottom: 1px solid var(--ui-border);
+  border-radius: 5px 5px 0 0;
+  color: var(--ui-text); /* título off-white neutro — sem cor temática */
   font-weight: bold;
   font-size: 12px;
-  text-shadow: 1px 1px 0 var(--ui-stroke);
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 0 var(--ui-stroke);
   cursor: grab;
 }
 
 /* ── Painel de Personagem ── */
 #ui-root .char-panel {
-  width: 220px;
+  width: 250px;
 }
 #ui-root .char-summary {
-  padding: 8px 12px;
+  padding: 7px 12px;
   font-size: 11px;
-  color: var(--ui-label);
-  line-height: 1.55;
+  color: var(--ui-dim);
+  line-height: 1.45;
   text-shadow: 1px 1px 0 var(--ui-stroke);
+  border-bottom: 1px solid var(--ui-divider);
 }
 #ui-root .char-summary .char-class {
-  color: var(--ui-gold);
+  color: var(--ui-text);
   font-weight: bold;
+  font-size: 12px;
 }
 #ui-root .char-attrs {
-  padding: 2px 12px 12px;
+  padding: 4px 12px 10px;
 }
 #ui-root .attr-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 26px;
+  height: 23px;
+  border-bottom: 1px solid var(--ui-divider);
+}
+#ui-root .attr-row:last-child {
+  border-bottom: none;
 }
 #ui-root .attr-label {
   flex: 1;
-  color: var(--ui-label);
+  color: var(--ui-dim);
   font-size: 12px;
   text-shadow: 1px 1px 0 var(--ui-stroke);
 }
 #ui-root .attr-value {
-  color: var(--ui-value);
+  color: var(--ui-text);
   font-weight: bold;
   font-size: 13px;
   text-shadow: 1px 1px 0 var(--ui-stroke);
@@ -95,8 +112,8 @@
   flex: 0 0 auto;
   border: 1px solid var(--ui-stroke);
   border-radius: 3px;
-  background: var(--ui-btn);
-  color: #eef4e6;
+  background: var(--ui-olive);
+  color: #eef4e0;
   font-family: inherit;
   font-weight: bold;
   font-size: 13px;
@@ -104,9 +121,74 @@
   cursor: pointer;
 }
 #ui-root .attr-plus:hover:not(:disabled) {
-  background: var(--ui-btn-hover);
+  background: var(--ui-olive-lit);
 }
 #ui-root .attr-plus:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: default;
+}
+
+/* ── HUD (centro-inferior) ── */
+#ui-root .ui-hud {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 10px 5px;
+  background: linear-gradient(180deg, rgba(33, 33, 33, 0.86), rgba(25, 25, 25, 0.86));
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px var(--ui-edge), 0 3px 12px rgba(0, 0, 0, 0.5);
+}
+#ui-root .hud-main { display: flex; align-items: center; gap: 10px; cursor: grab; }
+#ui-root .hud-chip {
+  position: relative;
+  width: 38px; height: 38px; flex: 0 0 auto;
+  border-radius: 50%;
+  background: #2c2c2c; /* selo neutro (não dourado) */
+  border: 2px solid var(--ui-stroke);
+  box-shadow: inset 0 0 0 1px var(--ui-border);
+  display: flex; align-items: center; justify-content: center;
+}
+#ui-root .hud-level { color: var(--ui-text); font-weight: bold; font-size: 16px; }
+#ui-root .hud-badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 16px; height: 16px; padding: 0 3px;
+  border-radius: 8px;
+  background: var(--ui-gold-soft); border: 1px solid var(--ui-stroke); /* funcional: chama p/ alocar */
+  color: #201a0c; font-size: 10px; font-weight: bold; line-height: 14px; text-align: center;
+  animation: hud-badge-pulse 1s ease-in-out infinite;
+}
+@keyframes hud-badge-pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+#ui-root .hud-bars { display: flex; flex-direction: column; gap: 3px; width: 320px; }
+#ui-root .hud-xp {
+  position: relative; height: 5px; border-radius: 3px;
+  background: #141414; border: 1px solid var(--ui-stroke); overflow: hidden;
+}
+#ui-root .hud-xp-fill { height: 100%; width: 0; background: var(--ui-gold-soft); }
+#ui-root .hud-xp-pct { position: absolute; right: 3px; top: -2px; font-size: 7px; font-weight: bold; color: var(--ui-dim); }
+#ui-root .hud-bar {
+  position: relative; height: 18px; border-radius: 3px;
+  background: #141414; border: 1px solid var(--ui-stroke); overflow: hidden;
+}
+#ui-root .hud-bar:last-child { height: 16px; }
+#ui-root .hud-fill { height: 100%; width: 0; transition: width 0.12s linear; }
+#ui-root .hud-hp-fill { background: #57854a; } /* verde sóbrio (sobrescrito por hpColor) */
+#ui-root .hud-mp-fill { background: #46688e; } /* azul-aço sóbrio (recurso, não o tema) */
+#ui-root .hud-btext {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: bold; color: #f0efe9; text-shadow: 1px 1px 0 var(--ui-stroke);
+}
+#ui-root .hud-foot { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+#ui-root .hud-name { color: var(--ui-dim); font-size: 9px; font-weight: bold; text-shadow: 1px 1px 0 var(--ui-stroke); }
+#ui-root .hud-gold { display: flex; align-items: center; gap: 4px; }
+#ui-root .hud-coin { width: 9px; height: 9px; border-radius: 50%; background: var(--ui-gold-soft); border: 1px solid var(--ui-stroke); }
+#ui-root .hud-gold-val { color: var(--ui-gold-soft); font-size: 10px; font-weight: bold; text-shadow: 1px 1px 0 var(--ui-stroke); }
+#ui-root .ui-debug {
+  position: absolute; top: 6px; right: 10px;
+  font-size: 11px; color: #6f6e68; pointer-events: none; text-align: right; white-space: pre;
 }
