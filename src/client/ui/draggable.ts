@@ -23,14 +23,21 @@ export function makeDraggable(
     const local = container.toLocal(e.global);
     if (local.y > headerH) return; // só a barra de título arrasta
     if (canStart && !canStart(local)) return; // ex.: não arrastar sobre as abas
+    const parent = container.parent;
+    if (!parent) return;
     dragging = true;
-    offX = e.global.x - container.position.x;
-    offY = e.global.y - container.position.y;
+    // coords no espaço do PARENT (mesmo de container.position) — robusto ao scale
+    // do uiLayer (a UI roda a UI_SCALE): com `e.global` cru o painel seguiria o
+    // cursor fora de sincronia (devagar) quando a camada está escalada.
+    const p = parent.toLocal(e.global);
+    offX = p.x - container.position.x;
+    offY = p.y - container.position.y;
   });
   container.on("globalpointermove", (e: FederatedPointerEvent) => {
-    if (!dragging) return;
-    const x = e.global.x - offX;
-    const y = e.global.y - offY;
+    if (!dragging || !container.parent) return;
+    const p = container.parent.toLocal(e.global);
+    const x = p.x - offX;
+    const y = p.y - offY;
     container.position.set(x, y);
     onMoved(x, y);
   });

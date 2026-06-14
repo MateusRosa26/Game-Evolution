@@ -1,4 +1,4 @@
-import { Container, FederatedWheelEvent, Graphics, Rectangle, type Renderer, RenderTexture, Sprite, Text } from "pixi.js";
+import { Container, Graphics, type Renderer, RenderTexture, Sprite, Text } from "pixi.js";
 import { TileId, type MapData } from "../../shared/types";
 import { makeDraggable } from "./draggable";
 import { panelFrame, titleText, UI } from "./theme";
@@ -69,8 +69,10 @@ export class Minimap {
   private last = { x: -9999, y: -9999 };
   private userPos: { x: number; y: number } | null = null;
   private screenW = 0;
-  /** Lado atual da janela do mapa (px) — a roda do mouse ajusta [MIN_SIZE, MAX_SIZE]. */
+  /** Lado atual da janela do mapa (px) — os botões +/- ajustam [MIN_SIZE, MAX_SIZE]. */
   private size = MIN_SIZE;
+  private btnPlus = new Graphics();
+  private btnMinus = new Graphics();
 
   constructor(private renderer: Renderer) {
     this.title = titleText("Mapa");
@@ -80,15 +82,30 @@ export class Minimap {
       this.userPos = { x, y };
       this.layout();
     });
-    // Roda do mouse sobre o minimapa = aumenta/diminui a janela (zoom).
-    this.container.on("wheel", (e: FederatedWheelEvent) => {
-      e.preventDefault?.();
-      const dir = e.deltaY < 0 ? 1 : -1;
-      const next = Math.max(MIN_SIZE, Math.min(MAX_SIZE, this.size + dir * SIZE_STEP));
-      if (next !== this.size) {
-        this.size = next;
-        this.layout();
-      }
+    // Botões +/- (canto direito do header) = aumentam/diminuem a janela do mapa.
+    this.makeZoomButton(this.btnPlus, "+", +SIZE_STEP);
+    this.makeZoomButton(this.btnMinus, "−", -SIZE_STEP);
+    this.container.addChild(this.btnMinus, this.btnPlus);
+  }
+
+  /** Botãozinho de zoom: bg + rótulo; clique ajusta `size`. stopPropagation no
+   *  pointerdown impede iniciar o drag do painel (ambos vivem no header). */
+  private makeZoomButton(g: Graphics, label: string, delta: number): void {
+    g.eventMode = "static";
+    g.cursor = "pointer";
+    const t = new Text({
+      text: label,
+      style: { fontFamily: "monospace", fontSize: 13, fontWeight: "bold", fill: 0xe8e4d8, stroke: { color: 0x10141c, width: 2 } },
+    });
+    t.anchor.set(0.5);
+    t.resolution = 3;
+    t.eventMode = "none";
+    g.addChild(t);
+    g.on("pointerdown", (e) => e.stopPropagation());
+    g.on("pointertap", (e) => {
+      e.stopPropagation();
+      this.size = Math.max(MIN_SIZE, Math.min(MAX_SIZE, this.size + delta));
+      this.layout();
     });
   }
 
@@ -176,7 +193,6 @@ export class Minimap {
     const w = this.width;
     const pos = this.userPos ?? { x: this.screenW - w - 12, y: 12 };
     this.container.position.set(pos.x, pos.y);
-    this.container.hitArea = new Rectangle(0, 0, w, this.height); // roda pega na área toda
     panelFrame(this.bg, w, this.height);
     this.title.position.set(PAD + 2, UI.headerH / 2);
     const innerX = PAD;
@@ -192,7 +208,21 @@ export class Minimap {
     this.blip.clear();
     this.blip.circle(cx, cy, 3).fill(0xffe27a);
     this.blip.circle(cx, cy, 3).stroke({ color: UI.textShadow, width: 1 });
+    // botões +/- no canto direito do header
+    const bs = 16;
+    const by = Math.round((UI.headerH - bs) / 2);
+    this.drawZoomBtn(this.btnPlus, w - bs - PAD, by, bs);
+    this.drawZoomBtn(this.btnMinus, w - 2 * bs - PAD - 3, by, bs);
     if (this.last.x > -9999) this.positionWindow(this.last.x, this.last.y);
+  }
+
+  private drawZoomBtn(g: Graphics, x: number, y: number, bs: number): void {
+    g.clear();
+    g.roundRect(0, 0, bs, bs, 3).fill(UI.panelHeaderBg);
+    g.roundRect(0, 0, bs, bs, 3).stroke({ color: UI.panelBorder, width: 1 });
+    g.position.set(x, y);
+    const t = g.children[0] as Text | undefined;
+    if (t) t.position.set(bs / 2, bs / 2 - 1);
   }
 
   hitTest(sx: number, sy: number): boolean {
