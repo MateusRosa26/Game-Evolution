@@ -7,7 +7,7 @@ Branch: `chore/test-harness-hardening` (NÃO pushada — revisar/mergear quando 
 
 ## TL;DR
 
-- **17/17 smokes verde**, `tsc --noEmit` limpo.
+- **20/20 smokes verde**, `tsc --noEmit` limpo (12 originais + 8 novos).
 - Engine de sim **muito mais completo do que as notas sugeriam**: drop/pickup, baús+chaves,
   compra/venda, loot de mob, z-levels, quests (5 tipos de stage) e economia de mana estão
   **completos e ligados ao protocolo**. Isso foi VERIFICADO, não só revisado.
@@ -31,7 +31,7 @@ Branch: `chore/test-harness-hardening` (NÃO pushada — revisar/mergear quando 
   roda, imprime sumário, sai 1 se algum falhar. Aceita filtros (`npm test commerce mana`).
 - `package.json`: script `"test": "node tools/run-all-smokes.mjs"`.
 
-### Cobertura nova (5 smokes)
+### Cobertura nova (8 smokes)
 | Smoke | Prova |
 |---|---|
 | `_smoke-commerce.ts` | abrir loja exige NPC ≤3 tiles; comprar debita ouro + entrega item; ouro insuficiente bloqueia; vender funde ouro + remove item; item não-comprado é recusado |
@@ -39,6 +39,9 @@ Branch: `chore/test-harness-hardening` (NÃO pushada — revisar/mergear quando 
 | `_smoke-consumiveis.ts` | poção clampa no maxHp + arma exausto; exausto bloqueia 2º uso; vida cheia = no-op; comida aplica "Bem Alimentado" + consome 1 do stack; saciedade tem teto |
 | `_smoke-loot.ts` | matar mob cria cadáver-container abrível; loot seedado é byte-idêntico entre execuções frescas (determinismo) |
 | `_smoke-zlevel.ts` | loja, pickup de chão e seleção de alvo de combate são todos gated por z (com caso-controle no mesmo andar) |
+| `_smoke-progression.ts` | XP→level-up sobe pools por crescimento de classe; allocateStatPoint debita custo RO; death penalty (floor(xp×0.1), level-down permitido, nunca < piso). Valores derivados das fórmulas (robusto a recalibração) |
+| `_smoke-chest.ts` | baú gate por nível e por chave (recusa sem conceder/marcar); single-use via lootedChests (2ª abertura não dobra loot) |
+| `_smoke-quest-kill.ts` | stage `kill` credita por morte e respeita count; cadeia multi-stage avança por kill; gates de species/mapId recusam kills errados; over-kill não corrompe estado. SKIP: payout de reward no turn-in (gated por diálogo de NPC, sem debug helper) |
 
 ### Wiki
 - 4 docs registrados no array `DOCS` de `wiki/wiki.js`: GRID, ITENS-LOOTS e MOBILIA-URBANA
