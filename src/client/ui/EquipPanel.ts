@@ -187,7 +187,7 @@ export class EquipPanel {
         cell.cursor = "grab";
         cell.on("pointerdown", (ev: FederatedPointerEvent) => {
           ev.stopPropagation();
-          this.dnd.start(ref, item.name, ev.global.x, ev.global.y);
+          this.dnd.start(ref, item.name, ev.global.x, ev.global.y, item.templateId);
         });
         cell.on("pointerover", () => {
           const p = cell.getGlobalPosition();

@@ -47,6 +47,7 @@ export class ContainerWindow {
       close: (id: number) => void;
       lootGold: (id: number, slot: number) => void;
       useItem: (ref: ItemRef) => void;
+      openItemContainer: (instanceId: number) => void;
     },
     private tooltip: Tooltip,
     defaultPos: { x: number; y: number },
@@ -146,12 +147,14 @@ export class ContainerWindow {
         cell.cursor = "grab";
         cell.on("pointerdown", (ev: FederatedPointerEvent) => {
           ev.stopPropagation();
-          // Botão direito = USAR (consumível); a sim ignora item sem efeito de uso.
+          // Botão direito: bag → ABRE (vê dentro); senão USAR (a sim ignora item
+          // sem efeito de uso).
           if (ev.button === 2) {
-            this.send.useItem(ref);
+            if (item.isContainer) this.send.openItemContainer(item.instanceId);
+            else this.send.useItem(ref);
             return;
           }
-          this.dnd.start(ref, item.name, ev.global.x, ev.global.y);
+          this.dnd.start(ref, item.name, ev.global.x, ev.global.y, item.templateId);
         });
         cell.on("pointerover", () => {
           const p = cell.getGlobalPosition();
@@ -174,7 +177,7 @@ export class ContainerWindow {
             this.send.useItem(ref);
             return;
           }
-          this.dnd.start(ref, stack.name, ev.global.x, ev.global.y);
+          this.dnd.start(ref, stack.name, ev.global.x, ev.global.y, stack.templateId);
         });
         cell.on("pointerover", () => {
           const p = cell.getGlobalPosition();
