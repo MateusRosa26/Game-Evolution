@@ -158,6 +158,9 @@ export class Simulation {
   /** Itens largados no chão (pilha por tile; persistem até alguém pegar). */
   private groundItems: { id: number; pos: Vec2; z: number; content: Exclude<ContainerSlotContent, null> }[] = [];
   private nextGroundItemId = 1;
+  /** Container de RESPALDO de cada item-container (bag aninhada): instanceId → containerId.
+   *  Lazy: criado ao abrir; o conteúdo viaja com a instância (drop/trade preservam). */
+  private itemContainers = new Map<number, number>();
   /** Baús do mundo: defs ESTÁTICAS do mapa (imutáveis; saque é per-jogador). */
   private chests: ChestDef[] = [];
   /** RNG da sim (loot etc.) — seedado e determinístico. */
@@ -1070,6 +1073,14 @@ export class Simulation {
         if (this.containerAccessible(e, cmd.containerId)) e.openContainers.add(cmd.containerId);
         break;
       }
+      case "openItemContainer": {
+        if (e.kind !== "player") break;
+        // só abre a bag de um item-container que o jogador de fato carrega.
+        if (!this.isCarriedItem(e, cmd.instanceId)) break;
+        const c = this.backingContainerOf(cmd.instanceId);
+        if (c) e.openContainers.add(c.id);
+        break;
+      }
       case "closeContainer": {
         e.openContainers.delete(cmd.containerId);
         break;
@@ -1452,11 +1463,39 @@ export class Simulation {
     this.pendingChat.push({ kind: "chat", channel: "system", text, recipientId });
   }
 
-  /** O jogador pode mexer neste container? (bolso próprio OU cadáver a ≤2 tiles) */
+  /** O jogador pode mexer neste container? (bolso próprio, bag aninhada de item
+   *  carregado, OU cadáver a ≤2 tiles) */
   private containerAccessible(e: SimEntity, containerId: number): boolean {
     if (e.backpackContainerId === containerId) return true;
+    // bag aninhada: o container de respaldo de um item-container que o jogador carrega.
+    for (const [instId, cid] of this.itemContainers) {
+      if (cid === containerId && this.isCarriedItem(e, instId)) return true;
+    }
     const corpse = this.corpses.find((c) => c.containerId === containerId);
     return !!corpse && corpse.z === e.z && chebyshev(e.pos, corpse.pos) <= 2;
+  }
+
+  /** A instância está sendo CARREGADA por `e`? (equipada ou no bolso — 1 nível). */
+  private isCarriedItem(e: SimEntity, instanceId: number): boolean {
+    for (const id of Object.values(e.equipment)) if (id === instanceId) return true;
+    const bp = e.backpackContainerId != null ? this.containers.get(e.backpackContainerId) : null;
+    if (bp) for (const s of bp.slots) if (s?.kind === "item" && s.instanceId === instanceId) return true;
+    return false;
+  }
+
+  /** Container de respaldo de um item-container (cria sob demanda). null se o item
+   *  não é container. O conteúdo persiste com a instância (drop/trade preservam). */
+  private backingContainerOf(instanceId: number): Container | null {
+    const inst = this.items.get(instanceId);
+    if (!inst) return null;
+    const t = getItemTemplate(inst.templateId);
+    if (!t || t.category !== "container") return null;
+    const existing = this.itemContainers.get(instanceId);
+    const c = existing != null ? this.containers.get(existing) : undefined;
+    if (c) return c;
+    const created = this.containers.create(t.name, t.containerCapacity ?? this.basePocketCapacity);
+    this.itemContainers.set(instanceId, created.id);
+    return created;
   }
 
   /**
@@ -2671,7 +2710,7 @@ export class Simulation {
             } else {
               const inst = this.items.get(s.instanceId);
               const t = inst ? getItemTemplate(inst.templateId) : null;
-              if (inst && t) items.push({ slot: i, instanceId: inst.id, templateId: t.id, name: t.name });
+              if (inst && t) items.push({ slot: i, instanceId: inst.id, templateId: t.id, name: t.name, isContainer: t.category === "container" || undefined });
             }
           });
           views.push({ containerId: c.id, name: c.name, capacity: c.capacity, items, stacks, goldPiles });

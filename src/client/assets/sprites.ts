@@ -778,6 +778,8 @@ const COOLRIM = "#2c3744";
 const BRZ6 = rampHex(["#2f2412", "#3e3322", "#6b5a3a", "#8a7448", "#c2a052", "#ecd488"], 6);
 // Taipa 6 — derivada de PAL.plaster* (reboco de enxaimel).
 const PLR6 = rampHex(["#5f5645", "#776c58", PAL.plasterDark, PAL.plasterBase, PAL.plasterLight, "#b6ab90"], 6);
+// Pedra 6 (cantaria fria) — derivada da paleta de pedra do projeto.
+const STN6 = rampHex([PAL.stoneCrack, PAL.stoneDark, PAL.stoneBase, PAL.stoneMid, PAL.stoneLight, "#6b7280"], 6);
 // Viga de madeira com bevel limpo (aresta topo/esq lit, base/dir sombra) + grão
 // SUTIL determinístico. Reutilizada por parede/porta. cl = clamp.
 function beamFill(p: Px, x0: number, y0: number, w: number, h: number): void {
@@ -1397,7 +1399,7 @@ const WALL_TOP_H = 14 * S; // espessura do topo visto de cima
 // Altura do tile de parede de CASA (enxaimel). Exportada porque a PORTA tem que
 // nascer exatamente com esta altura e a largura do tile pra sentar FLUSH no vão
 // (sem vão entre a folha e a ombreira). Casa makeHouseWallTile ↔ makeDoor.
-const HOUSE_WALL_H = 44 * S;
+export const HOUSE_WALL_H = 44 * S;
 function makeWallTile(mask: number, seed: number): Texture {
   const SC = TILE_SIZE / 32; // escala do remaster (S local = vizinho sul)
   const rng = mulberry32(seed + mask * 97 + 1);
@@ -1571,35 +1573,119 @@ function makeGate(wTiles: number, seed: number): Texture {
  * da muralha: a casa é um cômodo, então TODA parede mostra a face de taipa
  * (não só o sul). `feature`: "window" | "door" | null. mask N=1,E=2,S=4,W=8.
  */
-function makeHouseWallTile(mask: number, seed: number, feature: "window" | "door" | null): Texture {
+/** Materiais de parede de casa (PROPS-BRIEF Lane 1.2) — varia p/ matar "casas iguais". */
+export type WallMaterial = "enxaimel" | "pedra" | "taipa_pobre" | "meia_pedra";
+
+export function makeHouseWallTile(mask: number, seed: number, feature: "window" | "door" | null, material: WallMaterial = "enxaimel", thinSide: "w" | "e" | null = null): Texture {
   const SC = TILE_SIZE / 32;
   const rng = mulberry32(seed + mask * 31 + 1);
   const HH = HOUSE_WALL_H; // altura do tile de parede de casa (= largura/altura da porta)
   const p = new Px(TILE_SIZE, HH);
-  const N = (mask & 1) !== 0, W = (mask & 8) !== 0, E = (mask & 2) !== 0;
+  const N = (mask & 1) !== 0, W = (mask & 8) !== 0, E = (mask & 2) !== 0, S = (mask & 4) !== 0;
   const BEAMD = PAL.trunkDark, OUT = "#10141c";
-  const TOPH = 7 * SC, midY = 40 * SC, postW = 3 * SC, postsX = [0, 14, 29].map((s) => s * SC);
-  // 1) REBOCO trowelado nos VÃOS (internos, entre postes → seam-safe): textura de
-  //    baixa freq + AO de recesso perto das vigas + sujeira na base + rachadura.
-  const nz = (x: number, y: number) => Math.sin(x * 0.09 + 1.7) * 0.4 + Math.sin(y * 0.12 + 0.5) * 0.32 + Math.sin((x + y) * 0.05) * 0.4 + Math.sin(x * 0.3 - y * 0.18) * 0.14;
-  const aoR = 5 * SC / 4;
-  for (let y = TOPH; y < HH; y++) for (let x = 0; x < TILE_SIZE; x++) {
-    let v = 2.9 + nz(x, y) + (rng() - 0.5) * 0.4;
-    let dx = Infinity; for (const px of postsX) dx = Math.min(dx, Math.abs(x - (px + postW)), Math.abs(x - px));
-    if (dx < aoR) v -= (aoR - dx) / aoR * 1.4;                                  // AO nas bordas do vão (recesso)
-    if (Math.abs(y - midY) < 5 * SC) v -= (5 * SC - Math.abs(y - midY)) / (5 * SC) * 0.5;
-    if (y > HH - 5 * SC) v -= (y - (HH - 5 * SC)) / (5 * SC) * 1.0;             // umidade/sujeira na base
-    const vv = Math.min(5, Math.max(0, v)), lo = Math.floor(vv);
-    p.px(x, y, PLR6[Math.min(5, lo + (vv - lo > 0.5 ? 1 : 0))]);
+
+  // PAREDE LATERAL FINA (a fachada "rodada 90°"): tira vertical estreita ENCOSTADA
+  // na borda externa (`thinSide`), resto do tile transparente → o chão interno
+  // aparece até a parede. Emoldurada em madeira (topo/base/viga externa). O renderer
+  // passa qual lado é o externo (W/E) olhando o vizinho interno; o tile não saberia.
+  if (thinSide) {
+    const FW = 5 * SC, BARW = 13 * SC;
+    const xo = thinSide === "w" ? 0 : TILE_SIZE - BARW;     // band encosta na borda externa
+    const stony = material === "pedra" || material === "meia_pedra";
+    const ramp = stony ? STN6 : PLR6;
+    for (let y = 0; y < HH; y++) for (let x = xo; x < xo + BARW; x++) {
+      let idx = (stony ? 2.7 : 3.1) - ((x - xo) / BARW) * 1.4 + (hash2D(x, y, seed) - 0.5) * 0.7; // luz global esq→dir
+      p.px(x, y, ramp[Math.min(5, Math.max(0, Math.round(idx)))]);
+    }
+    beamFill(p, xo, 0, BARW, FW);                                          // cap de topo
+    beamFill(p, xo, HH - FW, BARW, FW);                                    // baldrame
+    beamFill(p, thinSide === "w" ? 0 : TILE_SIZE - FW, 0, FW, HH);          // viga vertical EXTERNA
+    const xinner = thinSide === "w" ? xo + BARW - SC : xo;                  // face interna (vão)
+    p.rect(xinner, 0, SC, HH, "rgba(0,0,0,0.45)");                          // sombra de contato
+    p.rect(thinSide === "w" ? xo + BARW : xo - SC, 0, SC, HH, OUT);         // outline interno
+    return p.texture();
   }
-  { const bx = (rng() < 0.5 ? 9 : 20) * SC; let cxk = bx; for (let y = 14 * SC; y < 36 * SC; y++) { cxk += rng() < 0.4 ? (rng() < 0.5 ? -1 : 1) : 0; p.px(cxk, y, PLR6[0]); if (rng() < 0.25) p.px(cxk + 1, y, PLR6[1]); } } // rachadura interna
-  // 2) VIGAS com grão/bevel (MESMAS posições do esqueleto) + cavilhas nas junções
-  beamFill(p, 0, 0, TILE_SIZE, TOPH);                       // frechal
-  if (!N) p.rect(0, SC, TILE_SIZE, SC, WD8[5]);             // aresta de cima lit (sem vizinho N)
-  beamFill(p, 0, TOPH, TILE_SIZE, 3 * SC);                  // viga sob o frechal
-  beamFill(p, 0, midY, TILE_SIZE, 4 * SC);                  // viga do meio
-  for (const px of postsX) beamFill(p, Math.min(px, TILE_SIZE - postW), TOPH, postW, HH - TOPH); // postes
-  for (const px of postsX) { const cxp = Math.min(px, TILE_SIZE - postW) + 1; peg(p, cxp, TOPH + 2 * SC); peg(p, cxp, midY + 2 * SC); }
+  const TOPH = 5 * SC, midY = 40 * SC, postW = 2 * SC; // viga de topo + postes MAIS FINOS
+  // POSTES de madeira só nas QUINAS/pontas: borda vertical EXPOSTA (sem vizinho do
+  // mesmo material a W/E). Trecho reto no meio (E&W) → sem poste → plaster contínuo
+  // e seamless entre tiles (as vigas horizontais frechal/verga/meio já costuram).
+  const postsX: number[] = [];
+  if (!W) postsX.push(0);
+  if (!E) postsX.push(TILE_SIZE - postW);
+  const aoR = 5 * SC / 4;
+  const nz = (x: number, y: number) => Math.sin(x * 0.09 + 1.7) * 0.4 + Math.sin(y * 0.12 + 0.5) * 0.32 + Math.sin((x + y) * 0.05) * 0.4 + Math.sin(x * 0.3 - y * 0.18) * 0.14;
+  // REBOCO trowelado nos vãos (internos → seam-safe). `dirty` = taipa pobre (mais escuro/rachado).
+  const plaster = (yTop: number, yBot: number, dirty: boolean) => {
+    for (let y = yTop; y < yBot; y++) for (let x = 0; x < TILE_SIZE; x++) {
+      let v = (dirty ? 2.3 : 2.9) + nz(x, y) + (rng() - 0.5) * (dirty ? 0.8 : 0.4);
+      let dx = Infinity; for (const px of postsX) dx = Math.min(dx, Math.abs(x - (px + postW)), Math.abs(x - px));
+      if (dx < aoR) v -= (aoR - dx) / aoR * 1.4;
+      if (y > yBot - 5 * SC) v -= (y - (yBot - 5 * SC)) / (5 * SC) * 1.0;
+      const vv = Math.min(5, Math.max(0, v)), lo = Math.floor(vv);
+      p.px(x, y, PLR6[Math.min(5, lo + (vv - lo > 0.5 ? 1 : 0))]);
+    }
+    for (let c = 0; c < (dirty ? 3 : 1); c++) { let cxk = (5 + rng() * 22) * SC; for (let y = yTop + 4 * SC; y < yBot - 4 * SC; y++) { cxk += rng() < 0.4 ? (rng() < 0.5 ? -1 : 1) : 0; p.px(cxk, y, PLR6[0]); if (rng() < 0.25) p.px(cxk + 1, y, PLR6[1]); } } // rachaduras
+    if (dirty) for (let i = 0; i < 16; i++) p.px(rng() * TILE_SIZE, yTop + rng() * (yBot - yTop), PLR6[0]); // manchas
+  };
+  // CANTARIA (ashlar): blocos IRREGULARES (largura E tom variam por bloco), juntas
+  // escuras, aresta de topo lit + base/dir em sombra + mosqueado interno → pedra
+  // com caráter, NÃO grade chapada. Fiadas deslocadas por fase (juntas não alinham).
+  const ashlar = (yTop: number, yBot: number) => {
+    p.rect(0, yTop, TILE_SIZE, yBot - yTop, STN6[0]); // junta de fundo (escura)
+    const BH = 8 * SC, gap = Math.max(1, SC);
+    for (let ry = yTop, row = 0; ry < yBot; ry += BH, row++) {
+      const phase = Math.floor(hash2D(row, 99, seed) * 18 * SC); // deslocamento da fiada
+      let bx = -phase, bi = 0;
+      while (bx < TILE_SIZE) {
+        const bw = Math.round((13 + hash2D(row, bi, seed) * 9) * SC);   // 13..22 (irregular)
+        const base = 1.5 + hash2D(bi, row, seed + 7) * 2.5;             // tom do bloco (1.5..4.0)
+        const weather = hash2D(row, bi + 3, seed + 11) < 0.20;          // bloco gasto/úmido (mais escuro)
+        const x0 = bx + gap, x1 = Math.min(TILE_SIZE, bx + bw - gap);
+        const y0 = ry + gap, y1 = Math.min(yBot, ry + BH - gap);
+        for (let yy = y0; yy < y1; yy++) for (let xx = Math.max(0, x0); xx < x1; xx++) {
+          let idx = base + nz(xx, yy) * 0.55 + (weather ? -1.1 : 0);
+          if (yy < y0 + SC) idx += 1.6;            // aresta de topo (luz global)
+          else if (yy >= y1 - SC) idx -= 1.3;       // base do bloco em sombra
+          if (xx < x0 + SC) idx += 0.5;             // canto esquerdo pega luz
+          else if (xx >= x1 - SC) idx -= 1.0;       // direita em sombra
+          p.px(xx, yy, STN6[Math.min(5, Math.max(0, Math.round(idx)))]);
+        }
+        bx += bw; bi++;
+      }
+    }
+  };
+  // VIGAS de enxaimel: o gradeado HORIZONTAL interno (verga + viga do meio) só na
+  // FACHADA sul exposta (!S). A MOLDURA de contorno (madeira em TODA borda externa)
+  // é desenhada à parte, depois — vale pra TODOS os materiais e amarra a casa toda.
+  const face = !S;
+  const FW = TOPH; // espessura da moldura de madeira (frechal = viga de canto rodada)
+  const timber = (yBot: number) => {
+    if (!face) return;
+    beamFill(p, 0, FW, TILE_SIZE, 2 * SC);                              // verga (sob a moldura de topo)
+    if (yBot >= midY + 4 * SC) beamFill(p, 0, midY, TILE_SIZE, 3 * SC); // viga do meio
+    for (const px of postsX) { const cxp = Math.min(px, TILE_SIZE - postW) + 1; peg(p, cxp, FW + 2 * SC); if (yBot >= midY) peg(p, cxp, midY + 2 * SC); }
+  };
+  // ── DISPATCH por material ── (face começa sob a moldura de topo; lateral/fundo do topo)
+  const yTop = face ? FW : 0;
+  if (!face) {
+    // LATERAL/FUNDO: superfície contínua (sem dado de pedra repetindo na vertical)
+    if (material === "pedra") ashlar(0, HH);
+    else plaster(0, HH, material === "taipa_pobre");
+  } else if (material === "pedra") {
+    ashlar(0, HH); p.rect(0, FW - SC, TILE_SIZE, 2 * SC, STN6[4]); // cornija de pedra (fachada)
+  } else if (material === "meia_pedra") {
+    const halfY = Math.round(HH * 0.52); // pedra na metade de BAIXO
+    ashlar(halfY, HH); plaster(yTop, halfY, false); timber(halfY); p.rect(0, halfY - SC, TILE_SIZE, 2 * SC, STN6[4]); // cordão na divisa
+  } else {
+    plaster(yTop, HH, material === "taipa_pobre"); timber(HH);
+  }
+  // ── MOLDURA DE MADEIRA no CONTORNO externo (toda borda SEM vizinho do mesmo
+  // material) — frechal em cima, baldrame embaixo e as VIGAS VERTICAIS "rodadas"
+  // nas laterais → a casa inteira fica emoldurada em madeira (até a de pedra).
+  if (!N) { beamFill(p, 0, 0, TILE_SIZE, FW); p.rect(0, SC, TILE_SIZE, SC, WD8[5]); } // frechal + brilho de topo
+  if (!S) beamFill(p, 0, HH - FW, TILE_SIZE, FW);                                     // baldrame (base exposta)
+  if (!W) beamFill(p, 0, 0, FW, HH);                                                  // viga vertical esquerda
+  if (!E) beamFill(p, TILE_SIZE - FW, 0, FW, HH);                                     // viga vertical direita
   // 3) FEATURE
   if (feature === "window") {
     const wx = 9 * SC, wy = 15 * SC, ww = 14 * SC, wh = 18 * SC;
@@ -1632,6 +1718,11 @@ function makeHouseWalls(): Texture[][] {
   return out;
 }
 
+/** Variantes FINAS da lateral (parede "rodada") por lado externo (w/e) — 3 seeds. */
+function makeHouseWallThin(side: "w" | "e"): Texture[] {
+  return [700, 1700, 2700].map((s) => makeHouseWallTile(0b0101, s, null, "enxaimel", side));
+}
+
 /** Overhang do telhado em px (cobre os topos da parede norte). */
 export const ROOF_OVERHANG = 22 * S;
 
@@ -1641,54 +1732,65 @@ export const ROOF_OVERHANG = 22 * S;
  * sombra de contato projetada na base. Some quando o player entra (WorldRenderer).
  * Quente (telha/madeira) pra contrastar com a pedra fria das paredes.
  */
-export function makeRoof(wTiles: number, hTiles: number, seed: number): Texture {
+/** Estilos de telhado (PROPS-BRIEF Lane 1) — varia o material p/ matar "casas iguais". */
+export type RoofStyle = "telha" | "colmo" | "ardosia" | "tabua";
+
+export function makeRoof(wTiles: number, hTiles: number, seed: number, style: RoofStyle = "telha"): Texture {
   const W = wTiles * TILE_SIZE, H = hTiles * TILE_SIZE + ROOF_OVERHANG;
   const p = new Px(W, H);
   const cb = (n: number) => Math.max(0, Math.min(255, n | 0));
-  const baseR = 122, baseG = 86, baseB = 66; // telha/madeira gasta, quente
   const ridgeY = Math.round(H / 2);
+  const slopeAt = (y: number) => { const dY = Math.abs(y - ridgeY) / (H / 2); return 1 - dY * dY * 0.6; };
+  // base do material: telha quente / colmo palha / ardósia cinza-azulada fria / tábua gasta
+  const BASE: Record<RoofStyle, [number, number, number]> = { telha: [122, 86, 66], colmo: [158, 130, 80], ardosia: [84, 95, 112], tabua: [98, 76, 54] };
+  const [baseR, baseG, baseB] = BASE[style];
   const col = (l: number) => `rgb(${cb(baseR * l)},${cb(baseG * l)},${cb(baseB * l)})`;
-  const slopeAt = (y: number) => {
-    const dY = Math.abs(y - ridgeY) / (H / 2);
-    return 1 - dY * dY * 0.6; // água de telhado: clara no espigão, escura no beiral
-  };
-  p.fill(col(0.45)); // fundo escuro (vão entre telhas)
-  // TELHAS INDIVIDUAIS sobrepostas (fiadas com offset tipo tijolo): cada telha
-  // tem aresta de cima iluminada + sombra de sobreposição embaixo + topo
-  // arredondado → lê como telhado, não como tábua corrida.
-  const SW = 11 * S, RH = 6 * S;
-  for (let ry = -RH; ry < H; ry += RH) {
-    const rowIdx = Math.round((ry + RH) / RH);
-    const off = rowIdx % 2 ? (SW / 2) | 0 : 0;
-    const lumY = slopeAt(ry + RH / 2);
-    for (let sx = -SW; sx < W + SW; sx += SW) {
-      const x0 = sx + off;
-      const dX = Math.abs(x0 + SW / 2 - W / 2) / (W / 2);
-      const tone = lumY * (1 - dX * 0.16) * (0.9 + ((hash2D(rowIdx, (sx / SW) | 0, seed) * 0.2)));
-      for (let yy = 0; yy < RH + S; yy++) {
-        const y = ry + yy; if (y < 0 || y >= H) continue;
-        for (let xx = S; xx < SW; xx++) {
-          const x = x0 + xx; if (x < 0 || x >= W) continue;
-          let l = tone;
-          if (yy < S) l *= 1.18;              // aresta de cima da telha (luz)
-          else if (yy >= RH - S) l *= 0.6;    // sombra da sobreposição da fiada de cima
-          if (xx >= SW - S) l *= 0.7;         // sulco vertical entre telhas
-          p.px(x, y, col(l));
+  p.fill(col(style === "telha" ? 0.45 : style === "tabua" ? 0.42 : 0.5));
+
+  if (style === "colmo") {
+    // COLMO (palha/sapê): textura fibrosa vertical + espigão grosso + beiral RECORTADO
+    for (let x = 0; x < W; x++) for (let y = 0; y < H; y++) p.px(x, y, col(slopeAt(y) * (0.84 + hash2D((x / (2 * S)) | 0, (y / S) | 0, seed) * 0.32)));
+    for (let x = 0; x < W; x += S) { if (hash2D(x, 7, seed) < 0.42) for (let y = S; y < H - S; y++) p.px(x, y, col(slopeAt(y) * 0.68)); } // fibras (palha caída)
+    for (let x = 0; x < W; x++) { p.rect(x, ridgeY - 3 * S, 1, 2 * S, col(1.22 + hash2D(x, 9, seed) * 0.12)); p.rect(x, ridgeY - S, 1, S, col(0.62)); } // espigão de palha
+    for (let x = 0; x < W; x++) { const frill = Math.round((1.2 + Math.sin(x * 0.35) + hash2D(x, 3, seed) * 1.8) * S); for (let y = H - S - frill; y < H; y++) p.px(x, y, y >= H - 2 ? "#0e0a07" : col(slopeAt(H - S) * 0.7)); } // beiral irregular
+  } else {
+    // FIADAS sobrepostas (telha/ardósia/tábua) — forma e textura por estilo
+    const SW = style === "ardosia" ? 9 * S : style === "tabua" ? 13 * S : 11 * S;
+    const RH = style === "ardosia" ? 5 * S : style === "tabua" ? 7 * S : 6 * S;
+    const topL = style === "ardosia" ? 1.12 : style === "tabua" ? 1.12 : 1.18;
+    const rand = style === "ardosia" ? 0.12 : style === "tabua" ? 0.26 : 0.2;
+    for (let ry = -RH; ry < H; ry += RH) {
+      const rowIdx = Math.round((ry + RH) / RH);
+      const off = rowIdx % 2 ? (SW / 2) | 0 : 0;
+      const lumY = slopeAt(ry + RH / 2);
+      for (let sx = -SW; sx < W + SW; sx += SW) {
+        const x0 = sx + off;
+        const dX = Math.abs(x0 + SW / 2 - W / 2) / (W / 2);
+        const tone = lumY * (1 - dX * 0.16) * (0.88 + hash2D(rowIdx, (sx / SW) | 0, seed) * rand);
+        for (let yy = 0; yy < RH + S; yy++) {
+          const y = ry + yy; if (y < 0 || y >= H) continue;
+          for (let xx = S; xx < SW; xx++) {
+            const x = x0 + xx; if (x < 0 || x >= W) continue;
+            let l = tone;
+            if (yy < S) l *= topL;
+            else if (yy >= RH - S) l *= 0.6;
+            if (xx >= SW - S) l *= 0.7;
+            if (style === "tabua" && xx % (3 * S) === S && hash2D(x, y, seed) < 0.3) l *= 0.82; // grão da tábua
+            p.px(x, y, col(l));
+          }
         }
       }
     }
+    if (style === "ardosia") {
+      for (let x = 0; x < W; x++) { p.rect(x, ridgeY - 2 * S, 1, S, col(1.2)); p.rect(x, ridgeY - S, 1, S, col(1.35)); p.rect(x, ridgeY, 1, S, col(0.5)); if (x % (6 * S) === 0) p.rect(x, ridgeY - 2 * S, S, 2 * S, col(0.82)); }
+    } else {
+      for (let x = 0; x < W; x++) { p.rect(x, ridgeY - 2 * S, 1, S, col(1.3)); p.rect(x, ridgeY - S, 1, S, col(1.45)); p.rect(x, ridgeY, 1, S, col(0.5)); if (x % (4 * S) === 0) p.rect(x, ridgeY - S, S, S, col(0.9)); }
+    }
   }
-  // ESPIGÃO (ridge cap): faixa clara no topo + sombra funda logo abaixo (volume)
-  for (let x = 0; x < W; x++) {
-    p.rect(x, ridgeY - 2 * S, 1, S, `rgb(${cb(baseR * 1.3)},${cb(baseG * 1.25)},${cb(baseB * 1.2)})`);
-    p.rect(x, ridgeY - S, 1, S, `rgb(${cb(baseR * 1.45)},${cb(baseG * 1.4)},${cb(baseB * 1.32)})`);
-    p.rect(x, ridgeY, 1, S, `rgb(${cb(baseR * 0.5)},${cb(baseG * 0.5)},${cb(baseB * 0.5)})`);
-    if (x % (4 * S) === 0) p.rect(x, ridgeY - S, S, S, `rgb(${cb(baseR * 0.9)},${cb(baseG * 0.9)},${cb(baseB * 0.9)})`); // entalhe do cap
-  }
-  // BEIRAIS: borda escura nos 4 lados (trim) + outline
-  for (let x = 0; x < W; x++) { p.rect(x, 0, 1, S, "#160f0b"); p.rect(x, H - S, 1, S, "#0e0a07"); }
-  for (let y = 0; y < H; y++) { p.rect(0, y, S, 1, "#160f0b"); p.rect(W - S, y, S, 1, "#160f0b"); }
-  // sombra de contato projetada na base (o beiral da frente sombreia o chão)
+  // BEIRAIS (trim) + sombra de contato — comuns
+  const trim = style === "ardosia" ? "#14171c" : "#160f0b";
+  for (let x = 0; x < W; x++) { p.rect(x, 0, 1, S, trim); if (style !== "colmo") p.rect(x, H - S, 1, S, "#0e0a07"); }
+  for (let y = 0; y < H; y++) { p.rect(0, y, S, 1, trim); p.rect(W - S, y, S, 1, trim); }
   p.rect(0, H - 3 * S, W, 2 * S, "rgba(0,0,0,0.38)");
   return p.texture();
 }
@@ -2502,6 +2604,8 @@ export interface SpriteLibrary {
   gate: Texture;
   /** Parede de enxaimel das casas: 16 máscaras × variantes (face pra dentro). */
   houseWalls: Texture[][];
+  /** Lateral FINA ("rodada"): tira estreita na borda externa, por lado (w/e). */
+  houseWallThin: { w: Texture[]; e: Texture[] };
   /** Variantes de parede de enxaimel com porta / janela (segmento horizontal E|W). */
   houseDoor: Texture;
   houseWindow: Texture;
@@ -2574,6 +2678,7 @@ export function createSprites(): SpriteLibrary {
     caveWalls: makeDungeonWallTiles(840, CAVE_WALL_PAL),
     gate: makeGate(3, 909),
     houseWalls: makeHouseWalls(),
+    houseWallThin: { w: makeHouseWallThin("w"), e: makeHouseWallThin("e") },
     houseDoor: makeHouseWallTile(0b1010, 700, "door"), // segmento E|W (parede reta)
     houseWindow: makeHouseWallTile(0b1010, 700, "window"),
     torchFrames: makeTorchFrames(),

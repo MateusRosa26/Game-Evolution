@@ -71,6 +71,8 @@ export type ClientCommand =
   /** Abrir um container (mochila equipada, cadáver próximo, mochila aninhada). */
   | { type: "openContainer"; containerId: number }
   | { type: "closeContainer"; containerId: number }
+  /** Abrir o container de RESPALDO de um item-container carregado (bag aninhada). */
+  | { type: "openItemContainer"; instanceId: number }
   /**
    * Mover item/gold entre lugares (drag & drop). A sim valida TUDO:
    * distância, posse, tipo de slot, regra 2H. Pilha de ouro = move/funde (item).
@@ -363,6 +365,8 @@ export interface ContainedItemView {
   instanceId: number;
   templateId: string;
   name: string;
+  /** É um item-container (bag) que pode ser ABERTO (botão direito) p/ ver dentro. */
+  isContainer?: boolean;
 }
 
 /** Pilha de ouro num container (cadáver ou bolso) — item empilhável (modelo Tibia). */

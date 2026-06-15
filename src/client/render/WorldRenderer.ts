@@ -3,7 +3,11 @@ import { hash2D } from "../../sim/rng";
 import { CAMERA_ZOOM, TILE_SIZE } from "../../shared/constants";
 import type { ChestView, DoorView } from "../../shared/protocol";
 import { TileId, type MapData, type MapRect } from "../../shared/types";
-import { makeRoof, ROOF_OVERHANG, type SpriteLibrary } from "../assets/sprites";
+import { makeRoof, ROOF_OVERHANG, type RoofStyle, type SpriteLibrary } from "../assets/sprites";
+
+/** Estilos de telhado p/ variar as casas (PROPS-BRIEF Lane 1). Atribuição POR
+ *  PRÉDIO é da trilha Mundo (futuro `building.roof`); por ora varia por hash. */
+const ROOF_STYLES: RoofStyle[] = ["telha", "telha", "colmo", "ardosia", "tabua"];
 
 const WATER_FRAME_MS = 380;
 const TORCH_FRAME_MS = 140;
@@ -117,7 +121,8 @@ export class WorldRenderer {
     for (const b of map.buildings ?? []) {
       // telhado cobre tudo MENOS a fileira da frente (sul) → a porta/entrada fica
       // visível de fora (a porta dos prédios fica na parede sul).
-      const sp = new Sprite(makeRoof(b.w, Math.max(1, b.h - 1), (hash2D(b.x, b.y) * 1e6) | 0));
+      const style = ROOF_STYLES[Math.floor(hash2D(b.x + 17, b.y + 31) * ROOF_STYLES.length)];
+      const sp = new Sprite(makeRoof(b.w, Math.max(1, b.h - 1), (hash2D(b.x, b.y) * 1e6) | 0, style));
       sp.position.set(b.x * TILE_SIZE, b.y * TILE_SIZE - ROOF_OVERHANG);
       this.roofs.addChild(sp);
       this.roofSprites.push({ sp, rect: b });
@@ -514,6 +519,14 @@ export class WorldRenderer {
             (sameWall(x, y + 1, tile) ? 4 : 0) | (sameWall(x - 1, y, tile) ? 8 : 0);
           const variants = wallSet[mask];
           tex = variants[Math.floor(h * variants.length)];
+          // LATERAL fina: parede vertical de casa (N&S, sem E/W) → tira estreita
+          // encostada na borda EXTERNA (o vizinho INTERNO é StoneFloor). O chão
+          // interno aparece até ela → a lateral fica "fina" como a frente/fundo.
+          if (tile === TileId.HouseWall && mask === 0b0101) {
+            const inside = (nx: number) => nx >= 0 && nx < map.width && map.tiles[y * map.width + nx] === TileId.StoneFloor;
+            const thin = inside(x + 1) ? s.houseWallThin.w : inside(x - 1) ? s.houseWallThin.e : null;
+            if (thin) tex = thin[Math.floor(h * thin.length)];
+          }
           // face visível (sem muro ao sul) → pinga sombra/AO no tile de baixo
           if ((mask & 4) === 0) this.addShadow(cx + 4, baseY + 5, 34, 14);
         }

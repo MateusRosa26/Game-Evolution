@@ -344,7 +344,7 @@ export class Game {
         // Item no chão: INICIA um arrasto (estilo Tibia). Soltar na mochila/equip
         // pega; soltar noutro tile realoca. A sim valida alcance/parede/visão.
         this.clearPendingInteractions();
-        this.dnd.start({ kind: "ground", groundItemId: groundItem.id }, groundItem.name, sx, sy);
+        this.dnd.start({ kind: "ground", groundItemId: groundItem.id }, groundItem.name, sx, sy, groundItem.templateId);
       } else {
         this.clearPendingInteractions();
         this.transport.send({ type: "walkTo", x: tile.x, y: tile.y });
@@ -709,6 +709,7 @@ export class Game {
             close: (id) => this.transport.send({ type: "closeContainer", containerId: id }),
             lootGold: (id, slot) => this.transport.send({ type: "lootGold", containerId: id, slot }),
             useItem: (ref) => this.transport.send({ type: "useItem", ref }),
+            openItemContainer: (instanceId) => this.transport.send({ type: "openItemContainer", instanceId }),
           },
           this.tooltip,
           { x: rightX, y: stackY },

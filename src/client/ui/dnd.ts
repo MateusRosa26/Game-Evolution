@@ -6,8 +6,9 @@
  * registrado dispara `moveItem(from, to)` — e a SIM valida tudo (distância,
  * posse, tipo). Aqui não existe regra de item nenhuma.
  */
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Sprite, Text } from "pixi.js";
 import type { ItemRef } from "../../shared/protocol";
+import { PIXELLAB } from "../assets/pixellab";
 
 export interface DropSlot {
   /** Área em coordenadas de TELA (recalculada pelo dono a cada layout). */
@@ -40,20 +41,33 @@ export class ItemDnD {
     this.setSlots(owner, []);
   }
 
-  /** Inicia um arrasto a partir de um slot com conteúdo. */
-  start(from: ItemRef, label: string, sx: number, sy: number): void {
+  /**
+   * Inicia um arrasto a partir de um slot com conteúdo. Se `templateId` tem sprite
+   * (`PIXELLAB.items`), o fantasma é o ÍCONE do item; senão cai no quadrado+rótulo
+   * (ouro, item sem PNG).
+   */
+  start(from: ItemRef, label: string, sx: number, sy: number, templateId?: string): void {
     this.cancel();
     const ghost = new Container();
-    const g = new Graphics();
-    g.roundRect(-14, -14, 28, 28, 4).fill({ color: 0x1a1e28, alpha: 0.9 });
-    g.roundRect(-14, -14, 28, 28, 4).stroke({ color: 0xc8a84b, width: 1.5 });
-    const t = new Text({
-      text: label.slice(0, 2).toUpperCase(),
-      style: { fontFamily: "monospace", fontSize: 10, fontWeight: "bold", fill: 0xe8e4d8 },
-    });
-    t.anchor.set(0.5);
-    t.resolution = 2;
-    ghost.addChild(g, t);
+    const tex = templateId ? PIXELLAB.items[templateId] : undefined;
+    if (tex) {
+      const spr = new Sprite(tex);
+      spr.anchor.set(0.5);
+      spr.scale.set(44 / Math.max(spr.texture.width, spr.texture.height));
+      ghost.addChild(spr);
+    } else {
+      const g = new Graphics();
+      g.roundRect(-14, -14, 28, 28, 4).fill({ color: 0x1a1e28, alpha: 0.9 });
+      g.roundRect(-14, -14, 28, 28, 4).stroke({ color: 0xc8a84b, width: 1.5 });
+      const t = new Text({
+        text: label.slice(0, 2).toUpperCase(),
+        style: { fontFamily: "monospace", fontSize: 10, fontWeight: "bold", fill: 0xe8e4d8 },
+      });
+      t.anchor.set(0.5);
+      t.resolution = 2;
+      ghost.addChild(g, t);
+    }
+    ghost.alpha = 0.85;
     ghost.position.set(sx, sy);
     this.ghostLayer.addChild(ghost);
     this.drag = { from, ghost };
