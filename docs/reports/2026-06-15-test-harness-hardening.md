@@ -7,7 +7,7 @@ Branch: `chore/test-harness-hardening` (NÃO pushada — revisar/mergear quando 
 
 ## TL;DR
 
-- **20/20 smokes verde**, `tsc --noEmit` limpo (12 originais + 8 novos).
+- **22/22 smokes verde**, `tsc --noEmit` limpo (12 originais + 10 novos).
 - Engine de sim **muito mais completo do que as notas sugeriam**: drop/pickup, baús+chaves,
   compra/venda, loot de mob, z-levels, quests (5 tipos de stage) e economia de mana estão
   **completos e ligados ao protocolo**. Isso foi VERIFICADO, não só revisado.
@@ -31,7 +31,7 @@ Branch: `chore/test-harness-hardening` (NÃO pushada — revisar/mergear quando 
   roda, imprime sumário, sai 1 se algum falhar. Aceita filtros (`npm test commerce mana`).
 - `package.json`: script `"test": "node tools/run-all-smokes.mjs"`.
 
-### Cobertura nova (8 smokes)
+### Cobertura nova (10 smokes)
 | Smoke | Prova |
 |---|---|
 | `_smoke-commerce.ts` | abrir loja exige NPC ≤3 tiles; comprar debita ouro + entrega item; ouro insuficiente bloqueia; vender funde ouro + remove item; item não-comprado é recusado |
@@ -42,6 +42,8 @@ Branch: `chore/test-harness-hardening` (NÃO pushada — revisar/mergear quando 
 | `_smoke-progression.ts` | XP→level-up sobe pools por crescimento de classe; allocateStatPoint debita custo RO; death penalty (floor(xp×0.1), level-down permitido, nunca < piso). Valores derivados das fórmulas (robusto a recalibração) |
 | `_smoke-chest.ts` | baú gate por nível e por chave (recusa sem conceder/marcar); single-use via lootedChests (2ª abertura não dobra loot) |
 | `_smoke-quest-kill.ts` | stage `kill` credita por morte e respeita count; cadeia multi-stage avança por kill; gates de species/mapId recusam kills errados; over-kill não corrompe estado. SKIP: payout de reward no turn-in (gated por diálogo de NPC, sem debug helper) |
+| `_smoke-status.ts` | DoT (burn/poison) causa dano só nas fronteiras de intervalo, total = dano×intervalos, e é removido na expiração; re-aplicar é refresh-não-stack com max(dano); slow multiplica stepMs e limpa; root seta flag e limpa |
+| `_smoke-equip.ts` | vestir armadura sobe armorDef (somável entre slots); vestir arma seta equippedWeaponId + attackDamage; ação que estoura maxCarryOf é bloqueada ("Pesado demais") e abaixo do cap passa; ouro carregado entra no peso (com teto de 150) |
 
 ### Wiki
 - 4 docs registrados no array `DOCS` de `wiki/wiki.js`: GRID, ITENS-LOOTS e MOBILIA-URBANA
