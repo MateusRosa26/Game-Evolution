@@ -56,6 +56,14 @@ const DOCS = [
     desc: "O elenco batizado da fatia ①: 19 NPCs com papéis, locais e vozes + topônimos PT/EN." },
   { id: "esgotos-fatia1", title: "Esgotos — Fatia ① (Alvorada)", file: "../design/fatia-1-alvorada/ESGOTOS.md",
     desc: "Spec implementável dos 3 andares de esgoto (A1/A2/A3) em z-level real: 5 bocas, footprints, portais, baú lacrado, Q10/Q15, ghouls." },
+  { id: "grid-fatia1", title: "GRID — Fatia ① (Alvorada)", file: "../design/fatia-1-alvorada/GRID.md",
+    desc: "Mapa & coordenadas da Alvorada: POIs, spots, travessias, baús e a rastreabilidade quest→POI (afinável no editor)." },
+  { id: "itens-loots-fatia1", title: "Itens, Loots & Comércio — Fatia ① (Alvorada)", file: "../design/fatia-1-alvorada/ITENS-LOOTS.md",
+    desc: "Tabelas de loot por mob, compradores NPC, cadeias de comércio, comida/poções/ferramentas e a régua de economia da fatia ①." },
+  { id: "mobilia-urbana-fatia1", title: "Mobília urbana — Fatia ① (Alvorada)", file: "../design/fatia-1-alvorada/MOBILIA-URBANA.md",
+    desc: "Placement concreto da mobília urbana da Alvorada (feira em torno do poço, fachadas) — corpo da fatia ① sobre o contrato de props do hub do Mundo." },
+  { id: "visao-charneca", title: "Visão — Fatia ② (Charneca)", file: "../design/fatia-2-charneca/VISAO-CHARNECA.md",
+    desc: "Visão fundacional da 2ª fatia: identidade, decisões travadas, batidas do arco da Contaminação e a constelação de spots." },
 ];
 
 // Views interativas (banco de dados) — parseadas dos .md acima em db.js
